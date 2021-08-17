@@ -55,7 +55,7 @@ public class Main implements SolverInterface {
 			if (response instanceof Term) {
 				Term term = (Term) response;
 				Term lettedTerm = new FormulaLet().let(term);
-				if (ProofRules.isProofRule(ProofRules.RES, term)) {
+				if (ProofRules.isProof(term)) {
 					StringBuilder sb = new StringBuilder();
 					ProofRules.printProof(sb, lettedTerm);
 					postMessage(sb.toString());

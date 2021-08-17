@@ -20,10 +20,13 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 public class ProofRules {
+	// the function symbols
 	public final static String RES = "res";
 	public final static String ASSUME = "assume";
-	public final static String ORACLE = "oracle";
+	public final static String AXIOM = "axiom";
 
+	// the axioms
+	public final static String ORACLE = "oracle";
 	public final static String FALSEE = "false-";
 	public final static String TRUEI = "true+";
 	public final static String NOTI = "not+";
@@ -92,7 +95,6 @@ public class ProofRules {
 	 * sort name for proofs.
 	 */
 	public final static String PROOF = "Proof";
-	public final static String AXIOM = "axiom";
 	public final static String CHOOSE = "choose";
 
 	public final static String PREFIX = "..";
@@ -762,6 +764,10 @@ public class ProofRules {
 				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN;
 	}
 
+	public static boolean isProof(final Term proof) {
+		return isDefineFun(proof) || isProofRule(RES, proof) || isAxiom(proof);
+	}
+
 	public static class PrintProof extends PrintTerm {
 		@Override
 		public void walkTerm(final Term proof) {
@@ -778,14 +784,16 @@ public class ProofRules {
 					mTodo.add(" ");
 					mTodo.add(")");
 					mTodo.add(definition.getSubterm());
-					mTodo.add(" ");
+					mTodo.add(") ");
 					final TermVariable[] vars = definition.getVariables();
 					for (int i = vars.length - 1; i >= 0; i--) {
+						mTodo.add(")");
 						mTodo.add(vars[i].getSort());
 						mTodo.add(" ");
 						mTodo.add(vars[i]);
-						mTodo.add(" ");
+						mTodo.add(i == 0 ? "(" : " (");
 					}
+					mTodo.add(" (");
 					mTodo.add(func.getApplicationString());
 					mTodo.add("((" + annots[0].getKey().substring(1) + " ");
 					return;
@@ -945,7 +953,7 @@ public class ProofRules {
 						final FunctionSymbol func = (FunctionSymbol) expandParams[0];
 						final Term[] params = (Term[]) expandParams[1];
 						mTodo.add(")");
-						mTodo.add(") ");
+						mTodo.add(")");
 						for (int i = params.length - 1; i >= 0; i--) {
 							mTodo.add(params[i]);
 							mTodo.add(" ");

@@ -177,12 +177,6 @@ public class ProofSimplifier extends TermTransformer {
 		return mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedTerm), proof);
 	}
 
-	private Term convertAsserted(final Term assertedProof) {
-		assert mProofRules.isProofRule(ProofRules.ASSUME, assertedProof);
-		final Term assertedFormula = ((ApplicationTerm) assertedProof).getParameters()[0];
-		return removeNot(assertedProof, assertedFormula, true);
-	}
-
 	private Term convertTermITE(final Term[] clause) {
 		assert isApplication("=", clause[clause.length - 1]);
 		Term iteTerm = ((ApplicationTerm) clause[clause.length - 1]).getParameters()[0];
@@ -244,7 +238,6 @@ public class ProofSimplifier extends TermTransformer {
 		// peculiarity of proof format: remove quotes if substitution changes something.
 		final AnnotatedTerm subproof = substituteInQuantInst(subst, qf);
 		Term proof = removeNot(stripAnnotation(subproof), provedTerm(subproof), true);
-		final Term quotedEq = mSkript.term(SMTLIBConstants.EQUALS, quotedForall, forall);
 		proof = removeQuoted(proof, quotedForall, forall, false);
 		return proof;
 	}
@@ -2849,7 +2842,7 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		// TODO this is madness; should we remember the proved clause instead?
 		Term proof = annotatedTerm.getSubterm();
-		final ProofLiteral[] lits = new MinimalProofChecker(mSkript, mLogger).getProvedClause(proof);
+		final ProofLiteral[] lits = mChecker.getProvedClause(mAuxDefs, proof);
 		final Term[] litsAsTerms = new Term[lits.length];
 		for (int i = 0; i < lits.length; i++) {
 			final Term term = lits[i].getAtom();
@@ -2907,7 +2900,7 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		case ProofConstants.FN_ASSERTED:
 		case ProofConstants.FN_ASSUMPTION: {
-			setResult(convertAsserted(mProofRules.asserted(newParams[0])));
+			setResult(removeNot(mProofRules.asserted(newParams[0]), newParams[0], true));
 			return;
 		}
 		case ProofConstants.FN_TAUTOLOGY: {
@@ -3033,32 +3026,6 @@ public class ProofSimplifier extends TermTransformer {
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * Checks if a term is an annotation term with a single annotation. Usually the annotation has no value, there are
-	 * some exceptions that are checked.
-	 *
-	 * @param term
-	 *            the term to check.
-	 * @return the annotation or null if it is not a correct annotation.
-	 */
-	private Annotation getSingleAnnotation(final Term term) {
-		if (term instanceof AnnotatedTerm) {
-			final Annotation[] annots = ((AnnotatedTerm) term).getAnnotations();
-			if (annots.length == 1) {
-				final Annotation singleAnnot = annots[0];
-				if (singleAnnot.getKey() == ":subst" || singleAnnot.getKey() == ":skolem"
-						|| singleAnnot.getKey() == ":removeForall") {
-					if (singleAnnot.getValue() instanceof Term[]) {
-						return singleAnnot;
-					}
-				} else if (singleAnnot.getValue() == null) {
-					return singleAnnot;
-				}
-			}
-		}
-		return null;
 	}
 
 	/**
@@ -3605,6 +3572,9 @@ public class ProofSimplifier extends TermTransformer {
 		mAuxDefs = collector.getAuxDef();
 		proof = new RewriteSkolem(collector.getSkolems()).transform(proof);
 		proof = super.transform(proof);
+		for (final Map.Entry<FunctionSymbol, LambdaTerm> definition : mAuxDefs.entrySet()) {
+			proof = mProofRules.defineFun(definition.getKey(), definition.getValue(), proof);
+		}
 		return proof;
 	}
 
@@ -3643,7 +3613,6 @@ public class ProofSimplifier extends TermTransformer {
 					case ":exists-":
 						collectExistsElim(annotTerm);
 						break;
-						/*
 					case ":or+":
 					case ":or-":
 					case ":and+":
@@ -3653,7 +3622,10 @@ public class ProofSimplifier extends TermTransformer {
 					case ":excludedMiddle1":
 					case ":excludedMiddle2": {
 						assert isApplication(SMTLIBConstants.OR, annotTerm.getSubterm());
-						final Term firstLit = ((ApplicationTerm) annotTerm.getSubterm()).getParameters()[0];
+						Term firstLit = ((ApplicationTerm) annotTerm.getSubterm()).getParameters()[0];
+						if (isApplication(SMTLIBConstants.NOT, firstLit)) {
+							firstLit = ((ApplicationTerm) firstLit).getParameters()[0];
+						}
 						if (firstLit instanceof AnnotatedTerm) {
 							final AnnotatedTerm quotedTerm = (AnnotatedTerm) firstLit;
 							if (quotedTerm.getAnnotations()[0].getKey().equals(":quotedQuant")
@@ -3663,7 +3635,6 @@ public class ProofSimplifier extends TermTransformer {
 						}
 						break;
 					}
-					*/
 					}
 					setResult(term);
 					return;
@@ -3752,9 +3723,6 @@ public class ProofSimplifier extends TermTransformer {
 			final Term[] params = auxApp.getParameters();
 			final TermVariable[] vars = new TermVariable[params.length];
 			for (int i = 0; i < params.length; i++) {
-				if (!(params[i] instanceof TermVariable)) {
-					return;
-				}
 				vars[i] = (TermVariable) params[i];
 			}
 			final LambdaTerm lambdaTerm = (LambdaTerm) defTerm.getTheory().lambda(vars, defTerm);
@@ -3765,7 +3733,8 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	static Annotation[] ANNOT_QUANT = new Annotation[] { new Annotation(":quotedQuant", null) };
-	class RewriteSkolem extends TermTransformer {
+
+	static class RewriteSkolem extends TermTransformer {
 		private final HashMap<Term, Term> mSkolems;
 
 		public RewriteSkolem(final HashMap<Term, Term> skolems) {

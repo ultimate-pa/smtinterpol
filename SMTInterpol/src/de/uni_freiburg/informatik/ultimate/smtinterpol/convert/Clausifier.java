@@ -1900,7 +1900,7 @@ public class Clausifier {
 					// for instantiation terms - should it be done earlier?)
 					// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal
 					// instances.
-					lit = mQuantTheory.getQuantEquality(auxTerm, mTheory.mTrue, source);
+					lit = mQuantTheory.createAuxLiteral(auxTerm, freeVars, term, source);
 				}
 			} else {
 				lit = new NamedAtom(term, mStackLevel);

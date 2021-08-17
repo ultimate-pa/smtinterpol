@@ -152,7 +152,7 @@ public class ParseEnvironment {
 
 	public void printResponse(final Object response) {
 		final PrintWriter out = mOptions.getOutChannel();
-		if (response instanceof Term && ProofRules.isProofRule(ProofRules.RES, (Term) response)) {
+		if (response instanceof Term && ProofRules.isProof((Term) response)) {
 			Term proof = (Term) response;
 			if (mOptions.isPrintTermsCSE()) {
 				proof = new FormulaLet().let(proof);

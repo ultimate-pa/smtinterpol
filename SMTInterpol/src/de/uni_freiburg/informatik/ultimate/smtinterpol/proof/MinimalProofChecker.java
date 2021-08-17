@@ -90,10 +90,6 @@ public class MinimalProofChecker extends NonRecursive {
 	 * The ProofRules object.
 	 */
 	ProofRules mProofRules;
-	/**
-	 * The number of reported errors.
-	 */
-	int mError;
 
 	/**
 	 * The proof cache. It maps each converted proof to the clause it proves.
@@ -140,8 +136,9 @@ public class MinimalProofChecker extends NonRecursive {
 		final ProofLiteral[] result = getProvedClause(unletter.unlet(proof));
 		if (result != null && result.length > 0) {
 			reportError("The proof did not yield a contradiction but " + Arrays.toString(result));
+			return false;
 		}
-		return mError == 0;
+		return true;
 	}
 
 	/**
@@ -168,9 +165,16 @@ public class MinimalProofChecker extends NonRecursive {
 		mCacheConv = new HashMap<>();
 		mFunctionDefinitions = new HashMap<>();
 		if (funcDefs != null) {
-			mFunctionDefinitions.putAll(funcDefs);
+			for (final Map.Entry<FunctionSymbol, LambdaTerm> funcDef : funcDefs.entrySet()) {
+				final FunctionSymbol func = funcDef.getKey();
+				final LambdaTerm def = funcDef.getValue();
+				if (func.getDefinition() != null && (func.getDefinition() != def.getSubterm()
+						|| !Arrays.equals(func.getDefinitionVars(), def.getVariables()))) {
+					throw new AssertionError("Inconsistent function definition.");
+				}
+				mFunctionDefinitions.put(func, def);
+			}
 		}
-		mError = 0;
 		run(new ProofWalker(proof));
 		assert (mStackResults.size() == 1);
 		// clear state
@@ -181,7 +185,6 @@ public class MinimalProofChecker extends NonRecursive {
 
 	private void reportError(final String msg) {
 		mLogger.error(msg);
-		mError++;
 	}
 
 	private void reportWarning(final String msg) {
@@ -196,8 +199,8 @@ public class MinimalProofChecker extends NonRecursive {
 	 * @param proofTerm The proof term. Its sort must be {@literal @}Proof.
 	 */
 	void walk(Term proofTerm) {
-		while (proofTerm instanceof AnnotatedTerm && !mProofRules.isAxiom(proofTerm)
-				&& !mProofRules.isDefineFun(proofTerm)) {
+		while (proofTerm instanceof AnnotatedTerm && !ProofRules.isAxiom(proofTerm)
+				&& !ProofRules.isDefineFun(proofTerm)) {
 			proofTerm = ((AnnotatedTerm) proofTerm).getSubterm();
 		}
 		/* Check the cache, if the unfolding step was already done */
@@ -205,12 +208,11 @@ public class MinimalProofChecker extends NonRecursive {
 			stackPush(mCacheConv.get(proofTerm), proofTerm);
 			return;
 		}
-		if (mProofRules.isDefineFun(proofTerm)) {
+		if (ProofRules.isDefineFun(proofTerm)) {
 			new DefineFunWalker((AnnotatedTerm) proofTerm).enqueue(this);
-		}
-		if (mProofRules.isAxiom(proofTerm)) {
+		} else if (ProofRules.isAxiom(proofTerm)) {
 			stackPush(computeAxiom(proofTerm), proofTerm);
-		} else if (mProofRules.isProofRule(ProofRules.RES, proofTerm)) {
+		} else if (ProofRules.isProofRule(ProofRules.RES, proofTerm)) {
 			new ResolutionWalker((ApplicationTerm) proofTerm).enqueue(this);
 		} else {
 			stackPush(checkAssert(proofTerm), proofTerm);
@@ -271,7 +273,7 @@ public class MinimalProofChecker extends NonRecursive {
 
 	public ProofLiteral[] computeAxiom(final Term axiom) {
 		final Theory theory = axiom.getTheory();
-		assert mProofRules.isAxiom(axiom);
+		assert ProofRules.isAxiom(axiom);
 		final Annotation[] annots = ((AnnotatedTerm) axiom).getAnnotations();
 		switch (annots[0].getKey()) {
 		case ":" + ProofRules.ORACLE: {
@@ -951,6 +953,11 @@ public class MinimalProofChecker extends NonRecursive {
 			final Object[] annotValues = (Object[]) mProof.getAnnotations()[0].getValue();
 			final FunctionSymbol func = (FunctionSymbol) annotValues[0];
 			final LambdaTerm def = (LambdaTerm) annotValues[1];
+			if (func.getDefinition() != null
+					&& (func.getDefinition() != def.getSubterm()
+							|| !Arrays.equals(func.getDefinitionVars(), def.getVariables()))) {
+				throw new AssertionError("Inconsistent function definition.");
+			}
 			if (engine.mFunctionDefinitions.containsKey(func)) {
 				throw new AssertionError("Double function definition.");
 			}
