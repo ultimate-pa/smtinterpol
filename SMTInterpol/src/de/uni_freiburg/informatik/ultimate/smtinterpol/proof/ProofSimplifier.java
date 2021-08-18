@@ -1579,10 +1579,7 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertRewriteCanonicalSum(final Term lhs, final Term rhs) {
 		final Theory theory = lhs.getTheory();
 		if (lhs instanceof ConstantTerm) {
-			final Term expected = Polynomial.parseConstant(lhs).toTerm(lhs.getSort());
-			return mProofRules.oracle(
-					new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, expected), true) },
-					new Annotation[] { ProofConstants.RW_CANONICAL_SUM });
+			return proveTrivialEquality(lhs, rhs);
 		}
 
 		final ApplicationTerm lhsApp = (ApplicationTerm) lhs;
@@ -1649,10 +1646,35 @@ public class ProofSimplifier extends TermTransformer {
 				return proof;
 			}
 		}
-		case "/":
-			return mProofRules.oracle(
-					new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) },
-					new Annotation[] { ProofConstants.RW_CANONICAL_SUM });
+		case "/": {
+			Term proofDivDef = mProofRules.divideDef(lhs);
+			final Sort sort = lhs.getSort();
+			final Term zero = Rational.ZERO.toTerm(sort);
+			final Term[] mulTermArgs = new Term[lhsArgs.length];
+			Rational multiplier = Rational.ONE;
+			for (int i = 1; i < lhsArgs.length; i++) {
+				final Term eqZero = theory.term(SMTLIBConstants.EQUALS, lhsArgs[i], zero);
+				proofDivDef = res(eqZero, proofDivDef, proveTrivialDisequality(lhsArgs[i], zero));
+				multiplier = multiplier.mul(Polynomial.parseConstant(lhsArgs[i]));
+				mulTermArgs[i - 1] = lhsArgs[i];
+			}
+			mulTermArgs[mulTermArgs.length - 1] = lhs;
+			Term mulTerm = theory.term("*", mulTermArgs);
+			if (mulTermArgs.length > 2) {
+				final Term mulShortTerm = theory.term("*", multiplier.toTerm(sort), lhs);
+				proofDivDef = res(theory.term(SMTLIBConstants.EQUALS, mulShortTerm, mulTerm),
+						res(theory.term(SMTLIBConstants.EQUALS, mulTerm, mulShortTerm),
+								mProofRules.polyMul(mulTerm, mulShortTerm),
+								mProofRules.symm(mulShortTerm, mulTerm)),
+						mProofRules.trans(mulShortTerm, mulTerm, lhsArgs[0]));
+				mulTerm = mulShortTerm;
+			}
+			// now mulTerm is (* multiplier lhs)
+			// and proofDivDef is a proof for (= mulTerm lhsArgs[0])
+			return res(theory.term(SMTLIBConstants.EQUALS, mulTerm, lhsArgs[0]), proofDivDef,
+					proveEqWithMultiplier(new Term[] { mulTerm, lhsArgs[0] }, new Term[] { lhs, rhs },
+							multiplier.inverse()));
+		}
 		default:
 			throw new AssertionError();
 		}
@@ -3114,8 +3136,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term gtTerm = theory.term(SMTLIBConstants.LT, second, first);
 			final BigInteger[] one = new BigInteger[] { BigInteger.ONE };
 			return res(ltTerm, res(gtTerm, mProofRules.trichotomy(first, second),
-					mProofRules.farkas(new Term[] { ltTerm }, one)),
-					mProofRules.farkas(new Term[] { gtTerm }, one));
+					mProofRules.farkas(new Term[] { gtTerm }, one)), mProofRules.farkas(new Term[] { ltTerm }, one));
 		} else {
 			return null;
 		}
