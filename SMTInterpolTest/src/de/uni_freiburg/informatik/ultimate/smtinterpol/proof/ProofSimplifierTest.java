@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -306,15 +307,13 @@ public class ProofSimplifierTest {
 			for (final Term[] terms : termCases) {
 				for (final Rational rat1 : constants) {
 					for (final Rational rat2 : constantsWithZero) {
-						for (final Rational rat3 : constantsWithZero) {
-							final SMTAffineTerm lhs = new SMTAffineTerm();
-							lhs.add(rat1, terms[0]);
-							lhs.add(rat2, terms[0]);
-							for (final Rational diff : constants) {
-								final SMTAffineTerm rhs = new SMTAffineTerm(diff.toTerm(sort));
-								rhs.add(lhs);
-								checkOneTrivialDiseq(lhs.toTerm(sort), rhs.toTerm(sort));
-							}
+						final SMTAffineTerm lhs = new SMTAffineTerm();
+						lhs.add(rat1, terms[0]);
+						lhs.add(rat2, terms[1]);
+						for (final Rational diff : constants) {
+							final SMTAffineTerm rhs = new SMTAffineTerm(diff.toTerm(sort));
+							rhs.add(lhs);
+							checkOneTrivialDiseq(lhs.toTerm(sort), rhs.toTerm(sort));
 						}
 					}
 				}
@@ -388,6 +387,82 @@ public class ProofSimplifierTest {
 					mSmtInterpol.term(SMTLIBConstants.NOT,
 							mSmtInterpol.term(SMTLIBConstants.OR, mSmtInterpol.term(SMTLIBConstants.NOT, terms[0]),
 									mSmtInterpol.term(SMTLIBConstants.NOT, terms[1]))));
+		}
+	}
+
+	private void checkDivModRewrite(final String divOrMod, final Term dividend, final Rational divisor,
+			final Term result, final Annotation rule) {
+		final Sort sort = dividend.getSort();
+		final Term lhs = mSmtInterpol.term(divOrMod, dividend, divisor.toTerm(sort));
+		final Term equality = mSmtInterpol.term("=", lhs, result);
+		final Term rewrite = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(equality, rule));
+		checkLemmaOrRewrite(rewrite, new Term[] { equality });
+	}
+
+	@Test
+	public void testRewriteDivMod() {
+		final Sort sort = mSmtInterpol.sort(SMTLIBConstants.INT);
+		final Term[] terms = generateDummyTerms("i", 2, sort);
+		final Rational[] someRationals = {
+				Rational.ZERO, Rational.ONE, Rational.MONE,
+				Rational.valueOf(1234, 1),
+				Rational.valueOf(-123, 3),
+				Rational.valueOf(new BigInteger("1234567890123456789012345678901234567890"), BigInteger.ONE),
+				Rational.valueOf(new BigInteger("-1234567890123456789012345678901234567890"), BigInteger.ONE),
+		};
+		final Rational[] someDivisors = {
+				Rational.valueOf(3, 1),
+				Rational.valueOf(17, 1),
+				Rational.valueOf(-5, 1),
+				Rational.valueOf(new BigInteger("123456789012345678901234567890123456789"), BigInteger.ONE),
+				Rational.valueOf(new BigInteger("-123456789012345678901234567890123456789"), BigInteger.ONE),
+				Rational.valueOf(new BigInteger("123456789012345678901234567890123456788"), BigInteger.ONE),
+				Rational.valueOf(new BigInteger("-123456789012345678901234567890123456788"), BigInteger.ONE),
+		};
+		final Term[] someTerms = {
+				terms[0],
+				mTheory.term(SMTLIBConstants.PLUS, terms),
+				mTheory.term(SMTLIBConstants.MUL, Rational.TWO.toTerm(sort), terms[0]),
+				mTheory.term(SMTLIBConstants.PLUS,
+						mTheory.term(SMTLIBConstants.MUL, Rational.TWO.toTerm(sort), terms[0]),
+						mTheory.term(SMTLIBConstants.MUL, someRationals[4].toTerm(sort), terms[1]))
+		};
+		final Term[] negatedTerms = {
+				mTheory.term(SMTLIBConstants.MUL, Rational.MONE.toTerm(sort), terms[0]),
+				mTheory.term(SMTLIBConstants.PLUS,
+						mTheory.term(SMTLIBConstants.MUL, Rational.MONE.toTerm(sort), terms[1]),
+						mTheory.term(SMTLIBConstants.MUL, Rational.MONE.toTerm(sort), terms[0])),
+				mTheory.term(SMTLIBConstants.MUL, Rational.TWO.negate().toTerm(sort), terms[0]),
+				mTheory.term(SMTLIBConstants.PLUS,
+						mTheory.term(SMTLIBConstants.MUL, someRationals[4].negate().toTerm(sort), terms[1]),
+						mTheory.term(SMTLIBConstants.MUL, Rational.TWO.negate().toTerm(sort), terms[0]))
+		};
+
+		final Term zero = Rational.ZERO.toTerm(sort);
+		for (final Term t : someTerms) {
+			checkDivModRewrite("div", t, Rational.ONE, t, ProofConstants.RW_DIV_ONE);
+			checkDivModRewrite("mod", t, Rational.ONE, zero, ProofConstants.RW_MODULO_ONE);
+		}
+		for (final Rational r : someRationals) {
+			checkDivModRewrite("div", r.toTerm(sort), Rational.ONE, r.toTerm(sort), ProofConstants.RW_DIV_ONE);
+			checkDivModRewrite("mod", r.toTerm(sort), Rational.ONE, zero, ProofConstants.RW_MODULO_ONE);
+		}
+		for (int i = 0; i < someTerms.length; i++) {
+			checkDivModRewrite("div", someTerms[i], Rational.MONE, negatedTerms[i], ProofConstants.RW_DIV_MONE);
+			checkDivModRewrite("div", negatedTerms[i], Rational.MONE, someTerms[i], ProofConstants.RW_DIV_MONE);
+			checkDivModRewrite("mod", someTerms[i], Rational.MONE, zero, ProofConstants.RW_MODULO_MONE);
+			checkDivModRewrite("mod", negatedTerms[i], Rational.MONE, zero, ProofConstants.RW_MODULO_MONE);
+		}
+		for (final Rational r : someRationals) {
+			for (final Rational divisor : someDivisors) {
+				Rational quotient = r.div(divisor.abs()).floor();
+				if  (divisor.signum() < 0) {
+					quotient = quotient.negate();
+				}
+				final Rational remainder = r.sub(divisor.mul(quotient));
+				checkDivModRewrite("div", r.toTerm(sort), divisor, quotient.toTerm(sort), ProofConstants.RW_DIV_CONST);
+				checkDivModRewrite("mod", r.toTerm(sort), divisor, remainder.toTerm(sort), ProofConstants.RW_MODULO_CONST);
+			}
 		}
 	}
 

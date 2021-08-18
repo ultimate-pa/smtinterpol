@@ -614,7 +614,7 @@ public class Theory {
 		Sort mSort1, mSort2;
 
 		public MinusFunctionFactory(final Sort sort1, final Sort sort2) {
-			super("-");
+			super(SMTLIBConstants.MINUS);
 			mSort1 = sort1;
 			mSort2 = sort2;
 		}
@@ -653,31 +653,35 @@ public class Theory {
 		}
 	}
 
-	private void createNumericOperators(final Sort sort, final boolean isRational) {
+	private Term absDefinition(final TermVariable x) {
+		final Term zero = Rational.ZERO.toTerm(x.getSort());
+		return term(SMTLIBConstants.ITE, term(SMTLIBConstants.LT, x, zero), term(SMTLIBConstants.MINUS, x), x);
+	}
+
+	private void createNumericOperators(final Sort sort, final boolean isRealArith) {
 		final Sort[] sort1 = new Sort[] { sort };
 		final Sort[] sort2 = new Sort[] { sort, sort };
-		declareInternalFunction("+", sort2, sort, FunctionSymbol.LEFTASSOC);
+		declareInternalFunction(SMTLIBConstants.PLUS, sort2, sort, FunctionSymbol.LEFTASSOC);
 		defineFunction(new MinusFunctionFactory(sort, sort));
-		declareInternalFunction("*", sort2, sort, FunctionSymbol.LEFTASSOC);
+		declareInternalFunction(SMTLIBConstants.MUL, sort2, sort, FunctionSymbol.LEFTASSOC);
 		/* the functions /, div and mod are partial (for division by 0) and thus partially uninterpreted */
-		if (isRational) {
-			declareInternalFunction("/", sort2, sort, FunctionSymbol.LEFTASSOC | FunctionSymbol.UNINTERPRETEDINTERNAL);
-		} else {
-			declareInternalFunction("div", sort2, sort,
+		if (isRealArith) {
+			declareInternalFunction(SMTLIBConstants.DIVIDE, sort2, sort,
 					FunctionSymbol.LEFTASSOC | FunctionSymbol.UNINTERPRETEDINTERNAL);
-			declareInternalFunction("mod", sort2, sort, FunctionSymbol.UNINTERPRETEDINTERNAL);
+		} else {
+			declareInternalFunction(SMTLIBConstants.DIV, sort2, sort,
+					FunctionSymbol.LEFTASSOC | FunctionSymbol.UNINTERPRETEDINTERNAL);
+			declareInternalFunction(SMTLIBConstants.MOD, sort2, sort, FunctionSymbol.UNINTERPRETEDINTERNAL);
 			defineFunction(new DivisibleFunctionFactory());
 		}
 		final Sort sBool = mBooleanSort;
-		declareInternalFunction(">", sort2, sBool, FunctionSymbol.CHAINABLE);
-		declareInternalFunction(">=", sort2, sBool, FunctionSymbol.CHAINABLE);
-		declareInternalFunction("<", sort2, sBool, FunctionSymbol.CHAINABLE);
-		declareInternalFunction("<=", sort2, sBool, FunctionSymbol.CHAINABLE);
+		declareInternalFunction(SMTLIBConstants.GT, sort2, sBool, FunctionSymbol.CHAINABLE);
+		declareInternalFunction(SMTLIBConstants.GEQ, sort2, sBool, FunctionSymbol.CHAINABLE);
+		declareInternalFunction(SMTLIBConstants.LT, sort2, sBool, FunctionSymbol.CHAINABLE);
+		declareInternalFunction(SMTLIBConstants.LEQ, sort2, sBool, FunctionSymbol.CHAINABLE);
 
-		final TermVariable x = createTermVariable("x1", sort);
-		final Term zero = isRational ? decimal("0.0") : numeral("0");
-		final Term absx = term("ite", term(">=", x, zero), x, term("-", x));
-		declareInternalFunction("abs", sort1, new TermVariable[] { x }, absx, 0);
+		final TermVariable x = createTermVariable("x", sort);
+		declareInternalFunction(SMTLIBConstants.ABS, sort1, new TermVariable[] { x }, absDefinition(x), 0);
 	}
 
 	private void createIRAOperators() {
@@ -734,9 +738,7 @@ public class Theory {
 		defineFunction(new FunctionSymbolFactory("abs") {
 			@Override
 			public Term getDefinition(final TermVariable[] tvs, final Sort resultSort) {
-				final Term zero = (resultSort == mNumericSort) ? numeral("0") : decimal("0.0");
-				// abs x: (ite (>= x 0) x (- x))
-				return term("ite", term(">=", tvs[0], zero), tvs[0], term("-", tvs[0]));
+				return absDefinition(tvs[0]);
 			}
 
 			@Override

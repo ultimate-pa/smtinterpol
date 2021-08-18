@@ -67,7 +67,6 @@ public class ProofRules {
 	public final static String GTDEF = ">def";
 	public final static String GEQDEF = ">=def";
 	public final static String TRICHOTOMY = "trichotomy";
-	public final static String EQLEQ = "eqleq";
 	public final static String TOTAL = "total";
 	public final static String TOTALINT = "total-int";
 	public final static String FARKAS = "farkas";
@@ -411,10 +410,6 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + TRICHOTOMY, new Term[] { lhs, rhs }), mAxiom);
 	}
 
-	public Term eqLeq(final Term lhs, final Term rhs) {
-		return mTheory.annotatedTerm(annotate(":" + EQLEQ, new Term[] { lhs, rhs }), mAxiom);
-	}
-
 	public Term total(final Term lhs, final Term rhs) {
 		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs, rhs }), mAxiom);
 	}
@@ -541,8 +536,10 @@ public class ProofRules {
 	}
 
 	/**
-	 * Axiom stating `(< arg (+ (* divisor (div arg divisor)) divisor))` or `(= divisor 0)`.
-	 * @param arg a term of type Int.
+	 * Axiom stating `(< arg (+ (* divisor (div arg divisor)) (abs divisor)))` or
+	 * `(= divisor 0)`.
+	 *
+	 * @param arg     a term of type Int.
 	 * @param divisor a term of type Int.
 	 * @return the axiom.
 	 */
@@ -715,7 +712,8 @@ public class ProofRules {
 				return false;
 			}
 			if (!isApplication(SMTLIBConstants.LT, inequalities[i])
-					&& !isApplication(SMTLIBConstants.LEQ, inequalities[i])) {
+					&& !isApplication(SMTLIBConstants.LEQ, inequalities[i])
+					&& !isApplication(SMTLIBConstants.EQUALS, inequalities[i])) {
 				return false;
 			}
 			final ApplicationTerm appTerm = (ApplicationTerm) inequalities[i];
@@ -849,7 +847,6 @@ public class ProofRules {
 					case ":" + GTDEF:
 					case ":" + GEQDEF:
 					case ":" + TRICHOTOMY:
-					case ":" + EQLEQ:
 					case ":" + TOTAL:
 					case ":" + POLYADD:
 					case ":" + POLYMUL:

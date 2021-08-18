@@ -704,15 +704,6 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), true),
 					new ProofLiteral(theory.term(SMTLIBConstants.LT, params[1], params[0]), true) };
 		}
-		case ":" + ProofRules.EQLEQ: {
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			if (params.length != 2) {
-				throw new AssertionError();
-			}
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), false),
-					new ProofLiteral(theory.term(SMTLIBConstants.LEQ, params), true) };
-		}
 		case ":" + ProofRules.TOTAL: {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
