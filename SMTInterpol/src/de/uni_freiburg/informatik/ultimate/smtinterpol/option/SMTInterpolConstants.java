@@ -19,11 +19,14 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.option;
 
 /**
- * Define the SMTInterpol specific options.
+ * Define the SMTInterpol specific constants / options.
  *
  * @author Jochen Hoenicke
  */
-public interface SMTInterpolOptions {
+public interface SMTInterpolConstants {
+
+	/** Diff function symbol name for arrays. */
+	public String DIFF = "@diff";
 
 	public String PRINT_TERMS_CSE = ":print-terms-cse";
 	public String CONTINUE_ON_ERROR = ":continue-on-error";

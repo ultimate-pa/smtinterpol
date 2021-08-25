@@ -32,6 +32,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -929,7 +930,8 @@ public class ArrayTheory implements ITheory {
 							todoQueue.addLast(node);
 							continue;
 						}
-						final FunctionSymbol constFunc = t.getFunctionWithResult("const", null, arraySort, valueSort);
+						final FunctionSymbol constFunc = t.getFunctionWithResult(SMTLIBConstants.CONST, null, arraySort,
+								valueSort);
 						final Term nodeValue = t.term(constFunc, value);
 						builder.setModelValue(node.mTerm, nodeValue);
 					} else {

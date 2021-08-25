@@ -764,7 +764,7 @@ public class Theory {
 		// store : ((Array X Y) X Y) -> (Array X Y)
 		declareInternalPolymorphicFunction("store", generic2, new Sort[] { array, generic2[0], generic2[1] }, array, 0);
 		// const : (Y) -> (Array X Y)
-		declareInternalPolymorphicFunction("const", generic2, new Sort[] { generic2[1] }, array,
+		declareInternalPolymorphicFunction(SMTLIBConstants.CONST, generic2, new Sort[] { generic2[1] }, array,
 				FunctionSymbol.INTERNAL | FunctionSymbol.RETURNOVERLOAD);
 	}
 

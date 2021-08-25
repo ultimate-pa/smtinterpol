@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -42,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
@@ -521,7 +523,7 @@ public class TermCompiler extends TermTransformer {
 				}
 				break;
 			}
-			case "const": {
+			case SMTLIBConstants.CONST: {
 				final Sort sort = mTracker.getProvedTerm(convertedApp).getSort();
 				assert sort.isArraySort();
 				if (!isInfinite(sort.getArguments()[0])) {
@@ -535,7 +537,7 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "true":
 			case "false":
-			case "@diff":
+			case SMTInterpolConstants.DIFF:
 			case "@0": // lambda for QuantifierTheory
 			case "is":
 			case Interpolator.EQ:

@@ -59,6 +59,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
@@ -1031,7 +1032,7 @@ public class Clausifier {
 						pushOperation(new AddTermITEAxiom(term, source));
 					} else if (fs.getName().equals("store")) {
 						addStoreAxiom(at, source);
-					} else if (fs.getName().equals("@diff")) {
+					} else if (fs.getName().equals(SMTInterpolConstants.DIFF)) {
 						addDiffAxiom(at, source);
 						mArrayTheory.notifyDiff((CCAppTerm) ccTerm);
 					}
@@ -1041,7 +1042,7 @@ public class Clausifier {
 					assert ccTerm != null;
 					final String funcName = at.getFunction().getName();
 					final boolean isStore = funcName.equals("store");
-					final boolean isConst = funcName.equals("const");
+					final boolean isConst = funcName.equals(SMTLIBConstants.CONST);
 					mArrayTheory.notifyArray(getCCTerm(term), isStore, isConst);
 				}
 
@@ -1186,8 +1187,8 @@ public class Clausifier {
 			switch (fs.getName()) {
 			case "select":
 			case "store":
-			case "@diff":
-			case "const":
+			case SMTInterpolConstants.DIFF:
+			case SMTLIBConstants.CONST:
 			case "@EQ":
 			case "is":
 				return true;

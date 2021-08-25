@@ -43,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 
 /**
  * This proof checker checks compliance of SMTInterpol proofs with the minimal
@@ -877,7 +878,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) annots[0].getValue();
 
 			// (= a b), ~(= (select a (@diff a b)) (select b (@diff a b)))
-			final Term diff = theory.term("@diff", params[0], params[1]);
+			final Term diff = theory.term(SMTInterpolConstants.DIFF, params[0], params[1]);
 			final Term select0 = theory.term(SMTLIBConstants.SELECT, params[0], diff);
 			final Term select1 = theory.term(SMTLIBConstants.SELECT, params[1], diff);
 			return new ProofLiteral[] {
@@ -892,7 +893,7 @@ public class MinimalProofChecker extends NonRecursive {
 
 			// (= (select (const value) index) value)
 			final Sort arraySort = theory.getSort(SMTLIBConstants.ARRAY, index.getSort(), value.getSort());
-			final Term constArray = theory.term("const", null, arraySort, value);
+			final Term constArray = theory.term(SMTLIBConstants.CONST, null, arraySort, value);
 			final Term select = theory.term(SMTLIBConstants.SELECT, constArray, index);
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, select, value), true) };
 		}

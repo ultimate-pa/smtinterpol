@@ -37,7 +37,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
@@ -61,7 +61,7 @@ public class SystemTest {
 			solver.setOption(":interpolant-check-mode", true);
 		}
 		if (f.getAbsolutePath().contains("test" + File.separatorChar + "epr")) {
-			solver.setOption(SMTInterpolOptions.EPR, true);
+			solver.setOption(SMTInterpolConstants.EPR, true);
 		}
 		testEnv.parseStream(new FileReader(f), f.getName());
 		testEnv.checkExpected();

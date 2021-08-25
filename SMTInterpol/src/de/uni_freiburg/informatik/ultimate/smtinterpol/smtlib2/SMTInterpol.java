@@ -61,7 +61,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.MinimalProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
@@ -205,8 +205,8 @@ public class SMTInterpol extends NoopScript {
 			// Currently only diff
 			final Sort[] vars = theory.createSortVariables("Index", "Elem");
 			final Sort array = theory.getSort("Array", vars);
-			declareInternalPolymorphicFunction(theory, "@diff", vars, new Sort[] { array, array }, vars[0],
-					FunctionSymbol.UNINTERPRETEDINTERNAL);
+			declareInternalPolymorphicFunction(theory, SMTInterpolConstants.DIFF, vars, new Sort[] { array, array },
+					vars[0], FunctionSymbol.UNINTERPRETEDINTERNAL);
 		}
 	}
 
@@ -640,10 +640,10 @@ public class SMTInterpol extends NoopScript {
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
 			mEngine.setProofGeneration(proofMode != ProofMode.NONE);
-			mClausifier.setQuantifierOptions(getBooleanOption(SMTInterpolOptions.EPR),
-					mSolverOptions.getInstantiationMethod(), getBooleanOption(SMTInterpolOptions.UNKNOWN_TERM_DAWGS),
-					getBooleanOption(SMTInterpolOptions.PROPAGATE_UNKNOWN_TERMS),
-					getBooleanOption(SMTInterpolOptions.PROPAGATE_UNKNOWN_AUX));
+			mClausifier.setQuantifierOptions(getBooleanOption(SMTInterpolConstants.EPR),
+					mSolverOptions.getInstantiationMethod(), getBooleanOption(SMTInterpolConstants.UNKNOWN_TERM_DAWGS),
+					getBooleanOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_TERMS),
+					getBooleanOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_AUX));
 			mClausifier.setLogic(logic);
 			final boolean produceAssignments = getBooleanOption(SMTLIBConstants.PRODUCE_ASSIGNMENTS);
 			mClausifier.setAssignmentProduction(produceAssignments);
@@ -653,8 +653,8 @@ public class SMTInterpol extends NoopScript {
 					|| (mSolverOptions.isProduceProofs() && mSolverOptions.getProofMode() == ProofMode.LOWLEVEL)
 					|| mSolverOptions.isProduceInterpolants() || mSolverOptions.isProofCheckModeActive()
 					|| mSolverOptions.isModelCheckModeActive()
-					|| getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)
-					|| getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
+					|| getBooleanOption(SMTInterpolConstants.UNSAT_CORE_CHECK_MODE)
+					|| getBooleanOption(SMTInterpolConstants.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
 				mAssertions = new ScopedArrayList<>();
 			}
 			mOptions.setOnline();
@@ -912,10 +912,10 @@ public class SMTInterpol extends NoopScript {
 			if (mSolverOptions.isSimplifyInterpolants()) {
 				final SimplifyDDA simplifier = new SimplifyDDA(
 						new SMTInterpol(this,
-								Collections.singletonMap(SMTInterpolOptions.CHECK_TYPE,
+								Collections.singletonMap(SMTInterpolConstants.CHECK_TYPE,
 										(Object) mSolverOptions.getSimplifierCheckType()),
 								CopyMode.CURRENT_VALUE),
-						getBooleanOption(SMTInterpolOptions.SIMPLIFY_REPEATEDLY));
+						getBooleanOption(SMTInterpolConstants.SIMPLIFY_REPEATEDLY));
 				for (int i = 0; i < ipls.length; ++i) {
 					ipls[i] = simplifier.getSimplifiedTerm(ipls[i]);
 				}
@@ -945,7 +945,7 @@ public class SMTInterpol extends NoopScript {
 			throw new SMTLIBException("Logical context not inconsistent!");
 		}
 		final Term[] core = new UnsatCoreCollector(this).getUnsatCore(unsat);
-		if (getBooleanOption(SMTInterpolOptions.UNSAT_CORE_CHECK_MODE)) {
+		if (getBooleanOption(SMTInterpolConstants.UNSAT_CORE_CHECK_MODE)) {
 			final HashSet<String> usedParts = new HashSet<>();
 			for (final Term t : core) {
 				usedParts.add(((ApplicationTerm) t).getFunction().getName());
@@ -1002,7 +1002,7 @@ public class SMTInterpol extends NoopScript {
 		for (int i = 0; i < unsatAssumptionLits.length; ++i) {
 			unsatAssumptions[i] = unsatAssumptionLits[i].negate().getSMTFormula(t);
 		}
-		if (getBooleanOption(SMTInterpolOptions.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
+		if (getBooleanOption(SMTInterpolConstants.UNSAT_ASSUMPTIONS_CHECK_MODE)) {
 			final SMTInterpol tmpBench = new SMTInterpol(this, null, CopyMode.CURRENT_VALUE);
 			final int old = tmpBench.mLogger.getLoglevel();
 			try {
@@ -1072,7 +1072,7 @@ public class SMTInterpol extends NoopScript {
 		final int oldNumScopes = mStackLevel;
 		try {
 			mSolverOptions.setCheckType(mSolverOptions.getSimplifierCheckType());
-			return new SimplifyDDA(this, getBooleanOption(SMTInterpolOptions.SIMPLIFY_REPEATEDLY)).getSimplifiedTerm(term);
+			return new SimplifyDDA(this, getBooleanOption(SMTInterpolConstants.SIMPLIFY_REPEATEDLY)).getSimplifiedTerm(term);
 		} finally {
 			mSolverOptions.setCheckType(old);
 			assert (mStackLevel == oldNumScopes);

@@ -39,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -46,6 +47,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
@@ -888,7 +890,7 @@ public class ProofChecker extends NonRecursive {
 				break;
 			}
 			case ":read-const-weakeq": {
-				if (!isApplication("const", endPoints.getSecond())) {
+				if (!isApplication(SMTLIBConstants.CONST, endPoints.getSecond())) {
 					reportError("Main weak path in read-const-weakeq not to a const array.");
 					return;
 				}
@@ -902,7 +904,8 @@ public class ProofChecker extends NonRecursive {
 			}
 			case ":const-weakeq": {
 				assert mainIdx == null;
-				if (!isApplication("const", endPoints.getFirst()) || !isApplication("const", endPoints.getSecond())) {
+				if (!isApplication(SMTLIBConstants.CONST, endPoints.getFirst())
+						|| !isApplication(SMTLIBConstants.CONST, endPoints.getSecond())) {
 					reportError("Main weak path in read-const-weakeq not to a const array.");
 					return;
 				}
@@ -1016,12 +1019,12 @@ public class ProofChecker extends NonRecursive {
 		}
 		// No candidate equality was found but it could also be a select-const edge where a[i] and v are
 		// syntactically equal, in which case there is no equality.
-		if (isApplication("const", termPair.getFirst())
+		if (isApplication(SMTLIBConstants.CONST, termPair.getFirst())
 				&& checkSelectConst(((ApplicationTerm) termPair.getFirst()).getParameters()[0], termPair.getSecond(),
 						weakIdx, equalities)) {
 			return true;
 		}
-		if (isApplication("const", termPair.getSecond())
+		if (isApplication(SMTLIBConstants.CONST, termPair.getSecond())
 				&& checkSelectConst(((ApplicationTerm) termPair.getSecond()).getParameters()[0], termPair.getFirst(),
 						weakIdx, equalities)) {
 			return true;
@@ -1043,7 +1046,7 @@ public class ProofChecker extends NonRecursive {
 			}
 		}
 		// Check if array is (const value)
-		if (isApplication("const", array) && ((ApplicationTerm) array).getParameters()[0] == value) {
+		if (isApplication(SMTLIBConstants.CONST, array) && ((ApplicationTerm) array).getParameters()[0] == value) {
 			return true;
 		}
 		return false;
@@ -2172,7 +2175,7 @@ public class ProofChecker extends NonRecursive {
 					for (int i = 0; i < 2; i++) {
 						final Term[] selectArgs = ((ApplicationTerm) selects[i]).getParameters();
 						if (selectArgs.length != 2 || selectArgs[0] != arrays[i]
-								|| !isApplication("@diff", selectArgs[1])) {
+								|| !isApplication(SMTInterpolConstants.DIFF, selectArgs[1])) {
 							failure = true;
 							break;
 						}
