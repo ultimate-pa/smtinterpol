@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -347,11 +346,9 @@ public class ProofChecker extends NonRecursive {
 				checker.reportError("Lemma :inst needs substitution for all quantified variables.");
 				return;
 			}
-			final Map<TermVariable, Term> sigma = new HashMap<>();
-			for (int i = 0; i < vars.length; i++) {
-				sigma.put(vars[i], mSubstitution[i]);
-			}
-			final Term[] substClause = checker.substituteInQuantClause(forallLit.getSubformula(), sigma);
+			final Term lettedFormula = checker.mSkript.let(forallLit.getVariables(), mSubstitution,
+					forallLit.getSubformula());
+			final Term substFormula = new FormulaUnLet().unlet(lettedFormula);
 
 			// Check that an equality has been proven where the first parameter must match the substituted clause, and
 			// the second parameter must contain exactly the inst clause literals (but may have a different order).
@@ -367,17 +364,17 @@ public class ProofChecker extends NonRecursive {
 				return;
 			}
 			final ApplicationTerm provedEq = (ApplicationTerm) proved;
-			final Set<Term> proofInputLits =
-					new HashSet<>(Arrays.asList(checker.termToClause(provedEq.getParameters()[0])));
+			if (provedEq.getParameters()[0] != substFormula) {
+				checker.reportError("Lemma :inst needs subproof with matching lhs.");
+				return;
+			}
 			final Set<Term> proofOutputLits =
 					new HashSet<>(Arrays.asList(checker.createClause(provedEq.getParameters()[1])));
-			final Set<Term> substLits = new HashSet<>(Arrays.asList(substClause));
-			final Set<Term> instLits = new HashSet<>(Arrays.asList(Arrays.copyOfRange(mClause, 1, mClause.length)));
-			if (!proofInputLits.equals(substLits) || !proofOutputLits.equals(instLits)) {
+			final Set<Term> instLits = new HashSet<>(Arrays.asList(mClause).subList(1, mClause.length));
+			if (!proofOutputLits.equals(instLits)) {
 				checker.reportError("Previously proved term equality does not match literals in lemma :inst.");
 				return;
 			}
-
 		}
 	}
 
@@ -3572,26 +3569,6 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Convert a collection of terms into a clause term. This also handles singleton and empty clause correctly.
-	 *
-	 * @param disjuncts
-	 *            the disjuncts of the clause.
-	 * @return a term representing the clause.
-	 */
-	private Term clauseToTerm(final Collection<Term> disjuncts) {
-		if (disjuncts.size() <= 1) {
-			if (disjuncts.isEmpty()) {
-				return mSkript.term("false");
-			} else {
-				return disjuncts.iterator().next();
-			}
-		} else {
-			final Term[] args = disjuncts.toArray(new Term[disjuncts.size()]);
-			return mSkript.term("or", args);
-		}
-	}
-
-	/**
 	 * Handle the resolution rule. The stack should contain the converted input clauses.
 	 *
 	 * @param resApp
@@ -3798,19 +3775,6 @@ public class ProofChecker extends NonRecursive {
 			return ((ApplicationTerm) formula).getParameters()[0];
 		}
 		return formula.getTheory().term("not", formula);
-	}
-
-	/**
-	 * Substitute variables in a given quantified clause.
-	 *
-	 * @param subformula the subformula of the forall quantifier
-	 * @param sigma      the substitution to apply.
-	 * @return the clause resulting from substituting sigma in orTerm.
-	 */
-	private Term[] substituteInQuantClause(final Term subformula, final Map<TermVariable, Term> sigma) {
-		final FormulaUnLet unletter = new FormulaUnLet();
-		unletter.addSubstitutions(sigma);
-		return termToClause(unletter.unlet(subformula));
 	}
 
 	/**
