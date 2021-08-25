@@ -210,26 +210,20 @@ public class ProofTracker implements IProofTracker{
 	}
 
 	@Override
-	public Term exists(final QuantifiedFormula quant, final Term newBody) {
+	public Term quantCong(final QuantifiedFormula quant, final Term newBody) {
 		final Theory theory = quant.getTheory();
 		final Term subProof = getProof(newBody);
-		final Term formula = theory.exists(quant.getVariables(), getProvedTerm(newBody));
+		final boolean isForall = quant.getQuantifier() == QuantifiedFormula.FORALL;
+		final Term formula = isForall
+				? theory.forall(quant.getVariables(), getProvedTerm(newBody))
+				: theory.exists(quant.getVariables(), getProvedTerm(newBody));
 		if (isReflexivity(subProof)) {
 			return reflexivity(formula);
 		}
-		final Annotation[] annot = new Annotation[] { new Annotation(":vars", quant.getVariables()) };
-		final Term proof = theory.term(ProofConstants.FN_EXISTS, theory.annotatedTerm(annot, subProof));
+		final String quantType = isForall ? ":forall" : ":exists";
+		final Annotation[] annot = new Annotation[] { new Annotation(quantType, quant.getVariables()) };
+		final Term proof = theory.term(ProofConstants.FN_QUANT, theory.annotatedTerm(annot, subProof));
 		return buildProof(proof, formula);
-	}
-
-	@Override
-	public Term forall(final QuantifiedFormula quant, final Term negNewBody) {
-		final Theory theory = quant.getTheory();
-		final Term negQuant = theory.term("not",
-				theory.exists(quant.getVariables(), theory.term("not", quant.getSubformula())));
-		Term rewrite = buildRewrite(quant, negQuant, ProofConstants.RW_FORALL_EXISTS);
-		rewrite = congruence(rewrite, new Term[] { exists(quant, negNewBody) });
-		return rewrite;
 	}
 
 	@Override

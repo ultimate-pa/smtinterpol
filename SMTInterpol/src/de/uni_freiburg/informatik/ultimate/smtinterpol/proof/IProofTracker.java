@@ -109,7 +109,7 @@ public interface IProofTracker {
 	 *            the formula g with its rewrite proof for {@code (= f g)}.
 	 * @return the new existential quantifier annotated with a proof for {@code (= old (exists varlist g))}.
 	 */
-	public Term exists(QuantifiedFormula old, Term newBody);
+	public Term quantCong(QuantifiedFormula old, Term newBody);
 
 	/**
 	 * Lift rewrites over a match, i.e. convert a proof for {@code (= fi gi)} into a
@@ -152,18 +152,6 @@ public interface IProofTracker {
 	 * @return res annotated with proof of {@code (= orig res)}.
 	 */
 	public Term intern(Term orig, Term res);
-
-	/**
-	 * Rewrites a forall quantifier into is normal form, a negated exists quantifier. The normal form is given as
-	 * parameter and this function doesn't check it.
-	 *
-	 * @param old
-	 *            the forall quantifier.
-	 * @param negNewBody
-	 *            the rewritten quantifer.
-	 * @return negNewBody annotated with its proof.
-	 */
-	public Term forall(QuantifiedFormula old, Term negNewBody);
 
 	//// ==== Tracking of clausification ====
 

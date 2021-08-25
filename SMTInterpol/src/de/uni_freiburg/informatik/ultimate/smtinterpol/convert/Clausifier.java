@@ -345,17 +345,9 @@ public class Clausifier {
 				}
 			} else if (term instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) term;
-				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
-				final Pair<Term, Term[]> converted = convertQuantifiedSubformula(positive, qf);
-				Term rule;
-				if (positive) {
-					rule = mTracker.tautology(t.term("or", t.term("not", term), converted.getFirst()),
-							ProofConstants.getTautExistsNeg(converted.getSecond()));
-				} else {
-					rule = mTracker.tautology(t.term("or", term, converted.getFirst()),
-							ProofConstants.getTautExistsPos(converted.getSecond()));
-				}
-				pushOperation(new AddAsAxiom(mTracker.resolution(mAxiom, rule), mSource));
+				final Pair<Term, Term> converted = convertQuantifiedSubformula(positive, qf);
+				final Term tautology = converted.getSecond();
+				pushOperation(new AddAsAxiom(mTracker.resolution(mAxiom, tautology), mSource));
 				return;
 			}
 			buildClause(mAxiom, mSource);
@@ -489,19 +481,10 @@ public class Clausifier {
 				mCollector.addLiteral(positive ? lit : lit.negate(), at, rewrite, positive);
 			} else if (idx instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) idx;
-				assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
-				final Pair<Term, Term[]> converted = convertQuantifiedSubformula(positive, qf);
-				Term rule;
-				Term pivotLit = idx;
-				if (positive) {
-					pivotLit = theory.term("not", idx);
-					rule = mTracker.tautology(theory.term("or", pivotLit, converted.getFirst()),
-							ProofConstants.getTautExistsNeg(converted.getSecond()));
-				} else {
-					rule = mTracker.tautology(theory.term("or", pivotLit, converted.getFirst()),
-							ProofConstants.getTautExistsPos(converted.getSecond()));
-				}
-				mCollector.addResolution(rule, pivotLit);
+				final Pair<Term, Term> converted = convertQuantifiedSubformula(positive, qf);
+				final Term tautology = converted.getSecond();
+				final Term pivotLit = positive ? theory.term("not", idx) : idx;
+				mCollector.addResolution(tautology, pivotLit);
 				pushOperation(new CollectLiteral(converted.getFirst(), mCollector));
 				return;
 			} else if (idx instanceof TermVariable) {
@@ -1231,27 +1214,25 @@ public class Clausifier {
 	 * @param qf
 	 * @return a pair of the resulting formula and the variable substitutions.
 	 */
-	private Pair<Term, Term[]> convertQuantifiedSubformula(final boolean positive, final QuantifiedFormula qf) {
-		if (positive) {
+	private Pair<Term, Term> convertQuantifiedSubformula(final boolean positive, final QuantifiedFormula qf) {
+		final TermVariable[] vars = qf.getVariables();
+		final Term[] substTerms = new Term[vars.length];
+		final Annotation rule;
+		if (positive == (qf.getQuantifier() == QuantifiedFormula.EXISTS)) {
 			/*
-			 * "exists" case
+			 * "exists" case (or negative forall case)
 			 *
 			 * skolemize everything inside, then go on as usual
 			 */
-			final TermVariable[] vars = qf.getVariables();
-			final Term[] skolems = new Term[vars.length];
 			for (int i = 0; i < vars.length; ++i) {
-				skolems[i] = mTheory.skolemize(vars[i], qf);
+				substTerms[i] = mTheory.skolemize(vars[i], qf);
 			}
 
 			if (mEprTheory != null) {
-				mEprTheory.addSkolemConstants(skolems);
+				mEprTheory.addSkolemConstants(substTerms);
 			}
-
-			final FormulaUnLet unlet = new FormulaUnLet();
-			unlet.addSubstitutions(new ArrayMap<>(vars, skolems));
-			final Term skolemized = unlet.unlet(qf.getSubformula());
-			return new Pair<>(skolemized, skolems);
+			rule = qf.getQuantifier() == QuantifiedFormula.EXISTS ? ProofConstants.getTautExistsNeg(substTerms)
+					: ProofConstants.getTautForallPos(substTerms);
 		} else {
 			/*
 			 * "forall" case
@@ -1260,17 +1241,25 @@ public class Clausifier {
 			 * drop the quantifier (remaining free TermVariables are implicitly universally quantified)
 			 */
 
-			final TermVariable[] vars = qf.getVariables();
-			final Term[] freshVars = new Term[vars.length];
 			for (int i = 0; i < vars.length; ++i) {
-				freshVars[i] = mTheory.createFreshTermVariable(vars[i].getName(), vars[i].getSort());
+				substTerms[i] = mTheory.createFreshTermVariable(vars[i].getName(), vars[i].getSort());
 			}
 
-			final FormulaUnLet unlet = new FormulaUnLet();
-			unlet.addSubstitutions(new ArrayMap<>(vars, freshVars));
-			final Term uniquelyRenamed = unlet.unlet(qf.getSubformula());
-			return new Pair<>(mTheory.term("not", uniquelyRenamed), freshVars);
+			rule = qf.getQuantifier() == QuantifiedFormula.EXISTS
+					? ProofConstants.getTautExistsPos(substTerms)
+					: ProofConstants.getTautForallNeg(substTerms);
 		}
+
+		final FormulaUnLet unlet = new FormulaUnLet();
+		unlet.addSubstitutions(new ArrayMap<>(vars, substTerms));
+		Term substituted = unlet.unlet(qf.getSubformula());
+		Term pivotLit = qf;
+		if (!positive) {
+			substituted = mTheory.term("not", substituted);
+		} else {
+			pivotLit = mTheory.term("not", pivotLit);
+		}
+		return new Pair<>(substituted, mTracker.tautology(mTheory.term("or", pivotLit, substituted), rule));
 	}
 
 	// flags for all interpreted or boolean terms
@@ -1378,6 +1367,13 @@ public class Clausifier {
 
 	private static boolean isNotTerm(final Term t) {
 		return (t instanceof ApplicationTerm) && ((ApplicationTerm) t).getFunction().getName() == "not";
+	}
+
+	private Term removeDoubleNot(Term t) {
+		while (isNotTerm(t) && isNotTerm(((ApplicationTerm) t).getParameters()[0])) {
+			t = ((ApplicationTerm) ((ApplicationTerm) t).getParameters()[0]).getParameters()[0];
+		}
+		return t;
 	}
 
 	/**
@@ -2141,7 +2137,7 @@ public class Clausifier {
 		Term origFormula = mUnlet.unlet(f);
 		Term simpFormula;
 		try {
-			simpFormula = mCompiler.transform(origFormula);
+			simpFormula = mCompiler.transform(removeDoubleNot(origFormula));
 		} finally {
 			mCompiler.reset();
 		}

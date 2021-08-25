@@ -215,6 +215,26 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Check the tautology that introduces a forall.
+	 *
+	 * @param clause     the clause to check
+	 * @param skolemFuns the Skolemization used in the tautology.
+	 * @return true iff the clause is well-formed.
+	 */
+	private Term convertTautForallIntro(final Term[] clause, final Term[] skolemFuns) {
+		// clause[0]: (forall ((x...)) F)
+		// clause[1]: (not (let ((x skolem...)) F))
+		assert clause.length == 2;
+		final QuantifiedFormula qf = (QuantifiedFormula) clause[0];
+		assert qf.getQuantifier() == QuantifiedFormula.FORALL;
+		final TermVariable[] universalVars = qf.getVariables();
+		final Term[] subst = mProofRules.getSkolemVars(universalVars, qf.getSubformula(), true);
+		final FormulaUnLet unletter = new FormulaUnLet();
+		final Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
+		return removeNot(mProofRules.forallIntro(qf), result, true);
+	}
+
+	/**
 	 * Check the tautology that introduces an exists.
 	 *
 	 * @param clause the clause to check
@@ -230,13 +250,16 @@ public class ProofSimplifier extends TermTransformer {
 		final Term forall = ((ApplicationTerm) clause[0]).getParameters()[0];
 		final QuantifiedFormula qf = (QuantifiedFormula) forall;
 		assert qf.getQuantifier() == QuantifiedFormula.FORALL;
+		final TermVariable[] universalVars = qf.getVariables();
 
 		// subst must contain one substitution for each variable
-		assert qf.getVariables().length == subst.length;
+		assert universalVars.length == subst.length;
 
-		// peculiarity of proof format: remove quotes if substitution changes something.
-		final AnnotatedTerm subproof = substituteInQuantInst(subst, qf);
-		final Term proof = removeNot(stripAnnotation(subproof), provedTerm(subproof), true);
+		Term proof = mProofRules.forallElim(subst, qf);
+		// remove negations
+		final FormulaUnLet unletter = new FormulaUnLet();
+		final Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
+		proof = removeNot(proof, result, true);
 		return proof;
 	}
 
@@ -757,6 +780,10 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		case ":forall-": {
 			proof = convertTautForallElim(clauseLits, (Term[]) annot.getValue());
+			break;
+		}
+		case ":forall+": {
+			proof = convertTautForallIntro(clauseLits, (Term[]) annot.getValue());
 			break;
 		}
 		case ":termITE": {
@@ -2949,12 +2976,14 @@ public class ProofSimplifier extends TermTransformer {
 		return subProof;
 	}
 
-	private Term convertExists(final Term[] newParams) {
+	private Term convertQuant(final Term[] newParams) {
 		final Theory theory = mSkript.getTheory();
 		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) newParams[0];
 		final Annotation varAnnot = annotatedTerm.getAnnotations()[0];
-		assert annotatedTerm.getAnnotations().length == 1 && varAnnot.getKey() == ":vars"
+		assert annotatedTerm.getAnnotations().length == 1
+				&& (varAnnot.getKey() == ":forall" || varAnnot.getKey() == ":exists")
 				&& (varAnnot.getValue() instanceof TermVariable[]);
+		final boolean isForall = varAnnot.getKey() == ":forall";
 		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
 
 		final Term subProof = annotatedTerm.getSubterm();
@@ -2969,31 +2998,34 @@ public class ProofSimplifier extends TermTransformer {
 		final Term lhs = subEquality.getParameters()[0];
 		final Term rhs = subEquality.getParameters()[1];
 
-		final Term[] skolemLhs = mProofRules.getSkolemVars(vars, lhs, false);
-		final Term[] skolemRhs = mProofRules.getSkolemVars(vars, rhs, false);
-		final Term letLhsEq = unletter.unlet(theory.let(vars, skolemLhs, subEquality));
-		final Term letLhsLhs = unletter.unlet(theory.let(vars, skolemLhs, lhs));
-		final Term letLhsRhs = unletter.unlet(theory.let(vars, skolemLhs, rhs));
-		final Term letLhsProof = unletter.unlet(theory.let(vars, skolemLhs, proof));
-		final QuantifiedFormula exLhs = (QuantifiedFormula) theory.exists(vars, lhs);
-		final Term letRhsEq = unletter.unlet(theory.let(vars, skolemRhs, subEquality));
-		final Term letRhsRhs = unletter.unlet(theory.let(vars, skolemRhs, rhs));
-		final Term letRhsLhs = unletter.unlet(theory.let(vars, skolemRhs, lhs));
-		final Term letRhsProof = unletter.unlet(theory.let(vars, skolemRhs, proof));
-		final QuantifiedFormula exRhs = (QuantifiedFormula) theory.exists(vars, rhs);
-		final Term newEquality = theory.term("=", exLhs, exRhs);
+		final Term[] skolem1 = mProofRules.getSkolemVars(vars, isForall ? lhs : rhs, isForall);
+		final Term let1Eq = unletter.unlet(theory.let(vars, skolem1, subEquality));
+		final Term let1Rhs = unletter.unlet(theory.let(vars, skolem1, rhs));
+		final Term let1Lhs = unletter.unlet(theory.let(vars, skolem1, lhs));
+		final Term let1Proof = unletter.unlet(theory.let(vars, skolem1, proof));
 
-		final Term proof1 = mProofRules.resolutionRule(letRhsRhs, mProofRules.existsElim(exRhs),
-				mProofRules.resolutionRule(letRhsLhs,
-						mProofRules.resolutionRule(letRhsEq, letRhsProof, mProofRules.iffElim1(letRhsEq)),
-						mProofRules.existsIntro(skolemRhs, exLhs)));
-		final Term proof2 = mProofRules.resolutionRule(letLhsLhs, mProofRules.existsElim(exLhs),
-				mProofRules.resolutionRule(letLhsRhs,
-						mProofRules.resolutionRule(letLhsEq, letLhsProof, mProofRules.iffElim2(letLhsEq)),
-						mProofRules.existsIntro(skolemLhs, exRhs)));
-		proof = mProofRules.resolutionRule(exLhs,
-				mProofRules.resolutionRule(exRhs, mProofRules.iffIntro1(newEquality), proof1),
-				mProofRules.resolutionRule(exRhs, proof2, mProofRules.iffIntro2(newEquality)));
+		final Term[] skolem2 = mProofRules.getSkolemVars(vars, isForall ? rhs : lhs, isForall);
+		final Term let2Eq = unletter.unlet(theory.let(vars, skolem2, subEquality));
+		final Term let2Lhs = unletter.unlet(theory.let(vars, skolem2, lhs));
+		final Term let2Rhs = unletter.unlet(theory.let(vars, skolem2, rhs));
+		final Term let2Proof = unletter.unlet(theory.let(vars, skolem2, proof));
+		final QuantifiedFormula quLhs = (QuantifiedFormula) (isForall ? theory.forall(vars, lhs)
+				: theory.exists(vars, lhs));
+		final QuantifiedFormula quRhs = (QuantifiedFormula) (isForall ? theory.forall(vars, rhs)
+				: theory.exists(vars, rhs));
+		final Term newEquality = theory.term("=", quLhs, quRhs);
+
+		final Term proof1 = mProofRules.resolutionRule(let1Rhs,
+				isForall ? mProofRules.forallElim(skolem1, quRhs) : mProofRules.existsElim(quRhs),
+				mProofRules.resolutionRule(let1Lhs,
+						mProofRules.resolutionRule(let1Eq, let1Proof, mProofRules.iffElim1(let1Eq)),
+						isForall ? mProofRules.forallIntro(quLhs) : mProofRules.existsIntro(skolem1, quLhs)));
+		final Term proof2 = mProofRules.resolutionRule(let2Lhs,
+				isForall ? mProofRules.forallElim(skolem2, quLhs) : mProofRules.existsElim(quLhs),
+				mProofRules.resolutionRule(let2Rhs,
+						mProofRules.resolutionRule(let2Eq, let2Proof, mProofRules.iffElim2(let2Eq)),
+						isForall ? mProofRules.forallIntro(quRhs) : mProofRules.existsIntro(skolem2, quRhs)));
+		proof = proveIff(newEquality, proof2, proof1);
 		return annotateProved(newEquality, proof);
 	}
 
@@ -3064,8 +3096,8 @@ public class ProofSimplifier extends TermTransformer {
 			setResult(convertCong(newParams));
 			return;
 		}
-		case ProofConstants.FN_EXISTS: {
-			setResult(convertExists(newParams));
+		case ProofConstants.FN_QUANT: {
+			setResult(convertQuant(newParams));
 			return;
 		}
 		case ProofConstants.FN_REWRITE: {
@@ -3184,79 +3216,17 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Substitute terms in forallElim and remove all :quotedQuant.
+	 * Substitute terms in forallElim.
 	 *
 	 * @param subst substitution
 	 * @param qf    universal quantifier
-	 * @return subsituted formula annotated with proof that qf implies substituted
+	 * @return substituted formula annotated with proof that qf implies substituted
 	 *         formula.
 	 */
 	private AnnotatedTerm substituteInQuantInst(final Term[] subst, final QuantifiedFormula qf) {
-		final TermVariable[] universalVars = qf.getVariables();
-		final Map<TermVariable, Term> sigma = new HashMap<>();
-
-		for (int i = 0; i < subst.length; i++) {
-			if (subst[i] != universalVars[i]) {
-				sigma.put(universalVars[i], subst[i]);
-			}
-		}
-
 		final FormulaUnLet unletter = new FormulaUnLet();
-		unletter.addSubstitutions(sigma);
-		final Term subFormula = qf.getSubformula();
-		Term[] lits;
-		if (isApplication("or", subFormula)) {
-			lits = ((ApplicationTerm) subFormula).getParameters();
-		} else {
-			lits = new Term[] { subFormula };
-		}
-		final Term[] substLitLhs = new Term[lits.length];
-		final Term[] substLitRhs = new Term[lits.length];
-		final Term[] substLitEqProofs = new Term[lits.length];
-		boolean changed = false;
-		for (int i = 0; i < lits.length; i++) {
-			substLitLhs[i] = unletter.unlet(lits[i]);
-			if (Collections.disjoint(Arrays.asList(lits[i].getFreeVars()), sigma.keySet())) {
-				substLitRhs[i] = substLitLhs[i];
-				substLitEqProofs[i] = mProofRules.refl(substLitLhs[i]);
-			} else {
-				final boolean isNeg = isApplication("not", substLitLhs[i]);
-				final Term quotedAtom = isNeg ? negate(substLitLhs[i]) : substLitLhs[i];
-				final Term atom = unquote(quotedAtom);
-				Term litProof = mProofRules.delAnnot(quotedAtom);
-				substLitRhs[i] = isNeg ? negate(atom) : atom;
-				if (isNeg) {
-					litProof = mProofRules.resolutionRule(mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, atom),
-							litProof, mProofRules.cong(substLitLhs[i], substLitRhs[i]));
-				}
-				substLitEqProofs[i] = litProof;
-				changed = true;
-			}
-		}
-		final Term rhs = lits.length == 1 ? substLitRhs[0] : mSkript.term(SMTLIBConstants.OR, substLitRhs);
-		Term proof = mProofRules.forallElim(subst, qf);
-		if (changed) {
-			Term eqProof;
-			final Term lhs;
-			if (lits.length == 1) {
-				lhs = substLitLhs[0];
-				eqProof = substLitEqProofs[0];
-			} else {
-				lhs = mSkript.term(SMTLIBConstants.OR, substLitLhs);
-				eqProof = mProofRules.cong(lhs, rhs);
-				final HashSet<Term> seen = new HashSet<>();
-				for (int i = 0; i < lits.length; i++) {
-					if (seen.add(substLitEqProofs[i])) {
-						eqProof = mProofRules.resolutionRule(
-								mSkript.term(SMTLIBConstants.EQUALS, substLitLhs[i], substLitRhs[i]),
-								substLitEqProofs[i], eqProof);
-					}
-				}
-			}
-			final Term eq = mSkript.term(SMTLIBConstants.EQUALS, lhs, rhs);
-			proof = mProofRules.resolutionRule(lhs, proof,
-					mProofRules.resolutionRule(eq, eqProof, mProofRules.iffElim2(eq)));
-		}
+		final Term rhs = unletter.unlet(qf.getTheory().let(qf.getVariables(), subst, qf.getSubformula()));
+		final Term proof = mProofRules.forallElim(subst, qf);
 		return (AnnotatedTerm) annotateProved(rhs, proof);
 	}
 
@@ -3741,6 +3711,9 @@ public class ProofSimplifier extends TermTransformer {
 					case ":exists-":
 						collectExistsElim(annotTerm);
 						break;
+					case ":forall+":
+						collectForallIntro(annotTerm);
+						break;
 					case ":or+":
 					case ":or-":
 					case ":and+":
@@ -3804,6 +3777,24 @@ public class ProofSimplifier extends TermTransformer {
 			}
 		}
 
+		private void collectForallIntro(final AnnotatedTerm annotTerm) {
+			final Term[] clause = ((ApplicationTerm) annotTerm.getSubterm()).getParameters();
+			final Term[] skolemFuns = (Term[]) annotTerm.getAnnotations()[0].getValue();
+			// clause[0]: (forall ((x...)) F)
+			// clause[1]: (not (let ((x skolem...)) F))
+			assert clause.length == 2 && isApplication("not", clause[1]);
+			final QuantifiedFormula qf = (QuantifiedFormula) clause[0];
+			assert qf.getQuantifier() == QuantifiedFormula.FORALL;
+
+			final TermVariable[] quantVars = qf.getVariables();
+			assert quantVars.length == skolemFuns.length;
+			final Term[] skolemTerms = mProofRules.getSkolemVars(quantVars, qf.getSubformula(), true);
+
+			for (int i = 0; i < quantVars.length; i++) {
+				validateSkolemDef(skolemFuns[i], skolemTerms[i]);
+			}
+		}
+
 		private void collectExistsElim(final AnnotatedTerm annotTerm) {
 			final Term[] clause = ((ApplicationTerm) annotTerm.getSubterm()).getParameters();
 			final Term[] skolemFuns = (Term[]) annotTerm.getAnnotations()[0].getValue();
@@ -3814,11 +3805,11 @@ public class ProofSimplifier extends TermTransformer {
 			final QuantifiedFormula qf = (QuantifiedFormula) existsAtom;
 			assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
 
-			final TermVariable[] existentialVars = qf.getVariables();
-			assert existentialVars.length == skolemFuns.length;
-			final Term[] skolemTerms = mProofRules.getSkolemVars(existentialVars, qf.getSubformula(), false);
+			final TermVariable[] quantVars = qf.getVariables();
+			assert quantVars.length == skolemFuns.length;
+			final Term[] skolemTerms = mProofRules.getSkolemVars(quantVars, qf.getSubformula(), false);
 
-			for (int i = 0; i < existentialVars.length; i++) {
+			for (int i = 0; i < quantVars.length; i++) {
 				validateSkolemDef(skolemFuns[i], skolemTerms[i]);
 			}
 		}

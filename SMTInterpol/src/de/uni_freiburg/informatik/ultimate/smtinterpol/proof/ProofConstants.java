@@ -32,7 +32,7 @@ public interface ProofConstants {
 	public static final String FN_TAUTOLOGY = "@tautology";
 	public static final String FN_REWRITE = "@rewrite";
 	public static final String FN_MP = "@mp";
-	public static final String FN_EXISTS = "@exists";
+	public static final String FN_QUANT = "@quant";
 	public static final String FN_MATCH = "@match";
 	public static final String FN_ALLINTRO = "@allIntro";
 	public static final String FN_CONG = "@cong";
@@ -100,7 +100,6 @@ public interface ProofConstants {
 	public final static Annotation RW_STORE_OVER_STORE  = new Annotation(":storeOverStore", null);
 	public final static Annotation RW_SELECT_OVER_STORE = new Annotation(":selectOverStore", null);
 	public final static Annotation RW_STORE_REWRITE     = new Annotation(":storeRewrite", null);
-	public final static Annotation RW_FORALL_EXISTS     = new Annotation(":forallExists", null);
 	public final static Annotation RW_INTERN            = new Annotation(":intern", null);
 
 	//// ==== Tautologies ====
@@ -153,6 +152,10 @@ public interface ProofConstants {
 	public final static Annotation SPLIT_NEG_ITE_2 = new Annotation(":ite-2", null);
 
 	//// ==== Annotations with non-null value ====
+	public static Annotation getTautForallPos(final Term[] skolemFuns) {
+		return new Annotation(":forall+", skolemFuns);
+	}
+
 	public static Annotation getTautForallNeg(final Term[] subst) {
 		return new Annotation(":forall-", subst);
 	}

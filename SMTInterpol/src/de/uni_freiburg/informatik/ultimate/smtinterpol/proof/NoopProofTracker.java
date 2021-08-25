@@ -108,21 +108,17 @@ public class NoopProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public Term exists(final QuantifiedFormula quant, final Term newBody) {
+	public Term quantCong(final QuantifiedFormula quant, final Term newBody) {
 		final Theory theory = quant.getTheory();
-		return theory.exists(quant.getVariables(), newBody);
+		final boolean isForall = quant.getQuantifier() == QuantifiedFormula.FORALL;
+		return isForall ? theory.forall(quant.getVariables(), getProvedTerm(newBody))
+				: theory.exists(quant.getVariables(), getProvedTerm(newBody));
 	}
 
 	@Override
 	public Term match(final MatchTerm oldMatch, final Term newData, final Term[] newCases) {
 		final Theory theory = oldMatch.getTheory();
 		return theory.match(newData, oldMatch.getVariables(), newCases, oldMatch.getConstructors());
-	}
-
-	@Override
-	public Term forall(final QuantifiedFormula quant, final Term negNewBody) {
-		final Theory theory = quant.getTheory();
-		return theory.term("not", theory.exists(quant.getVariables(), negNewBody));
 	}
 
 	@Override

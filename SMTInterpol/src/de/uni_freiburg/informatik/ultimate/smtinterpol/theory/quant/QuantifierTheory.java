@@ -669,6 +669,10 @@ public class QuantifierTheory implements ITheory {
 			final QuantLiteral clauseAtom;
 			if (atom instanceof QuantBoundConstraint) {
 				clauseAtom = new QuantBoundConstraint(atom.getTerm(), ((QuantBoundConstraint) atom).getAffineTerm());
+			} else if (atom instanceof QuantAuxEquality) {
+				final QuantAuxEquality auxAtom = (QuantAuxEquality) atom;
+				clauseAtom = new QuantAuxEquality(auxAtom.getTerm(), auxAtom.getLhs(), auxAtom.getRhs(),
+						auxAtom.getDefinition());
 			} else {
 				clauseAtom = new QuantEquality(atom.getTerm(), ((QuantEquality) atom).getLhs(),
 						((QuantEquality) atom).getRhs());

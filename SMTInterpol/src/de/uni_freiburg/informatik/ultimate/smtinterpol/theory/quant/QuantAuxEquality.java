@@ -37,6 +37,15 @@ public class QuantAuxEquality extends QuantEquality {
 		mDefinition = definition;
 	}
 
+	/**
+	 * Get the definition for this aux equality.
+	 *
+	 * @return the definition.
+	 */
+	public Term getDefinition() {
+		return mDefinition;
+	}
+
 	@Override
 	public Term getSMTFormula(final Theory theory, final boolean quoted) {
 		// Aux literals are annotated with the defining term

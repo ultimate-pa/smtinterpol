@@ -22,7 +22,6 @@ import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -242,11 +241,11 @@ public class ProofChecker extends NonRecursive {
 	 * The proof walker that handles a {@literal @}exists application after its arguments are converted. It just calls
 	 * the walkExists function.
 	 */
-	static class ExistsWalker implements Walker {
+	static class QuantWalker implements Walker {
 		final ApplicationTerm mTerm;
 
-		public ExistsWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName().equals(ProofConstants.FN_EXISTS);
+		public QuantWalker(final ApplicationTerm term) {
+			assert term.getFunction().getName().equals(ProofConstants.FN_QUANT);
 			mTerm = term;
 		}
 
@@ -262,7 +261,7 @@ public class ProofChecker extends NonRecursive {
 		public void walk(final NonRecursive engine) {
 			final ProofChecker checker = (ProofChecker) engine;
 			final Term[] subProof = checker.stackPop();
-			checker.stackPush(checker.walkExists(mTerm, subProof), mTerm);
+			checker.stackPush(checker.walkQuant(mTerm, subProof), mTerm);
 		}
 	}
 
@@ -565,8 +564,8 @@ public class ProofChecker extends NonRecursive {
 			new ClauseWalker(proofTerm).enqueue(this);
 			break;
 
-		case ProofConstants.FN_EXISTS:
-			new ExistsWalker(proofTerm).enqueue(this);
+		case ProofConstants.FN_QUANT:
+			new QuantWalker(proofTerm).enqueue(this);
 			break;
 
 		case ProofConstants.FN_ALLINTRO:
@@ -1502,6 +1501,9 @@ public class ProofChecker extends NonRecursive {
 			result = true;
 			reportWarning("Unchecked datatype tautology rule " + tautologyApp);
 			break;
+		case ":forall+":
+			result = checkTautForallIntro(clause, (Term[]) annot.getValue());
+			break;
 		case ":forall-":
 			result = checkTautForallElim(clause, (Term[]) annot.getValue());
 			break;
@@ -1972,7 +1974,47 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Check the tautology that introduces an exists.
+	 * Check the tautology that introduces a forall.
+	 *
+	 * @param clause     the clause to check
+	 * @param skolemFuns the Skolemization used in the tautology.
+	 * @return true iff the clause is well-formed.
+	 */
+	boolean checkTautForallIntro(final Term[] clause, final Term[] skolemFuns) {
+		// clause[0]: (forall ((x...)) F)
+		// clause[1]: (not (let ((x skolem...)) F))
+		if (clause.length != 2) {
+			return false;
+		}
+		if (!(clause[0] instanceof QuantifiedFormula)) {
+			return false;
+		}
+		final QuantifiedFormula qf = (QuantifiedFormula) clause[0];
+		if (qf.getQuantifier() != QuantifiedFormula.FORALL) {
+			return false;
+		}
+
+		final TermVariable[] universalVars = qf.getVariables();
+		final Term subformula = qf.getSubformula();
+		if (universalVars.length != skolemFuns.length) {
+			return false;
+		}
+		for (int i = 0; i < universalVars.length; i++) {
+			final Term sk = skolemFuns[i];
+			if (!(sk instanceof ApplicationTerm)) {
+				return false;
+			}
+			final ApplicationTerm skApp = (ApplicationTerm) sk;
+			if (!compareSkolemDef(skApp, universalVars[i], qf)) {
+				return false;
+			}
+		}
+		final Term expected = mSkript.let(universalVars, skolemFuns, mSkript.term("not", subformula));
+		return clause[1] == new FormulaUnLet().unlet(expected);
+	}
+
+	/**
+	 * Check the tautology that eliminates a forall.
 	 *
 	 * @param clause the clause to check
 	 * @param subst  the substitution used in the tautology; these are currently
@@ -1998,19 +2040,13 @@ public class ProofChecker extends NonRecursive {
 		}
 		// subst must contain one substitution for each variable
 		final TermVariable[] universalVars = qf.getVariables();
-		final Map<TermVariable, Term> sigma = new HashMap<>();
 		if (universalVars.length != subst.length) {
 			return false;
 		}
-		for (int i = 0; i < subst.length; i++) {
-			if (subst[i] != universalVars[i]) {
-				sigma.put(universalVars[i], subst[i]);
-			}
-		}
 		// check result of substitution
-		final Term[] substLits = substituteInQuantClause(qf.getSubformula(), sigma);
-		final Term expected = substLits.length > 1 ? clause[1].getTheory().term("or", substLits) : substLits[0];
-		return clause[1] == expected;
+		final Term subformula = qf.getSubformula();
+		final Term expected = mSkript.let(universalVars, subst, subformula);
+		return clause[1] == new FormulaUnLet().unlet(expected);
 	}
 
 	/**
@@ -2310,32 +2346,35 @@ public class ProofChecker extends NonRecursive {
 		return new Term[] { newImplication };
 	}
 
-	Term[] walkExists(final ApplicationTerm existsApp, final Term[] subProof) {
+	Term[] walkQuant(final ApplicationTerm quantApp, final Term[] subProof) {
 		// sanity check (caller and typechecker should ensure this
-		assert existsApp.getFunction().getName() == ProofConstants.FN_EXISTS;
+		assert quantApp.getFunction().getName() == ProofConstants.FN_QUANT;
 		/* Check that subproof is an equality */
 		if (subProof == null || subProof.length != 1 || !isApplication("=", subProof[0])
 				|| ((ApplicationTerm) subProof[0]).getParameters().length != 2) {
 			// don't report errors if sub proof already failed
 			if (subProof != null) {
-				reportError("@exists on a proof of a non-equality: " + Arrays.toString(subProof));
+				reportError("@quant on a proof of a non-equality: " + Arrays.toString(subProof));
 			}
 			return null;
 		}
 
-		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) existsApp.getParameters()[0];
-		final Annotation varAnnot = annotatedTerm.getAnnotations()[0];
-		if (annotatedTerm.getAnnotations().length != 1 || varAnnot.getKey() != ":vars"
-				|| !(varAnnot.getValue() instanceof TermVariable[])) {
-			reportError("@exists with malformed annotation: " + existsApp);
+		final AnnotatedTerm annotatedTerm = (AnnotatedTerm) quantApp.getParameters()[0];
+		final Annotation quantAnnot = annotatedTerm.getAnnotations()[0];
+		if (annotatedTerm.getAnnotations().length != 1
+				|| (!quantAnnot.getKey().equals(":forall") && !quantAnnot.getKey().equals(":exists"))
+				|| !(quantAnnot.getValue() instanceof TermVariable[])) {
+			reportError("@quant with malformed annotation: " + quantApp);
 		}
-		final TermVariable[] vars = (TermVariable[]) varAnnot.getValue();
+		final boolean isForall = quantAnnot.getKey().equals(":forall");
+		final TermVariable[] vars = (TermVariable[]) quantAnnot.getValue();
 
 		/* compute the proven equality (= (exists (...) lhs) (exists (...) rhs)) */
 		final Term lhs = ((ApplicationTerm) subProof[0]).getParameters()[0];
 		final Term rhs = ((ApplicationTerm) subProof[0]).getParameters()[1];
-		final Theory theory = existsApp.getTheory();
-		final Term newEquality = theory.term("=", theory.exists(vars, lhs), theory.exists(vars, rhs));
+		final Theory theory = quantApp.getTheory();
+		final Term newEquality = theory.term("=", isForall ? theory.forall(vars, lhs) : theory.exists(vars, lhs),
+				isForall ? theory.forall(vars, rhs) : theory.exists(vars, rhs));
 		return new Term[] { newEquality };
 	}
 
@@ -3762,28 +3801,16 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Substitute variables in a given quantified clause. This also removes :quotedQuant annotations.
+	 * Substitute variables in a given quantified clause.
 	 *
-	 * @param orTerm
-	 * @param sigma
-	 * @return
+	 * @param subformula the subformula of the forall quantifier
+	 * @param sigma      the substitution to apply.
+	 * @return the clause resulting from substituting sigma in orTerm.
 	 */
-	private Term[] substituteInQuantClause(final Term orTerm, final Map<TermVariable, Term> sigma) {
+	private Term[] substituteInQuantClause(final Term subformula, final Map<TermVariable, Term> sigma) {
 		final FormulaUnLet unletter = new FormulaUnLet();
 		unletter.addSubstitutions(sigma);
-		final Term[] lits = termToClause(orTerm);
-		final Term[] substLits = new Term[lits.length];
-		for (int i = 0; i < lits.length; i++) {
-			if (Collections.disjoint(Arrays.asList(lits[i].getFreeVars()), sigma.keySet())) {
-				substLits[i] = lits[i];
-			} else {
-				final boolean isNeg = isApplication("not", lits[i]);
-				final Term atom = unquote(isNeg ? negate(lits[i]) : lits[i], false);
-				final Term substAtom = unletter.unlet(atom);
-				substLits[i] = isNeg ? negate(substAtom) : substAtom;
-			}
-		}
-		return substLits;
+		return termToClause(unletter.unlet(subformula));
 	}
 
 	/**
@@ -3855,8 +3882,8 @@ public class ProofChecker extends NonRecursive {
 			final Annotation[] annots = ((AnnotatedTerm) term).getAnnotations();
 			if (annots.length == 1) {
 				final Annotation singleAnnot = annots[0];
-				if (singleAnnot.getKey() == ":forall-" || singleAnnot.getKey() == ":exists+"
-						|| singleAnnot.getKey() == ":exists-") {
+				if (singleAnnot.getKey() == ":forall+" || singleAnnot.getKey() == ":forall-"
+						|| singleAnnot.getKey() == ":exists+" || singleAnnot.getKey() == ":exists-") {
 					if (singleAnnot.getValue() instanceof Term[]) {
 						return singleAnnot;
 					}
