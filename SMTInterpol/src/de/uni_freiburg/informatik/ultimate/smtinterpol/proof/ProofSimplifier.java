@@ -2147,8 +2147,8 @@ public class ProofSimplifier extends TermTransformer {
 		// For (div x c) we compute (1/c * x - divResult), check that it is a constant
 		// whose absolute value is less than one and that has the same sign as c.
 		final Polynomial poly = new Polynomial();
-		poly.add(divisor.inverse(), divArgs[0]);
 		poly.add(Rational.MONE, divResult);
+		poly.add(divisor.inverse(), divArgs[0]);
 		assert poly.isConstant();
 		final Rational remainder = poly.getConstant();
 		assert remainder.abs().compareTo(Rational.ONE) < 0;
@@ -2281,6 +2281,58 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
+	private Term convertRewriteDivisible(final String ruleName, final Term lhs, final Term rhs) {
+		// ((_ divisible n) x) --> (= x (* n (div x n)))
+		assert isApplication("divisible", lhs);
+		final BigInteger divisor = new BigInteger(((ApplicationTerm) lhs).getFunction().getIndices()[0]);
+		final Term arg = ((ApplicationTerm) lhs).getParameters()[0];
+		final Term proof = mProofRules.divisible(divisor, arg);
+
+		if (isApplication(SMTLIBConstants.EQUALS, rhs)) {
+			// assume that the proof is done.
+			return proof;
+		}
+
+		final Theory theory = lhs.getTheory();
+		final Rational divisorRat = Rational.valueOf(divisor, BigInteger.ONE);
+		final Term divisorTerm = divisorRat.toTerm(arg.getSort());
+		final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisorTerm);
+		final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisorTerm, divTerm);
+		final Term equalTerm = theory.term(SMTLIBConstants.EQUALS, arg, mulDivTerm);
+		final Term eqRhs = theory.term(SMTLIBConstants.EQUALS, equalTerm, rhs);
+
+		final Term proof2;
+		if (isApplication(SMTLIBConstants.FALSE, rhs)) {
+			/* divisible is rewritten to false */
+			// show ~(= x (* n (div x n)))
+			assert isApplication(SMTLIBConstants.FALSE, rhs);
+			proof2 = res(rhs,
+					res(equalTerm, mProofRules.iffIntro1(eqRhs), proveTrivialDisequality(arg, mulDivTerm)),
+					mProofRules.falseElim());
+		} else {
+			/* divisible is rewritten to true */
+			assert isApplication(SMTLIBConstants.TRUE, rhs);
+			final Term trueTerm = rhs;
+
+			final Polynomial divResultPoly = new Polynomial(arg);
+			divResultPoly.mul(divisorRat.inverse());
+			assert divResultPoly.getGcd().isIntegral() && divResultPoly.getConstant().isIntegral();
+			final Term divResult = divResultPoly.toTerm(arg.getSort());
+			final Term zero = Rational.ZERO.toTerm(arg.getSort());
+
+			// show (= x (* n (div x n)))
+			Term proofEquality = res(theory.term(SMTLIBConstants.EQUALS, divTerm, divResult),
+					proveDivWithFarkas(divTerm, divResult), proveEqWithMultiplier(new Term[] { divTerm, divResult },
+							new Term[] { arg, mulDivTerm }, divisorRat.negate()));
+			proofEquality = res(theory.term(SMTLIBConstants.EQUALS, divisorTerm, zero), proofEquality,
+					proveTrivialDisequality(divisorTerm, zero));
+			proof2 = res(trueTerm, mProofRules.trueIntro(),
+					res(equalTerm, proofEquality, mProofRules.iffIntro2(eqRhs)));
+		}
+		return res(eqRhs, proof2, res(theory.term(SMTLIBConstants.EQUALS, lhs, equalTerm), proof,
+				mProofRules.trans(lhs, equalTerm, rhs)));
+	}
+
 	private Term convertRewrite(final Term[] newParams) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) newParams[0];
 		final String rewriteRule = annotTerm.getAnnotations()[0].getKey();
@@ -2388,6 +2440,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":modulo":
 			subProof = convertRewriteModulo(rewriteRule, stmtParams[0], stmtParams[1]);
 			break;
+		case ":divisible":
+			subProof = convertRewriteDivisible(rewriteRule, stmtParams[0], stmtParams[1]);
+			break;
 		case ":storeOverStore":
 			subProof = convertRewriteStoreOverStore(stmtParams[0], stmtParams[1]);
 			break;
@@ -2397,7 +2452,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":storeRewrite":
 			subProof = convertRewriteStore(rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
-		case ":divisible":
 		default:
 			// throw new AssertionError("Unknown Rewrite Rule: " + annotTerm);
 			subProof = mProofRules.oracle(termToProofLiterals(rewriteStmt), annotTerm.getAnnotations());

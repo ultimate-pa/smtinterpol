@@ -408,7 +408,9 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + DELANNOT, new Object[] { subterm, subAnnots }), mAxiom);
 	}
 
-	public Term divisible(final Term lhs, final BigInteger divisor) {
+	public Term divisible(final BigInteger divisor, final Term lhs) {
+		assert divisor.signum() > 0;
+		assert lhs.getSort().getName().equals(SMTLIBConstants.INT);
 		return mTheory.annotatedTerm(
 				annotate(":" + DIVISIBLE, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)),
 				mAxiom);
@@ -1037,8 +1039,9 @@ public class ProofRules {
 						return;
 					}
 					case ":" + DIVISIBLE: {
-						final Term[] params = (Term[]) annots[0].getValue();
 						assert annots.length == 2;
+						final Term[] params = (Term[]) annots[0].getValue();
+						assert params.length == 1;
 						assert annots[1].getKey() == ANNOT_DIVISOR;
 						mTodo.add(")");
 						mTodo.add(annots[1].getValue());

@@ -676,6 +676,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(new FormulaUnLet().unlet(letted), isForall) };
 		}
 		case ":" + ProofRules.GTDEF: {
+			if (!theory.getLogic().isArithmetic()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			if (params.length != 2) {
@@ -686,6 +689,9 @@ public class MinimalProofChecker extends NonRecursive {
 							theory.term(SMTLIBConstants.LT, params[1], params[0])), true) };
 		}
 		case ":" + ProofRules.GEQDEF: {
+			if (!theory.getLogic().isArithmetic()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			if (params.length != 2) {
@@ -696,6 +702,9 @@ public class MinimalProofChecker extends NonRecursive {
 							theory.term(SMTLIBConstants.LEQ, params[1], params[0])), true) };
 		}
 		case ":" + ProofRules.TRICHOTOMY: {
+			if (!theory.getLogic().isArithmetic()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			if (params.length != 2) {
@@ -706,6 +715,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.LT, params[1], params[0]), true) };
 		}
 		case ":" + ProofRules.TOTAL: {
+			if (!theory.getLogic().isArithmetic()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
@@ -713,6 +725,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.LT, params[1], params[0]), true) };
 		}
 		case ":" + ProofRules.TOTALINT: {
+			if (!theory.getLogic().hasIntegers()) {
+				throw new AssertionError();
+			}
 			assert annots.length == 1;
 			final Object[] params = (Object[]) annots[0].getValue();
 			assert params.length == 2;
@@ -728,6 +743,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.LEQ, cPlusOne, x), true) };
 		}
 		case ":" + ProofRules.FARKAS: {
+			if (!theory.getLogic().isArithmetic()) {
+				throw new AssertionError();
+			}
 			final Term[] ineqs = (Term[]) annots[0].getValue();
 			assert annots.length == 2;
 			assert annots[1].getKey() == ProofRules.ANNOT_COEFFS;
@@ -742,6 +760,9 @@ public class MinimalProofChecker extends NonRecursive {
 			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
 		case ":" + ProofRules.POLYADD: {
+			if (!theory.getLogic().isArithmetic()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
@@ -752,6 +773,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true) };
 		}
 		case ":" + ProofRules.POLYMUL: {
+			if (!theory.getLogic().isArithmetic()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
@@ -762,6 +786,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true) };
 		}
 		case ":" + ProofRules.TOREALDEF: {
+			if (!theory.getLogic().isIRA()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 1;
@@ -770,6 +797,9 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) };
 		}
 		case ":" + ProofRules.DIVIDEDEF: {
+			if (!theory.getLogic().hasReals()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			final Term divide = theory.term(SMTLIBConstants.DIVIDE, params);
@@ -787,13 +817,39 @@ public class MinimalProofChecker extends NonRecursive {
 			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
 		case ":" + ProofRules.MINUSDEF: {
+			if (!theory.getLogic().isArithmetic()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			final Term lhs = theory.term(SMTLIBConstants.MINUS, params);
 			final Term rhs = ProofRules.computePolyMinus(lhs);
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) };
 		}
+		case ":" + ProofRules.DIVISIBLE: {
+			assert annots.length == 2;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 1;
+			assert annots[1].getKey() == ProofRules.ANNOT_DIVISOR;
+			final BigInteger divisor = (BigInteger) annots[1].getValue();
+			final Term arg = params[0];
+			if (!theory.getLogic().hasIntegers()
+					|| divisor.signum() <= 0 || !arg.getSort().getName().equals(SMTLIBConstants.INT)) {
+				throw new AssertionError();
+			}
+			final Term divisorTerm = Rational.valueOf(divisor, BigInteger.ONE).toTerm(arg.getSort());
+			final Term divisibleTerm = theory.term(SMTLIBConstants.DIVISIBLE, new String[] { divisor.toString() }, null,
+					arg);
+			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisorTerm);
+			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisorTerm, divTerm);
+			final Term equalTerm = theory.term(SMTLIBConstants.EQUALS, arg, mulDivTerm);
+			return new ProofLiteral[] {
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisibleTerm, equalTerm), true) };
+		}
 		case ":" + ProofRules.TOINTLOW: {
+			if (!theory.getLogic().isIRA()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 1;
@@ -802,6 +858,9 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, toRealToInt, arg), true) };
 		}
 		case ":" + ProofRules.TOINTHIGH: {
+			if (!theory.getLogic().isIRA()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 1;
@@ -812,6 +871,9 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, toRealPlusOne), true) };
 		}
 		case ":" + ProofRules.DIVLOW: {
+			if (!theory.getLogic().hasIntegers()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
@@ -824,6 +886,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
 		}
 		case ":" + ProofRules.DIVHIGH: {
+			if (!theory.getLogic().hasIntegers()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
@@ -838,6 +903,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
 		}
 		case ":" + ProofRules.MODDEF: {
+			if (!theory.getLogic().hasIntegers()) {
+				throw new AssertionError();
+			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
@@ -852,6 +920,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
 		}
 		case ":" + ProofRules.SELECTSTORE1: {
+			if (!theory.getLogic().isArray()) {
+				throw new AssertionError();
+			}
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
 
@@ -862,6 +933,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, selectStore, params[2]), true) };
 		}
 		case ":" + ProofRules.SELECTSTORE2: {
+			if (!theory.getLogic().isArray()) {
+				throw new AssertionError();
+			}
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
 
@@ -874,6 +948,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[1], params[3]), true) };
 		}
 		case ":" + ProofRules.EXTDIFF: {
+			if (!theory.getLogic().isArray()) {
+				throw new AssertionError();
+			}
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
 
@@ -886,6 +963,9 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, select0, select1), false) };
 		}
 		case ":" + ProofRules.CONST: {
+			if (!theory.getLogic().isArray()) {
+				throw new AssertionError();
+			}
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
 			final Term value = params[0];
@@ -908,7 +988,7 @@ public class MinimalProofChecker extends NonRecursive {
 		assert appTerm.getFunction().getName() == ProofRules.PREFIX + ProofRules.ASSUME;
 		assert params.length == 1;
 		if (!mAssertions.contains(params[0])) {
-			reportWarning("Unknown assumption: " + params[0]);
+			throw new AssertionError("Unknown assumption: " + params[0]);
 		}
 		return new ProofLiteral[] { new ProofLiteral(params[0], true) };
 	}
