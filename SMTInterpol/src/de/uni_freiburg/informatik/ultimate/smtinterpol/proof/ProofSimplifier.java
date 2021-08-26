@@ -49,6 +49,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
@@ -2669,97 +2670,279 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Checks whether {@code term1} is {@code (store term2 idx val)} or {@code term2} is {@code (store term1 idx val)}.
+	 * Check if array[weakIdx] is value, either because value is a congruent select
+	 * term, or array is a constant array on value. Prove the equality
+	 * {@code array[weakIdx] = value}.
 	 *
-	 * @param term0
-	 *            the first array term.
-	 * @param term1
-	 *            the second array term
-	 * @return 0 if term0 is a store over term1, 1 if vice versa. -1 if neither.
+	 * @param value            the value that should be equal to array[weakIdx].
+	 * @param array            the array.
+	 * @param weakIdx          the index of the array select.
+	 * @param allEqualities    the known equalities from the lemma.
+	 * @param neededEqualities the needed equalities that the proof depends on.
+	 *
+	 * @return the proof for {@code array[weakIdx] = value}, or null if no such
+	 *         proof exists. The proof may use some equalities that are added to
+	 *         neededEqualities.
 	 */
-	private int checkStoreIndex(final Term term0, final Term term1) {
-		if (isApplication("store", term0)) {
-			final Term[] storeArgs = ((ApplicationTerm) term0).getParameters();
-			if (storeArgs[0] == term1) {
-				return 0;
+	private Term proveSelectConst(final Term value, final Term array, final Term weakIdx,
+			final Set<SymmetricPair<Term>> allEqualities, final Set<Term> neededEqualities) {
+		final Theory theory = value.getTheory();
+		// Check if value is (select array idx2) with (weakIdx = idx2) in equalities or
+		// syntactically equal.
+		if (isApplication("select", value)) {
+			final Term[] args = ((ApplicationTerm) value).getParameters();
+			if (args[0] == array) {
+				if (args[1] == weakIdx) {
+					return mProofRules.refl(value);
+				}
+				if (allEqualities.contains(new SymmetricPair<>(weakIdx, args[1]))) {
+					neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, array, array));
+					neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, weakIdx, args[1]));
+					return mProofRules.cong(theory.term(SMTLIBConstants.SELECT, array, weakIdx), value);
+				}
 			}
 		}
-		if (isApplication("store", term1)) {
-			final Term[] storeArgs = ((ApplicationTerm) term1).getParameters();
-			if (storeArgs[0] == term0) {
-				return 1;
-			}
+		// Check if array is (const value)
+		if (isApplication(SMTLIBConstants.CONST, array) && ((ApplicationTerm) array).getParameters()[0] == value) {
+			return mProofRules.constArray(value, weakIdx);
 		}
-		return -1;
+		return null;
 	}
 
+	/**
+	 * Prove {@code (select arrayLeft weakIdx) = (select arrayRight weakIdx)}, using
+	 * transitivity and some symmetry rules. It assumes that value1 = value2 is a
+	 * equality that can just be added to neededEqualities.
+	 *
+	 * @param arrayLeft        the left array of the step.
+	 * @param value1           the side of the select equality that matches the left
+	 *                         select.
+	 * @param value2           the side of the select equality that matches the
+	 *                         right select.
+	 * @param arrayRight       the right array of the step.
+	 * @param weakIdx          the weak path index.
+	 * @param proofLeft        proof for {@pre (select arrayLeft weakIdx) = value1}.
+	 * @param proofRight       proof for {@pre (select arrayRight weakIdx) =
+	 *                         value2}.
+	 * @param neededEqualities a set into which needed equalities are added.
+	 * @return the proof for the equality between the two selects. The proof uses
+	 *         the equality between value1 and value2, which it adds to
+	 *         neededEqualities.
+	 */
+	private Term proveSelectPathTrans(final Term arrayLeft, final Term value1, final Term value2, final Term arrayRight,
+			final Term weakIdx, final Term proofLeft, final Term proofRight,
+			final Set<Term> neededEqualities) {
+		final Theory theory = arrayLeft.getTheory();
+		final Term selectLeft = theory.term(SMTLIBConstants.SELECT, arrayLeft, weakIdx);
+		final Term selectRight = theory.term(SMTLIBConstants.SELECT, arrayRight, weakIdx);
+		final LinkedHashSet<Term> transChain = new LinkedHashSet<>();
+		transChain.add(selectLeft);
+		transChain.add(value1);
+		transChain.add(value2);
+		transChain.add(selectRight);
+		Term proof = null;
+		if (transChain.size() > 2) {
+			proof = mProofRules.trans(transChain.toArray(new Term[transChain.size()]));
+		}
+		if (selectLeft != value1) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, selectLeft, value1), proofLeft, proof);
+		}
+		if (value1 != value2) {
+			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, value1, value2));
+		}
+		if (selectRight != value2) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, value2, selectRight),
+					mProofRules.symm(value2, selectRight), proof);
+			proof = res(theory.term(SMTLIBConstants.EQUALS, selectRight, value2), proofRight, proof);
+		}
+		return proof;
+	}
 
 	/**
-	 * Check if each step in an array path is valid. This means, for each pair of consecutive terms, either there is a
-	 * strong path between the two, or there exists a select path explaining element equality of array terms at the weak
-	 * path index, or it is a weak store step, or a congruence. This reports errors using reportError.
+	 * Prove for a step in a weak array path that
+	 * {@code (select arrayLeft weakIdx) = (select arrayRight weakIdx)}, for the
+	 * case that there is an explicit select equality (or the edge-case where this
+	 * explicit select equality would be trivial. A select equality is an equality
+	 * of the form {@code (select arrayLeft idx1) = (select arrayRight idx2)}, where
+	 * an equality between weakIdx and idx1 resp. idx2 is either trivial or in the
+	 * equalities set. In case arrayLeft is the term {@pre (const v)} the left-hand
+	 * side of the equality can be simply {@pre v}, similarly for arrayRight.
 	 *
-	 * @param weakIdx
-	 *            the weak path index or null for subpaths.
-	 * @param path
-	 *            the path to check.
-	 * @param equalities
-	 *            the equality literals from the clause.
-	 * @param disequalities
-	 *            the index disequality literals from the clause.
-	 * @param weakPaths
-	 *            the weak paths (given by their weak index) needed for the main path in array lemmas, null if path is
-	 *            not the main path.
+	 * @param arrayLeft        the left array of the step.
+	 * @param arrayRight       the right array of the step.
+	 * @param weakIdx          the weak path index.
+	 * @param equalities       the equality literals from the clause.
+	 * @param neededEqualities a set into which needed equalities are added.
+	 * @return the proof for the equality between the two selects. The proof uses
+	 *         the equality between the select index in the equality and weakIndex,
+	 *         which it adds to neededEqualities. It returns null if this is not a
+	 *         store step.
 	 */
-	Term proveSelectOverPath(final Term weakIdx, final Term[] path,
+	private Term proveSelectPath(final Term arrayLeft, final Term arrayRight, final Term weakIdx,
+			final Set<SymmetricPair<Term>> allEqualities, final Set<Term> neededEqualities) {
+		for (final SymmetricPair<Term> candidateEquality : allEqualities) {
+			// Check for each candidate equality if it explains a select edge for a
+			// weakeq-ext lemma.
+			// We check if termPair.first[weakIdx]] equals one side of the equality and
+			// termPair.second[weakIdx]
+			// equals the other side.
+			final Term first = candidateEquality.getFirst();
+			final Term second = candidateEquality.getSecond();
+			Term eq1 = proveSelectConst(first, arrayLeft, weakIdx, allEqualities, neededEqualities);
+			Term eq2 = proveSelectConst(second, arrayRight, weakIdx, allEqualities, neededEqualities);
+			if (eq1 != null && eq2 != null) {
+				return proveSelectPathTrans(arrayLeft, first, second, arrayRight, weakIdx, eq1, eq2,
+						neededEqualities);
+			}
+			eq1 = proveSelectConst(second, arrayLeft, weakIdx, allEqualities, neededEqualities);
+			eq2 = proveSelectConst(first, arrayRight, weakIdx, allEqualities, neededEqualities);
+			if (eq1 != null && eq2 != null) {
+				return proveSelectPathTrans(arrayLeft, second, first, arrayRight, weakIdx, eq1, eq2,
+						neededEqualities);
+			}
+		}
+		// No candidate equality was found but it could also be a select-const edge
+		// where a[i] and v are
+		// syntactically equal, in which case there is no equality.
+		if (isApplication(SMTLIBConstants.CONST, arrayLeft)) {
+			final Term value = ((ApplicationTerm) arrayLeft).getParameters()[0];
+			final Term eq2 = proveSelectConst(value, arrayRight, weakIdx, allEqualities, neededEqualities);
+			if (eq2 != null) {
+				return proveSelectPathTrans(arrayLeft, value, value, arrayRight, weakIdx,
+						mProofRules.constArray(value, weakIdx), eq2, neededEqualities);
+			}
+		}
+		if (isApplication(SMTLIBConstants.CONST, arrayRight)) {
+			final Term value = ((ApplicationTerm) arrayRight).getParameters()[0];
+			final Term eq1 = proveSelectConst(value, arrayLeft, weakIdx, allEqualities, neededEqualities);
+			if (eq1 != null) {
+				return proveSelectPathTrans(arrayLeft, value, value, arrayRight, weakIdx, eq1,
+						mProofRules.constArray(value, weakIdx), neededEqualities);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Try to prove for a step in a weak array path that
+	 * {@code (select arrayLeft weakIdx) = (select arrayRight weakIdx)}, for the
+	 * case that the left array is a store of the right array and the disequality
+	 * between the store index and weakIdx is given. This returns null if this is
+	 * not the case.
+	 *
+	 * @param arrayLeft           the left array of the step.
+	 * @param arrayRight          the right array of the step.
+	 * @param weakIdx             the weak path index.
+	 * @param disequalities       the index disequality literals from the clause.
+	 * @param neededDisequalities a set into which needed disequalities are added.
+	 * @return the proof for the equality between the two selects. The proof uses
+	 *         the disequality between the store index and weakIndex, which it adds
+	 *         to neededDisequalities. It returns null if this is not a store step.
+	 */
+	private Term proveStoreStep(final Term arrayLeft, final Term arrayRight, final Term weakIdx,
+			final Set<SymmetricPair<Term>> disequalities, final Set<Term> neededDisequalities) {
+		if (isApplication("store", arrayLeft)) {
+			final Term[] storeArgs = ((ApplicationTerm) arrayLeft).getParameters();
+			if (storeArgs[0] == arrayRight) {
+				// this is a step from a to (store a storeIndex v). Check if storeIndex is okay.
+				final Term storeIdx = ((ApplicationTerm) arrayLeft).getParameters()[1];
+				if (disequalities.contains(new SymmetricPair<>(weakIdx, storeIdx))
+						|| proveTrivialDisequality(weakIdx, storeIdx) != null) {
+					final Term storeVal = ((ApplicationTerm) arrayLeft).getParameters()[2];
+					final Theory theory = arrayLeft.getTheory();
+					neededDisequalities.add(theory.term(SMTLIBConstants.EQUALS, storeIdx, weakIdx));
+					return mProofRules.selectStore2(arrayRight, storeIdx, storeVal, weakIdx);
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Prove for a step in a weak array path that
+	 * {@code (select arrayLeft weakIdx) = (select arrayRight weakIdx)}. In a valid
+	 * lemma for each pair of consecutive terms, either there is a strong equality
+	 * between the arrays, or it is a weak store step, or (for weakeq-ext) there
+	 * exists a select equality at indices equal to the weak path index (or one of
+	 * the arrays is constant and the equality goes to this constant value).
+	 *
+	 * @param arrayLeft           the left array of the step.
+	 * @param arrayRight          the right array of the step.
+	 * @param weakIdx             the weak path index.
+	 * @param selectLeft          the term {@code (select arrayLeft weakIdx)}.
+	 * @param selectRight         the term {@code (select arrayRight weakIdx)}.
+	 * @param equalities          the equality literals from the clause.
+	 * @param disequalities       the index disequality literals from the clause.
+	 * @param neededEqualities    a set into which needed equalities are added.
+	 * @param neededDisequalities a set into which needed disequalities are added.
+	 * @return the proof for the equality between the two selects. The proof may use
+	 *         some trivial (dis)equalities or some from (dis)equalities set, in
+	 *         which case they are added to the needed(Dis)Equalities set.
+	 */
+	private Term proveSelectOverPathStep(final Term arrayLeft, final Term arrayRight, final Term weakIdx,
+			final Term selectLeft, final Term selectRight,
+			final Set<SymmetricPair<Term>> equalities, final Set<SymmetricPair<Term>> disequalities,
+			final Set<Term> neededEqualities, final Set<Term> neededDisequalities) {
+		final Theory theory = arrayLeft.getTheory();
+		/* check for strong path first */
+		if (equalities.contains(new SymmetricPair<>(arrayLeft, arrayRight))) {
+			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, arrayLeft, arrayRight));
+			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, weakIdx, weakIdx));
+			return mProofRules.cong(selectLeft, selectRight);
+		}
+		/* check for weak store step */
+		Term proof = proveStoreStep(arrayLeft, arrayRight, weakIdx, disequalities, neededDisequalities);
+		if (proof != null) {
+			return proof;
+		}
+		proof = proveStoreStep(arrayRight, arrayLeft, weakIdx, disequalities, neededDisequalities);
+		if (proof != null) {
+			return res(theory.term(SMTLIBConstants.EQUALS, selectRight, selectLeft),
+					proof, mProofRules.symm(selectLeft, selectRight));
+		}
+		/*
+		 * check for select path with select indices equal to weakIdx, both trivially
+		 * equal and proven equal by a strong path
+		 */
+		return proveSelectPath(arrayLeft, arrayRight, weakIdx, equalities, neededEqualities);
+	}
+
+	/**
+	 * Prove for a weak array path that
+	 * {@code (select path[0] weakIdx) = (select path[last] weakIdx)}. In a valid
+	 * lemma for each pair of consecutive terms, either there is a strong equality
+	 * between the arrays, or it is a weak store step, or (for weakeq-ext) there
+	 * exists a select equality at indices equal to the weak path index (or one of
+	 * the arrays is constant and the equality goes to this constant value).
+	 *
+	 * @param weakIdx             the weak path index.
+	 * @param path                the path to prove.
+	 * @param equalities          the equality literals from the clause.
+	 * @param disequalities       the index disequality literals from the clause.
+	 * @param neededEqualities    a set into which needed equalities are added.
+	 * @param neededDisequalities a set into which needed disequalities are added.
+	 * @return the proof for the equality between the selects. The proof may use
+	 *         some trivial (dis)equalities or some from (dis)equalities set, in
+	 *         which case they are added to the needed(Dis)Equalities set.
+	 */
+	private Term proveSelectOverPath(final Term weakIdx, final Term[] path,
 			final Set<SymmetricPair<Term>> equalities, final Set<SymmetricPair<Term>> disequalities,
 			final Set<Term> neededEqualities, final Set<Term> neededDisequalities) {
 		// note that a read-const-weakeq path can have length 1
 		assert path.length >= 1;
 		final Theory theory = path[0].getTheory();
 		final Term[] selectChain = new Term[path.length];
-		final Term[] proofSelectEq = new Term[path.length - 1];
 		for (int i = 0; i < path.length; i++) {
 			selectChain[i] = theory.term(SMTLIBConstants.SELECT, path[i], weakIdx);
-		}
-		for (int i = 0; i < path.length - 1; i++) {
-			final SymmetricPair<Term> pair = new SymmetricPair<>(path[i], path[i + 1]);
-			/* check for strong path first */
-			if (equalities.contains(pair)) {
-				proofSelectEq[i] = mProofRules.cong(selectChain[i], selectChain[i + 1]);
-				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, path[i], path[i + 1]));
-				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, weakIdx, weakIdx));
-				continue;
-			}
-			/* check for weak store step */
-			final int storePos = checkStoreIndex(path[i], path[i+1]);
-			if (storePos >= 0) {
-				// this is a step from a to (store a storeIndex v). Check if storeIndex is okay.
-				final Term storeTerm = path[i + storePos];
-				final Term storeIdx = ((ApplicationTerm) storeTerm).getParameters()[1];
-				if (disequalities.contains(new SymmetricPair<>(weakIdx, storeIdx))
-						|| proveTrivialDisequality(weakIdx, storeIdx) != null) {
-					final Term storeVal = ((ApplicationTerm) storeTerm).getParameters()[2];
-					neededDisequalities.add(theory.term(SMTLIBConstants.EQUALS, storeIdx, weakIdx));
-					Term proof = mProofRules.selectStore2(path[i + 1 - storePos], storeIdx, storeVal, weakIdx);
-					if (storePos == 1) {
-						proof = res(theory.term(SMTLIBConstants.EQUALS, selectChain[i + 1], selectChain[i]),
-								proof, mProofRules.symm(selectChain[i], selectChain[i + 1]));
-					}
-					proofSelectEq[i] = proof;
-					continue;
-				}
-			}
-			/* TODO check for select edge (only for weakeq-ext) */
-			throw new AssertionError();
 		}
 		if (selectChain.length == 1) {
 			return mProofRules.refl(selectChain[0]);
 		}
 		Term proof = selectChain.length > 2 ? mProofRules.trans(selectChain) : null;
 		for (int i = 0; i < path.length - 1; i++) {
-			proof = res(theory.term(SMTLIBConstants.EQUALS, selectChain[i], selectChain[i + 1]),
-					proofSelectEq[i], proof);
+			final Term subproof = proveSelectOverPathStep(path[i], path[i + 1], weakIdx, selectChain[i],
+					selectChain[i + 1], equalities, disequalities, neededEqualities, neededDisequalities);
+			proof = res(theory.term(SMTLIBConstants.EQUALS, selectChain[i], selectChain[i + 1]), subproof, proof);
 		}
 		return proof;
 	}
@@ -2888,9 +3071,129 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Convert an array lemma of type :weakeq-ext to a simplified proof.
+	 *
+	 * @param type         the lemma type
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the lemma annotation.
+	 */
+	private Term convertArrayWeakEqExtLemma(final Term[] clause, final Object[] ccAnnotation) {
+		assert ccAnnotation.length >= 3;
+		final Theory theory = clause[0].getTheory();
+		/*
+		 * weakPaths maps from a symmetric pair to the set of weak indices such that a weak path was proven for this
+		 * pair. strongPaths contains the sets of all proven strong paths.
+		 */
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		/* indexDiseqs contains all index equalities in the clause */
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		assert isApplication("=", goalEquality);
+		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+		assert goalTerms.length == 2;
+
+		/*
+		 * Check the paths in reverse order. Collect proven paths in a hash set, so that they can be used later.
+		 */
+		assert ccAnnotation.length % 2 == 1;
+		assert ccAnnotation[1] == ":subpath";
+		final Term[] mainPath = (Term[]) ccAnnotation[2];
+
+		final Term arrayLeft = mainPath[0];
+		final Term arrayRight = mainPath[mainPath.length - 1];
+		final Term diffTerm = theory.term(SMTInterpolConstants.DIFF, arrayLeft, arrayRight);
+		final Term[] mainSelectChain = new Term[mainPath.length];
+		for (int i = 0; i < mainPath.length; i++) {
+			mainSelectChain[i] = theory.term(SMTLIBConstants.SELECT, mainPath[i], diffTerm);
+		}
+		final Term selectLeftDiff =  mainSelectChain[0];
+		final Term selectRightDiff =  mainSelectChain[mainPath.length - 1];
+
+		final HashSet<SymmetricPair<Term>> weakDisequalities = new HashSet<>();
+		final HashSet<Term> neededWeakDisequalities = new HashSet<>();
+		/* Collect weak paths */
+		for (int i = 3; i < ccAnnotation.length; i += 2) {
+			assert ccAnnotation[i] == ":weakpath";
+			final Object[] weakItems = (Object[]) ccAnnotation[i + 1];
+			final Term idx = (Term) weakItems[0];
+			weakDisequalities.add(new SymmetricPair<>(idx, diffTerm));
+		}
+
+		/*
+		 * Now prove the main select chain.
+		 */
+		Term mainChainProof = mainPath.length > 2 ? mProofRules.trans(mainSelectChain) : null;
+		for (int i = 0; i < mainPath.length - 1; i++) {
+			Term proofSelectEq;
+			final SymmetricPair<Term> pair = new SymmetricPair<>(mainPath[i], mainPath[i + 1]);
+			/* check for strong path first */
+			if (allEqualities.containsKey(pair)) {
+				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, mainPath[i], mainPath[i + 1]));
+				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, diffTerm, diffTerm));
+				proofSelectEq = mProofRules.cong(mainSelectChain[i], mainSelectChain[i + 1]);
+			} else {
+				proofSelectEq = proveStoreStep(mainPath[i], mainPath[i + 1], diffTerm, weakDisequalities,
+						neededWeakDisequalities);
+				if (proofSelectEq == null) {
+					proofSelectEq = proveStoreStep(mainPath[i + 1], mainPath[i], diffTerm, weakDisequalities,
+							neededWeakDisequalities);
+					proofSelectEq = res(theory.term(SMTLIBConstants.EQUALS, mainSelectChain[i + 1], mainSelectChain[i]),
+							proofSelectEq, mProofRules.symm(mainSelectChain[i], mainSelectChain[i + 1]));
+				}
+			}
+			mainChainProof = res(theory.term(SMTLIBConstants.EQUALS, mainSelectChain[i], mainSelectChain[i + 1]),
+					proofSelectEq, mainChainProof);
+		}
+
+		/* Now combine with the weak paths */
+		for (int i = 3; i < ccAnnotation.length; i += 2) {
+			assert ccAnnotation[i] == ":weakpath";
+			final Object[] weakItems = (Object[]) ccAnnotation[i + 1];
+			final Term idx = (Term) weakItems[0];
+			final Term[] weakPath = (Term[]) weakItems[1];
+
+			/* check end points */
+			assert arrayLeft == weakPath[0] && arrayRight == weakPath[weakPath.length - 1];
+			final Term indexDiseq = theory.term(SMTLIBConstants.EQUALS, idx, diffTerm);
+			final boolean changed = neededWeakDisequalities.remove(indexDiseq);
+			assert changed;
+
+			final Term selectLeftIdx = theory.term(SMTLIBConstants.SELECT, arrayLeft, idx);
+			final Term selectRightIdx = theory.term(SMTLIBConstants.SELECT, arrayRight, idx);
+			Term subproof = proveSelectOverPath(idx, weakPath,
+					allEqualities.keySet(), allDisequalities.keySet(), neededEqualities, neededDisequalities);
+			subproof = res(theory.term(SMTLIBConstants.EQUALS, selectLeftIdx, selectRightIdx),
+					subproof, mProofRules.trans(selectLeftDiff, selectLeftIdx, selectRightIdx, selectRightDiff));
+			subproof = res(theory.term(SMTLIBConstants.EQUALS, selectLeftDiff, selectLeftIdx),
+					mProofRules.cong(selectLeftDiff, selectLeftIdx), subproof);
+			subproof = res(theory.term(SMTLIBConstants.EQUALS, selectRightIdx, selectRightDiff),
+					mProofRules.cong(selectRightIdx, selectRightDiff), subproof);
+			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, arrayLeft, arrayLeft));
+			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, arrayRight, arrayRight));
+			subproof = res(theory.term(SMTLIBConstants.EQUALS, diffTerm, idx), mProofRules.symm(diffTerm, idx),
+					subproof);
+			mainChainProof = res(indexDiseq, mainChainProof, subproof);
+		}
+		assert neededWeakDisequalities.isEmpty();
+
+		/* Build the main proof:
+		 * use extensionality and equality on select is proved by transitivity over the main path.
+		 */
+		Term proof = mProofRules.extDiff(arrayLeft, arrayRight);
+		proof = res(theory.term("=", selectLeftDiff, selectRightDiff), mainChainProof, proof);
+		neededDisequalities.add(theory.term("=", arrayLeft, arrayRight));
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
 	 * Convert an instantiation lemma to a minimal proof.
 	 *
-	 * @param clause       the clause to convert
+	 * @param clause         the clause to convert
 	 * @param instAnnotation the argument of the :inst annotation.
 	 */
 	private Term convertInstLemma(final Term[] clause, final Object[] quantAnnotation) {
@@ -2952,6 +3255,9 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":read-over-weakeq":
 			subProof = convertArraySelectWeakEqLemma(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":weakeq-ext":
+			subProof = convertArrayWeakEqExtLemma(clause, (Object[]) lemmaAnnotation);
 			break;
 		case ":read-const-weakeq":
 			subProof = convertArraySelectConstWeakEqLemma(clause, (Object[]) lemmaAnnotation);
