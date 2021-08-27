@@ -140,29 +140,6 @@ public class ProofTracker implements IProofTracker{
 	}
 
 	@Override
-	public Term orMonotony(final Term a, final Term[] b) {
-		assert b.length > 1;
-		final List<Term> impProofs = new ArrayList<>();
-		impProofs.add(getProof(a));
-		final Term[] params = new Term[b.length];
-		for (int i = 0; i < b.length; i++) {
-			final Term proofB = getProof(b[i]);
-			if (!isReflexivity(proofB)) {
-				impProofs.add(proofB);
-			}
-			params[i] = getProvedTerm(b[i]);
-		}
-		final Theory theory = a.getTheory();
-		final Term proof;
-		if (impProofs.size() == 1) {
-			proof = impProofs.get(0);
-		} else {
-			proof = theory.term(ProofConstants.FN_ORMONOTONY, impProofs.toArray(new Term[impProofs.size()]));
-		}
-		return buildProof(proof, theory.term("or", params));
-	}
-
-	@Override
 	public Term modusPonens(final Term asserted, final Term simpFormula) {
 		final Term simpProof = getProof(simpFormula);
 		if (isReflexivity(simpProof)) {

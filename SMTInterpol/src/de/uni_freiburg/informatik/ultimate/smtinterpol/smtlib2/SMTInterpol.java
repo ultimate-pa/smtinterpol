@@ -170,7 +170,6 @@ public class SMTInterpol extends NoopScript {
 					declareInternalPolymorphicFunction(theory, ProofConstants.FN_REFL, polySort, polySort, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_TRANS, proof2, proof, leftassoc);
 					declareInternalFunction(theory, ProofConstants.FN_CONG, proof2, proof, leftassoc);
-					declareInternalFunction(theory, ProofConstants.FN_ORMONOTONY, proof2, proof, leftassoc);
 					declareInternalFunction(theory, ProofConstants.FN_QUANT, proof1, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_ALLINTRO, proof1, proof, 0);
 					declareInternalFunction(theory, ProofConstants.FN_MP, proof2, proof, 0);

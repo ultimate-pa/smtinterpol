@@ -36,7 +36,6 @@ public interface ProofConstants {
 	public static final String FN_MATCH = "@match";
 	public static final String FN_ALLINTRO = "@allIntro";
 	public static final String FN_CONG = "@cong";
-	public static final String FN_ORMONOTONY = "@orMonotony";
 	public static final String FN_TRANS = "@trans";
 	public static final String FN_REFL = "@refl";
 	public static final String FN_ASSERTED = "@asserted";
@@ -140,17 +139,6 @@ public interface ProofConstants {
 	public final static Annotation AUX_MATCH_CASE        = new Annotation(":matchCase", null);
 	public final static Annotation AUX_MATCH_DEFAULT     = new Annotation(":matchDefault", null);
 
-	//// ==== Structural splitting constants ====
-	public final static Annotation SPLIT_NEG_OR    = new Annotation(":notOr", null);
-	public final static Annotation SPLIT_POS_XOR_1 = new Annotation(":xor+1", null);
-	public final static Annotation SPLIT_POS_XOR_2 = new Annotation(":xor+2", null);
-	public final static Annotation SPLIT_NEG_XOR_1 = new Annotation(":xor-1", null);
-	public final static Annotation SPLIT_NEG_XOR_2 = new Annotation(":xor-2", null);
-	public final static Annotation SPLIT_POS_ITE_1 = new Annotation(":ite+1", null);
-	public final static Annotation SPLIT_POS_ITE_2 = new Annotation(":ite+2", null);
-	public final static Annotation SPLIT_NEG_ITE_1 = new Annotation(":ite-1", null);
-	public final static Annotation SPLIT_NEG_ITE_2 = new Annotation(":ite-2", null);
-
 	//// ==== Annotations with non-null value ====
 	public static Annotation getTautForallPos(final Term[] skolemFuns) {
 		return new Annotation(":forall+", skolemFuns);
@@ -165,6 +153,6 @@ public interface ProofConstants {
 	}
 
 	public static Annotation getTautExistsPos(final Term[] newVars) {
-		return new Annotation(":exists+", newVars); // Implication rewrite
+		return new Annotation(":exists+", newVars);
 	}
 }

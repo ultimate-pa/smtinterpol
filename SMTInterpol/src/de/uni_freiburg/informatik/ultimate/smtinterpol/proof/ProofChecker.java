@@ -210,34 +210,6 @@ public class ProofChecker extends NonRecursive {
 		}
 	}
 
-	static class OrMonotonyWalker implements Walker {
-		final ApplicationTerm mTerm;
-
-		public OrMonotonyWalker(final ApplicationTerm term) {
-			assert term.getFunction().getName() == ProofConstants.FN_ORMONOTONY;
-			mTerm = term;
-		}
-
-		public void enqueue(final ProofChecker engine) {
-			final Term[] params = mTerm.getParameters();
-			engine.enqueueWalker(this);
-			for (int i = params.length - 1; i >= 0; i--) {
-				engine.enqueueWalker(new ProofWalker(params[i]));
-			}
-		}
-
-		@Override
-		public void walk(final NonRecursive engine) {
-			final ProofChecker checker = (ProofChecker) engine;
-			final Term[] params = mTerm.getParameters();
-			final Term[][] subProofs = new Term[params.length][];
-			for (int i = params.length - 1; i >= 0; i--) {
-				subProofs[i] = checker.stackPop();
-			}
-			checker.stackPush(checker.walkOrMonotony(mTerm, subProofs), mTerm);
-		}
-	}
-
 	/**
 	 * The proof walker that handles a {@literal @}exists application after its arguments are converted. It just calls
 	 * the walkExists function.
@@ -529,10 +501,6 @@ public class ProofChecker extends NonRecursive {
 
 		case ProofConstants.FN_CONG:
 			new CongruenceWalker(proofTerm).enqueue(this);
-			break;
-
-		case ProofConstants.FN_ORMONOTONY:
-			new OrMonotonyWalker(proofTerm).enqueue(this);
 			break;
 
 		case ProofConstants.FN_TRANS:
@@ -2294,58 +2262,6 @@ public class ProofChecker extends NonRecursive {
 		return new Term[] { newEquality };
 	}
 
-	Term[] walkOrMonotony(final ApplicationTerm orMonotonyApp, final Term[][] subProofs) {
-		// sanity check (caller and typechecker should ensure this
-		assert orMonotonyApp.getFunction().getName() == ProofConstants.FN_ORMONOTONY;
-		boolean containsImplication = false;
-		for (int i = 0; i < subProofs.length; i++) {
-			/* Check that it is an implication */
-			if (subProofs[i] == null) {
-				// don't report errors if sub proof already failed
-				return null;
-			}
-			if (subProofs[i].length != 1
-					|| (!isApplication("=", subProofs[i][0]) && (i == 0 || !isApplication("=>", subProofs[i][0])))
-					|| ((ApplicationTerm) subProofs[i][0]).getParameters().length != 2) {
-				reportError("@orMonotony on a proof that is not an implication: " + Arrays.toString(subProofs[i]));
-				return null;
-			}
-		}
-		/* assume that the first equality is of the form (= x (f p1 ... pn)) */
-		final Term orTerm = ((ApplicationTerm) subProofs[0][0]).getParameters()[1];
-		if (!(orTerm instanceof ApplicationTerm)) {
-			reportError("@orMonotony applied on a term that is not an or application: " + orTerm);
-			return null;
-		}
-
-		final Term[] disjuncts = ((ApplicationTerm) orTerm).getParameters();
-		final Term[] newDisjuncts = disjuncts.clone();
-		/* check that the rewrites are of the form (=> pi qi) or (= pi qi) where the i's are increasing */
-		int offset = 0;
-		for (int i = 1; i < subProofs.length; i++) {
-			if (isApplication("=>", subProofs[i][0])) {
-				containsImplication = true;
-			}
-			final Term[] argRewrite = ((ApplicationTerm) subProofs[i][0]).getParameters();
-			/* search the parameter that is rewritten */
-			while (offset < disjuncts.length && disjuncts[offset] != argRewrite[0]) {
-				offset++;
-			}
-			if (offset == disjuncts.length) {
-				reportError("cannot find rewritten parameter in @orMonotony: " + subProofs[i] + " in " + orTerm);
-				offset = 0;
-			} else {
-				newDisjuncts[offset] = argRewrite[1];
-				offset++;
-			}
-		}
-		/* compute the proven implication or equality (=> x (f q1 ... qn)) or (= x (f q1 ... qn)) */
-		final Theory theory = orMonotonyApp.getTheory();
-		final Term newImplication = theory.term(containsImplication ? "=>" : "=",
-				((ApplicationTerm) subProofs[0][0]).getParameters()[0], theory.term("or", newDisjuncts));
-		return new Term[] { newImplication };
-	}
-
 	Term[] walkQuant(final ApplicationTerm quantApp, final Term[] subProof) {
 		// sanity check (caller and typechecker should ensure this
 		assert quantApp.getFunction().getName() == ProofConstants.FN_QUANT;
@@ -2512,9 +2428,6 @@ public class ProofChecker extends NonRecursive {
 			break;
 		case ":intern":
 			okay = checkRewriteIntern(stmtParams[0], stmtParams[1]);
-			break;
-		case ":forallExists":
-			okay = checkRewriteForallExists(stmtParams[0], stmtParams[1]);
 			break;
 		default:
 			okay = false;
@@ -3480,32 +3393,6 @@ public class ProofChecker extends NonRecursive {
 			return lhsAffine.equals(rhsAffine);
 		}
 		return false;
-	}
-
-	boolean checkRewriteForallExists(final Term lhs, final Term rhs) {
-		// lhs: (forall (vs) F)
-		// rhs: (not (exists (vs) (not F)))
-		if (!isApplication("not", rhs)) {
-			return false;
-		}
-		final Term rhsArg = ((ApplicationTerm) rhs).getParameters()[0];
-		if (!(lhs instanceof QuantifiedFormula) || !(rhsArg instanceof QuantifiedFormula)) {
-			return false;
-		}
-		final QuantifiedFormula forall = (QuantifiedFormula) lhs;
-		final QuantifiedFormula exists = (QuantifiedFormula) rhsArg;
-		if (forall.getQuantifier() != QuantifiedFormula.FORALL || exists.getQuantifier() != QuantifiedFormula.EXISTS) {
-			return false;
-		}
-		if (!Arrays.equals(forall.getVariables(), exists.getVariables())) {
-			return false;
-		}
-		final Term forallSubformula = forall.getSubformula();
-		final Term existsSubformula = exists.getSubformula();
-		if (!isApplication("not", existsSubformula)) {
-			return false;
-		}
-		return forallSubformula == ((ApplicationTerm) existsSubformula).getParameters()[0];
 	}
 
 	/**

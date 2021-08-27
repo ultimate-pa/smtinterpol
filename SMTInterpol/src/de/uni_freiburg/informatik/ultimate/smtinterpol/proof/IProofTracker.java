@@ -85,21 +85,6 @@ public interface IProofTracker {
 	public Term congruence(Term a, Term[] b);
 
 	/**
-	 * Create a proof that input term x implies {@code (or b[0] ... b[n]} from a proof for {@code (= x a)} where
-	 * {@code a = (or a[0],...,a[n])}, and an array of b each annotated with a proof that {@code (=> a[i] b[i])} (or
-	 * {@code (= a[i] b[i])}).
-	 *
-	 * @param a
-	 *            the term a=(or a[0] ... a[n]) with a proof {@code (= x a)}
-	 * @param b
-	 *            an array of terms b[i] annotated with proofs {@code (=> a[i] b[i])} (or {@code (= a[i] b[i])})
-	 * @return the term {@code (or b[0] ... b[n]} annotated with a proof
-	 *         {@code (=> (or a[0] ... a[n]) (or b[0] ... b[n])} or {@code (=> (or a[0] ... a[n]) (or b[0] ... b[n])} if
-	 *         the proofs for the b[i] contain no implication proof.
-	 */
-	public Term orMonotony(Term a, Term[] b);
-
-	/**
 	 * Lift a rewrite over an exists, i.e. convert a proof for {@code (= f g)} into a proof for
 	 * {@code (= (exists varlist f) (exists varlist g))}
 	 *

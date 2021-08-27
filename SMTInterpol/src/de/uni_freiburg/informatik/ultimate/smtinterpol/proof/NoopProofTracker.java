@@ -75,14 +75,6 @@ public class NoopProofTracker implements IProofTracker {
 	}
 
 	@Override
-	public Term orMonotony(final Term a, final Term[] b) {
-		assert a instanceof ApplicationTerm && ((ApplicationTerm) a).getFunction().getName() == "or";
-		assert b.length > 1;
-		final Theory theory = a.getSort().getTheory();
-		return theory.term("or", b);
-	}
-
-	@Override
 	public Term modusPonens(final Term asserted, final Term simpFormula) {
 		return simpFormula;
 	}
