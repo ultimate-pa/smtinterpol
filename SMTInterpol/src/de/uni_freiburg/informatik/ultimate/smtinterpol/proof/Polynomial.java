@@ -70,10 +70,6 @@ public final class Polynomial {
 			Term[] factors;
 			if (subterm instanceof ApplicationTerm && ((ApplicationTerm) subterm).getFunction().getName() == "*") {
 				factors = ((ApplicationTerm) subterm).getParameters();
-			} else if (subterm instanceof ApplicationTerm && ((ApplicationTerm) subterm).getFunction().getName() == "-"
-				&& ((ApplicationTerm) subterm).getParameters().length == 1) {
-				coefficient = Rational.MONE;
-				factors = new Term[] { ((ApplicationTerm) subterm).getParameters()[0] };
 			} else {
 				factors = new Term[]  { subterm };
 			}
@@ -91,9 +87,6 @@ public final class Polynomial {
 					monomial.put(f,  old == null ? 1 : old + 1);
 				}
 			}
-			if (coefficient == null) {
-				coefficient = Rational.ONE;
-			}
 			if (monomial.isEmpty()) {
 				monomial = Collections.emptyMap();
 			} else if (monomial.size() == 1) {
@@ -103,10 +96,6 @@ public final class Polynomial {
 			final Rational old = mSummands.get(monomial);
 			mSummands.put(monomial, old == null ? coefficient : old.add(coefficient));
 		}
-	}
-
-	public static Polynomial create(final Term term) {
-		return new Polynomial(term);
 	}
 
 	public static boolean isToReal(final Term term) {
@@ -244,14 +233,6 @@ public final class Polynomial {
 
 	public void add(final Rational factor, final Term other) {
 		add(factor, new Polynomial(other));
-	}
-
-	public void div(final Rational c) {
-		mul(c.inverse());
-	}
-
-	public void negate() {
-		mul(Rational.MONE);
 	}
 
 	public boolean isConstant() {

@@ -2396,15 +2396,12 @@ public class Clausifier {
 		return mCompiler;
 	}
 
-	public static boolean shouldFlatten(final ApplicationTerm term) {
-		return term.getFunction().getName() == "or" && term.mTmpCtr <= Config.OCC_INLINE_THRESHOLD;
-	}
-
 	private static class TrueLiteral implements ILiteral {
 		@Override
 		public ILiteral getAtom() {
 			return this;
 		}
+
 		@Override
 		public ILiteral negate() {
 			return mFALSE;
@@ -2424,6 +2421,7 @@ public class Clausifier {
 		public ILiteral getAtom() {
 			return this;
 		}
+
 		@Override
 		public ILiteral negate() {
 			return mTRUE;

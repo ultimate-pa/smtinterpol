@@ -982,18 +982,12 @@ public class ProofSimplifier extends TermTransformer {
 								mProofRules.delAnnot(rhs), mProofRules.symm(unquoteRhs, rhs));
 
 						final Term equality1 = theory.term("=", rhsArgs[0], unquoteRhs);
-						final Term proof1 = mProofRules.resolutionRule(rhsArgs[1], mProofRules.trueIntro(),
-								mProofRules.resolutionRule(rhsArgs[0],
-										mProofRules.resolutionRule(unquoteRhs, mProofRules.iffIntro1(equality1),
-												mProofRules.iffElim1(unquoteRhs)),
-										mProofRules.resolutionRule(unquoteRhs, mProofRules.iffIntro2(unquoteRhs),
-												mProofRules.iffIntro2(equality1))));
+						final Term proof1 = res(rhsArgs[1], mProofRules.trueIntro(), proveIff(equality1,
+								mProofRules.iffIntro2(unquoteRhs), mProofRules.iffElim1(unquoteRhs)));
 						Term proof = mProofRules.resolutionRule(equality1, proof1,
 								mProofRules.resolutionRule(equality2, proof2, transitivity));
 						if (needsExpand) {
-							proof = mProofRules
-									.resolutionRule(theory.term("=", lhs, rhsArgs[0]),
-											mProofRules.resolutionRule(theory.term("=", rhsArgs[0], lhs),
+							proof = res(theory.term("=", lhs, rhsArgs[0]), res(theory.term("=", rhsArgs[0], lhs),
 													mProofRules.expand(rhsArgs[0]), mProofRules.symm(lhs, rhsArgs[0])),
 											proof);
 						}
@@ -1018,15 +1012,12 @@ public class ProofSimplifier extends TermTransformer {
 			// check rewrites for trivial disequality / equality.
 			if (isApplication("false", rhs)) {
 				final Term proofNotLhs = proveTrivialDisequality(lhsParams[0], lhsParams[1]);
-				return mProofRules.resolutionRule(rhs,
-						mProofRules.resolutionRule(lhs, mProofRules.iffIntro1(theory.term("=", lhs, rhs)), proofNotLhs),
-						mProofRules.falseElim());
+				return proveIffFalse(theory.term("=", lhs, rhs), proofNotLhs);
 			} else if (isApplication("true", rhs)) {
 				// since we canonicalize SMTAffineTerms, they can only be equal if they are
 				// identical.
 				assert lhsParams[0] == lhsParams[1];
-				return mProofRules.resolutionRule(rhs, mProofRules.trueIntro(), mProofRules.resolutionRule(lhs,
-						mProofRules.refl(lhsParams[0]), mProofRules.iffIntro2(theory.term("=", lhs, rhs))));
+				return proveIffTrue(theory.term("=", lhs, rhs), mProofRules.refl(lhsParams[0]));
 			}
 
 			final Term unquoteRhs = unquote(rhs);
@@ -1365,15 +1356,11 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		if (lhsTerms.size() == 1) {
 			assert rewriteRule.equals(":eqSame") && isApplication("true", rhs);
-			Term proof = mProofRules.resolutionRule(rhs, mProofRules.trueIntro(),
-					mProofRules.iffIntro2(rewrite));
-			Term reflexivity = lhs;
+			Term proof = mProofRules.refl(lhsParams[0]);
 			if (lhsParams.length > 2) {
-				reflexivity = theory.term("=", lhsParams[0], lhsParams[0]);
-				proof = mProofRules.resolutionRule(lhs, mProofRules.equalsIntro(lhs), proof);
+				proof = res(theory.term("=", lhsParams[0], lhsParams[0]), proof, mProofRules.equalsIntro(lhs));
 			}
-			proof = mProofRules.resolutionRule(reflexivity, mProofRules.refl(lhsParams[0]), proof);
-			return proof;
+			return proveIffTrue(rewrite, proof);
 		} else {
 			assert rewriteRule.equals(":eqSimp");
 			assert isApplication("=", rhs);
@@ -1405,9 +1392,7 @@ public class ProofSimplifier extends TermTransformer {
 						proofRhsToLhs);
 				}
 			}
-			return mProofRules.resolutionRule(rhs,
-					mProofRules.resolutionRule(lhs, mProofRules.iffIntro1(rewrite), proofLhsToRhs),
-					mProofRules.resolutionRule(lhs, proofRhsToLhs, mProofRules.iffIntro2(rewrite)));
+			return proveIff(rewrite, proofLhsToRhs, proofRhsToLhs);
 		}
 	}
 
@@ -1457,6 +1442,9 @@ public class ProofSimplifier extends TermTransformer {
 			final Term proof01 = mProofRules.distinctElim(0, 1, lhs);
 			final Term proof02 = mProofRules.distinctElim(0, 2, lhs);
 			final Term proof12 = mProofRules.distinctElim(1, 2, lhs);
+			// Prove contradiction using the three equalities eq01, eq02, eq12.
+			// Do case distinction over three boolean values and show that in each case one
+			// equality needs to hold.
 			Term proof =
 					mProofRules.resolutionRule(args[0],
 							mProofRules.resolutionRule(args[1], mProofRules.iffIntro1(eq01),
@@ -1465,12 +1453,12 @@ public class ProofSimplifier extends TermTransformer {
 							mProofRules.resolutionRule(args[1], mProofRules.resolutionRule(args[2],
 									mProofRules.iffIntro1(eq12), mProofRules.iffIntro2(eq02)),
 									mProofRules.iffIntro2(eq01)));
+			// Now use the fact that one of the equalities is false, to prove that distinct
+			// is false.
 			proof = mProofRules.resolutionRule(eq01,
 					mProofRules.resolutionRule(eq02, mProofRules.resolutionRule(eq12, proof, proof12), proof02),
 					proof01);
-			proof = mProofRules.resolutionRule(lhs,
-					mProofRules.resolutionRule(rhs, mProofRules.iffIntro1(rewrite), mProofRules.falseElim()),
-					proof);
+			proof = proveIffFalse(rewrite, proof);
 			return proof;
 
 		case ":distinctSame": {
@@ -1481,16 +1469,15 @@ public class ProofSimplifier extends TermTransformer {
 				final Integer otherIdx = seen.put(args[i], i);
 				if (otherIdx != null) {
 					final Term eq = theory.term("=", args[i], args[i]);
-					return mProofRules.resolutionRule(lhs,
-							mProofRules.resolutionRule(rhs, mProofRules.iffIntro1(rewrite),
-									mProofRules.falseElim()),
-							mProofRules.resolutionRule(eq, mProofRules.refl(args[i]),
+					return proveIffFalse(rewrite,
+							res(eq, mProofRules.refl(args[i]),
 									mProofRules.distinctElim(otherIdx, i, lhs)));
 				}
 			}
 			throw new AssertionError();
 		}
 		case ":distinctBinary": {
+			// (distinct x1 ... xn) = (not (or (= x1 x2) ... (= x1 xn) ... (= xn-1 xn)))
 			final Term rhsAtom = negate(rhs);
 			if (args.length == 2) {
 				assert rhsAtom == mSkript.term("=", args[0], args[1]);
@@ -1519,9 +1506,7 @@ public class ProofSimplifier extends TermTransformer {
 			}
 			proof1 = mProofRules.resolutionRule(rhsAtom, proof1, mProofRules.notElim(rhs));
 			assert offset == rhsArgs.length;
-			return mProofRules.resolutionRule(lhs,
-					mProofRules.resolutionRule(rhs, mProofRules.iffIntro1(rewrite), proof1),
-					mProofRules.resolutionRule(rhs, proof2, mProofRules.iffIntro2(rewrite)));
+			return proveIff(rewrite, proof2, proof1);
 		}
 		}
 		throw new AssertionError();
@@ -3773,8 +3758,7 @@ public class ProofSimplifier extends TermTransformer {
 		assert isApplication("=", equality);
 		final Term[] sides = ((ApplicationTerm) equality).getParameters();
 		assert isApplication("true", sides[1]);
-		return mProofRules.resolutionRule(sides[1], mProofRules.trueIntro(),
-				mProofRules.resolutionRule(sides[0], proofLeftTrue, mProofRules.iffIntro2(equality)));
+		return res(sides[1], mProofRules.trueIntro(), res(sides[0], proofLeftTrue, mProofRules.iffIntro2(equality)));
 	}
 
 	/**
@@ -3788,8 +3772,7 @@ public class ProofSimplifier extends TermTransformer {
 		assert isApplication("=", equality);
 		final Term[] sides = ((ApplicationTerm) equality).getParameters();
 		assert isApplication("false", sides[1]);
-		return mProofRules.resolutionRule(sides[1],
-				mProofRules.resolutionRule(sides[0], mProofRules.iffIntro1(equality), proofLeftFalse),
+		return res(sides[1], res(sides[0], mProofRules.iffIntro1(equality), proofLeftFalse),
 				mProofRules.falseElim());
 	}
 
