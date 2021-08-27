@@ -81,7 +81,7 @@ public class ProofRules {
 	public final static String DELANNOT = "del!";
 
 	// rules for (non-)linear arithmetic
-	public final static String DIVISIBLE = "divisible-def";
+	public final static String DIVISIBLEDEF = "divisible-def";
 	public final static String GTDEF = ">def";
 	public final static String GEQDEF = ">=def";
 	public final static String TRICHOTOMY = "trichotomy";
@@ -98,7 +98,7 @@ public class ProofRules {
 
 	// rules for div/mod arithmetic
 	public final static String DIVLOW = "div-low";
-	public final static String DIVHIGH = "div-HIGH";
+	public final static String DIVHIGH = "div-high";
 	public final static String MODDEF = "mod-def";
 
 	// axioms for arrays
@@ -412,7 +412,7 @@ public class ProofRules {
 		assert divisor.signum() > 0;
 		assert lhs.getSort().getName().equals(SMTLIBConstants.INT);
 		return mTheory.annotatedTerm(
-				annotate(":" + DIVISIBLE, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)),
+				annotate(":" + DIVISIBLEDEF, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)),
 				mAxiom);
 	}
 
@@ -1038,7 +1038,7 @@ public class ProofRules {
 						mTodo.add("(" + DELANNOT + " (! ");
 						return;
 					}
-					case ":" + DIVISIBLE: {
+					case ":" + DIVISIBLEDEF: {
 						assert annots.length == 2;
 						final Term[] params = (Term[]) annots[0].getValue();
 						assert params.length == 1;

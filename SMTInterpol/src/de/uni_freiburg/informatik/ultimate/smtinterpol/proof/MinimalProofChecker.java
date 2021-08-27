@@ -826,7 +826,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term rhs = ProofRules.computePolyMinus(lhs);
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) };
 		}
-		case ":" + ProofRules.DIVISIBLE: {
+		case ":" + ProofRules.DIVISIBLEDEF: {
 			assert annots.length == 2;
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert params.length == 1;

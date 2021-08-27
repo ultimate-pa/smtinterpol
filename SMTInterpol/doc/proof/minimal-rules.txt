@@ -281,25 +281,23 @@ The functions / and - are defined by:
 (-def a b1 ... bn): (= (- a b1 ... bn) (+ a (* (- 1) b1)) ... (* (- 1) bn))
 
 
-(abs+ x):           (< x 0), (= (abs x) x)
-(abs- x):           (< 0 x), (= (abs x) (- x))
-(tointlow x):       (<= (to_real (to_int x)) x)
-(tointhigh x):      (<  x (+ (to_real (to_int x)) 1.0))
-(divlow x d):       (<= (* d (div x d)) x), (= d 0)
-(divhigh x d):      (<  x (+ (* d (div x d)) (abs d))), (= d 0)
+(abs-def x):         (= (abs x) (ite (< x 0) (- x) x))
+(tointlow x):        (<= (to_real (to_int x)) x)
+(tointhigh x):       (<  x (+ (to_real (to_int x)) 1.0))
+(divlow x d):        (<= (* d (div x d)) x), (= d 0)
+(divhigh x d):       (<  x (+ (* d (div x d)) (abs d))), (= d 0)
 
-(mod x d):          (= (mod x d) (- x (* d (div x d)))), (= d 0)
-(divisible d x):    (= ((_ divisible d) x) (= x (* d (div x d))))
+(mod-def x d):       (= (mod x d) (- x (* d (div x d)))), (= d 0)
+(divisible-def d x): (= ((_ divisible d) x) (= x (* d (div x d))))
 
 (>def a b):  (= (> a b) (< b a))
 (>=def a b): (= (>= a b) (<= b a))
 
-(tricho a b):  (< a b), (= a b), (< b a)
-(eqleq):       ~(= a b), (<= a b)
-(total a b): (<= a b), (< b a)
-(total-int a c): (<= a c), (<= (c+1) a)   # where a has sort int, c is an integer constant `NUMERAL` or `(- NUMERAL)`.
+(trichotomy a b):    (< a b), (= a b), (< b a)
+(total a b):         (<= a b), (< b a)
+(total-int a c):     (<= a c), (<= (c+1) a)   # where a has sort int, c is an integer constant `NUMERAL` or `(- NUMERAL)`.
 (farkas c1 (<=? a1 b1) ... cn (<=? an bn)): ~(<=? a1 b1), ..., ~(<=? an bn)
-  where c1, ...,cn are positive integers, <=? stands for < or <=,
+  where c1, ...,cn are positive integers, <=? stands for <, <=, =,
   (poly c1*(a1-b1) + ... + cn*(an-bn)) is a (rational or int) constant c.
   and c > 0 or c = 0 and at least one inequality is strict.
   If some inequalities are Int and some are Real, all inequalites are
