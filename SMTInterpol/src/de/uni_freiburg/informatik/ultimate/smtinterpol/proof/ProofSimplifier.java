@@ -1065,7 +1065,7 @@ public class ProofSimplifier extends TermTransformer {
 		assert isApplication("<=", lhs);
 		final Term[] params = ((ApplicationTerm) lhs).getParameters();
 		assert params.length == 2 && isZero(params[1]);
-		final Rational param0 = SMTAffineTerm.convertConstant((ConstantTerm) params[0]);
+		final Rational param0 = parseConstant(params[0]);
 		final boolean isTrue = rewriteRule == ":leqTrue";
 		if (isTrue) {
 			assert param0.signum() <= 0 && isApplication("true", rhs);
@@ -1133,7 +1133,7 @@ public class ProofSimplifier extends TermTransformer {
 		return clause;
 	}
 
-	Term convertRewriteEqTrueFalse(final String rewriteRule, final Term lhs, final Term rhs) {
+	private Term convertRewriteEqTrueFalse(final String rewriteRule, final Term lhs, final Term rhs) {
 		// lhs: (= l1 true ln), rhs: (not (or (not l1) ... (not ln)))
 		// lhs: (= l1 false ln), rhs: (not (or l1 ... ln))
 		// duplicated entries in lhs should be removed in rhs.
@@ -1682,7 +1682,7 @@ public class ProofSimplifier extends TermTransformer {
 			for (int i = 1; i < lhsArgs.length; i++) {
 				final Term eqZero = theory.term(SMTLIBConstants.EQUALS, lhsArgs[i], zero);
 				proofDivDef = res(eqZero, proofDivDef, proveTrivialDisequality(lhsArgs[i], zero));
-				multiplier = multiplier.mul(Polynomial.parseConstant(lhsArgs[i]));
+				multiplier = multiplier.mul(parseConstant(lhsArgs[i]));
 				mulTermArgs[i - 1] = lhsArgs[i];
 			}
 			mulTermArgs[mulTermArgs.length - 1] = lhs;
@@ -2184,7 +2184,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Term[] modArgs = ((ApplicationTerm) lhs).getParameters();
 		assert modArgs.length == 2;
 		final Term divTerm = lhs.getTheory().term("div", modArgs);
-		final Rational divisor = Polynomial.parseConstant(modArgs[1]);
+		final Rational divisor = parseConstant(modArgs[1]);
 		assert divisor != null && divisor != Rational.ZERO;
 		final Theory theory = lhs.getTheory();
 		final Sort sort = lhs.getSort();
@@ -3450,7 +3450,7 @@ public class ProofSimplifier extends TermTransformer {
 
 
 	/* === Auxiliary functions === */
-	Term unquote(final Term quotedTerm) {
+	private Term unquote(final Term quotedTerm) {
 		if (quotedTerm instanceof AnnotatedTerm) {
 			final AnnotatedTerm annTerm = (AnnotatedTerm) quotedTerm;
 			final Annotation[] annots = annTerm.getAnnotations();
@@ -3466,7 +3466,7 @@ public class ProofSimplifier extends TermTransformer {
 		throw new AssertionError("Expected quoted literal, but got " + quotedTerm);
 	}
 
-	Term unquoteExpand(final Term quotedTerm) {
+	private Term unquoteExpand(final Term quotedTerm) {
 		final ApplicationTerm auxTerm = (ApplicationTerm) ((ApplicationTerm) unquote(quotedTerm)).getParameters()[0];
 		final LambdaTerm lambda = mAuxDefs.get(auxTerm.getFunction());
 		return new FormulaUnLet()
@@ -3480,7 +3480,7 @@ public class ProofSimplifier extends TermTransformer {
 	 *            the formula to negate.
 	 * @return the negated formula.
 	 */
-	Term negate(final Term formula) {
+	private Term negate(final Term formula) {
 		if (isApplication("not", formula)) {
 			return ((ApplicationTerm) formula).getParameters()[0];
 		}
@@ -3494,12 +3494,8 @@ public class ProofSimplifier extends TermTransformer {
 	 *            the term to parse.
 	 * @returns the parsed constant, null if parse error occured.
 	 */
-	Rational parseConstant(Term term) {
-		term = SMTAffineTerm.parseConstant(term);
-		if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
-			return SMTAffineTerm.convertConstant((ConstantTerm) term);
-		}
-		return null;
+	private Rational parseConstant(final Term term) {
+		return Polynomial.parseConstant(term);
 	}
 
 	/**
@@ -3511,7 +3507,7 @@ public class ProofSimplifier extends TermTransformer {
 	 *            the term to check.
 	 * @return true if term is an application of funcSym.
 	 */
-	boolean isApplication(final String funcSym, final Term term) {
+	private boolean isApplication(final String funcSym, final Term term) {
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol func = appTerm.getFunction();
@@ -3529,7 +3525,7 @@ public class ProofSimplifier extends TermTransformer {
 	 *            the term to check.
 	 * @return true if zero is 0.
 	 */
-	boolean isZero(final Term zero) {
+	private boolean isZero(final Term zero) {
 		return zero == Rational.ZERO.toTerm(zero.getSort());
 	}
 
