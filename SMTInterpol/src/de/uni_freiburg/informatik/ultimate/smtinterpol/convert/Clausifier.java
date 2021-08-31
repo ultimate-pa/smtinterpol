@@ -276,8 +276,7 @@ public class Clausifier {
 				} else if (positive && at.getFunction() == t.mAnd) {
 					// the axioms added below already imply the auxaxiom clauses.
 					setTermFlags(term, oldFlags | assertedFlag | auxFlag);
-					// A negated or is an and of negated formulas. Hence assert all negated
-					// subformulas.
+					// Assert all subformulas of the positive and.
 					for (final Term p : at.getParameters()) {
 						final Term andElim = mTracker.tautology(t.term("or", t.term("not", term), p),
 								ProofConstants.AUX_AND_NEG);
@@ -288,8 +287,8 @@ public class Clausifier {
 				} else if (!positive && at.getFunction() == t.mImplies) {
 					// the axioms added below already imply the auxaxiom clauses.
 					setTermFlags(term, oldFlags | assertedFlag | auxFlag);
-					// A negated or is an and of negated formulas. Hence assert all negated
-					// subformulas.
+					// A negated implication is an and of the left-hand formulas and the negated
+					// right-hand formula. This asserts these formulas.
 					final Term[] params = at.getParameters();
 					for (int i = 0; i < params.length; i++) {
 						final Term p = i < params.length - 1 ? params[i] : t.term("not", params[i]);
