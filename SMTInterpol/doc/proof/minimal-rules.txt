@@ -158,28 +158,28 @@ XOR-Reasoning (TODO: this is just a first draft)
 
 (del! (! t :annot)) (= (! t :annot) t)
 
-Equality reasoning with refl and subst:
+Equality reasoning with refl, trans, symm, cong:
 
 (refl t):           (= t t)
-(subst (x1 .. xn) F t1 t1' ... tn tn'):
-      ~(let ((x1 t1) ... (xn tn)) F), ~(= t1 t1'),..., ~(= tn tn'),
-      (let ((x1 t1') ... (xn tn')) F)
-
-Alternatives:
-
 (trans a1 ... an):  (= a1 an), ~(= a1 a2), ..., ~(= an-1 an
 (symm a1 a2):       (= a1 a2), ~(= a2 a1)
-
-Remark:  (trans a1) is the reflexivity axiom: (= a1 a1)
-trans and symm can also be simulated by =+, =-:
-trans: (res (= a1 ... an) (=+ a1 ... an) (=- 1 n a1 ... an)
-symm:  (res (= a1 a2) (=+ a1 a2) (=- 2 1 a1 a2)
-
 (cong f a1 b1 ... an bn):
         (= (f a1 ... an) (f b1 .. bn)), ~(= a1 b1), ..., ~(= an bn)
 
 Cong works with every function, even logical operators.
-It can also be expressed with subst:
+
+Remark: trans and symm can also be expressed by =+, =-:
+trans: (res (= a1 ... an) (=+ a1 ... an) (=- 1 n a1 ... an)
+symm:  (=- 2 1 a1 a2)
+
+Alternatives:
+
+(subst (x1 .. xn) F t1 t1' ... tn tn'):
+      ~(let ((x1 t1) ... (xn tn)) F), ~(= t1 t1'),..., ~(= tn tn'),
+      (let ((x1 t1') ... (xn tn')) F)
+
+This would allow to prove trans/symm/cong, e.g. cong can be expressed with
+subst as:
 cong: (res (refl (f a1 ... an))
            (subst (x1...xn) (= (f a1 .. an) (f x1 .. xn)) a1 b1 ... an bn)
 
@@ -190,10 +190,12 @@ over multiple levels and quantifiers:
    (= (let ((x1 t1) ... (xn tn)) pattern)
       (let ((x1 t1') ... (xn tn')) pattern),  ~(= t1 t1'), ... ~(= tn tn')
 
-Remark:
-  (refl a) = (congsubst a)
-
 congsubst and subst can express each other using the =+-12 rules.
+
+We currently have no way to substitute equalities in quantifiers.  This
+requires to proof the equivalence between substituted quantifiers with
+exists/forall intro/elim rules, which is a bit cumbersome.  Here a subst or
+congsubst rule would help a lot.
 
 
 Arrays:
