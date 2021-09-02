@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2017 University of Freiburg
+ * Copyright (C) 2021 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -216,11 +216,11 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Check the tautology that introduces a forall.
+	 * Convert the tautology that introduces a forall.
 	 *
 	 * @param clause     the clause to check
 	 * @param skolemFuns the Skolemization used in the tautology.
-	 * @return true iff the clause is well-formed.
+	 * @return the proof of the tautology.
 	 */
 	private Term convertTautForallIntro(final Term[] clause, final Term[] skolemFuns) {
 		// clause[0]: (forall ((x...)) F)
@@ -236,12 +236,12 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Check the tautology that introduces an exists.
+	 * Convert the tautology that introduces an exists.
 	 *
 	 * @param clause the clause to check
 	 * @param subst  the substitution used in the tautology; these are currently
 	 *               fresh variables.
-	 * @return true iff the clause is well-formed.
+	 * @return the proof of the tautology.
 	 */
 	private Term convertTautForallElim(final Term[] clause, final Term[] subst) {
 		// clause[0] is (not (forall ((x1...)) F )).
@@ -265,12 +265,12 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Check the tautology that introduces an exists.
+	 * Convert the tautology that introduces an exists.
 	 *
 	 * @param clause the clause to check
 	 * @param subst  the substitution used in the tautology; these are currently
 	 *               fresh variables.
-	 * @return true iff the clause is well-formed.
+	 * @return the proof of the tautology.
 	 */
 	private Term convertTautExistsIntro(final Term[] clause, final Term[] subst) {
 		// clause[0] is (exists ((x1...)) F ).
@@ -291,11 +291,11 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Check the tautology that eliminates an exists.
+	 * Convert the tautology that eliminates an exists.
 	 *
 	 * @param clause     the clause to check
 	 * @param skolemFuns the Skolemization used in the tautology.
-	 * @return true iff the clause is well-formed.
+	 * @return the proof of the tautology.
 	 */
 	private Term convertTautExistsElim(final Term[] clause, final Term[] skolemFuns) {
 		// clause[0]: not (exists ((x...)) F

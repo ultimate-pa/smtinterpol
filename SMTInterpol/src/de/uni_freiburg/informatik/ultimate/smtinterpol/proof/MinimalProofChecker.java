@@ -802,6 +802,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
+			assert params.length >= 2;
 			final Term divide = theory.term(SMTLIBConstants.DIVIDE, params);
 			final Term[] mulParams = new Term[params.length];
 			System.arraycopy(params, 1, mulParams, 0, params.length - 1);
@@ -822,6 +823,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
+			assert params.length >= 1;
 			final Term lhs = theory.term(SMTLIBConstants.MINUS, params);
 			final Term rhs = ProofRules.computePolyMinus(lhs);
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) };
@@ -925,6 +927,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 3;
 
 			// (= (select (store a i v) i) v)
 			final Term store = theory.term(SMTLIBConstants.STORE, params[0], params[1], params[2]);
@@ -938,6 +941,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 4;
 
 			// (= (select (store a i v) j) (select a j))
 			final Term store = theory.term(SMTLIBConstants.STORE, params[0], params[1], params[2]);
@@ -953,6 +957,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 2;
 
 			// (= a b), ~(= (select a (@diff a b)) (select b (@diff a b)))
 			final Term diff = theory.term(SMTInterpolConstants.DIFF, params[0], params[1]);
@@ -968,6 +973,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 2;
 			final Term value = params[0];
 			final Term index = params[1];
 
