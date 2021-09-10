@@ -1120,11 +1120,22 @@ public class Clausifier {
 				}
 
 			}
-			if (term.getSort().isNumericSort() && !QuantUtil.isLambda(term)) {
-				final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
-				assert mat.getConstant().mEps == 0;
-				if (!mLATerms.containsKey(term)) { // createMutableAffinTerm(…) could have shared this LATerm
-					shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+			if (term.getSort().isNumericSort()) {
+				boolean needsLA = term instanceof ConstantTerm;
+				if (mQuantTheory != null && !QuantUtil.isLambda(term)) {
+					needsLA = true;
+				} else if (term instanceof ApplicationTerm) {
+					final String func = ((ApplicationTerm) term).getFunction().getName();
+					if (func.equals("+") || func.equals("-") || func.equals("*") || func.equals("to_real")) {
+						needsLA = true;
+					}
+				}
+				if (needsLA) {
+					final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
+					assert mat.getConstant().mEps == 0;
+					if (!mLATerms.containsKey(term)) { // createMutableAffinTerm(…) could have shared this LATerm
+						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+					}
 				}
 			}
 			if (term.getSort() == term.getTheory().getBooleanSort()) {

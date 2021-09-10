@@ -413,6 +413,7 @@ public class InstantiationManager {
 				if (mQuantTheory.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
 				}
+				final PiecewiseConstantModel model = new PiecewiseConstantModel(mQuantTheory);
 				final Set<List<Term>> subsForAge =
 						computeSubstitutionsForAge(interestingTermsSortedByAge.get(clause), mSubsAgeForFinalCheck);
 				for (final List<Term> subs : subsForAge) {
@@ -424,7 +425,7 @@ public class InstantiationManager {
 						continue; // Checked in the first loop over the quant clauses.
 					}
 					final Pair<InstanceValue, Boolean> candVal = fcMethod == QuantFinalCheckMethod.MODEL_BASED
-							? evaluateClauseInstanceModelBased(clause, subs)
+							? evaluateClauseInstanceModelBased(clause, subs, model)
 							: evaluateNewClauseInstanceFinalCheck(clause, subs);
 					if (candVal.getFirst() == InstanceValue.TRUE || candVal.getFirst() == InstanceValue.IRRELEVANT) {
 						continue;
@@ -934,20 +935,20 @@ public class InstantiationManager {
 	 * @param substitution
 	 * @return
 	 */
-	private InstanceValue evaluateLitInstanceModelBased(final QuantLiteral quantLit,
-			final PiecewiseConstantModelEvaluator model) {
+	private InstanceValue evaluateLitInstanceModelBased(final QuantLiteral quantLit, final List<Term> subs,
+			final PiecewiseConstantModel model) {
 		InstanceValue litValue = mDefaultValueForLitDawgs;
 		final boolean isNeg = quantLit.isNegated();
 		final QuantLiteral atom = quantLit.getAtom();
 		if (atom instanceof QuantEquality) {
 			final QuantEquality eq = (QuantEquality) atom;
 			if (!eq.getLhs().getSort().isNumericSort()) {
-				litValue = evaluateCCEqualityModelBased(eq, model);
+				litValue = evaluateCCEqualityModelBased(eq, subs, model);
 			} else {
-				litValue = evaluateLAEqualityModelBased(eq, model);
+				litValue = evaluateLAEqualityModelBased(eq, subs, model);
 			}
 		} else {
-			litValue = evaluateBoundConstraintModelBased((QuantBoundConstraint) atom, model);
+			litValue = evaluateBoundConstraintModelBased((QuantBoundConstraint) atom, subs, model);
 		}
 
 		if (isNeg) {
@@ -1346,7 +1347,7 @@ public class InstantiationManager {
 	}
 
 	private Pair<InstanceValue, Boolean> evaluateClauseInstanceModelBased(final QuantClause quantClause,
-			final List<Term> substitution) {
+			final List<Term> substitution, final PiecewiseConstantModel model) {
 		assert !mClauseInstances.containsKey(quantClause)
 				|| !mClauseInstances.get(quantClause).containsKey(substitution);
 		InstanceValue clauseValue = InstanceValue.FALSE;
@@ -1358,9 +1359,6 @@ public class InstantiationManager {
 				return new Pair<>(InstanceValue.TRUE, null);
 			}
 		}
-
-		final PiecewiseConstantModelEvaluator model =
-				new PiecewiseConstantModelEvaluator(mQuantTheory, Arrays.asList(quantClause.getVars()), substitution);
 
 		// Start with arithmetical literals if existing, they are evaluated easily in the final check.
 		final List<QuantLiteral> nonArithmeticalLits = new ArrayList<>();
@@ -1377,8 +1375,8 @@ public class InstantiationManager {
 		}
 		boolean hasOnlyKnownTerms = true;
 		for (final QuantLiteral quantLit : nonArithmeticalLits) {
-			final InstanceValue litValue = evaluateLitInstanceModelBased(quantLit, model);
-			hasOnlyKnownTerms &= model.knowsAllTerms();
+			final InstanceValue litValue = evaluateLitInstanceModelBased(quantLit, substitution, model);
+			// hasOnlyKnownTerms &= model.knowsAllTerms(); TODO
 			clauseValue = clauseValue.combine(litValue);
 			if (clauseValue == InstanceValue.TRUE) {
 				return new Pair<>(clauseValue, null);
@@ -1672,10 +1670,10 @@ public class InstantiationManager {
 
 	/* ========================================= Model based instantiation ========================================= */
 
-	private InstanceValue evaluateCCEqualityModelBased(final QuantEquality qEq,
-			final PiecewiseConstantModelEvaluator model) {
-		final CCTerm leftCC = model.getModelCClass(qEq.getLhs());
-		final CCTerm rightCC = model.getModelCClass(qEq.getRhs());
+	private InstanceValue evaluateCCEqualityModelBased(final QuantEquality qEq, final List<Term> subs,
+			final PiecewiseConstantModel model) {
+		final CCTerm leftCC = model.evaluateInCC(qEq.getLhs(), Arrays.asList(qEq.getClause().getVars()), subs);
+		final CCTerm rightCC = model.evaluateInCC(qEq.getRhs(), Arrays.asList(qEq.getClause().getVars()), subs);
 		assert leftCC != null && rightCC != null;
 		if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
 			return InstanceValue.TRUE;
@@ -1684,11 +1682,11 @@ public class InstantiationManager {
 		}
 	}
 
-	private InstanceValue evaluateLAEqualityModelBased(final QuantEquality qEq,
-			final PiecewiseConstantModelEvaluator model) {
+	private InstanceValue evaluateLAEqualityModelBased(final QuantEquality qEq, final List<Term> subs,
+			final PiecewiseConstantModel model) {
 		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
 		diff.add(Rational.MONE, qEq.getRhs());
-		final Rational value = model.getModelValue(diff);
+		final Rational value = model.evaluateInArith(diff, Arrays.asList(qEq.getClause().getVars()), subs);
 		if (value == Rational.ZERO) {
 			return InstanceValue.TRUE;
 		} else {
@@ -1696,10 +1694,10 @@ public class InstantiationManager {
 		}
 	}
 
-	private InstanceValue evaluateBoundConstraintModelBased(final QuantBoundConstraint qBc,
-			final PiecewiseConstantModelEvaluator model) {
+	private InstanceValue evaluateBoundConstraintModelBased(final QuantBoundConstraint qBc, final List<Term> subs,
+			final PiecewiseConstantModel model) {
 		final SMTAffineTerm affine = qBc.getAffineTerm();
-		final Rational value = model.getModelValue(affine);
+		final Rational value = model.evaluateInArith(affine, Arrays.asList(qBc.getClause().getVars()), subs);
 		if (value.compareTo(Rational.ZERO) <= 0) {
 			return InstanceValue.TRUE;
 		} else {

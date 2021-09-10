@@ -100,7 +100,7 @@ public class QuantifierTheory implements ITheory {
 	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedConfl, mNumInstancesProducedEM,
 			mNumInstancesProducedEnum, mNumInstancesProducedMB;
 	private long mNumCheckpoints, mNumCheckpointsWithNewEval, mNumConflicts, mNumProps, mNumFinalcheck;
-	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
+	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime, mBuildModelTime;
 	int[] mNumInstancesOfAge, mNumInstancesOfAgeFC;
 
 	// Options
@@ -386,11 +386,12 @@ public class QuantifierTheory implements ITheory {
 		logger.info("Quant: Conflicts: %d Props: %d Checkpoints (with new evaluation): %d (%d) Final Checks: %d",
 				mNumConflicts, mNumProps, mNumCheckpoints, mNumCheckpointsWithNewEval, mNumFinalcheck);
 		logger.info(
-				"Quant times: Checkpoint: %d.%03d Find with E-matching: %d.%03d E-Matching: %d.%03d Dawg: %d.%03d Final Check: %d.%03d",
+				"Quant times: Checkpoint: %d.%03d Find with E-matching: %d.%03d E-Matching: %d.%03d Dawg: %d.%03d Build Model: %d.%03d Final Check: %d.%03d",
 				mCheckpointTime / 1000 / 1000, mCheckpointTime /1000 % 1000,
 				mFindEmatchingTime / 1000 / 1000, mFindEmatchingTime / 1000 % 1000,
 				mEMatchingTime / 1000 / 1000, mEMatchingTime / 1000 % 1000,
 				mDawgTime / 1000 / 1000, mDawgTime / 1000 % 1000,
+				mBuildModelTime / 1000 / 1000, mBuildModelTime / 1000 % 1000,
 				mFinalCheckTime / 1000 / 1000, mFinalCheckTime / 1000 % 1000);
 	}
 
@@ -477,6 +478,7 @@ public class QuantifierTheory implements ITheory {
 						{ "Times",
 								new Object[][] { { "Checkpoint", mCheckpointTime },
 										{ "Find E-matching", mFindEmatchingTime }, { "E-Matching", mEMatchingTime },
+										{ "Dawg", mDawgTime }, { "Build Model", mBuildModelTime },
 										{ "Final Check", mFinalCheckTime } } } } };
 	}
 
@@ -756,6 +758,10 @@ public class QuantifierTheory implements ITheory {
 
 	public void addDawgTime(final long time) {
 		mDawgTime += time;
+	}
+
+	void addBuildModelTime(final long time) {
+		mBuildModelTime += time;
 	}
 
 	public Clausifier getClausifier() {

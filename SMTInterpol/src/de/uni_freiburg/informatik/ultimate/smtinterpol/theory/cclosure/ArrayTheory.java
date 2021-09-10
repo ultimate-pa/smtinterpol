@@ -1455,16 +1455,7 @@ public class ArrayTheory implements ITheory {
 		mPropClauses.clear();
 	}
 
-	/**
-	 * Get the current the weak-i-representative for an array and an index.
-	 * 
-	 * @param array
-	 *            a CCTerm with array sort.
-	 * @param index
-	 *            a CCTerm with the same sort as the array index sort.
-	 * @return the CCTerm which is the current weak-i-representative for the given array and index.
-	 */
-	public CCTerm getWeakIRep(CCTerm array, CCTerm index) {
+	public CCTerm getWeakIRep(final CCTerm array, final CCTerm index) {
 		assert array != null && index != null && array.getFlatTerm().getSort().isArraySort();
 		assert array.getFlatTerm().getSort().getArguments()[1] == index.getFlatTerm().getSort();
 		if (mCongRoots == null) {
@@ -1474,5 +1465,51 @@ public class ArrayTheory implements ITheory {
 		assert arrayNode != null;
 		final ArrayNode rep = arrayNode.getWeakIRepresentative(index);
 		return rep.mTerm;
+	}
+
+	public CCTerm getWeakIRepSelect(final CCTerm array, final CCTerm index) {
+		assert array != null && index != null && array.getFlatTerm().getSort().isArraySort();
+		assert array.getFlatTerm().getSort().getArguments()[1] == index.getFlatTerm().getSort();
+		if (mCongRoots == null) {
+			buildWeakEq();
+		}
+		final ArrayNode arrayNode = mCongRoots.get(array.getRepresentative());
+		assert arrayNode != null;
+		final ArrayNode rep = arrayNode.getWeakIRepresentative(index);
+		return rep.mSelects.get(index.getRepresentative());
+	}
+
+	public CCTerm getWeakRep(final CCTerm array) {
+		assert array != null && array.getFlatTerm().getSort().isArraySort();
+		if (mCongRoots == null) {
+			buildWeakEq();
+		}
+		final ArrayNode weakRep = mCongRoots.get(array.getRepresentative()).getWeakRepresentative();
+		assert weakRep != null;
+		return weakRep.mTerm;
+	}
+
+	public Map<CCTerm, CCAppTerm> getWeakRepSelects(final CCTerm array) {
+		assert array != null && array.getFlatTerm().getSort().isArraySort();
+		if (mCongRoots == null) {
+			buildWeakEq();
+		}
+		final ArrayNode weakRep = mCongRoots.get(array.getRepresentative()).getWeakRepresentative();
+		assert weakRep != null;
+		return weakRep.mSelects;
+	}
+
+	public Set<CCTerm> getStoreIndicesTowardsWeakRep(final CCTerm array) {
+		assert array != null && array.getFlatTerm().getSort().isArraySort();
+		if (mCongRoots == null) {
+			buildWeakEq();
+		}
+		final Set<CCTerm> storeIndices = new HashSet<>();
+		ArrayNode arrayNode = mCongRoots.get(array.getRepresentative());
+		while (arrayNode.mPrimaryEdge != null) {
+			storeIndices.add(getIndexFromStore(arrayNode.mPrimaryStore));
+			arrayNode = arrayNode.mPrimaryEdge;
+		}
+		return storeIndices;
 	}
 }
