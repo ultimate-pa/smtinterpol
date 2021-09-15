@@ -98,7 +98,8 @@ public class MinimalProofChecker extends NonRecursive {
 	HashMap<Term, ProofLiteral[]> mCacheConv;
 
 	/**
-	 * The proof cache. It maps each converted proof to the clause it proves.
+	 * Map from auxiliary function symbol to its definition. The auxiliary
+	 * functions are functions defined in the proof term with define-fun.
 	 */
 	HashMap<FunctionSymbol, LambdaTerm> mFunctionDefinitions;
 
