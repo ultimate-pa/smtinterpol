@@ -1,0 +1,558 @@
+BASIC PROOF RULES
+
+OLD:
+(@res c1 (! c2 :pivot ~ell2) (! c3 :pivot ell3))
+
+NEW:
+(res ell3
+  c3
+  (res ell2
+    c1
+    c2))
+
+OLD:
+(@eq (@assert t1) (@assert (= t1 t2)))
+
+NEW:
+(res t1
+  (assert t1)
+  (res (= t1 t2)            # ~t1, t2
+    (assert (= t1 t2))
+    (=-2 (= t1 t2)))        # ~(= t1 t2), ~t1, t2
+
+OLD:
+(@refl t)
+
+NEW:
+(trans t)
+
+OLD:
+(@trans (@assert (= t1 t2)) (@assert (= t2 t3)))
+
+NEW:
+(res (= t1 t2)
+  (assert (= t1 t2))
+  (res (= t2 t3)
+    (assert (= t2 t3))
+    (trans t1 t2 t3)       # (= t1 t3), ~(= t1 t2), ~(= t2 t3)
+
+OLD:
+(@cong (@assert (= t (f t1 t2 t3))) (@assert (= t2 t2')))
+
+NEW:
+(res (= t (f t1 t2 t3))
+  (assert (= t (f t1 t2 t3)))
+  (res (= (f t1 t2 t3) (f t1 t2' t3))
+     (res (= t3 t3)
+       (trans t3)
+       (res (= t2 t2')
+         (assert (= t2 t2'))
+         (res (= t1 t1)
+           (trans t1)
+           (cong f t1 t1 t2 t2' t3 t3))))
+     (trans t (f t1 t2 t3) (f t1 t2' t3))
+
+
+CLAUSE:
+
+OLD
+(@clause (@asserted (or a b c a e d e))
+   (! (or a e d c b) :input))
+
+NEW:
+(res (or a b c d e)
+  (assert (or a b c a e d e))
+  (or- a b c a e d e)
+
+SPLIT RULES
+
+OLD:
+(@clause (@split (! (@asserted (not (or p (not q) r))) :notOr) (not r))
+         (! (not r) :input))
+
+
+NEW:
+(res (or p (not q) r)
+  (or+ 2 (or p (not q) r))              # (or p (not q) r), ~r
+  (res (not (or (p (not q) r)))         # ~(or p (not q) r)
+     (assert (not (or (p (not q) r))))
+     (not- (or (p (not q) r))))
+
+or with let:
+
+(let ((bigor (or p (not q) r)))
+  (res bigor
+    (or+ 2 bigor)
+    (res (not bigor)
+      (assert (not bigor))
+      (not- bigor))))
+
+similar for and:
+
+(let ((bigand (and (not p) q (not r))))
+  (res (not r)
+    (res bigand
+      (assert bigand)
+      (and- 2 bigand))      # ~(and (not p) q (not r)), (not r)
+    (not- r)                # ~(not r), ~r
+
+
+OLD:
+(@clause
+  (@split (! (@asserted (not (ite p q r))) :ite-1) (or (not p) (not q)))
+  (! (or (not p) (not q)) :input))
+
+NEW:
+
+(res (ite p q r)
+  (res (= (ite p q r) q)
+    (ite1 p q r)                 # (= (ite p q r) q), ~p
+    (=-1 (= (ite p q r) q)))     # ~(= (ite p q r) q), (ite p q r), ~q
+  (res (not (ite p q r))
+     (assert (not (ite p q r)))
+     (not- (ite p q r)))         # ~(not (ite p q r)), ~(ite p q r)
+
+
+TAUTOLOGY RULES
+
+
+OLD:
+(@tautology (! (or (not F) (= F true)) :excludedMiddle1))
+NEW:
+(res true
+  true+
+  (=+2 F true))
+
+
+OLD:
+(@tautology (! (or F (= F false)) :excludedMiddle2))
+NEW:
+(res false
+  (=+1 F false)
+  false-)
+
+OLD:
+(@tautology (! (or (! (ite c a b) :quoted) (not a) (not b)) :ite-red))
+  # (ite c a b), ~a, ~b
+
+
+NEW:
+
+(res (= (ite c a b) b)      # (ite c a b), ~a, ~b
+  (res (= (ite c a b) a)    # (= (ite c a b) b), (ite c a b), ~a
+    (res c                  # (= (ite c a b) b), (= (ite c a b) a)
+      (ite2 c a b)          # (= (ite c a b) b), c
+      (ite1 c a b)          # (= (ite c a b) a), ~c
+    (=-1 (= (ite c a b) a)  # ~(= (ite c a b) a), (ite c a b), ~a
+  (=-1 (= (ite c a b) b)    # ~(= (ite c a b) b), (ite c a b), ~b
+
+OLD:
+(@tautology (! (not (= true false)) :trueNotFalse))
+
+NEW:
+(res false
+  (res true
+    true+
+    (=-2 true false))          # ~(= true false), ~true, false
+  false-)
+
+
+REWRITE RULES
+
+OLD:
+(@rewrite (! (= (not (not t)) t) :notNot))
+NEW:
+(res t                     # (= (not (not t)) t)
+  (res (= not (not t))
+    (=+1 (not (not t)) t)  # (= (not (not t)) t), (not (not t)), t
+    (res (not t)           # ~(not (not t)), t
+      (not+ t)             # (not t), t
+      (not- (not t))))     # ~(not (not t)), ~(not t)
+  (res (= not (not t))
+    (=+2 (not (not t)) t)  # (= (not (not t)) t), ~(not (not t)), ~t
+    (res (not t)           # (not (not t)), ~t
+      (not+ (not t))
+      (not- t))))
+
+OLD:
+(@rewrite (! (= (= true false) false) :trueNotFalse))
+NEW:
+(res false
+  (res true
+    true+
+    (res (= true false)           # (= (= true false) false), ~true, false
+      (=+1 (= true false) false)  # (= (= true false) false), (= true false), false
+      (=-2 true false)))          # ~(= true false), ~true, false
+  false-)
+
+OLD:
+(@rewrite (! (= (ite t true false) t) :iteBool1))
+
+NEW:
+ (ite1 t true false)       # (= (ite t true false) true), ~t
+
+(res t
+  (res (= (ite t true false) false)   # (= (ite t true false) t), t
+     (ite2 t true false)              # (= (ite t true false) false), t
+     (res (= false t)
+        (res false                    # (= false t), t
+           (=+1 false t)              # (= false t), false, t
+           false-)
+        (trans (ite t true false) false t)))
+  (res (= (ite t true false) true)    # (= (ite t true false) t), ~t
+     (ite1 t true false)              # (= (ite t true false) true), ~t
+     (res (= true t)
+        (res true                     # (= true t), ~t
+           true+
+           (=+2 true t))              # (= true t), ~true, ~t
+        (trans (ite t true false) true t)))
+
+
+OR:
+(res t
+  (res (ite t true false)                 # (= (ite t true false) t), t
+    (=+1 (ite t true false) t)            # (= (ite t true false) t), (ite t true false), t
+    (res false                            # ~(ite t true false), t
+      (res (= (ite t true false) false)   # ~(ite t true false), false, t
+        (ite2 t true false)               # (= (ite t true false) false), t
+        (=-2 (ite t true false) false))
+      false-))
+  (res (ite t true false)                 # (= (ite t true false) t), ~t
+    (res true                             # (ite t true false), ~t
+      true+
+      (res (= (ite t true false) true)    # (ite t true false), ~true, ~t
+        (ite1 t true false)               # (= (ite t true false) true), ~t
+        (=-1 (ite t true false) true)))
+    (=+2 (ite t true false) t))           # (= (ite t true false) t), ~(ite t true false), ~t
+
+
+
+FLATTEN:
+
+
+(@clause
+  (@eq (@asserted (or (or a b) (or c d)))
+       (@rewrite (= (or (or a b) (or c d)) (or a b c d)) :flatten)))
+
+
+(res (or a b)                      # a, b, c, d
+  (res (or c d)                    # (or a b), c, d
+    (res (or (or a b) (or c d))    # (or a b), (or c d)
+      (assert (or (or a b) (or c d)))
+      (or- (or a b) (or c d)))
+    (or- (or c d)))
+  (or- (or a b)))
+
+
+
+OLD:
+(@rewrite (= (store (store a i v) i w) (store a i w)) :storeOverStore)
+
+
+NEW:
+(let ((store1 (store a i w)) (store2 (store (store a i v) i w)))
+(res (= (select store2 (diff store2 store1)) (select store1 (diff store2 store1)))
+  (res (= (diff store2 store1) i)
+    (res (= (select store2 (diff store2 store1)) w)
+      (cong select store2 store2 (diff store2 store1) i)
+      (selectstore1 (store a i v) i w)
+      (res (= (select store1 (diff store2 store1)) w)
+        (cong select store1 store1 (diff store2 store1) i)
+        (selectstore1 a i w))
+          (symm ...))
+    (res
+      (selectstore2 (store a i v) i w (diff store2 store1))
+      (selectstore2 a i v (diff store2 store1))
+      (res
+         (symm (select a (diff store2 store1))
+               (select store1 (diff store2 store1)))
+         (selectstore2 a i w (diff store2 store1)))
+      (trans (select store2 (diff store2 store1))
+             (select (store a i v) (diff store2 store1))
+             (select a (diff store2 store1))
+             (select store1 (diff store2 store1)))))
+  (extdiff store2 store1)))
+
+
+
+
+
+
+(= (and t1 .. tn) (not (or (not t1)... (not tn))))
+
+ =+1
+ =+2
+
+
+How to prove xor things:
+
+(xorunitt+ t): (xor t true), t
+(res true
+  true+
+  (xor+ (t true) (t) (true)))   # ~true, (xor t true), t
+
+(xorunitf+ t): (xor t false), ~t
+(res false
+  (xor+ (t false) (false) (t))
+  false-)
+
+(xorunitt- t): ~(xor t true), ~t
+(res true
+  true+
+  (xor- (t true) (t) (true)))
+
+(xorunitf- t): ~(xor t false), t
+(res false
+  (xor+ (t false) (false) (t))
+  false-)
+
+(notxor t): ~(xor t t)
+(res false
+  (xor+ (false) (false) (t t))    # ~(xor t1 t1), false
+  false-)
+
+
+(xornot t): (xor t (not t))
+(res t
+  (res (not t)
+    (not+ t)
+    (xor+ (t (not t)) (t) ((not t))))   # (xor t (not t)), t, ~(not t)
+  (res (not t)
+    (xor+ (t (not t)) ((not t)) (t))    # (xor t (not t)), (not t), ~t
+    (not- t)))
+
+(xor t1 ... (not ti) ... tn), (xor t1 ... ti ... tn):
+(res (xor t (not t))
+  (xornot t)
+  (xor+ (t1 ... (not ti) ... tn) (xor t1 ... ti ... tn) (t (not t))))
+
+
+~(xor t1 ... (not ti) ... tn), ~(xor t1 ... ti ... tn):
+(res (xor t (not t))
+  (xornot t)
+  (xor- (t1 ... (not ti) ... tn) (xor t1 ... ti ... tn) (t (not t))))
+
+
+
+LINEAR ARITHMETIC:
+
+# show (= (= ... ci ... cj ...) false)  where ci > cj:
+
+  (res (= ... ci ... cj ...)
+    (res false
+      (=+1 (= ... ci ... cj ...) false)
+      falseE)
+    (res (= ci cj)
+       (=- i j ... ci ... cj ...)
+       (res (<= ci cj)
+          (eqleq ci cj)
+          (farkas 1 (<= ci cj)))))
+
+#show  ~(= p1 q1), (= p2 q2)
+#   iff (poly c1*(p1-q1) - c2*(p2-q2)) evaluates to 0.
+
+(res (<= p1 q1)
+  (eqleq p1 q1)
+  (res (<= q1 p1)
+    (res (= q1 p1)
+      (symm q1 p1)
+      (eqleq q1 p1))
+    (res (< p2 q2)
+      (res (< q2 p2)
+        (tricho p2 q2)
+        (farkas c1 (<= p1 q1) c2 (< q2 p2)))
+      (farkas c1 (<= q1 p1) c2 (< p2 q2)))))
+
+# show  (= (= a b) (= (poly c*(a-b)) 0)
+
+(res (= a b)
+  (res (= (poly c*(a-b)) 0)
+    (=+1 (= a b) (= (poly c*(a-b)) 0))
+    # show ~(= (poly c*(a-b)) 0), (= a b), see above)
+  (res (= (poly c*(a-b)) 0)
+    # show ~(= a b), (= (poly c*(a-b)) 0), see above
+    (=+2 (= a b) (= (poly c*(a-b)) 0))))
+
+# show ~(<= x b), (<= x' b')  where poly(x - c*x') = 0 and b' = floor(b/c)
+  (res (<= (b'+1) x')
+    (res (< b' x')
+      (total x' b')
+      (ltint b' x'))
+    (farkas 1 (<= x b) c (<= (b'+1) x')))
+      #valid since b - c*(floor(b/c) -1) = c*(b/c - floor(b/c) - 1) < 0
+
+
+Howto proof other facts:
+  ~(= 1 0):   (res (<= 1 0) (eqleq 1 0) (farkas 1 (<= 1 0))
+  ~(< 5 4):   (farkas 1 (< 1 0))
+  (< 4 5):    (res (<= 5 4) (total 5 4) (farkas 1 (<= 5 4)))
+  ~(<= a b), ~(< b a):
+    (farkas 1 (<= a b) 1 (< b a))
+  ~(<= a b), ~(<= b c), (<= a c):
+    (res (< c a)
+      (total a c)
+      (farkas 1 (<= a b) 1 (<= b c) 1 (< c a)))
+
+  ~(<= (* 3 x) 2), (<= x 0)
+    (res (<= 1 x)
+       (res (< x 0)
+         (total x 0)
+         (ltint x 0))
+       (farkas 1 (<= (* 3 x) 2) 3 (<= 1 x)))
+
+  ~(<= (* 3 x) 2), (<= (* 3 x) 0)
+    (res (<= 1 (* 3 x))
+      (total (* 3 x) 0)
+      (res (<= x 0)
+         (res (<= 1 x)
+           (res (< 0 x)
+              (total x 0)
+              (ltint 0 x))
+           (farkas 1 (<= (* 3 x) 2) 3 (<= 1 x)))
+         (farkas 1 (< 0 (* 3 x)) 3 (<= x 0))))
+
+  ~(= (* 2 x) z), ~(= (+ (* 2 y) 1) z):  ##C
+   (res (= (* 2 x) (+ (* 2 y) 1))
+     (res (= z (+ (* 2 y) 1))    # c, (= (* 2 x) (+ (* 2 y) 1))
+          (symm z (+ * 2 y) 1)
+          (trans (* 2 x) z (+ (* 2 y) 1)))
+     (res (<= x y)
+       (res (<= (+ y 1) x)
+          (res (< y x)
+            (total x y)
+            (ltint y x))
+          (res (<= (* 2 x) (+ (* 2 y) 1))
+            (eqleq (* 2 x) (+ (* 2 y) 1))
+            (farkas 2 (<= (+ y 1) x) 1 (<= (* 2 x) (+ (* 2 y) 1)))))
+       (res (<= (+ (* 2 y) 1) (* 2 x))
+          (res (= (+ (* 2 y) 1) (* 2 x))
+            (symm (+ (* 2 y) 1) (* 2 x))
+            (eqleq (+ (* 2 y) 1) (* 2 x)))
+          (farkas 2 (<= x y) 1 (<= (+ (* 2 y) 1) (* 2 x))))))
+
+
+  ~(<= 1 x), ~(<= x 2), (= x 1), (= x 2):
+    (res (< x 1)
+      (res (< 1 x)
+        (tricho x 1)
+        (res (< x 2)
+          (res (< 2 x)
+            (tricho x 2)
+            (farkas 1 (<= x 2) 1 (< 2 x)))
+          (res (<= (+ x 1) 2)
+            (ltint x 2)
+            (farkas 1 (<= (+ x 1) 2) 1 (< 1 x)))))
+      (farkas 1 (<= 1 x) 1 (< x 1))
+
+
+Proof sketch for:
+  ~(= (* 2.0 x) (to_real (+ (* 2 y) 1))), (= (- x (to_real (to_int x))) (/ 1 2))
+
+  use subst on (= (to_real (+ (* 2 y) 1)) (+ (* 2.0 (to_real y)) 1.0)) after
+  showing:
+  ~(= (* 2.0 x) (+ (* 2.0 (to_real y)) 1.0)),
+   (= (- x (to_real (to_int x))) (/ 1 2))
+
+
+  first show:
+  (= y (to_int x))
+
+  (res (<= (+ (to_int x) 1) y)
+    (res (< (to_int x) y)
+      (res (<= (+ y 1) (to_int x))
+        (res (< y (to_int x))
+          (tricho y (to_int x))
+          (ltint y (to_int x)))
+        (farkas 2 (<= (to_real (to_int x)) x) 2 (<= (+ y 1) (to_int x))
+                1 (<= (* 2.0 x) (+ (* 2.0 (to_real y)) 1.0))))
+      (ltint (to_int x) y))
+    (farkas 2 (<= x (+ (to_real (to_int x)) 1.0)) 2 (<= (+ (to_int x) 1) y)
+            1 (<= (+ (* 2.0 (to_real y)) 1.0) (* 2.0 x)))
+
+
+show (= (abs c) c) # for c >= 0
+
+(res (< c 0)
+  (abs+ c)
+  (farkas 1 (< c 0))
+
+show (= (abs (- c)) c) # for c >= 0
+
+(res (= (- (- c)) c)
+  (poly- (- c))
+  (res (= (abc (- c)) (- (- c)))
+    (res (< 0 (- c))
+      (abs- (- c))
+      (farkas 1 (< 0 (- c))))
+    (trans (abs (- c)) (- (- c)) c)))
+
+
+show (= (div 14 (- 3)) (- 4))
+
+  (res (< (div 14 (- 3)) (- 4))
+    (res (< (- 4) (div 14 (- 3)))
+      (tricho (div 14 (- 3)) (- 4))
+      (res (<= (- 3) (div 14 (- 3)) (- 4))
+         (ltint (- 4) (div 14 (- 3)))
+         (res (<= 14 (+ (* (- 3) (div 14 (- 3))) 3)))
+           (subst abs...
+             (divhigh 14 (-3)))
+           (farkas 3 (<= (- 3) (div 14 (- 3)))
+                   1 (<= 14 (+ (* (- 3) (div 14 (- 3))) 3)))))
+                  # valid since (-9 + 14 - 3) = 2 >= 0
+    (res (<= (+ (div 14 (- 3)) 1) (- 4))
+      (ltint (div 14 (- 3)) (- 4))
+      (res (<= (* (- 3) (div 14 (- 3))) 14)
+         (divlow 14 (-3))
+         (farkas 3 (<= (+ (div 14 (- 3)) 1) (- 4))
+                 1 (<= (* (- 3) (div 14 (- 3))) 14)))))
+                 # valid since (3 + 12 - 14) >= 0
+
+
+
+(= ((_ divisible d) x) (exists (y Int) (= x (* d y))))
+
+(res ((_ divisible d) x)
+  (res (exists ...)
+    (=+1 ...)
+    (res (= x (* d (_ skolem ...)))
+      (exists- y (= x (* d y)))
+      (res (= (div x d) (_ skolem ...))
+         #subst
+         (res (= ((_ divisble d) x) (= x (* d (div x d))))
+            (divisible d x)
+            (=-2 ((_ divisble d) x) (= x (* d (div x d)))))
+         # show (div x d) = skolem using tricho, farkas)))
+  (res (exists ...)
+    (res (= x (* d (div x d)))
+      (instantiate (y (div x d))
+        (exists+ y (= x (* d y))))
+      (res (= ((_ divisble d) x) (= x (* d (div x d))))
+         (divisible d x)
+         (=-1 ((_ divisble d) x) (= x (* d (div x d))))))
+    (=+2 ...)))
+
+
+(@allintro ((x1 U) ... (xn U)) proof_of_F_x1_xn):
+
+(res (forall+ ((x1 U) ... (xn U)) F)
+  (let ((x1 (skolem _ ... F)) ...
+        (xn (skolem _ ... F)))
+       proof_of_F_x1_xn))
+
+
+Show (/ t cseq) = rhs
+where rhs = poly (* (1/c) t) with c = cseq1*...*cseqn
+for c < 0:
+
+(res (= (* cseq (/ t cseq)) t)
+  (/def t cseq)
+  (res (< (/ t cseq) rhs)
+    (res (< rhs (/ t cseq))
+      (trichotomy (/ t cseq) rhs)
+      (res (= t (* cseq (/ t cseq))) (symm t (* cseq (/ t cseq)))
+        (res (<= t (* cseq (/ t cseq))) (eqLeq t (* c (/ t cseq)))
+          (farkas 1 (<= t (* cseq (/ t cseq))) |c| (< rhs (/ t cseq)))))
+    (res (<= (* cseq (/ t cseq)) t) (eqLeq (* cseq (/ t cseq)) t)
+      (farkas 1 (<= (* cseq (/ t cseq)) t) |c| (< (/ t cseq) rhs)))
+ 

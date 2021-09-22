@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<!DOCTYPE table PUBLIC "+//IDN sosy-lab.org//DTD BenchExec table 1.10//EN" "https://www.sosy-lab.org/benchexec/table-1.10.dtd">
+<table>
+
+  <column title="status"/>
+  <column title="cputime" displayTitle="CPU Time"/>
+  <column title="walltime" displayTitle="Wall Time"/>
+  <column title="memory" displayTitle="Memory" sourceUnit="B" displayUnit="MB"/>
+
+  <column title="BVTimesBB" displayTitle="Bit-blasting Time" sourceUnit="ns" >INFO \- BVTimes: BB (\d+) DPLL \d+ Graph \d+</column>
+  <column title="BVTimesDPLL" displayTitle="DPLL Time" sourceUnit="ns">INFO \- BVTimes: BB \d+ DPLL (\d+) Graph \d+</column>
+  <column title="BVTimesGraph" displayTitle="Graph Time" sourceUnit="ns">INFO - BVTimes: BB \d+ DPLL \d+ Graph (\d+)</column>
+  <column title="BitBlastingClauses" displayTitle="Bit-blasting Clauses">INFO - BitBlastingClauses: (\d+)</column>
+  <column title="GraphCycles" displayTitle="Bvult Graph Cycles">INFO - BvultGraphCircles: (\d+)</column>
+  <column title="TrivialConflicts" displayTitle="Trivial Conflics">INFO - TrivialConflicts: (\d+)</column>
+</table>

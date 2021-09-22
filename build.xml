@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:artifact="antlib:org.apache.maven.artifact.ant" xmlns:sonar="antlib:org.sonar.ant">
+<project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:resolver="antlib:org.apache.maven.resolver.ant" xmlns:sonar="antlib:org.sonar.ant">
+    <property name="javacup.jar" value="jh-javacup-1.2.jar"/>
     <target name="help">
         <echo>
 Run with, e.g., `ant smtinterpol.jar`.  Useful targets:
@@ -13,8 +14,8 @@ stage:             Upload new version to Maven Central (owner only)
         </echo>
     </target>
     <import file="smtinterpol2-publicapi.xml"/>
-    <path id="maven-ant-tasks.classpath" path="libs/maven-ant-tasks-2.1.3.jar"/>
-    <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath"/>
+    <taskdef uri="antlib:org.apache.maven.resolver.ant" resource="org/apache/maven/resolver/ant/antlib.xml"
+	     classpath="libs/maven-resolver-ant-tasks-1.3.1-uber.jar" />
     <property name="artifactId" value="smtinterpol"/>
     <!-- Build everything  -->
     <target name="all" depends="dist"/>
@@ -44,14 +45,14 @@ stage:             Upload new version to Maven Central (owner only)
     <target name="check_smtlib1.cup_current">
         <uptodate property="smtlib1.cup.current">
             <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" includes="*.cup,*.flex"/>
-            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <mapper>
                 <globmapper from="smtlib.cup" to="Parser.java"/>
                 <globmapper from="smtlib.cup" to="LexerSymbols.java"/>
                 <globmapper from="smtlib.flex" to="Lexer.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
             </mapper>
         </uptodate>
     </target>
@@ -63,14 +64,14 @@ stage:             Upload new version to Maven Central (owner only)
     <target name="check_smtlib2.cup_current">
         <uptodate property="smtlib2.cup.current">
             <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" includes="*.cup,*.flex"/>
-            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <mapper>
                 <globmapper from="smtlib.cup" to="Parser.java"/>
                 <globmapper from="smtlib.cup" to="LexerSymbols.java"/>
                 <globmapper from="smtlib.flex" to="Lexer.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
             </mapper>
         </uptodate>
     </target>
@@ -82,14 +83,14 @@ stage:             Upload new version to Maven Central (owner only)
     <target name="check_dimacs.cup_current">
         <uptodate property="dimacs.cup.current">
             <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" includes="*.cup,*.flex"/>
-            <srcfiles file="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <mapper>
                 <globmapper from="dimacs.cup" to="Parser.java"/>
                 <globmapper from="dimacs.cup" to="LexerSymbols.java"/>
                 <globmapper from="dimacs.flex" to="Lexer.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
-                <globmapper from="jh-javacup-1.1.jar" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Parser.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}LexerSymbols.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}smtlib2${file.separator}Lexer.java"/>
             </mapper>
         </uptodate>
     </target>
@@ -115,7 +116,7 @@ stage:             Upload new version to Maven Central (owner only)
             <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/test_generator/**"/>
             <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/smtcomp/**"/>
             <classpath>
-                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                 <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
             </classpath>
         </javac>
@@ -125,7 +126,7 @@ stage:             Upload new version to Maven Central (owner only)
         <mkdir dir="${dir.workspace}/DeltaDebugger/release"/>
         <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
             <classpath>
-                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                 <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
                 <pathelement path="${dir.workspace}/SMTInterpol/release"/>
             </classpath>
@@ -140,7 +141,7 @@ stage:             Upload new version to Maven Central (owner only)
             </manifest>
             <zipfileset dir="${dir.workspace}/SMTInterpol/release"/>
             <zipfileset dir="${dir.workspace}/Library-SMTLIB/release"/>
-            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <zipfileset file="${dir.workspace}/LICENSE" prefix=""/>
             <zipfileset file="${dir.workspace}/COPYING" prefix=""/>
             <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix=""/>
@@ -158,7 +159,7 @@ stage:             Upload new version to Maven Central (owner only)
             <zipfileset dir="${dir.workspace}/DeltaDebugger/release"/>
             <zipfileset dir="${dir.workspace}/SMTInterpol/release"/>
             <zipfileset dir="${dir.workspace}/Library-SMTLIB/release"/>
-            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+            <zipfileset includes="com/github/jhoenicke/javacup/runtime/**" src="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
             <zipfileset file="${dir.workspace}/LICENSE" prefix=""/>
             <zipfileset file="${dir.workspace}/COPYING" prefix=""/>
             <zipfileset file="${dir.workspace}/COPYING.LESSER" prefix=""/>
@@ -207,8 +208,8 @@ if [ "$#" -gt 1 ]; then
 # ignore bogus parameters given by starexec
 set -- "$1"
 fi
-java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -jar smtinterpol.jar -q -o continue-on-error=false "$$@" 2&gt;/dev/null
-        </echo>
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=false -o proof-check-mode "$$@" 2&gt;/dev/null
+</echo>
         <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx"/>
         <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
         <!-- stupid starexec does not like - characters in description -->
@@ -279,7 +280,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -j
                 <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
                 <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
                 <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
-                <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                 <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
                 <pathelement path="${dir.workspace}/SMTInterpol/release"/>
                 <pathelement path="${dir.tests}/Library-SMTLIBTest/release"/>
@@ -323,7 +324,7 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -j
                     <pathelement location="${dir.workspace}/libs/junit-4.12.jar"/>
                     <pathelement location="${dir.workspace}/libs/hamcrest-core-1.3.jar"/>
                     <pathelement location="${dir.workspace}/libs/ant-junit4.jar"/>
-                    <pathelement location="${dir.workspace}/SMTInterpol/lib/jh-javacup-1.1.jar"/>
+                    <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                     <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
                     <pathelement path="${dir.workspace}/SMTInterpol/release"/>
                     <pathelement path="${dir.tests}/Library-SMTLIBTest/release"/>
@@ -375,51 +376,43 @@ java -Xms1536m -Xmx$$((STAREXEC_MAX_MEM/3))m -da -dsa -XX:-UseGCOverheadLimit -j
         <echo message="See coverage results in ${dir.workspace}/coverage/index.html"/>
     </target>
     <!-- Defined maven snapshots and staging repository id and url -->
-    <property name="ossrh-snapshots-repository-url" value="https://oss.sonatype.org/content/repositories/snapshots"/>
-    <property name="ossrh-staging-repository-url" value="https://oss.sonatype.org/service/local/staging/deploy/maven2"/>
-    <!-- There server id in the Maven settings.xml -->
-    <property name="ossrh-server-id" value="ossrh"/>
+    <resolver:remoterepo id="ossrh" url="https://oss.sonatype.org/service/local/staging/deploy/maven2" type="default" releases="true" snapshots="false" updates="always" checksums="fail"/>
     <target name="dist" depends="clean,create_src_jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
     </target>
-    <target name="stage" depends="dist" description="deploy release version to Maven staging repository">
-        <copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/pom.xml">
+    <target name="stage" depends="dist" description="stage release version for deploying to Maven staging repository">
+	<copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/${jar.basename}-pom.xml">
             <filterchain>
-                <expandproperties/>
+		<expandproperties/>
             </filterchain>
-        </copy>
-        <echo>
-Uploading artifacts using ~/.m2/settings.xml. I hope you have the
-permissions to do this.
-        </echo>
-        <!-- Sign and deploy the main artifact. -->
-        <artifact:mvn>
-            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file"/>
-            <arg value="-Durl=${ossrh-staging-repository-url}"/>
-            <arg value="-DrepositoryId=${ossrh-server-id}"/>
-            <arg value="-DpomFile=${jar.outdir}/pom.xml"/>
-            <arg value="-Dfile=${jar.outdir}/${jar.basename}.jar"/>
-            <arg value="-Pgpg"/>
-        </artifact:mvn>
-        <!-- Sign and deploy the sources artifact -->
-        <artifact:mvn>
-            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file"/>
-            <arg value="-Durl=${ossrh-staging-repository-url}"/>
-            <arg value="-DrepositoryId=${ossrh-server-id}"/>
-            <arg value="-DpomFile=${jar.outdir}/pom.xml"/>
-            <arg value="-Dfile=${jar.outdir}/${jar.basename}-sources.jar"/>
-            <arg value="-Dclassifier=sources"/>
-            <arg value="-Pgpg"/>
-        </artifact:mvn>
-        <!-- sign and deploy the javadoc artifact -->
-        <artifact:mvn>
-            <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file"/>
-            <arg value="-Durl=${ossrh-staging-repository-url}"/>
-            <arg value="-DrepositoryId=${ossrh-server-id}"/>
-            <arg value="-DpomFile=${jar.outdir}/pom.xml"/>
-            <arg value="-Dfile=${jar.outdir}/${jar.basename}-javadoc.jar"/>
-            <arg value="-Dclassifier=javadoc"/>
-            <arg value="-Pgpg"/>
-        </artifact:mvn>
+	</copy>
+
+	<echo>
+	    Now sign all jar files and pom.xml in ${dist}:
+	    for i in ${jar.outdir}/${jar.basename}*; do gpg --detach-sig -a --sign -u 5ef57534 $$i; done
+
+	    Then run `ant deploy`.
+	</echo>
+    </target>
+
+    <target name="deploy" description="Deploy maven release (you need to stage and sign first)" depends="get-version">
+	<echo>
+	    Uploading artifacts using ~/.m2/settings.xml. I hope you have the
+	    permissions to do this.
+	</echo>
+
+	<resolver:pom file="${jar.outdir}/${jar.basename}-pom.xml" id="pom"/>
+	<resolver:artifacts id="output">
+	    <artifact file="${jar.outdir}/${jar.basename}.jar" />
+	    <artifact type="jar.asc" file="${jar.outdir}/${jar.basename}.jar.asc" />
+	    <artifact classifier="sources" file="${jar.outdir}/${jar.basename}-sources.jar" />
+	    <artifact classifier="sources" type="jar.asc" file="${jar.outdir}/${jar.basename}-sources.jar.asc" />
+	    <artifact classifier="javadoc" file="${jar.outdir}/${jar.basename}-javadoc.jar" />
+	    <artifact classifier="javadoc" type="jar.asc" file="${jar.outdir}/${jar.basename}-javadoc.jar.asc" />
+	    <artifact type="pom.asc" file="${jar.outdir}/${jar.basename}-pom.xml.asc" />
+	</resolver:artifacts>
+	<resolver:deploy artifactsref="output">
+	    <remoterepo refid="ossrh"/>
+	</resolver:deploy>
         <echo>
 Log into https://oss.sonatype.org as jhoenicke.
 Click "Staging Repository", scroll down to de.uni-freiburg...

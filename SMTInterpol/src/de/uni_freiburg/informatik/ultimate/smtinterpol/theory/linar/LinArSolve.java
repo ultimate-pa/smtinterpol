@@ -25,6 +25,7 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -104,8 +105,8 @@ public class LinArSolve implements ITheory {
 	 * must be null.
 	 */
 	final ArrayList<BitSet> mDependentRows;
-	/** The list of all non-basic integer variables. */
-	final ArrayList<LinVar> mIntVars;
+	/** All non-basic integer variables. */
+	final Set<LinVar> mIntVars;
 	/** The literals that will be propagated. */
 	final Queue<Literal> mProplist;
 	/** The basic variables hashed by their linear combinations. */
@@ -161,7 +162,7 @@ public class LinArSolve implements ITheory {
 		mLinvars = new ScopedArrayList<>();
 		mTableaux = new ArrayList<>();
 		mDependentRows = new ArrayList<>();
-		mIntVars = new ArrayList<>();
+		mIntVars = new LinkedHashSet<>();
 		mDirty = new BitSet();
 		mProplist = new ArrayDeque<>();
 		mSuggestions = new ArrayDeque<>();
@@ -1220,7 +1221,7 @@ public class LinArSolve implements ITheory {
 			logger.info("Composite::createLit: " + mCompositeCreateLit);
 			logger.info("Number of cuts: " + mNumCuts);
 			logger.info("Time for cut-generation: " + mCutGenTime / 1000000);
-			logger.info("Count/Time for getUpperBound: %d / %.3f", mCountGetUpperBound, mTimeGetUpperBound / 1e9);
+			logger.info("Count/Time for getUpperBound: %d / %d.%03d", mCountGetUpperBound, mTimeGetUpperBound / 1000000000, mTimeGetUpperBound / 1000000 % 1000);
 			logger.info("Number of branchings: " + mNumBranches);
 		}
 	}

@@ -42,7 +42,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.DoubleOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.EnumOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.LongOption;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
@@ -162,7 +162,7 @@ public class MusEnumerationScript extends WrapperScript {
 	 * generate the Sequence of Interpolants that is returned. The enumeration of Muses, the heuristic and
 	 * getInterpolants use different timeouts, respectively. The timeout for enumeration and heuristics can be set with
 	 * the keys in {@link MusOptions}, the interpolant generation is set with the timeout key in
-	 * {@link SMTInterpolOptions}. If the timeout for the enumeration is exceeded, it returns the muses found so far. If
+	 * {@link SMTInterpolConstants}. If the timeout for the enumeration is exceeded, it returns the muses found so far. If
 	 * the timeout for the heuristic is exceeded, it returns the best mus found so far wrt. the heuristic. If the
 	 * timeout for the enumeration is exceeded, before any MUSes could be produced, this method uses the
 	 * Vanilla-SMTInterpol proof for interpolant generation. An exception occurs, if the timeout for interpolant
@@ -648,7 +648,7 @@ public class MusEnumerationScript extends WrapperScript {
 	 * {@link Heuristics#chooseWidestAmongSmallMuses(ArrayList, double, Random, TerminationRequest)} or
 	 * {@link Heuristics#chooseSmallestAmongWideMuses(ArrayList, double, Random, TerminationRequest)}). To set the
 	 * timeout for the enumeration, the heuristic or the Interpolation, set the values of the the keys
-	 * {@link MusOptions#ENUMERATION_TIMEOUT}, {@link MusOptions#HEURISTIC_TIMEOUT}, {@link SMTInterpolOptions#TIMEOUT}
+	 * {@link MusOptions#ENUMERATION_TIMEOUT}, {@link MusOptions#HEURISTIC_TIMEOUT}, {@link SMTInterpolConstants#TIMEOUT}
 	 * respectively (the timeout is treated as MILLISECONDS!).
 	 *
 	 * If the option ":log-additional-information" is set to true with {@link #setOption(String, Object)}, then

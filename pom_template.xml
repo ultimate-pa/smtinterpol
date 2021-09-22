@@ -5,7 +5,7 @@
     <groupId>de.uni-freiburg.informatik.ultimate</groupId>
     <artifactId>smtinterpol</artifactId>
     <version>${version}</version>
-	<packaging>jar</packaging>
+    <packaging>jar</packaging>
 	
     <name>SMTInterpol</name>
     <description>SMTInterpol is an interpolating SMT solver</description>
@@ -31,16 +31,12 @@
 
     <developers>
         <developer>
+            <name>Elisabeth Henkel</name>
+            <email>henkele@informatik.uni-freiburg.de</email>
+        </developer>
+        <developer>
             <name>Jochen Hoenicke</name>
             <email>hoenicke@informatik.uni-freiburg.de</email>
-        </developer>
-        <developer>
-            <name>Jürgen Christ</name>
-            <email>christj@informatik.uni-freiburg.de</email>
-        </developer>
-        <developer>
-            <name>Alexander Nutz</name>
-            <email>nutz@informatik.uni-freiburg.de</email>
         </developer>
         <developer>
             <name>Tanja Schindler</name>

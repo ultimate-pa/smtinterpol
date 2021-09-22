@@ -1,0 +1,329 @@
+A proof is represented as a DAG, where the inner nodes are resolution
+application and the leafs are input formulas or tautologies.  The
+syntax for proofs is very similar to SMT-LIB terms.  In particular a
+proof may use let expression to bind common subexpressions (subterms
+or proofs) to variables.  Most proof rules could be represented by
+function applications.  However, the forall+-/exists+- rules need
+binders and don't follow the term syntax.  Also most tautologies allow
+arbitrary number of parameters.  Thus, they need more overloading than
+can be easily expressed in SMT-LIB.
+
+Every proof proves a clause, which is a set of literals, i.e., a set
+of positive or negated atoms.  Each atom is a boolean SMT-LIB term.  A
+clause is written as `t1, ~t2, t3`, where the ~ indicates that the
+literal is negative.  Since a clause is a set, the clauses `t1,t1,t2`
+and `t2,t1` are identical.  A proof returned by (get-proof) is correct
+if it proves the empty clause.
+
+Note that `~t` is a negative literal but `(not t)` is a positive
+literal for the atom `(not t)`.  One has to use resolution and the
+not+/not- axioms to "transform" one into the other.
+
+For computing the clauses, we consider two terms as equal if their DAG
+representation after unfolding all lets is syntactically equal.
+Equality of terms is important for the resolution rule, to ensure that
+the intended literal is removed from the clause.
+
+REMARKS: Even though this proof format looks very simple, it trivially
+supports extended resolution, since the atoms used in the resolution
+rule can be arbitrary terms like `(and p1 p2)`.  Thus even DRAT proofs
+can be efficiently expressed in this format [1].
+
+
+Proof ::= (let ((....)) Proof)
+        | (res Term Proof Proof)
+        | (assert Term)
+        | false- | true+
+        | (not+ Term)
+        | (not- Term)
+        | (or+ NUM Term ... Term)
+        | (or- Term ... Term)
+        | (and+ Term ... Term)
+        | (and- NUM Term ... Term)
+        | (=>+ NUM Term ... Term)
+        | (=>- Term ... Term)
+        | (=+1 Term Term)
+        | (=+2 Term Term)
+        | (=-1 Term Term)
+        | (=-2 Term Term)
+        | (xor+ (Term ... Term) (Term ...Term) (Term ... Term))
+        | (xor- (Term ... Term) (Term ...Term) (Term ... Term))
+        | (forall+ VarDecl Term)
+        | (forall- VarBinding Term)
+        | (exists+ VarDecl Term)
+        | (exists- VarBinding Term)
+        | (distinct+ Term ... Term)
+        | (distinct- Term ... Term)
+        | (=+ Term ... Term)
+        | (=- Term ... Term)
+        | (ite1 Term Term Term)
+        | (ite2 Term Term Term)
+        | (trans Term ... Term)
+        | (symm Term Term)
+        | (cong Symbol Term Term ... Term Term)
+        | (expand Term)
+        | (del! Term)
+
+Special Skolem Variables: (_ skolem NUM VarDecl Term)
+
+================
+
+Terms, Literal, Clause
+
+A Term is an SMT-LIB term, the sort can be annotated in brackets, e.g.
+with Term[bool] we describe the type off all SMT-LIB terms with sort Bool.
+
+A Literal is either a positive or a negative SMT-LIB term of sort Bool:
+
+Literal ::= Pos(Term[bool]) | Neg(Term[bool])
+    where Pos(t) is written as t  and  Neg(t) is written as ~t.
+
+A Clause is a set of literals, where {lit1,lit2} is written as lit1,lit2
+
+Rules:
+
+The core of the proof format is the resolution rule.  All other rules
+are axioms proving a simple tautology.
+
+Resolution-Rule:
+
+(res t C1 C2):
+      C1        C2
+      ------------
+       C1\t, C2\~t
+
+The resolution rule takes as argument a pivot Term and two sub proofs.
+It returns the proof for a new clause which is the result of the resolution.
+Note that C1 needs to contain the positive literal for t, C2 contains the
+negative literal for t.
+
+
+Axioms:
+Axioms don't take subproofs as arguments and create a new tautology
+clause (except for assert, which creates a clause corresponding to one
+of the input formulas).
+
+(assert t):         t
+false-:             ~false
+true+:              true
+(or+ k t1 ... tn):  (or t1 ... tn), ~tk
+(or- t1 ... tn):    ~(or t1 ... tn), t1, ..., tn
+(not+ t):           (not t), t
+(not- t):           ~(not t), ~t
+(and+ t1 ... tn):   (and t1 ... tn), ~t1, ..., ~tn
+(and- k t1 ... tn): ~(and t1 ... tn), tk
+(=>+ k t1 ... tn): (=> t1 ... tn), ~? tk   (negated literal iff k == n)
+(=>- t1 ... tn):   ~(=> t1 ... tn), ~t1, ..., ~tn-1, tn
+(=+1 t1 t2):       (= e1 e2), e1, e2
+(=+2 t1 t2):       (= e1 e2), ~e1, ~e2
+(=-1 t1 t2):       ~(= e1 e2), e1, ~e2
+(=-2 t1 t2):       ~(= e1 e2), ~e1, e2
+
+XOR-Reasoning (TODO: this is just a first draft)
+(xor+ seq0 seq1 seq2): (xor seq0), (xor seq1), ~(xor seq2)
+(xor- seq0 seq1 seq2): ~(xor seq0), ~(xor seq1), ~(xor seq2)
+  where seq0, seq1, seq2 are non-empty sequences of terms and for
+  each term the total number of occurrences in seq0, seq1, and seq2
+  is even.
+  Moreover, if seqi = (t) contains only one element, the clause contains
+  the literal "t" instead of the syntactically incorrect "(xor t)".
+
+(forall+ (decl) F):  (forall (decl) F),
+              ~(let ((x1 (_ skolem 1 (decl) F)) ...
+                     (xn (_ skolem n (decl) F)))
+                    F)
+(forall- (binding) F):  ~(forall ((x1 tau1) ... (xn taun)) F), (let (binding) F)
+(exists+ (binding) F):  (exists ((x1 tau1) ... (xn taun)) F), ~(let (binding) F)
+(exists- (decl) F):  ~(exists (decl)) F),
+              (let ((x1 (_ skolem 1 (decl) F)) ...
+                    (xn (_ skolem n (decl) F)))
+                   F)
+
+    where (_ skolem i (decl) F) is a fresh function symbol (that depends
+    implicitly on F).
+
+(expand (f t1 ... tn)): (= (f t1 ... tn) (let ((x1 t1) ... (xn tn)) t))
+  where f is defined by (define-fun f ((x1 tau1) ... (xn taun)) t)
+  could also be used to expand left-associate/chainable operators
+  or to expand some builtin functions, like abs or bitvector functions.
+
+(distinct+ t1 ... tn): (distinct t1 ... tn), (= t1 t2), (= t1 t3) ..., (= tn-1 tn)  (for all i, j, i<j)
+(distinct- i j t1 ... tn): ~(distinct t1 ... tn), ~(= ti tj)
+   where i != j,  i,j in 1...n
+(=+ t1 ... tn): (= t1 ... tn), ~(= t1 t2), ... ~(= tn-1 tn)
+(=- i j t1 ... tn): ~(= t1 ... tn), (= ti tj)
+
+(ite1 c t e):       (= (ite c t e) t), ~c
+(ite2 c t e):       (= (ite c t e) e), c
+
+(del! (! t :annot)) (= (! t :annot) t)
+
+Equality reasoning with refl, trans, symm, cong:
+
+(refl t):           (= t t)
+(trans a1 ... an):  (= a1 an), ~(= a1 a2), ..., ~(= an-1 an
+(symm a1 a2):       (= a1 a2), ~(= a2 a1)
+(cong f a1 b1 ... an bn):
+        (= (f a1 ... an) (f b1 .. bn)), ~(= a1 b1), ..., ~(= an bn)
+
+Cong works with every function, even logical operators.
+
+Remark: trans and symm can also be expressed by =+, =-:
+trans: (res (= a1 ... an) (=+ a1 ... an) (=- 1 n a1 ... an)
+symm:  (=- 2 1 a1 a2)
+
+Alternatives:
+
+(subst (x1 .. xn) F t1 t1' ... tn tn'):
+      ~(let ((x1 t1) ... (xn tn)) F), ~(= t1 t1'),..., ~(= tn tn'),
+      (let ((x1 t1') ... (xn tn')) F)
+
+This would allow to prove trans/symm/cong, e.g. cong can be expressed with
+subst as:
+cong: (res (refl (f a1 ... an))
+           (subst (x1...xn) (= (f a1 .. an) (f x1 .. xn)) a1 b1 ... an bn)
+
+Alternatively, one could support a more powerful congruence rule, to work
+over multiple levels and quantifiers:
+
+(congsubst pattern t1 t1' .. tn tn'):
+   (= (let ((x1 t1) ... (xn tn)) pattern)
+      (let ((x1 t1') ... (xn tn')) pattern),  ~(= t1 t1'), ... ~(= tn tn')
+
+congsubst and subst can express each other using the =+-12 rules.
+
+We currently have no way to substitute equalities in quantifiers.  This
+requires to proof the equivalence between substituted quantifiers with
+exists/forall intro/elim rules, which is a bit cumbersome.  Here a subst or
+congsubst rule would help a lot.
+
+
+Arrays:
+
+(selectstore1 a i v):   (= (select (store a i v) i) v)
+(selectstore2 a i j v): (= (select (store a i v) j) (select a j)), (= i j)
+(extdiff a b):  (= a b), ~(= (select a (@diff a b)) (select b (@diff a b)))
+(const v i): (= (select (@const v) i) v)
+
+# alternatively if no @diff:
+#   (ext a b): (= a b), ~(forall (i I) (= (select a i) (select b i)))
+# then with
+#   (define-fun @diff ((a (Array I V)) (b (Array I V))) (choose (i I) (not (= (select a i) (select bi)))))
+# we have
+#   (extdiff a b) == (res (forall (i I) (= (select a i) (select b i))) (forall+ (i I) (= (select a i) (select b i))) (ext a b))
+#
+# const is a real extension that changes the semantics, e.g., the following formula is sat in standard sementics, but can be
+# proved unsatisfiable using the const-rule
+#
+# (forall ((a (Array Int Bool))) (exists ((i Int)) (select a i)))
+#
+# Proof of unsat is:
+#
+# (let ((sk (choose ((i Int)) (select (@const false) i)) false)
+#       (exc (exists ((i Int)) (select (@const false) i)))
+#       (all (forall ((a (Array Int Bool))) (exists ((i Int)) (select a i)))))
+#   (let ((sel (select (@const false) sk)))
+#     (let ((eq (= sel false)))
+#       (res sel
+#         (res exc
+#              (res all (assert all)
+#                   (forall- ((a (@const false))) exa))
+#              (exists- (i Int) (select (@const false) i)))
+#         (res eq
+#              (const false sk)
+#              (res false (iff-2 eq) false-))))
+
+DT:
+
+(dt_project seli a1 ... an): (= (seli (cons a1 ... an)) ai)
+(dt_cons cons x): ~((_ is cons) x), (= (cons (sel1 x) ... (seln x)) x)
+(dt_test cons (cons a1 ... an)):   ((_ is cons) (cons a1 ... an))
+(dt_test cons' (cons a1 ... an)): ~((_ is cons') (cons a1 ... an))
+(dt_exhaust x): ((_ is cons1) x), ..., ((_ is consn) x)
+(dt_acyclic (cons ... x ...)):  ~(= (cons ... x ...) x)
+   where (cons ... x ...) is a term dag containing term x and on the path
+   from the root to x only constructor functions appear.
+(dt_match (match ..)): (= (match t ((p1 x1) c1) ...)
+           (ite ((_ is p1) t) (let (x1 (sel1 t)) c1)
+             ...))
+
+Linear Arithmetic:
+
+  We use (poly p) to denote some normalization of a polynomial expression:
+  (+ (* c1 t11 ...t1m) ... (* cn tn1 ... tnm))
+  where c1, .., cn are non-zero constants
+  all (ti1...tim) are different multi-sets, the head symbol of tij
+  is not +,-,* or division with non-zero constant
+  all ci,tij have the same type (Real or Int),
+  ci can be omitted, if it is 1 (except if there is no ti1...tin),
+  */+ is omitted if it has only one argument,
+  The zero polynomial is represented by 0 and this is the only case
+  where 0 may appear,
+  NOTE: For linear arithmetic m must be one or zero.
+
+(poly+ a1 .. an a):  (= (+ a1 ... an) a)
+  where (poly a) = (poly a1) + ... + (poly an))
+(poly* a1 .. an a):  (= (* a1 ... an) a)
+  where (poly a) = (poly a1) * ... * (poly an))
+
+  # NOTE: since constants are polynomials, the rule for * and + can
+  # be used to add or multiply constants.
+
+(to_real a):  (= (to_real a) a')
+  where a is (+ ... (* ci ...tij...))
+  and a' is (+ ... (* ci' ...(to_real tij)...))
+  where ci' is the real representation of the integer ci, i.e.,  NUM.0
+  for NUM and (- NUM.0) for (- NUM) and every other term t is replaced
+  by (to_real t)
+
+The functions / and - are defined by:
+
+(/def a b1 ... bn):  (= a (* b1 ... bn (/ a b1 ... bn))), (= b1 0), ..., (= bn 0)
+(-def a):    (= (- a) (* (- 1) a))
+(-def a b1 ... bn): (= (- a b1 ... bn) (+ a (* (- 1) b1)) ... (* (- 1) bn))
+
+
+(abs-def x):         (= (abs x) (ite (< x 0) (- x) x))
+(tointlow x):        (<= (to_real (to_int x)) x)
+(tointhigh x):       (<  x (+ (to_real (to_int x)) 1.0))
+(divlow x d):        (<= (* d (div x d)) x), (= d 0)
+(divhigh x d):       (<  x (+ (* d (div x d)) (abs d))), (= d 0)
+
+(mod-def x d):       (= (mod x d) (- x (* d (div x d)))), (= d 0)
+(divisible-def d x): (= ((_ divisible d) x) (= x (* d (div x d))))
+
+(>def a b):  (= (> a b) (< b a))
+(>=def a b): (= (>= a b) (<= b a))
+
+(trichotomy a b):    (< a b), (= a b), (< b a)
+(total a b):         (<= a b), (< b a)
+(total-int a c):     (<= a c), (<= (c+1) a)   # where a has sort int, c is an integer constant `NUMERAL` or `(- NUMERAL)`.
+(farkas c1 (<=? a1 b1) ... cn (<=? an bn)): ~(<=? a1 b1), ..., ~(<=? an bn)
+  where c1, ...,cn are positive integers, <=? stands for <, <=, =,
+  (poly c1*(a1-b1) + ... + cn*(an-bn)) is a (rational or int) constant c.
+  and c > 0 or c = 0 and at least one inequality is strict.
+  If some inequalities are Int and some are Real, all inequalites are
+  implicitly converted to Real by converting all coefficients in ai/bi to
+  real and replacing all terms t in ai/bi with (to_real t).
+
+
+NON-LINEAR Arithmetic:
+
+TODO:
+something like
+(/ a1 a2 ... an):
+  (= a2 0), ..., (= an 0), (= (* (/ a1 a2 ... an) a2 ... an) a1)
+
+(divlow a1 a2 ... an):
+  (= a2 0), (<= a1 (* (div a1 a2) a2))
+(divhigh a1 a2 ... an):
+  (= a2 0), (<= (* (div a1 a2) a2) (+ a1 (abs a2)))
+
+(zero a1 ... an):
+  ~(= (poly a1*...*an) 0), (= a1 0), ..., (= an 0)
+
+
+
+
+[1] B. Kiesl, A. Rebola-Pardo, M. Heule, Extended Resolution Simulates DRAT,
+    IJCAR 2018, https://www.cs.cmu.edu/~mheule/publications/ijcar18.pdf

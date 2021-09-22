@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
@@ -343,11 +344,16 @@ public class CCProofGenerator {
 
 		// Collect the paths needed to prove the main disequality
 		final ProofInfo mainInfo = findMainPaths();
-		assert mAnnot.mDiseq != null;
-		final SymmetricPair<CCTerm> mainDiseq = mAnnot.mDiseq;
-		assert isDisequalityLiteral(mainDiseq) || isTrivialDisequality(mainDiseq);
-		mainInfo.mLemmaDiseq = mainDiseq;
-		mPathProofMap.put(mainDiseq, mainInfo);
+		if (mAnnot.mDiseq != null) {
+			final SymmetricPair<CCTerm> mainDiseq = mAnnot.mDiseq;
+			assert isDisequalityLiteral(mainDiseq) || isTrivialDisequality(mainDiseq);
+			mainInfo.mLemmaDiseq = mainDiseq;
+			mPathProofMap.put(mainDiseq, mainInfo);
+		} else {
+			assert mAnnot.mRule == RuleKind.DT_CASES || mAnnot.mRule == RuleKind.DT_UNIQUE
+					|| mAnnot.mRule == RuleKind.DT_DISJOINT
+					|| mAnnot.mRule == RuleKind.DT_CYCLE : "Rule needs a disequality";
+		}
 
 		// set the parent counter, to facilitate topological order
 		determineAllNumParents(mainInfo);
@@ -461,6 +467,19 @@ public class CCProofGenerator {
 			mainProof.mProofPaths = mPaths.toArray(new IndexedPath[mPaths.size()]);
 			break;
 		}
+		case DT_CASES:
+		case DT_CONSTRUCTOR:
+		case DT_CYCLE:
+		case DT_DISJOINT:
+		case DT_INJECTIVE:
+		case DT_PROJECT:
+		case DT_TESTER:
+		case DT_UNIQUE:
+			for (final SymmetricPair<CCTerm> dependentEq : mAnnot.mDTLemma.getReason()) {
+				mainProof.collectEquality(dependentEq);
+			}
+			mainProof.mProofPaths = new IndexedPath[0];
+			break;
 		}
 		return mainProof;
 	}
@@ -533,9 +552,16 @@ public class CCProofGenerator {
 		final Term base = theory.or(args);
 
 		final IndexedPath[] paths = info.getPaths();
-		final Object[] subannots = new Object[2 * paths.length + 1];
+		final boolean hasCycle = rule == RuleKind.DT_CYCLE;
+		final Object[] subannots = new Object[2 * paths.length + (diseq == null ? 0 : 1) + (hasCycle ? 2 : 0)];
 		int k = 0;
-		subannots[k++] = theory.annotatedTerm(CCEquality.QUOTED_CC, diseq);
+		if (diseq != null) {
+			subannots[k++] = theory.annotatedTerm(CCEquality.QUOTED_CC, diseq);
+		}
+		if (hasCycle) {
+			subannots[k++] = ":cycle";
+			subannots[k++] = mAnnot.mDTLemma.getCycleTerms();
+		}
 		for (final IndexedPath p : paths) {
 			final CCTerm index = p.getIndex();
 			final CCTerm[] path = p.getPath();
@@ -575,18 +601,24 @@ public class CCProofGenerator {
 			// In that case there is no equality atom in the clause
 			boolean isTrivialDiseq = false;
 			if (lemmaNo == 0) { // main lemma
-				final CCTerm diseqLHS = mAnnot.getDiseq().getFirst();
-				final CCTerm diseqRHS = mAnnot.getDiseq().getSecond();
-				final Literal diseqLit = mEqualityLiterals.get(new SymmetricPair<>(diseqLHS, diseqRHS));
-				if (diseqLit != null) {
-					// disequality must occur positively in lemma or not at all.
-					assert diseqLit.getSign() > 0;
-					// use the same order of sides as in the literal appearing in the lemma.
-					diseq = diseqLit.getSMTFormula(theory, false);
-				} else {
-					// if disequality does not occur, it is a trivial disequality.
-					diseq = theory.term("=", diseqLHS.getFlatTerm(), diseqRHS.getFlatTerm());
+				if (mAnnot.getDiseq() == null) {
+					// Rule without disequality
+					diseq = null;
 					isTrivialDiseq = true;
+				} else {
+					final CCTerm diseqLHS = mAnnot.getDiseq().getFirst();
+					final CCTerm diseqRHS = mAnnot.getDiseq().getSecond();
+					final Literal diseqLit = mEqualityLiterals.get(new SymmetricPair<>(diseqLHS, diseqRHS));
+					if (diseqLit != null) {
+						// disequality must occur positively in lemma or not at all.
+						assert diseqLit.getSign() > 0;
+						// use the same order of sides as in the literal appearing in the lemma.
+						diseq = diseqLit.getSMTFormula(theory, false);
+					} else {
+						// if disequality does not occur, it is a trivial disequality.
+						diseq = theory.term("=", diseqLHS.getFlatTerm(), diseqRHS.getFlatTerm());
+						isTrivialDiseq = true;
+					}
 				}
 			} else {
 				// auxLiteral should already have been created by the lemma that needs it.
@@ -672,7 +704,7 @@ public class CCProofGenerator {
 			term = ((CCAppTerm) term).getFunc();
 			// term == const
 			if (term instanceof CCBaseTerm) {
-				return ((CCBaseTerm) term).getFunctionSymbol().getName().equals("const");
+				return ((CCBaseTerm) term).getFunctionSymbol().getName().equals(SMTLIBConstants.CONST);
 			}
 		}
 		return false;

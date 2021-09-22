@@ -2,14 +2,13 @@ SHELL=/bin/bash
 XMLFILES=$(wildcard *.xml)
 DATE:=$(shell LANG=C date)
 VERSION:=$(shell git describe 2>/dev/null || echo untagged)
-OTHERFILES := valid-xhtml10.png vcss.gif smtinterpol.css goedel.jpg floc2014.jpg floc2018.jpg
-SMT2FILES := usage.smt2 unsat.smt2 subannot.smt2 interpolation.smt2
+OTHERFILES := HTML5_Logo.svg CSS3_Logo.svg smtinterpol.css goedel.jpg floc2014.jpg floc2018.jpg
+SMT2FILES := usage.smt2 unsat.smt2 subannot.smt2 interpolation.smt2 mccarthy1.smt2 mccarthy2.smt2
 JARFILES := smtinterpol-$(VERSION).jar smtinterpol-$(VERSION)-sources.jar
 
 CHECKSUMS = $(patsubst %,gen/%.sha,$(JARFILES) $(SMT2FILES))
 
 
-# mccarthy1.smt2 mccarthy2.smt2
 # UsageStub.java InterpolationUsageStub.java \
 # fmcad11.tar.bz2 interpolations.tar.bz2
 
