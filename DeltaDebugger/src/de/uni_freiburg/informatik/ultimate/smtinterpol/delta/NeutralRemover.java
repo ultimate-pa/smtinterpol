@@ -18,199 +18,26 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
-import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
-import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
-import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 
-public class NeutralRemover extends NonRecursive {
-
-	private static class BuildAnnotationTerm implements Walker {
-		private final AnnotatedTerm mAnnot;
-		public BuildAnnotationTerm(AnnotatedTerm annot) {
-			mAnnot = annot;
-		}
-		@Override
-		public void walk(NonRecursive engine) {
-			final NeutralRemover remover = (NeutralRemover) engine;
-			final Term sub = remover.getConverted();
-			remover.setResult(sub == mAnnot.getSubterm()
-					? mAnnot
-						: mAnnot.getTheory().annotatedTerm(
-								mAnnot.getAnnotations(), sub));
-		}
-	}
-
-	private static class BuildApplicationTerm implements Walker {
-		private final ApplicationTerm mApp;
-		private int mNumParams;
-		public BuildApplicationTerm(ApplicationTerm app) {
-			mApp = app;
-		}
-		public void setParamCount(int count) {
-			mNumParams = count;
-		}
-		@Override
-		public void walk(NonRecursive engine) {
-			final NeutralRemover remover = (NeutralRemover) engine;
-			if (mApp.getParameters().length == 0) {
-				remover.setResult(mApp);
-			} else if (mNumParams == 0) {
-				// Try to remove the whole term
-				if (mApp.getSort() == mApp.getTheory().getBooleanSort()) {
-					remover.setResult(mApp.getTheory().mTrue);
-				} else {
-					remover.setResult(Rational.ZERO.toTerm(mApp.getSort()));
-				}
-			} else if (mNumParams == 1 && mApp.getParameters().length != 1) {
-				// We removed some neutral elements.  The result is already on
-				// the result stack.  Thus, we don't do
-				// remover.setResult(remover.getConverted());
-			} else {
-				final Term[] params = remover.getConverted(mNumParams);
-				remover.setResult(mApp.getTheory().term(
-						mApp.getFunction(), params));
-			}
-		}
-	}
-
-	private static class BuildLetTerm implements Walker {
-		private final LetTerm mLet;
-		public BuildLetTerm(LetTerm let) {
-			mLet = let;
-		}
-		@Override
-		public void walk(NonRecursive engine) {
-			final NeutralRemover remover = (NeutralRemover) engine;
-			final Term[] values = remover.getConverted(mLet.getValues().length);
-			final Term sub = remover.getConverted();
-			remover.setResult(sub.getTheory().let(
-					mLet.getVariables(), values, sub));
-		}
-	}
-
-	private static class BuildMatchTerm implements Walker {
-		private final MatchTerm mMatchTerm;
-
-		public BuildMatchTerm(MatchTerm matchTerm) {
-			mMatchTerm = matchTerm;
-		}
-
-		@Override
-		public void walk(NonRecursive engine) {
-			final NeutralRemover remover = (NeutralRemover) engine;
-			final Term dataTerm = remover.getConverted();
-			final Term[] cases = remover.getConverted(mMatchTerm.getCases().length);
-			remover.setResult(mMatchTerm.getTheory().match(dataTerm, mMatchTerm.getVariables(), cases,
-					mMatchTerm.getConstructors()));
-		}
-	}
-
-	private static class BuildQuantifiedFormula implements Walker {
-		private final QuantifiedFormula mQuant;
-		public BuildQuantifiedFormula(QuantifiedFormula quant) {
-			mQuant = quant;
-		}
-		@Override
-		public void walk(NonRecursive engine) {
-			final NeutralRemover remover = (NeutralRemover) engine;
-			final Term sub = remover.getConverted();
-			final Theory t = sub.getTheory();
-			if (sub == mQuant.getSubformula()) {
-				remover.setResult(mQuant);
-			} else if (mQuant.getQuantifier() == QuantifiedFormula.EXISTS) {
-				remover.setResult(t.exists(mQuant.getVariables(), sub));
-			} else {
-				remover.setResult(t.forall(mQuant.getVariables(), sub));
-			}
-		}
-	}
-
-	private static class NeutralWalker extends TermWalker {
-
-		public NeutralWalker(Term t) {
-			super(t);
-		}
-
-		@Override
-		public void walk(NonRecursive walker, ConstantTerm term) {
-			((NeutralRemover) walker).setResult(term);
-		}
-
-		@Override
-		public void walk(NonRecursive walker, AnnotatedTerm term) {
-			walker.enqueueWalker(new BuildAnnotationTerm(term));
-			walker.enqueueWalker(new NeutralWalker(term.getSubterm()));
-		}
-
-		@Override
-		public void walk(NonRecursive walker, ApplicationTerm term) {
-			final NeutralRemover remover = (NeutralRemover) walker;
-			final BuildApplicationTerm bat = new BuildApplicationTerm(term);
-			walker.enqueueWalker(bat);
-			int paramsPushed = 0;
-			final Term[] params = term.getParameters();
-			for (int i = 0; i < params.length; ++i) {
-				if (!remover.shouldRemove(term, i)) {
-					walker.enqueueWalker(new NeutralWalker(params[i]));
-					++paramsPushed;
-				}
-			}
-			bat.setParamCount(paramsPushed);
-		}
-
-		@Override
-		public void walk(NonRecursive walker, LetTerm term) {
-			walker.enqueueWalker(new BuildLetTerm(term));
-			for (final Term v : term.getValues()) {
-				walker.enqueueWalker(new NeutralWalker(v));
-			}
-			walker.enqueueWalker(new NeutralWalker(term.getSubTerm()));
-		}
-
-		@Override
-		public void walk(NonRecursive walker, QuantifiedFormula term) {
-			walker.enqueueWalker(new BuildQuantifiedFormula(term));
-			walker.enqueueWalker(new NeutralWalker(term.getSubformula()));
-		}
-
-		@Override
-		public void walk(NonRecursive walker, TermVariable term) {
-			((NeutralRemover) walker).setResult(term);
-		}
-
-		@Override
-		public void walk(NonRecursive walker, MatchTerm term) {
-			walker.enqueueWalker(new BuildMatchTerm(term));
-			walker.enqueueWalker(new NeutralWalker(term.getDataTerm()));
-			for (final Term v : term.getCases()) {
-				walker.enqueueWalker(new NeutralWalker(v));
-			}
-		}
-	}
-
-	private final ArrayDeque<Term> mConverted = new ArrayDeque<Term>();
-
+public class NeutralRemover extends TermTransformer {
 	private final Iterator<Neutral> mNeutrals;
 	private Neutral mNext;
 
-	public NeutralRemover(List<Neutral> neutrals) {
+	public NeutralRemover(final List<Neutral> neutrals) {
 		mNeutrals = neutrals.iterator();
 		mNext = mNeutrals.hasNext() ? mNeutrals.next() : null;
 	}
 
-	boolean shouldRemove(Term t, int pos) {
+	boolean shouldRemove(final Term t, final int pos) {
 		if (mNext != null && mNext.matches(t, pos)) {
 			mNext = mNeutrals.hasNext() ? mNeutrals.next() : null;
 			return true;
@@ -218,25 +45,36 @@ public class NeutralRemover extends NonRecursive {
 		return false;
 	}
 
-	void setResult(Term t) {
-		mConverted.push(t);
-	}
-
-	Term[] getConverted(int num) {
-		final Term[] res = new Term[num];
-		for (int i = 0; i < res.length; ++i) {
-			res[i] = mConverted.pop();
+	@Override
+	public void convert(Term term) {
+		if (term instanceof ApplicationTerm) {
+			final ApplicationTerm appTerm = (ApplicationTerm) term;
+			final Term[] params = appTerm.getParameters();
+			final ArrayList<Term> newParams = new ArrayList<>();
+			for (int i = 0; i < params.length; ++i) {
+				if (!shouldRemove(term, i)) {
+					newParams.add(params[i]);
+				}
+			}
+			if (newParams.size() < params.length) {
+				if (newParams.size() == 0) {
+					// Try to remove the whole term
+					if (term.getSort().getName() == SMTLIBConstants.BOOL) {
+						term = term.getTheory().mTrue;
+					} else {
+						term = Rational.ZERO.toTerm(term.getSort());
+					}
+				} else if (newParams.size() == 1) {
+					term = newParams.get(0);
+				} else {
+					term = term.getTheory().term(appTerm.getFunction(), newParams.toArray(new Term[newParams.size()]));
+				}
+			}
 		}
-		return res;
+		super.convert(term);
 	}
 
-	Term getConverted() {
-		return mConverted.pop();
+	public Term removeNeutrals(final Term t) {
+		return transform(t);
 	}
-
-	public Term removeNeutrals(Term t) {
-		run(new NeutralWalker(t));
-		return mConverted.pop();
-	}
-
 }

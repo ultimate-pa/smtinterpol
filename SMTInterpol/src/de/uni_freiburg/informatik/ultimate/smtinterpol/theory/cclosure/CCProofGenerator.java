@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
@@ -703,7 +704,7 @@ public class CCProofGenerator {
 			term = ((CCAppTerm) term).getFunc();
 			// term == const
 			if (term instanceof CCBaseTerm) {
-				return ((CCBaseTerm) term).getFunctionSymbol().getName().equals("const");
+				return ((CCBaseTerm) term).getFunctionSymbol().getName().equals(SMTLIBConstants.CONST);
 			}
 		}
 		return false;

@@ -24,6 +24,7 @@ import java.util.List;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -37,18 +38,17 @@ public class TermCollector extends NonRecursive {
 
 		private final int mDepth;
 
-		public DepthWalker(Term term, int depth) {
+		public DepthWalker(final Term term, final int depth) {
 			super(term);
 			mDepth = depth;
 		}
 
-		private boolean isReplaceable(Term t) {
-			return !(t instanceof ConstantTerm)
-					&& t != t.getTheory().mTrue && t != t.getTheory().mFalse;
+		private boolean isReplaceable(final Term t) {
+			return !(t instanceof ConstantTerm) && t != t.getTheory().mTrue && t != t.getTheory().mFalse;
 		}
 
 		@Override
-		public void walk(NonRecursive walker) {
+		public void walk(final NonRecursive walker) {
 			final Term t = getTerm();
 			if (mDepth == TermCollector.this.mDepth && isReplaceable(t)) {
 				mTerms.add(t);
@@ -58,45 +58,48 @@ public class TermCollector extends NonRecursive {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ConstantTerm term) {
+		public void walk(final NonRecursive walker, final ConstantTerm term) {
 			// Already a leaf
 		}
 
 		@Override
-		public void walk(NonRecursive walker, AnnotatedTerm term) {
+		public void walk(final NonRecursive walker, final AnnotatedTerm term) {
 			walker.enqueueWalker(
 					new DepthWalker(term.getSubterm(), mDepth + 1));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ApplicationTerm term) {
+		public void walk(final NonRecursive walker, final ApplicationTerm term) {
 			for (final Term p : term.getParameters()) {
 				walker.enqueueWalker(new DepthWalker(p, mDepth + 1));
 			}
 		}
 
 		@Override
-		public void walk(NonRecursive walker, LetTerm term) {
+		public void walk(final NonRecursive walker, final LetTerm term) {
 			for (final Term v : term.getValues()) {
 				walker.enqueueWalker(new DepthWalker(v, mDepth + 1));
 			}
-			walker.enqueueWalker(
-					new DepthWalker(term.getSubTerm(), mDepth + 1));
+			walker.enqueueWalker(new DepthWalker(term.getSubTerm(), mDepth + 1));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, QuantifiedFormula term) {
-			walker.enqueueWalker(
-					new DepthWalker(term.getSubformula(), mDepth + 1));
+		public void walk(final NonRecursive walker, final LambdaTerm term) {
+			walker.enqueueWalker(new DepthWalker(term.getSubterm(), mDepth + 1));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, TermVariable term) {
+		public void walk(final NonRecursive walker, final QuantifiedFormula term) {
+			walker.enqueueWalker(new DepthWalker(term.getSubformula(), mDepth + 1));
+		}
+
+		@Override
+		public void walk(final NonRecursive walker, final TermVariable term) {
 			// Already a leaf
 		}
 
 		@Override
-		public void walk(NonRecursive walker, MatchTerm term) {
+		public void walk(final NonRecursive walker, final MatchTerm term) {
 			walker.enqueueWalker(new DepthWalker(term.getDataTerm(), mDepth + 1));
 			for (final Term v : term.getCases()) {
 				walker.enqueueWalker(new DepthWalker(v, mDepth + 1));
@@ -107,12 +110,12 @@ public class TermCollector extends NonRecursive {
 	private final int mDepth;
 	private final List<Term> mTerms;
 
-	public TermCollector(int depth) {
+	public TermCollector(final int depth) {
 		mDepth = depth;
-		mTerms = new ArrayList<Term>();
+		mTerms = new ArrayList<>();
 	}
 
-	public void add(Term t) {
+	public void add(final Term t) {
 		run(new DepthWalker(t, 0));
 	}
 

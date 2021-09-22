@@ -18,226 +18,28 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.delta;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.CheckClosedTerm;
-import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
-import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 
-public class SubstitutionApplier extends NonRecursive {
-
-	private final class AnnotationBuilder implements Walker {
-
-		private final AnnotatedTerm mTerm;
-
-		public AnnotationBuilder(AnnotatedTerm term) {
-			mTerm = term;
-		}
-
-		@Override
-		public void walk(NonRecursive engine) {
-			final Term converted = mConverted.pop();
-			final Term res = converted.getTheory().annotatedTerm(
-					mTerm.getAnnotations(), converted);
-			mConverted.push(res);
-		}
-
-	}
-
-	private final class ApplicationTermBuilder implements Walker {
-
-		private final ApplicationTerm mTerm;
-
-		public ApplicationTermBuilder(ApplicationTerm term) {
-			mTerm = term;
-		}
-
-		@Override
-		public void walk(NonRecursive engine) {
-			final Term[] newArgs = new Term[mTerm.getParameters().length];
-			for (int i = 0; i < newArgs.length; ++i) {
-				newArgs[i] = mConverted.pop();
-			}
-			final Term res = mTerm.getTheory().term(mTerm.getFunction(), newArgs);
-			mConverted.push(res);
-		}
-
-	}
-
-	private final class LetBuilder implements Walker {
-
-		private final LetTerm mTerm;
-
-		public LetBuilder(LetTerm term) {
-			mTerm = term;
-		}
-
-		@Override
-		public void walk(NonRecursive engine) {
-			final Term[] newVals = new Term[mTerm.getValues().length];
-			for (int i = 0; i < newVals.length; ++i) {
-				newVals[i] = mConverted.pop();
-			}
-			final Term subform = mConverted.pop();
-			final Term res = new CheckClosedTerm().isClosed(subform) ? subform
-					: mTerm.getTheory().let(
-							mTerm.getVariables(), newVals, subform);
-			mConverted.push(res);
-		}
-
-	}
-
-	private final class MatchBuilder implements Walker {
-
-		private final MatchTerm mTerm;
-
-		public MatchBuilder(MatchTerm term) {
-			mTerm = term;
-		}
-
-		@Override
-		public void walk(NonRecursive engine) {
-			final Term dataTerm = mConverted.pop();
-			final Term[] newCases = new Term[mTerm.getCases().length];
-			for (int i = 0; i < newCases.length; ++i) {
-				newCases[i] = mConverted.pop();
-			}
-			final Term res = new CheckClosedTerm().isClosed(dataTerm) ? dataTerm
-					: mTerm.getTheory().match(dataTerm, mTerm.getVariables(), newCases, mTerm.getConstructors());
-			mConverted.push(res);
-		}
-
-	}
-
-	private final class QuantifierBuilder implements Walker {
-
-		private final QuantifiedFormula mTerm;
-
-		public QuantifierBuilder(QuantifiedFormula term) {
-			mTerm = term;
-		}
-
-		@Override
-		public void walk(NonRecursive engine) {
-			final Term subform = mConverted.pop();
-			final Theory t = mTerm.getTheory();
-			final Term res = new CheckClosedTerm().isClosed(subform) ? subform
-					: mTerm.getQuantifier() == QuantifiedFormula.EXISTS
-					? t.exists(mTerm.getVariables(), subform)
-						: t.forall(mTerm.getVariables(), subform);
-			mConverted.push(res);
-		}
-
-	}
-
-	private final class DepthDescender extends TermWalker {
-
-		private final int mDepth;
-
-		public DepthDescender(Term term, int depth) {
-			super(term);
-			mDepth = depth;
-		}
-
-		@Override
-		public void walk(NonRecursive walker) {
-			if (mDepth == SubstitutionApplier.this.mDepth) {
-				// Apply substitution
-				final boolean expectedTrue = mIt.hasNext();
-				assert expectedTrue;
-				if (mSubst != null && mSubst.matches(getTerm())) {
-					if (mSubst.isActive()) {
-						mConverted.push(mSubst.apply(getTerm()));
-						final Cmd add = mSubst.getAdditionalCmd(getTerm());
-						if (add != null) {
-							mAdds.add(add);
-						}
-					} else {
-						mConverted.push(getTerm());
-					}
-					// We can step here since we found a (possibly deactivated)
-					// match.  If the term does not match, we should not step!
-					stepSubst();
-				} else {
-					// We don't need to descend since we will never change
-					// anything at lower depths.
-					mConverted.push(getTerm());
-				}
-			} else {
-				super.walk(walker);
-			}
-		}
-
-		@Override
-		public void walk(NonRecursive walker, ConstantTerm term) {
-			mConverted.push(term);
-		}
-
-		@Override
-		public void walk(NonRecursive walker, AnnotatedTerm term) {
-			walker.enqueueWalker(new AnnotationBuilder(term));
-			walker.enqueueWalker(
-					new DepthDescender(term.getSubterm(), mDepth + 1));
-		}
-
-		@Override
-		public void walk(NonRecursive walker, ApplicationTerm term) {
-			walker.enqueueWalker(new ApplicationTermBuilder(term));
-			for (final Term p : term.getParameters()) {
-				walker.enqueueWalker(new DepthDescender(p, mDepth + 1));
-			}
-		}
-
-		@Override
-		public void walk(NonRecursive walker, LetTerm term) {
-			walker.enqueueWalker(new LetBuilder(term));
-			for (final Term v : term.getValues()) {
-				walker.enqueueWalker(new DepthDescender(v, mDepth + 1));
-			}
-			walker.enqueueWalker(
-					new DepthDescender(term.getSubTerm(), mDepth + 1));
-		}
-
-		@Override
-		public void walk(NonRecursive walker, QuantifiedFormula term) {
-			walker.enqueueWalker(new QuantifierBuilder(term));
-			walker.enqueueWalker(
-					new DepthDescender(term.getSubformula(), mDepth + 1));
-		}
-
-		@Override
-		public void walk(NonRecursive walker, TermVariable term) {
-			mConverted.push(term);
-		}
-
-		@Override
-		public void walk(NonRecursive walker, MatchTerm term) {
-			walker.enqueueWalker(new MatchBuilder(term));
-			walker.enqueueWalker(new DepthDescender(term.getDataTerm(), mDepth + 1));
-			for (final Term v : term.getCases()) {
-				walker.enqueueWalker(new DepthDescender(v, mDepth + 1));
-			}
-		}
-	}
-
+public class SubstitutionApplier extends TermTransformer {
 	private int mDepth;
-	private List<Substitution> mSubsts;// NOPMD
 	private Iterator<Substitution> mIt;
 	private Substitution mSubst;
 
-	private final ArrayDeque<Term> mConverted = new ArrayDeque<Term>();
-	private List<Cmd> mAdds = new ArrayList<Cmd>();
+	private List<Cmd> mAdds = new ArrayList<>();
+	private int mTermDepth;
 
 	void stepSubst() {
 		while (mIt.hasNext()) {
@@ -249,22 +51,98 @@ public class SubstitutionApplier extends NonRecursive {
 		mSubst = null;
 	}
 
-	public void init(int depth, List<Substitution> substs) {
+	public void init(final int depth, final List<Substitution> substs) {
 		mDepth = depth;
-		mSubsts = substs;
-		mIt = mSubsts.iterator();
+		mIt = substs.iterator();
 		stepSubst();
 	}
 
-	public Term apply(Term term) {
-		run(new DepthDescender(term, 0));
-		return mConverted.pop();
+	public Term apply(final Term term) {
+		mTermDepth = 0;
+		return transform(term);
 	}
 
 	public List<Cmd> getAdds() {
 		final List<Cmd> res = mAdds;
-		mAdds = new ArrayList<Cmd>();
+		mAdds = new ArrayList<>();
 		return res;
 	}
 
+	@Override
+	protected void convert(final Term term) {
+		if (mTermDepth == mDepth) {
+			// Apply substitution
+			final boolean expectedTrue = mIt.hasNext();
+			assert expectedTrue;
+			if (mSubst != null && mSubst.matches(term)) {
+				if (mSubst.isActive()) {
+					setResult(mSubst.apply(term));
+					final Cmd add = mSubst.getAdditionalCmd(term);
+					if (add != null) {
+						mAdds.add(add);
+					}
+				} else {
+					setResult(term);
+				}
+				// We can step here since we found a (possibly deactivated)
+				// match. If the term does not match, we should not step!
+				stepSubst();
+			} else {
+				// We don't need to descend since we will never change
+				// anything at lower depths.
+				setResult(term);
+			}
+		} else {
+			if (term instanceof ApplicationTerm || term instanceof LetTerm || term instanceof LambdaTerm
+					|| term instanceof QuantifiedFormula || term instanceof MatchTerm
+					|| term instanceof AnnotatedTerm) {
+				mTermDepth++;
+			}
+			super.convert(term);
+		}
+	}
+
+	@Override
+	public void convertApplicationTerm(final ApplicationTerm old, final Term[] newParams) {
+		mTermDepth--;
+		super.convertApplicationTerm(old, newParams);
+	}
+
+	@Override
+	public void postConvertLet(final LetTerm oldLet, final Term[] newValues, final Term newBody) {
+		mTermDepth--;
+		if (new CheckClosedTerm().isClosed(newBody)) {
+			setResult(newBody);
+		} else {
+			super.postConvertLet(oldLet, newValues, newBody);
+		}
+	}
+
+	@Override
+	public void postConvertLambda(final LambdaTerm old, final Term newBody) {
+		mTermDepth--;
+		super.postConvertLambda(old, newBody);
+	}
+
+	@Override
+	public void postConvertQuantifier(final QuantifiedFormula old, final Term newBody) {
+		mTermDepth--;
+		if (new CheckClosedTerm().isClosed(newBody)) {
+			setResult(newBody);
+		} else {
+			super.postConvertQuantifier(old, newBody);
+		}
+	}
+
+	@Override
+	public void postConvertMatch(final MatchTerm old, final Term newDataTerm, final Term[] newCases) {
+		mTermDepth--;
+		super.postConvertMatch(old, newDataTerm, newCases);
+	}
+
+	@Override
+	public void postConvertAnnotation(final AnnotatedTerm old, final Annotation[] newAnnots, final Term newBody) {
+		mTermDepth--;
+		super.postConvertAnnotation(old, newAnnots, newBody);
+	}
 }

@@ -125,8 +125,8 @@ public abstract class DPLLAtom extends Literal {
 	 * Returns a SMT formula representing the negated atoms.
 	 * Subclasses may overwrite this for pretty output.
 	 */
-	public final Term getNegatedSMTFormula(Theory smtTheory, boolean useAuxVars) {
-		return smtTheory.not(getSMTFormula(smtTheory, useAuxVars));
+	public final Term getNegatedSMTFormula(Theory smtTheory, boolean quoted) {
+		return smtTheory.not(getSMTFormula(smtTheory, quoted));
 	}
 
 	/**

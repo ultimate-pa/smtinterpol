@@ -44,6 +44,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
@@ -473,6 +474,16 @@ public class QuantifierTheory implements ITheory {
 										{ "Final Check", mFinalCheckTime } } } } };
 	}
 
+	public ILiteral createAuxLiteral(final Term auxTerm, final TermVariable[] freeVars, final Term definingTerm,
+			final SourceAnnotation source) {
+		final Term newTerm = mTheory.term("=", auxTerm, mTheory.mTrue);
+		final QuantLiteral atom = new QuantAuxEquality(newTerm, auxTerm, mTheory.mTrue, definingTerm);
+
+		// The atom is almost uninterpreted.
+		atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
+		return atom;
+	}
+
 	/**
 	 * This method builds new QuantEquality atoms and simultaneously checks if they lie in the almost uninterpreted
 	 * fragment, i.e., if they are of the form (i) (euEUTerm = euTerm), pos. and neg. or (ii) (var = ground), integer
@@ -658,6 +669,10 @@ public class QuantifierTheory implements ITheory {
 			final QuantLiteral clauseAtom;
 			if (atom instanceof QuantBoundConstraint) {
 				clauseAtom = new QuantBoundConstraint(atom.getTerm(), ((QuantBoundConstraint) atom).getAffineTerm());
+			} else if (atom instanceof QuantAuxEquality) {
+				final QuantAuxEquality auxAtom = (QuantAuxEquality) atom;
+				clauseAtom = new QuantAuxEquality(auxAtom.getTerm(), auxAtom.getLhs(), auxAtom.getRhs(),
+						auxAtom.getDefinition());
 			} else {
 				clauseAtom = new QuantEquality(atom.getTerm(), ((QuantEquality) atom).getLhs(),
 						((QuantEquality) atom).getRhs());
@@ -892,7 +907,7 @@ public class QuantifierTheory implements ITheory {
 			final Term subTerm = todo.pop();
 			if (subTerm instanceof ApplicationTerm && seen.add(subTerm)) {
 				if (subTerm.getFreeVars().length == 0) {
-					CCTerm ccTerm = mClausifier.getCCTerm(subTerm);
+					final CCTerm ccTerm = mClausifier.getCCTerm(subTerm);
 					if (ccTerm == null && (Clausifier.needCCTerm(subTerm) || subTerm.getSort().isArraySort())) {
 						mClausifier.createCCTerm(subTerm, source);
 					}

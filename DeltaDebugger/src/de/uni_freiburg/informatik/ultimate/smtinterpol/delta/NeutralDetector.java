@@ -27,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -40,22 +41,22 @@ public class NeutralDetector extends NonRecursive {
 
 	private static class NeutralWalker extends TermWalker {
 
-		public NeutralWalker(Term term) {
+		public NeutralWalker(final Term term) {
 			super(term);
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ConstantTerm term) {
+		public void walk(final NonRecursive walker, final ConstantTerm term) {
 			// Nothing to do
 		}
 
 		@Override
-		public void walk(NonRecursive walker, AnnotatedTerm term) {
+		public void walk(final NonRecursive walker, final AnnotatedTerm term) {
 			walker.enqueueWalker(new NeutralWalker(term.getSubterm()));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ApplicationTerm term) {
+		public void walk(final NonRecursive walker, final ApplicationTerm term) {
 			final NeutralDetector detector = (NeutralDetector) walker;
 			final FunctionSymbol fsym = term.getFunction();
 			final Theory t = fsym.getTheory();
@@ -86,7 +87,7 @@ public class NeutralDetector extends NonRecursive {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, LetTerm term) {
+		public void walk(final NonRecursive walker, final LetTerm term) {
 			for (final Term t : term.getValues()) {
 				walker.enqueueWalker(new NeutralWalker(t));
 			}
@@ -94,17 +95,22 @@ public class NeutralDetector extends NonRecursive {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, QuantifiedFormula term) {
+		public void walk(final NonRecursive walker, final LambdaTerm term) {
+			walker.enqueueWalker(new NeutralWalker(term.getSubterm()));
+		}
+
+		@Override
+		public void walk(final NonRecursive walker, final QuantifiedFormula term) {
 			walker.enqueueWalker(new NeutralWalker(term.getSubformula()));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, TermVariable term) {
+		public void walk(final NonRecursive walker, final TermVariable term) {
 			// Nothing to do
 		}
 
 		@Override
-		public void walk(NonRecursive walker, MatchTerm term) {
+		public void walk(final NonRecursive walker, final MatchTerm term) {
 			walker.enqueueWalker(new NeutralWalker(term.getDataTerm()));
 			for (final Term t : term.getCases()) {
 				walker.enqueueWalker(new NeutralWalker(t));
@@ -112,9 +118,9 @@ public class NeutralDetector extends NonRecursive {
 		}
 	}
 
-	private final ArrayList<Neutral> mNeutrals = new ArrayList<Neutral>();
+	private final ArrayList<Neutral> mNeutrals = new ArrayList<>();
 
-	private static boolean isZero(Term t) {
+	private static boolean isZero(final Term t) {
 		if (t instanceof ConstantTerm) {
 			final ConstantTerm ct = (ConstantTerm) t;
 			final Object val = ct.getValue();
@@ -132,7 +138,7 @@ public class NeutralDetector extends NonRecursive {
 		return false;
 	}
 
-	public List<Neutral> detect(Term t) {
+	public List<Neutral> detect(final Term t) {
 		run(new NeutralWalker(t));
 		return mNeutrals;
 	}

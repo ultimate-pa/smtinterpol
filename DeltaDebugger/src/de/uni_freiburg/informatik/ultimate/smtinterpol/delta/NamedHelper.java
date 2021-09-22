@@ -24,6 +24,7 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -35,17 +36,17 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 public class NamedHelper {
 
 	private final class NamedCollector extends TermWalker {
-		public NamedCollector(Term term) {
+		public NamedCollector(final Term term) {
 			super(term);
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ConstantTerm term) {
+		public void walk(final NonRecursive walker, final ConstantTerm term) {
 			// Cannot contain names
 		}
 
 		@Override
-		public void walk(NonRecursive walker, AnnotatedTerm term) {
+		public void walk(final NonRecursive walker, final AnnotatedTerm term) {
 			for (final Annotation annot : term.getAnnotations()) {
 				if (annot.getKey().equals(":named")) {
 					mNames.put(annot.getValue().toString(), mCmd);
@@ -54,14 +55,14 @@ public class NamedHelper {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ApplicationTerm term) {
+		public void walk(final NonRecursive walker, final ApplicationTerm term) {
 			for (final Term t : term.getParameters()) {
 				walker.enqueueWalker(new NamedDetector(t));
 			}
 		}
 
 		@Override
-		public void walk(NonRecursive walker, LetTerm term) {
+		public void walk(final NonRecursive walker, final LetTerm term) {
 			for (final Term t : term.getValues()) {
 				walker.enqueueWalker(new NamedDetector(t));
 			}
@@ -69,17 +70,22 @@ public class NamedHelper {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, QuantifiedFormula term) {
+		public void walk(final NonRecursive walker, final LambdaTerm term) {
+			walker.enqueueWalker(new NamedDetector(term.getSubterm()));
+		}
+
+		@Override
+		public void walk(final NonRecursive walker, final QuantifiedFormula term) {
 			walker.enqueueWalker(new NamedDetector(term.getSubformula()));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, TermVariable term) {
+		public void walk(final NonRecursive walker, final TermVariable term) {
 			// Cannot contain names
 		}
 
 		@Override
-		public void walk(NonRecursive walker, MatchTerm term) {
+		public void walk(final NonRecursive walker, final MatchTerm term) {
 			walker.enqueueWalker(new NamedDetector(term.getDataTerm()));
 			for (final Term t : term.getCases()) {
 				walker.enqueueWalker(new NamedDetector(t));
@@ -89,17 +95,17 @@ public class NamedHelper {
 
 	private final class NamedDetector extends TermWalker {
 
-		public NamedDetector(Term term) {
+		public NamedDetector(final Term term) {
 			super(term);
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ConstantTerm term) {
+		public void walk(final NonRecursive walker, final ConstantTerm term) {
 			// Cannot contain names
 		}
 
 		@Override
-		public void walk(NonRecursive walker, AnnotatedTerm term) {
+		public void walk(final NonRecursive walker, final AnnotatedTerm term) {
 			for (final Annotation annot : term.getAnnotations()) {
 				if (annot.getKey().equals(":named")) {
 					mHasNames = true;
@@ -108,14 +114,14 @@ public class NamedHelper {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, ApplicationTerm term) {
+		public void walk(final NonRecursive walker, final ApplicationTerm term) {
 			for (final Term t : term.getParameters()) {
 				walker.enqueueWalker(new NamedDetector(t));
 			}
 		}
 
 		@Override
-		public void walk(NonRecursive walker, LetTerm term) {
+		public void walk(final NonRecursive walker, final LetTerm term) {
 			for (final Term t : term.getValues()) {
 				walker.enqueueWalker(new NamedDetector(t));
 			}
@@ -123,17 +129,22 @@ public class NamedHelper {
 		}
 
 		@Override
-		public void walk(NonRecursive walker, QuantifiedFormula term) {
+		public void walk(final NonRecursive walker, final LambdaTerm term) {
+			walker.enqueueWalker(new NamedDetector(term.getSubterm()));
+		}
+
+		@Override
+		public void walk(final NonRecursive walker, final QuantifiedFormula term) {
 			walker.enqueueWalker(new NamedDetector(term.getSubformula()));
 		}
 
 		@Override
-		public void walk(NonRecursive walker, TermVariable term) {
+		public void walk(final NonRecursive walker, final TermVariable term) {
 			// Cannot contain names
 		}
 
 		@Override
-		public void walk(NonRecursive walker, MatchTerm term) {
+		public void walk(final NonRecursive walker, final MatchTerm term) {
 			for (final Term t : term.getCases()) {
 				walker.enqueueWalker(new NamedDetector(t));
 			}
@@ -145,13 +156,13 @@ public class NamedHelper {
 	private Map<String, Cmd> mNames;
 	private Cmd mCmd;
 
-	public boolean checkTerm(Term t) {
+	public boolean checkTerm(final Term t) {
 		mHasNames = false;
 		new NonRecursive().run(new NamedDetector(t));
 		return mHasNames;
 	}
 
-	public void addNames(Term t, Map<String, Cmd> context, Cmd cmd) {
+	public void addNames(final Term t, final Map<String, Cmd> context, final Cmd cmd) {
 		mNames = context;
 		mCmd = cmd;
 		new NonRecursive().run(new NamedCollector(t));
