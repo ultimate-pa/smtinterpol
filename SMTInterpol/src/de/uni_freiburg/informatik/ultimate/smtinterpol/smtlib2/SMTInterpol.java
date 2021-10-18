@@ -72,6 +72,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.UnsatCoreCollector;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ErrorCallback.ErrorReason;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 /**
@@ -84,32 +85,6 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
  * @author Juergen Christ
  */
 public class SMTInterpol extends NoopScript {
-
-	private static class TimeoutHandler implements TerminationRequest {
-		TerminationRequest mStackedCancellation;
-		long mTimeout;
-
-		public TimeoutHandler(final TerminationRequest stacked) {
-			mStackedCancellation = stacked;
-			clearTimeout();
-		}
-
-		public void clearTimeout() {
-			mTimeout = Long.MAX_VALUE;
-		}
-
-		public void setTimeout(final long millis) {
-			mTimeout = System.currentTimeMillis() + millis;
-		}
-
-		@Override
-		public boolean isTerminationRequested() {
-			if (mStackedCancellation != null && mStackedCancellation.isTerminationRequested()) {
-				return true;
-			}
-			return System.currentTimeMillis() >= mTimeout;
-		}
-	}
 
 	public static enum ProofMode {
 		NONE, CLAUSES, FULL, LOWLEVEL
@@ -218,7 +193,7 @@ public class SMTInterpol extends NoopScript {
 	private DPLLEngine mEngine;
 	private Clausifier mClausifier;
 	private ScopedArrayList<Term> mAssertions;
-	private final TimeoutHandler mCancel;
+	private TimeoutHandler mCancel;
 
 	private final LogProxy mLogger;
 
@@ -1383,5 +1358,19 @@ public class SMTInterpol extends NoopScript {
 
 	public boolean isTerminationRequested() {
 		return mCancel.isTerminationRequested();
+	}
+
+	/**
+	 * Use with caution.
+	 */
+	public void setTerminationRequest(final TerminationRequest request) {
+		mCancel = new TimeoutHandler(request);
+	}
+
+	/**
+	 * Use with caution.
+	 */
+	public TerminationRequest getTerminationRequest() {
+		return mCancel.getTerminationRequest();
 	}
 }
