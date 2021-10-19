@@ -80,13 +80,14 @@ public class DPLLEngine {
 	 */
 	private final ScopedArrayList<DPLLAtom> mAtomList;
 	/**
-	 * List of all input clauses. This list should not contain any learned clauses!
+	 * List of all input clauses. This list should not contain any learned
+	 * clauses!
 	 */
 	private final SimpleList<Clause> mClauses = new SimpleList<>();
 
 	/**
-	 * Empty clause. This is a cache that speeds up detecting unsatisfiability in
-	 * the case our proof does not depend on a newly pushed formula.
+	 * Empty clause. This is a cache that speeds up detecting unsatisfiability
+	 * in the case our proof does not depend on a newly pushed formula.
 	 */
 	private Clause mUnsatClause = null;
 
@@ -110,18 +111,18 @@ public class DPLLEngine {
 
 	/**
 	 * The list of watchers that need to be rechecked. A watcher is added if the
-	 * clause was just added, or when backtracking, because the watcher was moved to
-	 * the backtrack list of a true literal, or because the watched literal was just
-	 * set to false.
+	 * clause was just added, or when backtracking, because the watcher was
+	 * moved to the backtrack list of a true literal, or because the watched
+	 * literal was just set to false.
 	 */
 	WatchList mPendingWatcherList = new WatchList();
 
 	/**
-	 * The DPLL stack is the stack of all literals that are currently assigned true.
-	 * Every decided or propagated literal is added to the DPLL stack and removed on
-	 * backtracking. The DPLL stack usually works as a stack, but there are some
-	 * exceptions where literals are created and inserted into the middle of the
-	 * stack.
+	 * The DPLL stack is the stack of all literals that are currently assigned
+	 * true. Every decided or propagated literal is added to the DPLL stack and
+	 * removed on backtracking. The DPLL stack usually works as a stack, but
+	 * there are some exceptions where literals are created and inserted into
+	 * the middle of the stack.
 	 */
 	ArrayList<Literal> mDPLLStack = new ArrayList<>();
 
@@ -312,11 +313,46 @@ public class DPLLEngine {
 		}
 	}
 
+	private void cleanWatcherList(Literal lit) {
+		final Clause.WatchList watchList = lit.mWatchers;
+		next_watcher: while (!watchList.isEmpty()) {
+			final int index = watchList.getIndex();
+			final Clause clause = watchList.mHead;
+
+			/* check if clause was already removed */
+			if (clause.mNext == null) {
+				watchList.removeFirst();
+			}
+			final Literal[] lits = clause.mLiterals;
+			/*
+			 * Since lit is undecided and we did propagate all clauses, this
+			 * clause cannot be a unit clause.
+			 */
+			assert index < lits.length;
+			assert lit == lits[index];
+
+			/* check if there is a true literal in the clause */
+			for (int i = 0; i < lits.length; i++) {
+				if (lits[i].getAtom().mDecideStatus == lits[i]) {
+					/*
+					 * Put the watcher on the backtrack watcher list.
+					 */
+					watchList.removeFirst();
+					lits[i].getAtom().mBacktrackWatchers.append(clause, index);
+					continue next_watcher;
+
+				}
+			}
+			/* we found a true watcher */
+			return;
+		}
+	}
+
 	/**
-	 * Go through the watcher list and check for pending conflict or unit clauses.
-	 * This returns early if a literal was propagated. The caller needs to check if
-	 * the dpllStack changed to conclude if it has to re-check for theory
-	 * propagations.
+	 * Go through the watcher list and check for pending conflict or unit
+	 * clauses. This returns early if a literal was propagated. The caller needs
+	 * to check if the dpllStack changed to conclude if it has to re-check for
+	 * theory propagations.
 	 *
 	 * @return a conflict clause, null if no conflict was found.
 	 */
@@ -336,15 +372,19 @@ public class DPLLEngine {
 			}
 			final Literal[] lits = clause.mLiterals;
 			/*
-			 * For non-unit clauses we check if the watched literal is set to false. If not,
-			 * just put the watcher back on the list. A unit clause has a watcher on a
-			 * virtual second literal that is treated as if it were always false. In that
-			 * case we don't check if it is still undecided.
+			 * For non-unit clauses we check if the watched literal is set to
+			 * false. If not, just put the watcher back on the list. A unit
+			 * clause has a watcher on a virtual second literal that is treated
+			 * as if it were always false. In that case we don't check if it is
+			 * still undecided.
 			 */
 			if (index < lits.length) {
 				final Literal myLit = lits[index];
 				if (myLit.getAtom().getDecideStatus() != myLit.negate()) {
-					/* The watcher is still fine. Put it on the mWatchers list of that literal */
+					/*
+					 * The watcher is still fine. Put it on the mWatchers list
+					 * of that literal
+					 */
 					myLit.mWatchers.append(clause, index);
 					continue nextList;
 				}
@@ -354,14 +394,16 @@ public class DPLLEngine {
 			}
 
 			/*
-			 * myLit is set to false and there are other literals. Check if we can propagate
-			 * the other literal, or if there are other undecided or true literals.
+			 * myLit is set to false and there are other literals. Check if we
+			 * can propagate the other literal, or if there are other undecided
+			 * or true literals.
 			 */
 			final Literal otherLit = lits[1 - index];
 			final DPLLAtom otherAtom = otherLit.getAtom();
 			if (otherAtom.mDecideStatus == otherLit) {
 				/*
-				 * Other watcher is true, put ourself on the backtrack watcher list.
+				 * Other watcher is true, put ourself on the backtrack watcher
+				 * list.
 				 */
 				otherAtom.mBacktrackWatchers.append(clause, index);
 				continue nextList;
@@ -383,20 +425,23 @@ public class DPLLEngine {
 						lits[2] = lits[index];
 						lits[index] = lit;
 						lit.mWatchers.append(clause, index);
+						if (status == null && !mAtoms.contains(lit.getAtom())) {
+							mAtoms.add(lit.getAtom());
+						}
 					}
 					continue nextList;
 				}
 			}
 			/*
-			 * Now we haven't found another atom to watch. Hence we have a unit clause or
-			 * conflict clause.
+			 * Now we haven't found another atom to watch. Hence we have a unit
+			 * clause or conflict clause.
 			 *
 			 * Note that we propagate otherAtom.
 			 */
 			if (otherAtom.mDecideStatus == null) {
 				/*
-				 * Put it on backtrack watchers of the other atom so it is reconsidered when we
-				 * backtrack.
+				 * Put it on backtrack watchers of the other atom so it is
+				 * reconsidered when we backtrack.
 				 */
 				otherAtom.mBacktrackWatchers.append(clause, index);
 				/* Propagate the unit clause. */
@@ -405,8 +450,8 @@ public class DPLLEngine {
 				clause = setLiteral(otherLit);
 			} else {
 				/*
-				 * clause is a conflict clause. After resolving this, we need to re-check this
-				 * clause.
+				 * clause is a conflict clause. After resolving this, we need to
+				 * re-check this clause.
 				 */
 				mPendingWatcherList.append(clause, index);
 			}
@@ -431,10 +476,11 @@ public class DPLLEngine {
 	}
 
 	/**
-	 * Sets a literal to true and tells all theories about it. The literal must be
-	 * undecided when this function is called.
+	 * Sets a literal to true and tells all theories about it. The literal must
+	 * be undecided when this function is called.
 	 *
-	 * @param literal the literal to set.
+	 * @param literal
+	 *            the literal to set.
 	 * @return a conflict clause if a conflict was detected.
 	 */
 	@SuppressWarnings("unused")
@@ -442,7 +488,7 @@ public class DPLLEngine {
 		mLogger.debug("S %s", literal);
 		final DPLLAtom atom = literal.getAtom();
 		assert atom.mDecideStatus == null;
-		assert mAtoms.contains(atom);
+		assert mAtoms.contains(atom) || (atom.mWatchers.isEmpty() || atom.negate().mWatchers.isEmpty());
 		atom.mStackPosition = mDPLLStack.size();
 		mDPLLStack.add(literal);
 		atom.mDecideLevel = mCurrentDecideLevel;
@@ -483,13 +529,16 @@ public class DPLLEngine {
 					mUnsatClause = clause;
 				}
 			} else {
-				/* propagate unit clause: only register watcher on "virtual" second literal. */
+				/*
+				 * propagate unit clause: only register watcher on "virtual"
+				 * second literal.
+				 */
 				mPendingWatcherList.append(clause, 1);
 			}
 		} else {
 			/*
-			 * A clause is "watched" if it appears on either the watcherBack/SetList or the
-			 * watchers list of some atom.
+			 * A clause is "watched" if it appears on either the
+			 * watcherBack/SetList or the watchers list of some atom.
 			 */
 			mPendingWatcherList.append(clause, 0);
 			mPendingWatcherList.append(clause, 1);
@@ -581,7 +630,8 @@ public class DPLLEngine {
 	 * INCLUDING {@link #finalizeBacktrack()} AND HENCE DOES NOT LEAVE BEHIND
 	 * INCONSISTENT THEORY SOLVERS.
 	 *
-	 * @param clause Conflict clause
+	 * @param clause
+	 *            Conflict clause
 	 * @return Explanation
 	 */
 	private Clause explainConflict(final Clause clause) {
@@ -813,11 +863,12 @@ public class DPLLEngine {
 	}
 
 	/**
-	 * Explain all conflicts currently present in the solver starting with a given
-	 * initial conflict. Returns <code>true</code> if and only if the empty clause
-	 * has been derived.
+	 * Explain all conflicts currently present in the solver starting with a
+	 * given initial conflict. Returns <code>true</code> if and only if the
+	 * empty clause has been derived.
 	 *
-	 * @param conflict The initial conflict.
+	 * @param conflict
+	 *            The initial conflict.
 	 * @return Is the solver inconsistent?
 	 */
 	private boolean explain(Clause conflict) {
@@ -995,23 +1046,24 @@ public class DPLLEngine {
 
 	private Literal chooseLiteral() {
 		final Literal lit = suggestions();
+		mLogger.debug("Decide using suggestion: %s", lit);
 		if (lit != null) {
 			return lit;
 		}
 		DPLLAtom atom;
-		// int ran = mRandom.nextInt(Config.RANDOM_SPLIT_BASE);
-		// if (!mAtoms.isEmpty() && ran <= Config.RANDOM_SPLIT_FREQ) {
-		// atom = mAtoms.mAtoms[mRandom.nextInt(mAtoms.size())];
-		// ++mNumRandomSplits;
-		// } else
-		atom = mAtoms.peek();
-		if (atom == null) {
-			return null;
+		while (true) {
+			atom = mAtoms.poll();
+			if (atom == null) {
+				return null;
+			}
+			cleanWatcherList(atom);
+			cleanWatcherList(atom.negate());
+			if (!atom.mWatchers.isEmpty() || !atom.negate().mWatchers.isEmpty()) {
+				break;
+			}
 		}
+		mLogger.debug("Decide using active atom: %s (%f)", atom.getPreferredStatus(), atom.mActivity);
 		assert atom.mDecideStatus == null;
-		// logger.debug("Choose literal: "+atom+" Weight "
-		// + (atom.activity/factor) +" - last: " + atom.lastStatus);
-		// return atom.lastStatus == null ? atom.negate() : atom.lastStatus;
 		return atom.getPreferredStatus();
 	}
 
@@ -1132,16 +1184,19 @@ public class DPLLEngine {
 						if (conflict == null) {
 							Literal lit;
 							boolean suggested = false;
-							while (conflict != null && (lit = suggestions()) != null) { // NOPMD
+							mLogger.debug("checking suggestions");
+							while (conflict == null && (lit = suggestions()) != null) { // NOPMD
 								if (lit.getAtom().mExplanation == null) {
 									increaseDecideLevel();
 									mDecides++;
 								}
+								assert lit.getAtom().getDecideStatus() == null;
 								conflict = setLiteral(lit);
 								suggested = true;
 							}
 							// @assert conflict != null ==> suggested == true
 							if (!suggested && mPendingWatcherList.isEmpty() && mAtoms.isEmpty()) {
+								mLogger.debug("no suggestions");
 								/* We found a model */
 								if (mLogger.isInfoEnabled()) {
 									printStatistics();
@@ -1179,8 +1234,10 @@ public class DPLLEngine {
 					printStatistics();
 					mLogger.info("Formula is unsat");
 					/*
-					 * logger.info("Learned Clauses"); for (Clause c : learnedClauses) {
-					 * logger.info("Cl: len "+c.literals.length+ " used "+c.usedTimes + ": "+c); }
+					 * logger.info("Learned Clauses"); for (Clause c :
+					 * learnedClauses) {
+					 * logger.info("Cl: len "+c.literals.length+
+					 * " used "+c.usedTimes + ": "+c); }
 					 */
 					return false;
 				}
@@ -1270,6 +1327,7 @@ public class DPLLEngine {
 	}
 
 	private Literal suggestions() {
+		mLogger.debug("Here");
 		for (final ITheory t : mTheories) {
 			final Literal lit = t.getPropagatedLiteral();
 			if (lit != null) {
@@ -1285,11 +1343,14 @@ public class DPLLEngine {
 				return lit;
 			}
 		}
+		mLogger.debug("No suggestions1");
 		return null;
 	}
 
 	public void addAtom(final DPLLAtom atom) {
-		mAtoms.add(atom);
+		if (!atom.mWatchers.isEmpty() || !atom.negate().mWatchers.isEmpty()) {
+			mAtoms.add(atom);
+		}
 		mAtomList.add(atom);
 	}
 
@@ -1637,7 +1698,8 @@ public class DPLLEngine {
 	 * Run a quick and incomplete check on the current context. This only uses
 	 * propagations and a conflict explanation to the empty clause.
 	 *
-	 * @return <code>false</code> if and only if the empty clause could be derived.
+	 * @return <code>false</code> if and only if the empty clause could be
+	 *         derived.
 	 */
 	public boolean quickCheck() {
 		if (mUnsatClause != null) {
@@ -1653,7 +1715,8 @@ public class DPLLEngine {
 	 * function tells the theory solvers to start a check. This might get more
 	 * propagations than {@link #quickCheck()}.
 	 *
-	 * @return <code>false</code> if and only if the empty clause could be derived.
+	 * @return <code>false</code> if and only if the empty clause could be
+	 *         derived.
 	 */
 	public boolean propagate() {
 		if (mUnsatClause != null) {
@@ -1713,8 +1776,8 @@ public class DPLLEngine {
 	}
 
 	/**
-	 * Returns the list of all input clauses. This list does not contain any learned
-	 * clauses!
+	 * Returns the list of all input clauses. This list does not contain any
+	 * learned clauses!
 	 */
 	public SimpleList<Clause> getClauses() {
 		return mClauses;
@@ -1829,7 +1892,8 @@ public class DPLLEngine {
 	 * Add some literals and prepare for a check-sat. Trivial inconsistencies
 	 * between assumptions are detected.
 	 *
-	 * @param lits The literals to assume.
+	 * @param lits
+	 *            The literals to assume.
 	 * @return <code>false</code> if the assumptions are trivially inconsistent.
 	 */
 	public boolean assume(final Literal[] lits) {
@@ -1881,8 +1945,8 @@ public class DPLLEngine {
 	}
 
 	/**
-	 * Randomly mess with the activity of Atoms, such that the Engine does not prefer atoms that have been active/inactive
-	 * so far.
+	 * Randomly mess with the activity of Atoms, such that the Engine does not
+	 * prefer atoms that have been active/inactive so far.
 	 */
 	public void messWithActivityOfAtoms(final Random rnd) {
 		mAtoms.clear();
