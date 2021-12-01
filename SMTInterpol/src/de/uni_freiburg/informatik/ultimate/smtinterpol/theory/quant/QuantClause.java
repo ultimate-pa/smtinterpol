@@ -38,8 +38,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.QuantFinalCheckMethod;
 
 /**
  * Represents a clause in the QuantifierTheory. This means, it contains at least one literal with an (implicitly)
@@ -113,12 +116,41 @@ public class QuantClause {
 
 	/**
 	 * Update the interesting instantiation terms for all variables.
+	 * 
+	 * For a variable {@code x} the term {@code t} is interesting
+	 * <ul>
+	 * <li>if the clause contains a literal {@code x<t} or {@code t<x},</li>
+	 * <li>if the clause contains a literal {@code x=s}, the variable {@code x} is an integer, and {@code t=s+1} and
+	 * {@code t=s-1}, or</li>
+	 * <li>if the clause contains a term {@code f(... x ...)} and there exists a ground term {@code f(... t ...)},</li>
+	 * </ul>
+	 * or, if {@code x} is uninterpreted and {@link QuantFinalCheckMethod#MODEL_BASED} is set,
+	 * <ul>
+	 * <li>if the clause contains {@code x=s}, and {@code s!=t} is currently set to true</li>
+	 * <li>if the clause contains {@code x=y}, and for some {@code s} the literal {@code s!=t} is currently set to true,
+	 * or</li>
+	 * <li>if the clause contains {@code x=s} or {@code x=y} and option
+	 * {@link SMTInterpolOptions#QUANT_MB_ALLCCLASSES_FORVAREQ} is set and {@code t} is currently the representative of
+	 * a congruence class.</li>
+	 * </ul>
 	 */
-	public void updateInterestingTermsAllVars() {
+	void updateInterestingTermsAllVars() {
 		for (int i = 0; i < mVars.length; i++) {
 			collectBoundAndDefaultTerms(i);
 			if (mVars[i].getSort().getName() != "Bool") {
 				updateInterestingTermsForFuncArgs(mVars[i], i);
+			}
+			final Sort varSort = mVars[i].getSort();
+			if (mQuantTheory.getFinalCheckMethod() == QuantFinalCheckMethod.MODEL_BASED && !varSort.isNumericSort()
+					&& varSort.getName() != "Bool") {
+				if (mQuantTheory.mUseAllCClassesInMBifVareq && isLhsOfEqWithGroundOrVar(mVars[i])) {
+					collectCongruenceClasses(mVars[i].getSort(), i);
+				} else {
+					if (isLhsOfEqWithVar(mVars[i])) {
+						collectAllTermsWithDiseqSet(mVars[i].getSort(), i);
+					}
+					collectDiseqsForGroundRhsOfEqsWithVar(mVars[i], i);
+				}
 			}
 		}
 		synchronizeInterestingTermsAllVars();
@@ -462,6 +494,61 @@ public class QuantClause {
 		addAllInteresting(mInterestingTermsForVars[varNum], interestingTerms);
 	}
 
+	private void collectAllTermsWithDiseqSet(final Sort sort, final int varNum) {
+		final Set<Term> interestingTerms = new LinkedHashSet<>();
+		for (final CCEquality diseq : mQuantTheory.getAllSetCCDiseqs()) {
+			// for (final CCEquality diseq : mQuantTheory.getCClosure().getAllSetDiseqs()) {
+			final Term lhs = diseq.getLhs().getFlatTerm();
+			if (lhs.getSort() == sort) {
+				interestingTerms.add(lhs);
+				interestingTerms.add(diseq.getRhs().getFlatTerm());
+			}
+		}
+		addAllInteresting(mInterestingTermsForVars[varNum], interestingTerms);
+	}
+
+	/**
+	 * If the variable x is in equalities x=t, check for all set diseqs s!=t and add these terms s to the interesting
+	 * terms (for each such t in an equality x=t).
+	 **/
+	private void collectDiseqsForGroundRhsOfEqsWithVar(final TermVariable var, final int varNum) {
+		assert !var.getSort().isNumericSort() && var.getSort().getName() != "Bool";
+		final Set<Term> interestingTerms = new LinkedHashSet<>();
+		for (final QuantLiteral lit : mQuantLits) {
+			if (lit instanceof QuantEquality) {
+				final QuantEquality eq = (QuantEquality) lit;
+				if (eq.getLhs().equals(var)) {
+					if (eq.getRhs().getFreeVars().length == 0) {
+						final CCTerm groundTermCCrep =
+								mQuantTheory.getClausifier().getCCTerm(eq.getRhs()).getRepresentative();
+						assert groundTermCCrep != null;
+						for (final CCEquality diseq : mQuantTheory.getAllSetCCDiseqs()) {
+							// for (final CCEquality diseq : mQuantTheory.getCClosure().getAllSetDiseqs()) {
+							if (diseq.getLhs().getRepresentative() == groundTermCCrep) {
+								interestingTerms.add(diseq.getRhs().getFlatTerm());
+							} else if (diseq.getRhs().getRepresentative() == groundTermCCrep) {
+								interestingTerms.add(diseq.getLhs().getFlatTerm());
+							}
+						}
+					}
+				}
+			}
+		}
+		addAllInteresting(mInterestingTermsForVars[varNum], interestingTerms);
+	}
+
+	private void collectCongruenceClasses(final Sort sort, final int varNum) {
+		final Set<Term> interestingTerms = new LinkedHashSet<>();
+		for (final CCTerm ccTerm : mQuantTheory.getCClosure().getAllCClassesOfTerms()) {
+			assert ccTerm.isRepresentative();
+			final Term term = ccTerm.getFlatTerm();
+			if (term.getSort() == sort) {
+				interestingTerms.add(term);
+			}
+		}
+		addAllInteresting(mInterestingTermsForVars[varNum], interestingTerms);
+	}
+
 	/**
 	 * Helper method to add interesting instantiation terms without adding equivalent terms more than once.
 	 *
@@ -484,6 +571,39 @@ public class QuantClause {
 			}
 		}
 		return changed;
+	}
+
+	/**
+	 * Check if a given variable is the left side of an equality literal with another variable.
+	 */
+	private boolean isLhsOfEqWithVar(final TermVariable var) {
+		for (final QuantLiteral lit : mQuantLits) {
+			if (!lit.isNegated() && lit.getAtom() instanceof QuantEquality) {
+				final QuantEquality eq = (QuantEquality) lit;
+				if (eq.getLhs() == var && eq.getRhs() instanceof TermVariable) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Check if a given variable is the left side of an equality literal with a ground or variable right side
+	 */
+	private boolean isLhsOfEqWithGroundOrVar(final TermVariable var) {
+		for (final QuantLiteral lit : mQuantLits) {
+			if (!lit.isNegated() && lit.getAtom() instanceof QuantEquality) {
+				final QuantEquality eq = (QuantEquality) lit;
+				if (eq.getLhs() == var) {
+					final Term rhs = eq.getRhs();
+					if (rhs instanceof TermVariable || rhs.getFreeVars().length == 0) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 	/**

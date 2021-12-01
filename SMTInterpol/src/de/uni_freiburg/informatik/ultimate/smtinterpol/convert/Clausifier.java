@@ -1347,6 +1347,7 @@ public class Clausifier {
 	private boolean mIsUnknownTermDawgsEnabled;
 	private boolean mPropagateUnknownTerms;
 	private boolean mPropagateUnknownAux;
+	private boolean mUseAllCClassesInMBforVareq;
 
 	/**
 	 * Mapping from subformulas to their literal, if there was any created.
@@ -2019,20 +2020,22 @@ public class Clausifier {
 			mQuantTheory =
 					new QuantifierTheory(mTheory, mEngine, this, mInstantiationMethod, mFinalCheckMethod,
 							mIsUnknownTermDawgsEnabled,
-							mPropagateUnknownTerms, mPropagateUnknownAux);
+							mPropagateUnknownTerms, mPropagateUnknownAux, mUseAllCClassesInMBforVareq);
 			mEngine.addTheory(mQuantTheory);
 		}
 	}
 
 	public void setQuantifierOptions(final boolean isEprEnabled, final InstantiationMethod instMethod,
 			final QuantFinalCheckMethod fcMethod, final boolean enableUnknownTermDawgs,
-			final boolean propagateUnknownTerm, final boolean propagateUnknownAux) {
+			final boolean propagateUnknownTerm, final boolean propagateUnknownAux,
+			final boolean useAllCClassesInMBforVareq) {
 		mIsEprEnabled = isEprEnabled;
 		mInstantiationMethod = instMethod;
 		mFinalCheckMethod = fcMethod;
 		mIsUnknownTermDawgsEnabled = enableUnknownTermDawgs;
 		mPropagateUnknownTerms = propagateUnknownTerm;
 		mPropagateUnknownAux = propagateUnknownAux;
+		mUseAllCClassesInMBforVareq = useAllCClassesInMBforVareq;
 	}
 
 	public void setLogic(final Logics logic) {

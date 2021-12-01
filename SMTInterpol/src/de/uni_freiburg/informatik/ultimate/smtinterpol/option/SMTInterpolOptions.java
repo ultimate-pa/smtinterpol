@@ -45,5 +45,6 @@ public interface SMTInterpolOptions {
 	public String UNKNOWN_TERM_DAWGS = ":unknown-term-dawgs";
 	public String PROPAGATE_UNKNOWN_TERMS = ":propagate-unknown-terms";
 	public String PROPAGATE_UNKNOWN_AUX = ":propagate-unknown-aux";
+	public String QUANT_MB_ALLCCLASSES_FORVAREQ = ":quant-mb-allcclasses-forvareq";
 	public String SIMPLIFY_REPEATEDLY = ":simplify-repeatedly";
 }

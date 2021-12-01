@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
@@ -26,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -47,6 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
@@ -96,6 +99,8 @@ public class QuantifierTheory implements ITheory {
 	private final Map<Literal, Set<InstClause>> mPendingInstances;
 	private int mDecideLevelOfLastCheckpoint;
 
+	private List<CCEquality> mAllSetNonbooleanCCDiseqs;
+
 	// Statistics
 	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedConfl, mNumInstancesProducedEM,
 			mNumInstancesProducedEnum, mNumInstancesProducedMB;
@@ -109,11 +114,12 @@ public class QuantifierTheory implements ITheory {
 	boolean mUseUnknownTermValueInDawgs;
 	boolean mPropagateNewAux;
 	boolean mPropagateNewTerms;
+	boolean mUseAllCClassesInMBifVareq;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier,
 			final InstantiationMethod instMethod, final QuantFinalCheckMethod fcMethod,
 			final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
-			final boolean propagateNewAux) {
+			final boolean propagateNewAux, final boolean useAllCClassesInMBifVareq) {
 		mClausifier = clausifier;
 		mLogger = clausifier.getLogger();
 		mTheory = th;
@@ -124,6 +130,7 @@ public class QuantifierTheory implements ITheory {
 		mUseUnknownTermValueInDawgs = useUnknownTermDawgs;
 		mPropagateNewTerms = propagateNewTerms;
 		mPropagateNewAux = propagateNewAux;
+		mUseAllCClassesInMBifVareq = useAllCClassesInMBifVareq;
 
 		mCClosure = clausifier.getCClosure();
 		mLinArSolve = clausifier.getLASolver();
@@ -136,6 +143,8 @@ public class QuantifierTheory implements ITheory {
 
 		mPendingInstances = new LinkedHashMap<>();
 		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
+
+		mAllSetNonbooleanCCDiseqs = new ArrayList<>();
 
 		mNumInstancesOfAge = new int[Integer.SIZE];
 		mNumInstancesOfAgeFC = new int[Integer.SIZE];
@@ -155,6 +164,14 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(final Literal literal) {
+
+		if (literal.negate() instanceof CCEquality) {
+			final CCEquality eq = (CCEquality) literal.getAtom();
+			if (eq.getLhs().getFlatTerm().getSort().getName() != "Bool") {
+				mAllSetNonbooleanCCDiseqs.add(eq);
+			}
+		}
+
 		if (mQuantClauses.isEmpty()) {
 			assert mPendingInstances.isEmpty();
 			return null;
@@ -195,6 +212,19 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public void backtrackLiteral(final Literal literal) {
+		if (literal.negate() instanceof CCEquality) {
+			final int last = mAllSetNonbooleanCCDiseqs.size() - 1;
+			if (last >= 0) {
+				if (mAllSetNonbooleanCCDiseqs.get(last) != literal) {
+					// backtrackLiteral is called in reverse order to setLiteral, but the theory might still not know
+					// all literals that have been set, namely when another theory discovers a conflict during
+					// setLiteral; we also don't add diseqs between boolean terms
+					assert !mAllSetNonbooleanCCDiseqs.contains(literal);
+				} else {
+					mAllSetNonbooleanCCDiseqs.remove(last);
+				}
+			}
+		}
 		// we throw the pending clause instances away after backtracking.
 	}
 
@@ -806,6 +836,10 @@ public class QuantifierTheory implements ITheory {
 
 	public QuantFinalCheckMethod getFinalCheckMethod() {
 		return mFinalCheckMethod;
+	}
+
+	List<CCEquality> getAllSetCCDiseqs() {
+		return mAllSetNonbooleanCCDiseqs;
 	}
 
 	protected Term getLambda(final Sort sort) {

@@ -413,7 +413,8 @@ public class InstantiationManager {
 				if (mQuantTheory.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
 				}
-				final PiecewiseConstantModel model = new PiecewiseConstantModel(mQuantTheory);
+				final PiecewiseConstantModel model =
+						fcMethod == QuantFinalCheckMethod.MODEL_BASED ? new PiecewiseConstantModel(mQuantTheory) : null;
 				final Set<List<Term>> subsForAge =
 						computeSubstitutionsForAge(interestingTermsSortedByAge.get(clause), mSubsAgeForFinalCheck);
 				for (final List<Term> subs : subsForAge) {

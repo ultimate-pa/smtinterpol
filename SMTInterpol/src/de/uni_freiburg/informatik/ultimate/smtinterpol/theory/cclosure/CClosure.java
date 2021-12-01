@@ -23,8 +23,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -83,8 +86,7 @@ public class CClosure implements ITheory {
 	 */
 	final Map<Term, CCTerm> mAnonTerms = new HashMap<>();
 	/**
-	 * The list of all cc-terms that are full function applications and thus correspond to a term.
-	 *
+	 * The list of all cc-terms.
 	 * TODO: This is somewhat redundant, as the clausifier term data has also all terms.
 	 */
 	final ScopedArrayList<CCTerm> mAllTerms = new ScopedArrayList<>();
@@ -449,6 +451,34 @@ public class CClosure implements ITheory {
 			funcApps = getApplications(funcApps);
 		}
 		return funcApps;
+	}
+
+	/**
+	 * Get all disequalities that are currently set to true.
+	 */
+	public Set<CCEquality> getAllSetDiseqs() {
+		final Set<CCEquality> diseqs = new LinkedHashSet<>();
+		final Iterator<CCTermPairHash.Info> it = mPairHash.iterator();
+		while (it.hasNext()) {
+			final CCTermPairHash.Info info = it.next();
+			if (info.mDiseq != null) {
+				diseqs.add(info.mDiseq);
+			}
+		}
+		return diseqs;
+	}
+
+	/**
+	 * Get all current representatives of congruence classes corresponding to terms.
+	 */
+	public Set<CCTerm> getAllCClassesOfTerms() {
+		final Set<CCTerm> cclasses = new LinkedHashSet<>();
+		for (final CCTerm ccTerm : mAllTerms) {
+			if (!ccTerm.isFunc() && ccTerm.isRepresentative()) {
+				cclasses.add(ccTerm);
+			}
+		}
+		return cclasses;
 	}
 
 	/**

@@ -121,8 +121,10 @@ public class SolverOptions {
 
 		// general non-standard options
 		options.addOption(SMTInterpolOptions.CHECK_TYPE, mCheckType);
+
+		// options for quantifier solver
 		options.addOption(SMTInterpolOptions.EPR, new BooleanOption(false, false,
-				"Assume formula is in EPR fragment. This give an error if the formula is outside EPR."));
+				"Assume formula is in EPR fragment and use EPR solver. This give an error if the formula is outside EPR."));
 		options.addOption(SMTInterpolOptions.INSTANTIATION_METHOD, mInstantiationMethod);
 		options.addOption(SMTInterpolOptions.QUANT_FINAL_CHECK_METHOD, mQuantFinalCheckMethod);
 		options.addOption(SMTInterpolOptions.UNKNOWN_TERM_DAWGS, new BooleanOption(true, false,
@@ -131,6 +133,8 @@ public class SolverOptions {
 				"Quantifier Theory: Allow propagation on atoms with non-existing term."));
 		options.addOption(SMTInterpolOptions.PROPAGATE_UNKNOWN_AUX, new BooleanOption(false, false,
 				"Quantifier Theory: Allow propagation on atoms with non-existing @AUX applications."));
+		options.addOption(SMTInterpolOptions.QUANT_MB_ALLCCLASSES_FORVAREQ, new BooleanOption(false, false,
+				"Quantifier Theory: in model-based instantiation use all congruence classes if an uninterpreted variable is one side of an equality."));
 
 		// simplifier options
 		options.addOption(SMTInterpolOptions.SIMPLIFY_CHECK_TYPE, mSimpCheckType);
