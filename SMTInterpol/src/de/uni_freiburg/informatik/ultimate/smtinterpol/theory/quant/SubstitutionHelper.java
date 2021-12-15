@@ -18,11 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -77,9 +75,9 @@ public class SubstitutionHelper {
 	 *
 	 * This method also performs simplifications on literals and on the clause. The steps are:<br>
 	 * (1) Apply the substitution for the single literals, normalize and simplify the terms.<br>
-	 * (2) Build the disjunction.<br>
-	 * (3) Remove duplicates and false literals.<br>
-	 * (4) Build the actual literals.
+	 * (2) Build the actual literals if no trivially true literals resulted from substitution.<br>
+	 * (3) Remove duplicates and false literals (implicitly, i.e. only in the proof; they were not built).<br>
+	 * (4) Build the final disjunction.
 	 * 
 	 * @return the result of the substitution and simplification.
 	 */
@@ -88,8 +86,8 @@ public class SubstitutionHelper {
 		assert !mSigma.isEmpty();
 		mIsSubstitutionAllowed = true;
 
-		final List<Term> substitutedLitTerms = new ArrayList<>(mGroundLits.length + mQuantLits.length);
-		final List<Term> provedLitTerms = new ArrayList<>(mGroundLits.length + mQuantLits.length);
+		final Term[] substitutedLitTerms = new Term[mGroundLits.length + mQuantLits.length];
+		final Term[] provedLitTerms = new Term[mGroundLits.length + mQuantLits.length];
 		// We also need duplicates here for proof production.
 		final Set<ILiteral> resultingGroundLits = new LinkedHashSet<>();
 		final Set<ILiteral> resultingQuantLits = new LinkedHashSet<>();
@@ -97,33 +95,37 @@ public class SubstitutionHelper {
 		final Theory theory = mQuantTheory.getTheory();
 
 		// Ground literals remain unchanged.
-		for (final Literal gLit : mGroundLits) {
-			final Term groundLitTerm = gLit.getSMTFormula(theory, true);
-			substitutedLitTerms.add(groundLitTerm);
-			provedLitTerms.add(mTracker.reflexivity(groundLitTerm));
-			resultingGroundLits.add(gLit);
+		for (int i = 0; i < mGroundLits.length; i++) {
+			final Literal lit = mGroundLits[i];
+			final Term groundLitTerm = lit.getSMTFormula(theory, true);
+			substitutedLitTerms[i] = groundLitTerm;
+			provedLitTerms[i] = mTracker.reflexivity(groundLitTerm);
+			resultingGroundLits.add(lit);
 		}
 
 		// Substitute in quantified literals
-		for (final QuantLiteral qLit : mQuantLits) {
-			if (Collections.disjoint(Arrays.asList(qLit.getTerm().getFreeVars()), mSigma.keySet())) {
+		final Term[] nonTrivialLitTermsAfterSimplification = new Term[mQuantLits.length];
+		for (int i = 0; i < mQuantLits.length; i++) {
+			final QuantLiteral lit = mQuantLits[i];
+			final int pos = mGroundLits.length + i;
+			if (Collections.disjoint(Arrays.asList(lit.getTerm().getFreeVars()), mSigma.keySet())) {
 				// Nothing to substitute.
-				substitutedLitTerms.add(qLit.getSMTFormula(theory, true));
-				provedLitTerms.add(mTracker.reflexivity(qLit.getSMTFormula(theory, true)));
-				resultingQuantLits.add(qLit);
+				substitutedLitTerms[pos] = lit.getSMTFormula(theory, true);
+				provedLitTerms[pos] = mTracker.reflexivity(lit.getSMTFormula(theory, true));
+				resultingQuantLits.add(lit);
 			} else { // Build the new literals. Separate ground and quantified literals.
 
 				// Substitute variables.
 				final FormulaUnLet unletter = new FormulaUnLet();
 				unletter.addSubstitutions(mSigma);
-				final Term substituted = unletter.transform(qLit.getTerm()); // TODO Maybe we should substitute the
+				final Term substituted = unletter.transform(lit.getTerm()); // TODO Maybe we should substitute the
 				// annotation as well (for aux-lits)
-				substitutedLitTerms.add(substituted);
+				substitutedLitTerms[pos] = substituted;
 
 				// Simplify the resulting term.
 				assert substituted instanceof ApplicationTerm;
 
-				Term simplified = normalizeAndSimplifyLitTerm((ApplicationTerm) substituted, qLit);
+				Term simplified = normalizeAndSimplifyLitTerm((ApplicationTerm) substituted, lit);
 
 				if (simplified == null) {
 					mIsSubstitutionAllowed = false;
@@ -131,95 +133,104 @@ public class SubstitutionHelper {
 				}
 
 				if (mTracker.getProvedTerm(simplified) == theory.mTrue) { // Clause is trivially true.
+					mClausifier.getLogger().debug("Quant: trivially true clause detected before building literals.");
 					return buildTrueResult();
+				} else if (mTracker.getProvedTerm(simplified) == theory.mFalse) {
+					provedLitTerms[pos] = simplified;
+				} else {
+					nonTrivialLitTermsAfterSimplification[i] = simplified;
 				}
-				if (mTracker.getProvedTerm(simplified) == theory.mFalse) {
-					provedLitTerms.add(simplified);
-					continue;
-				}
+			}
+		}
 
-				final ILiteral newAtom;
-				boolean isPos = true;
-				Term atomTerm = mTracker.getProvedTerm(simplified);
-				assert atomTerm instanceof ApplicationTerm;
-				if (((ApplicationTerm) atomTerm).getFunction().getName() == "not") {
-					atomTerm = ((ApplicationTerm) atomTerm).getParameters()[0];
-					isPos = false;
+		// Build the literals for the terms obtained after substitution and simplification (unless trivially false)
+		for (int i = 0; i < mQuantLits.length; i++) {
+			Term simplified = nonTrivialLitTermsAfterSimplification[i];
+			if (simplified == null) {
+				continue;
+			}
+			final ILiteral newAtom;
+			boolean isPos = true;
+			Term atomTerm = mTracker.getProvedTerm(simplified);
+			assert atomTerm instanceof ApplicationTerm;
+			if (((ApplicationTerm) atomTerm).getFunction().getName() == "not") {
+				atomTerm = ((ApplicationTerm) atomTerm).getParameters()[0];
+				isPos = false;
+			}
+			assert atomTerm instanceof ApplicationTerm;
+			final ApplicationTerm atomApp = (ApplicationTerm) atomTerm;
+			if (atomApp.getFunction().getName() == "<=") {
+				if (atomApp.getFreeVars().length == 0) {
+					final SMTAffineTerm lhs = new SMTAffineTerm(atomApp.getParameters()[0]);
+					final MutableAffineTerm msum = mClausifier.createMutableAffinTerm(lhs, mSource);
+					newAtom = mQuantTheory.getLinAr().generateConstraint(msum, false);
+				} else {
+					newAtom = mQuantTheory.getQuantInequality(isPos, atomApp.getParameters()[0], mSource);
 				}
-				assert atomTerm instanceof ApplicationTerm;
-				final ApplicationTerm atomApp = (ApplicationTerm) atomTerm;
-				if (atomApp.getFunction().getName() == "<=") {
-					if (atomApp.getFreeVars().length == 0) {
-						final SMTAffineTerm lhs = new SMTAffineTerm(atomApp.getParameters()[0]);
-						final MutableAffineTerm msum =
-								mClausifier.createMutableAffinTerm(lhs, mSource);
-						newAtom = mQuantTheory.getLinAr().generateConstraint(msum, false);
-					} else {
-						newAtom = mQuantTheory.getQuantInequality(isPos, atomApp.getParameters()[0], mSource);
-					}
-				} else if (atomApp.getFunction().getName() == "=") {
-					final Term lhs = atomApp.getParameters()[0];
-					final Term rhs = atomApp.getParameters()[1];
-					if (atomApp.getFreeVars().length == 0) { // Ground equality or predicate.
-						final EqualityProxy eq = mClausifier.createEqualityProxy(lhs, rhs, mSource);
-						assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
-						newAtom = eq.getLiteral(mSource);
-					} else {
-						newAtom = mQuantTheory.getQuantEquality(atomApp.getParameters()[0], atomApp.getParameters()[1],
-								mSource);
-					}
-				} else { // Predicates
-					assert atomApp.getFreeVars().length == 0; // Quantified predicates are stored as equalities.
-					assert atomApp.getSort() == theory.getBooleanSort();
-					final Term sharedLhs = atomApp;
-					final Term sharedRhs = theory.mTrue;
-					final EqualityProxy eq = mClausifier.createEqualityProxy(sharedLhs, sharedRhs, mSource);
+			} else if (atomApp.getFunction().getName() == "=") {
+				final Term lhs = atomApp.getParameters()[0];
+				final Term rhs = atomApp.getParameters()[1];
+				if (atomApp.getFreeVars().length == 0) { // Ground equality or predicate.
+					final EqualityProxy eq = mClausifier.createEqualityProxy(lhs, rhs, mSource);
 					assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
 					newAtom = eq.getLiteral(mSource);
-				}
-				// As in clausifier
-				final Term atomIntern = mTracker.intern(atomApp, newAtom.getSMTFormula(theory, true));
-				if (isPos) {
-					simplified = mTracker.transitivity(simplified, atomIntern);
 				} else {
-					simplified = mTracker.congruence(simplified, new Term[] { atomIntern });
-					/* (not (<= -x 0)) can be rewritten to (not (not (< x 0))); remove double negation */
-					simplified = mClausifier.getSimplifier().convertNot(simplified);
+					newAtom = mQuantTheory.getQuantEquality(lhs, rhs, mSource);
 				}
-				provedLitTerms.add(simplified);
+			} else { // Predicates
+				assert atomApp.getFreeVars().length == 0; // Quantified predicates are stored as equalities.
+				assert atomApp.getSort() == theory.getBooleanSort();
+				final Term sharedLhs = atomApp;
+				final Term sharedRhs = theory.mTrue;
+				final EqualityProxy eq = mClausifier.createEqualityProxy(sharedLhs, sharedRhs, mSource);
+				assert eq != EqualityProxy.getTrueProxy() && eq != EqualityProxy.getFalseProxy();
+				newAtom = eq.getLiteral(mSource);
+			}
+			// As in clausifier
+			final Term atomIntern = mTracker.intern(atomApp, newAtom.getSMTFormula(theory, true));
+			if (isPos) {
+				simplified = mTracker.transitivity(simplified, atomIntern);
+			} else {
+				simplified = mTracker.congruence(simplified, new Term[] { atomIntern });
+				/* (not (<= -x 0)) can be rewritten to (not (not (< x 0))); remove double negation */
+				simplified = mClausifier.getSimplifier().convertNot(simplified);
+			}
+			provedLitTerms[mGroundLits.length + i] = simplified;
 
-				final ILiteral newLiteral = isPos ? newAtom : newAtom.negate();
-				if (newLiteral instanceof Literal) {
-					final Literal newGroundLit = (Literal) newLiteral;
-					if (resultingGroundLits.contains(newGroundLit.negate())) { // Clause simplifies to true
-						return buildTrueResult();
-					} else {
-						resultingGroundLits.add(newGroundLit);
-					}
+			final ILiteral newLiteral = isPos ? newAtom : newAtom.negate();
+			if (newLiteral instanceof Literal) {
+				final Literal newGroundLit = (Literal) newLiteral;
+				if (resultingGroundLits.contains(newGroundLit.negate())) { // Clause simplifies to true
+					mClausifier.getLogger()
+							.debug("Quant: trivially true clause instance detected while building literals.");
+					return buildTrueResult();
 				} else {
-					final QuantLiteral newQuantLit = (QuantLiteral) newLiteral;
-					if (resultingQuantLits.contains(newQuantLit.negate())) { // Clause simplifies to true
-						return buildTrueResult();
-					} else {
-						resultingQuantLits.add(newQuantLit);
-					}
+					resultingGroundLits.add(newGroundLit);
+				}
+			} else {
+				final QuantLiteral newQuantLit = (QuantLiteral) newLiteral;
+				if (resultingQuantLits.contains(newQuantLit.negate())) { // Clause simplifies to true
+					mClausifier.getLogger()
+							.debug("Quant: trivially true clause instance detected while building literals.");
+					return buildTrueResult();
+				} else {
+					resultingQuantLits.add(newQuantLit);
 				}
 			}
 		}
 
 		// Build the disjunction.
-		final boolean isUnitClause = substitutedLitTerms.size() == 1;
-		final Term substitutedClause = isUnitClause ? substitutedLitTerms.get(0)
-				: theory.term("or", substitutedLitTerms.toArray(new Term[substitutedLitTerms.size()]));
+		final boolean isUnitClause = substitutedLitTerms.length == 1;
+		final Term substitutedClause = isUnitClause ? substitutedLitTerms[0] : theory.term("or", substitutedLitTerms);
 		Term simpClause;
 		if (isUnitClause) {
-			assert provedLitTerms.size() == 1;
-			simpClause = provedLitTerms.get(0);
+			assert provedLitTerms.length == 1;
+			simpClause = provedLitTerms[0];
 		} else {
-			simpClause = mTracker.congruence(mTracker.reflexivity(substitutedClause),
-					provedLitTerms.toArray(new Term[provedLitTerms.size()]));
+			simpClause = mTracker.congruence(mTracker.reflexivity(substitutedClause), provedLitTerms);
 			simpClause = mTracker.orSimpClause(simpClause);
 		}
+
 		return new SubstitutionResult(substitutedClause, simpClause,
 				resultingGroundLits.toArray(new Literal[resultingGroundLits.size()]),
 				resultingQuantLits.toArray(new QuantLiteral[resultingQuantLits.size()]));
