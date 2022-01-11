@@ -1607,7 +1607,7 @@ public class Theory {
 			final StringBuilder sb = new StringBuilder();
 			final PrintTerm pt = new PrintTerm();
 			sb.append("Undeclared function symbol (").append(funcname);
-			for (final Sort s: sorts) {
+			for (final Sort s : sorts) {
 				sb.append(' ');
 				pt.append(sb, s);
 			}
@@ -1627,26 +1627,16 @@ public class Theory {
 		// not equal, we don't create an ApplicationTerm when parsing rational constants.
 		if (func.isIntern() && func.getName().equals(SMTLIBConstants.DIVIDE) && parameters.length == 2
 				&& parameters[0] instanceof ConstantTerm && parameters[1] instanceof ConstantTerm
-				&& parameters[0].getSort() == getNumericSort() && parameters[1].getSort() == getNumericSort()) {
+				&& parameters[0].getSort() == getRealSort() && parameters[1].getSort() == getRealSort()) {
 			final ConstantTerm numTerm = (ConstantTerm) parameters[0];
 			final ConstantTerm denomTerm = (ConstantTerm) parameters[1];
 			BigInteger num = null, denom = null;
-			if (getNumericSort() == getRealSort()) {
-				// in LRA, numerals are not stored as Rational, but as BigInteger constants, to
-				// distinguish the terms 1 and 1.0.
-				if (numTerm.getValue() instanceof BigInteger && denomTerm.getValue() instanceof BigInteger) {
-					num = (BigInteger) numTerm.getValue();
-					denom = (BigInteger) denomTerm.getValue();
-				}
-			} else {
-				// in LIRA, the numerals are stored as Rational with denominator one.
-				if (numTerm.getValue() instanceof Rational && denomTerm.getValue() instanceof Rational) {
-					final Rational numRat = (Rational) numTerm.getValue();
-					final Rational denomRat = (Rational) denomTerm.getValue();
-					if (numRat.isIntegral() && denomRat.isIntegral()) {
-						num = numRat.numerator();
-						denom = denomRat.numerator();
-					}
+			if (numTerm.getValue() instanceof Rational && denomTerm.getValue() instanceof Rational) {
+				final Rational numRat = (Rational) numTerm.getValue();
+				final Rational denomRat = (Rational) denomTerm.getValue();
+				if (numRat.isIntegral() && denomRat.isIntegral()) {
+					num = numRat.numerator();
+					denom = denomRat.numerator();
 				}
 			}
 			// make sure that num and denom have the right form such that the created

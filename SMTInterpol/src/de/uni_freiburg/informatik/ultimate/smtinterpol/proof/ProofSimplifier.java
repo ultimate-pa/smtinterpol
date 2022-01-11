@@ -904,7 +904,7 @@ public class ProofSimplifier extends TermTransformer {
 
 		final Term newFunc = t.term(oldFunc.getFunction(), newFuncParams);
 		final Term congEquality = t.term(SMTLIBConstants.EQUALS, oldFunc, newFunc);
-		Term proof = mProofRules.cong(oldFunc, newFunc);
+		Term proof = mProofRules.cong(oldFunc.getFunction(), oldFuncParams, newFuncParams);
 		final HashSet<Term> eliminated = new HashSet<>();
 		for (int i = 0; i < newFuncParams.length; i++) {
 			if (!eliminated.contains(newLit[i])) {

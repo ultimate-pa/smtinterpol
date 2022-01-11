@@ -194,6 +194,10 @@ public class TermCompiler extends TermTransformer {
 		final Theory theory = appTerm.getTheory();
 
 		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
+		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {
+			setResult(convertedApp);
+			return;
+		}
 
 		final Term[] params = ((ApplicationTerm) mTracker.getProvedTerm(convertedApp)).getParameters();
 

@@ -373,17 +373,18 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + TRANS, terms), mAxiom);
 	}
 
-	public Term cong(final Term term1, final Term term2) {
-		assert ((ApplicationTerm) term1).getFunction() == ((ApplicationTerm) term2).getFunction();
-		assert ((ApplicationTerm) term1).getParameters().length == ((ApplicationTerm) term2).getParameters().length;
+	public Term cong(final FunctionSymbol func, final Term[] params1, final Term[] params2) {
+		assert params1.length == params2.length;
 		final Annotation[] annot = new Annotation[] {
-				new Annotation(":"+CONG, new Object[] {
-						((ApplicationTerm) term1).getFunction(),
-						((ApplicationTerm) term1).getParameters(),
-						((ApplicationTerm) term2).getParameters(),
-				})
-		};
+				new Annotation(":" + CONG, new Object[] { func, params1, params2 }) };
 		return mTheory.annotatedTerm(annot, mAxiom);
+	}
+
+	public Term cong(final Term term1, final Term term2) {
+		final ApplicationTerm app1 = (ApplicationTerm) term1;
+		final ApplicationTerm app2 = (ApplicationTerm) term2;
+		assert app1.getFunction() == app2.getFunction();
+		return cong(app1.getFunction(), app1.getParameters(), app2.getParameters());
 	}
 
 	public Term expand(final Term term) {
