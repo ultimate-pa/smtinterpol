@@ -47,10 +47,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.ArraySortInterpreta
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedLinkedHashSet;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedLinkedHashSet;
 
 /**
  * Array theory solver based on weak equivalence classes. The underlying data structure is explained in our paper

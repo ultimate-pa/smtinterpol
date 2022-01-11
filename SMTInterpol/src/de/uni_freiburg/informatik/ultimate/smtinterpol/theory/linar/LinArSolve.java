@@ -55,8 +55,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.NumericSortInterpre
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
-import de.uni_freiburg.informatik.ultimate.util.DebugMessage;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
@@ -226,9 +225,7 @@ public class LinArSolve implements ITheory {
 	 * @return Newly created variable
 	 */
 	public LinVar addVar(final Term name, final boolean isint, final int level) {
-		if (mClausifier.getLogger().isDebugEnabled()) {
-			mClausifier.getLogger().debug("Creating var " + name);
-		}
+		mClausifier.getLogger().debug("Creating var %s", name);
 		final LinVar var = new LinVar(name, isint, level, mLinvars.size());
 		mLinvars.add(var);
 		mDependentRows.add(new BitSet());
@@ -643,7 +640,7 @@ public class LinArSolve implements ITheory {
 		assert mOob.isEmpty();
 		final Map<ExactInfinitesimalNumber, List<LASharedTerm>> cong = getSharedCongruences();
 		assert checkClean();
-		mClausifier.getLogger().debug(new DebugMessage("cong: {0}", cong));
+		mClausifier.getLogger().debug("cong: %s", cong);
 		for (final LinVar v : mLinvars) {
 			final LAEquality ea = v.getDiseq(v.getValue().getRealValue());
 			if (ea == null) {
@@ -662,9 +659,7 @@ public class LinArSolve implements ITheory {
 			if (lit != null) {
 				assert lit.getAtom().getDecideStatus() == null;
 				mSuggestions.add(lit);
-				mClausifier.getLogger().debug(new DebugMessage(
-					"Using {0} to ensure disequality {1}", lit,
-					ea.negate()));
+				mClausifier.getLogger().debug("Using %s to ensure disequality %s", lit, ea.negate());
 			}
 		}
 		if (mSuggestions.isEmpty() && mProplist.isEmpty()) {
@@ -1865,8 +1860,7 @@ public class LinArSolve implements ITheory {
 			if (lcongclass.size() <= 1) {
 				continue;
 			}
-			mClausifier.getLogger().debug(new DebugMessage("propagating MBTC: {0}",
-					lcongclass));
+			mClausifier.getLogger().debug("propagating MBTC: %s", lcongclass);
 			final Iterator<LASharedTerm> it = lcongclass.iterator();
 			final LASharedTerm shared1 = it.next();
 			LASharedTerm shared1OtherSort = null;
@@ -1902,13 +1896,10 @@ public class LinArSolve implements ITheory {
 					} else if (cceq.getDecideStatus() == null) {
 						mProplist.add(cceq);
 					} else {
-						mClausifier.getLogger().debug(
-								new DebugMessage("already set: {0}",
-										cceq.getAtom().getDecideStatus()));
+						mClausifier.getLogger().debug("already set: %s", cceq.getAtom().getDecideStatus());
 					}
 				} else {
-					mClausifier.getLogger().debug(new DebugMessage(
-							"MBTC: Suggesting literal {0}",cceq));
+					mClausifier.getLogger().debug("MBTC: Suggesting literal %s", cceq);
 					mSuggestions.add(cceq.getLASharedData());
 				}
 			}

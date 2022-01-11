@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.util.datastructures;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.util;
 
 import java.util.AbstractMap;
 import java.util.AbstractSet;

@@ -72,8 +72,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.UnsatCoreCollector;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ErrorCallback.ErrorReason;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 /**
  * Implementation of the {@link de.uni_freiburg.informatik.ultimate.logic.Script} interface to interact with

@@ -45,8 +45,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
-import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedArrayList;
 
 /**
  * An implementation of a WrapperScript, which provides additional functionality in terms of MUS enumeration and
