@@ -1,5 +1,5 @@
-# SMT-Beweisvisualisierung
-Beweisvisualisierung für vorhandenen SMT-Solver
+# SMT-proof visualisation
+Proof visualisation for given SMT-Solver
 
 Manual:
 
