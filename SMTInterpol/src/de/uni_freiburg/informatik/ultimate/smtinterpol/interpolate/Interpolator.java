@@ -297,6 +297,9 @@ public class Interpolator extends NonRecursive {
 		Term[] interpolants;
 		final InterpolatorClauseTermInfo leafTermInfo = getClauseTermInfo(leaf);
 		if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_CLAUSE)) {
+			if (isSkolemizedFormula(leaf)) {
+				throw new UnsupportedOperationException("Interpolation not supported for quantified formulae.");
+			}
 			final String source = leafTermInfo.getSource();
 			final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : 0;
 			interpolants = new Term[mNumInterpolants];
@@ -1457,5 +1460,31 @@ public class Interpolator extends NonRecursive {
 
 	public Term getAtom(final Term literal) {
 		return isNegatedTerm(literal) ? ((ApplicationTerm) literal).getParameters()[0] : literal;
+	}
+
+	private boolean isSkolemizedFormula(final Term leaf) {
+		final InterpolatorClauseTermInfo info = getClauseTermInfo(leaf);
+		for (final Term lit : info.getLiterals()) {
+			if (containsSkolemVar(lit)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean containsSkolemVar(final Term t) {
+		if (t instanceof ApplicationTerm) {
+			final ApplicationTerm appTerm = (ApplicationTerm) t;
+			final String f = appTerm.getFunction().getName();
+			if (f.matches("@.*skolem.*")) {
+				return true;
+			}
+			for (final Term arg : appTerm.getParameters()) {
+				if (containsSkolemVar(arg)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 }
