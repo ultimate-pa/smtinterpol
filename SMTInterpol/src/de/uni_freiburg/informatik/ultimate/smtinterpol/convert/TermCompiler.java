@@ -216,7 +216,7 @@ public class TermCompiler extends TermTransformer {
 			return;
 		}
 
-		if (fsym.isIntern()) {
+		if (fsym.isIntern() && !fsym.getName().matches("@.*skolem.*")) {
 			switch (fsym.getName()) {
 			case "not":
 				setResult(mUtils.convertNot(convertedApp));

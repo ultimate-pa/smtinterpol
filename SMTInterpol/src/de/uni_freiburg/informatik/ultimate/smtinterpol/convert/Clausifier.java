@@ -1183,6 +1183,9 @@ public class Clausifier {
 			if (fs.getName().startsWith("@AUX")) {
 				return true;
 			}
+			if (fs.getName().matches("@.*skolem.*")) {
+				return true;
+			}
 			switch (fs.getName()) {
 			case "select":
 			case "store":

@@ -1794,8 +1794,8 @@ public class Theory {
 			args[i] = freeVars[i];
 			freeVarSorts[i] = freeVars[i].getSort();
 		}
-		final FunctionSymbol fsym = new FunctionSymbol("@" + tv.getName() + "_skolem_" + mSkolemCounter++, null,
-				freeVarSorts, tv.getSort(), null, null, 0);
+		final FunctionSymbol fsym = declareInternalFunction("@" + tv.getName() + "_skolem_" + mSkolemCounter++,
+				freeVarSorts, tv.getSort(), FunctionSymbol.UNINTERPRETEDINTERNAL); // TODO Change flag?
 		return term(fsym, args);
 	}
 
