@@ -48,6 +48,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffin
 public class SubstitutionHelper {
 
 	private final QuantifierTheory mQuantTheory;
+	private final InstantiationManager mInstManager;
 	private final Clausifier mClausifier;
 	private final IProofTracker mTracker;
 
@@ -61,6 +62,7 @@ public class SubstitutionHelper {
 	public SubstitutionHelper(final QuantifierTheory quantTheory, final Literal[] groundLits,
 			final QuantLiteral[] quantLits, final SourceAnnotation source, final Map<TermVariable, Term> sigma) {
 		mQuantTheory = quantTheory;
+		mInstManager = quantTheory.getInstantiationManager();
 		mClausifier = mQuantTheory.getClausifier();
 		mTracker = mClausifier.getTracker();
 		mGroundLits = groundLits;
@@ -134,9 +136,11 @@ public class SubstitutionHelper {
 
 				if (mTracker.getProvedTerm(simplified) == theory.mTrue) { // Clause is trivially true.
 					mClausifier.getLogger().debug("Quant: trivially true clause detected before building literals.");
+					mInstManager.registerTrivialInst(lit, mSigma, true);
 					return buildTrueResult();
 				} else if (mTracker.getProvedTerm(simplified) == theory.mFalse) {
 					provedLitTerms[pos] = simplified;
+					mInstManager.registerTrivialInst(lit, mSigma, false);
 				} else {
 					nonTrivialLitTermsAfterSimplification[i] = simplified;
 				}
@@ -200,6 +204,7 @@ public class SubstitutionHelper {
 			final ILiteral newLiteral = isPos ? newAtom : newAtom.negate();
 			if (newLiteral instanceof Literal) {
 				final Literal newGroundLit = (Literal) newLiteral;
+				mInstManager.registerLitInst(mQuantLits[i], mSigma, newLiteral);
 				if (resultingGroundLits.contains(newGroundLit.negate())) { // Clause simplifies to true
 					mClausifier.getLogger()
 							.debug("Quant: trivially true clause instance detected while building literals.");

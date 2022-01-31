@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -41,6 +42,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.InstantiationManager.InstanceValue;
 
 /**
  * A piecewise constant model for a function {@code f(x1,...,xn)} assigns constant values to areas of the function's
@@ -86,6 +88,106 @@ public class PiecewiseConstantModel {
 		mArrayModels = new HashMap<>();
 	}
 
+	public InstanceValue evaluateArithmeticalLiteral(final QuantLiteral qLit, final List<Term> subs) {
+		assert qLit.isArithmetical();
+		final SharedTermEvaluator evaluator = new SharedTermEvaluator(mClausifier);
+		final Theory theory = mQuantTheory.getTheory();
+		if (qLit instanceof QuantEquality) {
+			final QuantEquality qEq = (QuantEquality) qLit;
+			assert qEq.getLhs() instanceof TermVariable && qEq.getRhs().getFreeVars().length == 0;
+			final Term leftSubs = subs.get(qLit.getClause().getVarIndex((TermVariable) qEq.getLhs()));
+			if (QuantUtil.isLambda(leftSubs)) {
+				return InstanceValue.FALSE;
+			} else {
+				if (evaluator.evaluate(leftSubs, theory).equals(evaluator.evaluate(qEq.getRhs(), theory))) {
+					return InstanceValue.TRUE;
+				} else {
+					return InstanceValue.FALSE;
+				}
+			}
+		} else {
+			final Term[] termLtTerm = QuantUtil.getArithmeticalTermLtTerm(qLit, mClausifier.getTermCompiler());
+			final Term groundLhs = termLtTerm[0].getFreeVars().length == 0 ? termLtTerm[0]
+					: subs.get(qLit.getClause().getVarIndex((TermVariable) termLtTerm[0]));
+			final Term groundRhs = termLtTerm[1].getFreeVars().length == 0 ? termLtTerm[1]
+					: subs.get(qLit.getClause().getVarIndex((TermVariable) termLtTerm[1]));
+			if (QuantUtil.isLambda(groundRhs)) {
+				return InstanceValue.FALSE;
+			} else {
+				if (QuantUtil.isLambda(groundLhs)
+						|| evaluator.evaluate(groundLhs, theory).compareTo(evaluator.evaluate(groundRhs, theory)) < 0) {
+					return InstanceValue.TRUE;
+				} else {
+					return InstanceValue.FALSE;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Evaluate a literal for a given substitution in the final check. The result can only be true or false; in the
+	 * final check, everything can be evaluated.
+	 * 
+	 * TODO: Should we first check if it is an E-matching literal as we have the equivalent terms then?
+	 * 
+	 * @param quantLit
+	 * @param substitution
+	 * @return
+	 */
+	public InstanceValue evaluateLiteral(final QuantLiteral quantLit, final List<Term> subs) {
+		InstanceValue litValue;
+		final boolean isNeg = quantLit.isNegated();
+		final QuantLiteral atom = quantLit.getAtom();
+		if (atom instanceof QuantEquality) {
+			final QuantEquality eq = (QuantEquality) atom;
+			if (!eq.getLhs().getSort().isNumericSort()) {
+				litValue = evaluateCCEquality(eq, subs);
+			} else {
+				litValue = evaluateLAEquality(eq, subs);
+			}
+		} else {
+			litValue = evaluateBoundConstraint((QuantBoundConstraint) atom, subs);
+		}
+
+		if (isNeg) {
+			litValue = litValue.negate();
+		}
+		assert litValue == InstanceValue.FALSE || litValue == InstanceValue.TRUE;
+		return litValue;
+	}
+
+	private InstanceValue evaluateCCEquality(final QuantEquality qEq, final List<Term> subs) {
+		final CCTerm leftCC = evaluateInCC(qEq.getLhs(), Arrays.asList(qEq.getClause().getVars()), subs);
+		final CCTerm rightCC = evaluateInCC(qEq.getRhs(), Arrays.asList(qEq.getClause().getVars()), subs);
+		assert leftCC != null && rightCC != null;
+		if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
+			return InstanceValue.TRUE;
+		} else {
+			return InstanceValue.FALSE; // In the final check, CC classes that are not equal are distinct.
+		}
+	}
+
+	private InstanceValue evaluateLAEquality(final QuantEquality qEq, final List<Term> subs) {
+		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
+		diff.add(Rational.MONE, qEq.getRhs());
+		final Rational value = evaluateInArith(diff, Arrays.asList(qEq.getClause().getVars()), subs);
+		if (value == Rational.ZERO) {
+			return InstanceValue.TRUE;
+		} else {
+			return InstanceValue.FALSE;
+		}
+	}
+
+	private InstanceValue evaluateBoundConstraint(final QuantBoundConstraint qBc, final List<Term> subs) {
+		final SMTAffineTerm affine = qBc.getAffineTerm();
+		final Rational value = evaluateInArith(affine, Arrays.asList(qBc.getClause().getVars()), subs);
+		if (value.compareTo(Rational.ZERO) <= 0) {
+			return InstanceValue.TRUE;
+		} else {
+			return InstanceValue.FALSE;
+		}
+	}
+	
 	/**
 	 * For a given (possibly quantified) term, get the CC class that this term evaluates to in the current model under
 	 * the given substitution.
@@ -98,7 +200,7 @@ public class PiecewiseConstantModel {
 	 *            a list of ground terms to be substituted for the variables (must have the same length)
 	 * @return the model CC class (can be null for numeric terms)
 	 */
-	public CCTerm evaluateInCC(final Term term, final List<Term> vars, final List<Term> subs) { // TODO: Non-recursive
+	CCTerm evaluateInCC(final Term term, final List<Term> vars, final List<Term> subs) { // TODO: Non-recursive
 		assert vars.size() == subs.size();
 		if (term.getFreeVars().length == 0) {
 			return mClausifier.getCCTerm(term);
@@ -196,7 +298,7 @@ public class PiecewiseConstantModel {
 	 *            a list of ground terms to be substituted for the variables (must have the same length)
 	 * @return the model Rational (where -infinity stands for a fresh value smaller than all values of known terms)
 	 */
-	public Rational evaluateInArith(final Term term, final List<Term> vars, final List<Term> subs) {
+	private Rational evaluateInArith(final Term term, final List<Term> vars, final List<Term> subs) {
 		assert term.getSort().isNumericSort();
 		return evaluateInArith(new SMTAffineTerm(term), vars, subs);
 	}
@@ -213,7 +315,7 @@ public class PiecewiseConstantModel {
 	 *            a list of ground terms to be substituted for the variables (must have the same length)
 	 * @return the model Rational (where -infinity stands for a fresh value smaller than all values of known terms)
 	 */
-	public Rational evaluateInArith(final SMTAffineTerm affTerm, final List<Term> vars, final List<Term> subs) {
+	private Rational evaluateInArith(final SMTAffineTerm affTerm, final List<Term> vars, final List<Term> subs) {
 		assert vars.size() == subs.size();
 		Rational modelValue = Rational.ZERO;
 		final SharedTermEvaluator evaluator = new SharedTermEvaluator(mClausifier);

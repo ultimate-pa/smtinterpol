@@ -853,9 +853,7 @@ public class QuantifierTheory implements ITheory {
 			final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
 			lambda = mTheory.term(fsym);
 		}
-		// if (!sort.isNumericSort()) { // TODO Check this
-			mClausifier.createCCTerm(lambda, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-		// }
+		mClausifier.createCCTerm(lambda, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		mLambdas.put(sort, lambda);
 		return lambda;
 	}
@@ -1009,6 +1007,6 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	public static enum QuantFinalCheckMethod {
-		ENUMERATIVE, MODEL_BASED;
+		ENUMERATIVE, MODEL_BASED, MODEL_BASED_ITERATIVE;
 	}
 }

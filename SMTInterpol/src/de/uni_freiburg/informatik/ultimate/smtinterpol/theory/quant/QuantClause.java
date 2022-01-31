@@ -141,8 +141,9 @@ public class QuantClause {
 				updateInterestingTermsForFuncArgs(mVars[i], i);
 			}
 			final Sort varSort = mVars[i].getSort();
-			if (mQuantTheory.getFinalCheckMethod() == QuantFinalCheckMethod.MODEL_BASED && !varSort.isNumericSort()
-					&& varSort.getName() != "Bool") {
+			if ((mQuantTheory.getFinalCheckMethod() == QuantFinalCheckMethod.MODEL_BASED
+					|| mQuantTheory.getFinalCheckMethod() == QuantFinalCheckMethod.MODEL_BASED_ITERATIVE)
+					&& !varSort.isNumericSort() && varSort.getName() != "Bool") {
 				if (mQuantTheory.mUseAllCClassesInMBifVareq && isLhsOfEqWithGroundOrVar(mVars[i])) {
 					collectCongruenceClasses(mVars[i].getSort(), i);
 				} else {

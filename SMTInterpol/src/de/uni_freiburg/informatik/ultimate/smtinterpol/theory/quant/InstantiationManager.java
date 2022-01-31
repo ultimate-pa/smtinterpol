@@ -43,8 +43,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
@@ -75,18 +75,26 @@ public class InstantiationManager {
 	private final QuantifierTheory mQuantTheory;
 	private final EMatching mEMatching;
 
+	/**
+	 * The existing clause instances. For each clause, the substitutions for which the clause has already been
+	 * instantiated, map to the corresponding InstClause or to null if the result was trivially true or the substitution not allowed.
+	 **/
 	private final Map<QuantClause, Map<List<Term>, InstClause>> mClauseInstances;
+	private final Map<QuantLiteral, Map<List<Term>, ILiteral>> mLiteralInstances;
 
 	private final InstanceValue mDefaultValueForLitDawgs;
 	private final List<InstanceValue> mRelevantValuesForCheckpoint;
 
 	private int mSubsAgeForFinalCheck = 0;
+	final static ILiteral mTRUE = new TrueLiteral();
+	final static ILiteral mFALSE = new FalseLiteral();
 
 	public InstantiationManager(final QuantifierTheory quantTheory) {
 		mQuantTheory = quantTheory;
 		mClausifier = quantTheory.getClausifier();
 		mEMatching = quantTheory.getEMatching();
 		mClauseInstances = new HashMap<>();
+		mLiteralInstances = new HashMap<>();
 		mDefaultValueForLitDawgs =
 				mQuantTheory.mUseUnknownTermValueInDawgs ? InstanceValue.UNKNOWN_TERM : InstanceValue.ONE_UNDEF;
 		mRelevantValuesForCheckpoint = new ArrayList<>();
@@ -119,6 +127,9 @@ public class InstantiationManager {
 	public void removeClause(final QuantClause clause) {
 		assert mClauseInstances.containsKey(clause);
 		mClauseInstances.remove(clause);
+		for (final QuantLiteral lit : clause.getQuantLits()) {
+			mLiteralInstances.remove(lit);
+		}
 	}
 
 	/**
@@ -128,6 +139,7 @@ public class InstantiationManager {
 		for (final Map<List<Term>, InstClause> instClauses : mClauseInstances.values()) {
 			instClauses.clear();
 		}
+		mLiteralInstances.clear();
 	}
 
 	/**
@@ -357,8 +369,8 @@ public class InstantiationManager {
 	 */
 	public Set<InstClause> instantiateSomeNotSat(final QuantFinalCheckMethod fcMethod) {
 
-		// Collect the QuantClauses that are not yet satisfied and check if existing instances lead to conflicts.
-		final List<QuantClause> currentQuantClauses = new ArrayList<>();
+		// Collect the QuantClauses not satisfied by a ground literal and check if existing instances lead to conflicts.
+		final List<QuantClause> currentQuantClausesWithoutTrueGroundLits = new ArrayList<>();
 		for (final QuantClause clause : mQuantTheory.getQuantClauses()) {
 			if (mQuantTheory.getEngine().isTerminationRequested()) {
 				return Collections.emptySet();
@@ -378,14 +390,50 @@ public class InstantiationManager {
 						}
 					}
 				}
-				currentQuantClauses.add(clause);
+				currentQuantClausesWithoutTrueGroundLits.add(clause);
 			}
+		}
+
+		final InstanceOrigin instOrigin =
+				fcMethod == QuantFinalCheckMethod.ENUMERATIVE ? InstanceOrigin.ENUMERATION : InstanceOrigin.MODEL_BASED;
+
+		final PiecewiseConstantModel model =
+				fcMethod == QuantFinalCheckMethod.MODEL_BASED || fcMethod == QuantFinalCheckMethod.MODEL_BASED_ITERATIVE
+						? new PiecewiseConstantModel(mQuantTheory)
+						: null;
+
+		if (fcMethod == QuantFinalCheckMethod.MODEL_BASED_ITERATIVE) {
+			final IterativeModelBasedInstantiation instSearcher =
+					new IterativeModelBasedInstantiation(mQuantTheory, model);
+			for (final QuantClause clause : currentQuantClausesWithoutTrueGroundLits) {
+				if (mClausifier.getEngine().isTerminationRequested()) {
+					return null;
+				}
+				clause.updateInterestingTermsAllVars();
+				Term[] subst = instSearcher.findSomeNonSatSubstitution(clause, null);
+				while (subst != null) {
+					final InstClause inst = computeClauseInstance(clause, Arrays.asList(subst), instOrigin);
+					if (inst != null) {
+						final int numUndef = inst.countAndSetUndefLits();
+						assert numUndef >= 0;
+						return Collections.singleton(inst);
+					} else {
+						/*
+						 * IterativeModelBasedInstantiation does not know if a substitution is allowed, hence it can
+						 * find a clause instance that is not built although it would be false. Therefore we must
+						 * continue searching for non-satisfied substitutions.
+						 */
+						subst = instSearcher.findSomeNonSatSubstitution(clause, subst);
+					}
+				}
+			}
+			return null;
 		}
 
 		// Check all interesting substitutions ordered by age to avoid creating new (in particular nested) terms early.
 		final Map<QuantClause, List<Term>[]> interestingTermsSortedByAge = new HashMap<>();
 		int oldest = 0;
-		for (final QuantClause clause : currentQuantClauses) {
+		for (final QuantClause clause : currentQuantClausesWithoutTrueGroundLits) {
 			if (mClausifier.getEngine().isTerminationRequested()) {
 				return null;
 			}
@@ -395,8 +443,6 @@ public class InstantiationManager {
 			oldest = Math.max(oldest, termsSortedByAge.getSecond());
 			interestingTermsSortedByAge.put(clause, termsSortedByAge.getFirst());
 		}
-		final InstanceOrigin instOrigin =
-				fcMethod == QuantFinalCheckMethod.ENUMERATIVE ? InstanceOrigin.ENUMERATION : InstanceOrigin.MODEL_BASED;
 
 		mQuantTheory.getLogger().debug("Quant: Max term age %d", oldest);
 		for (; mSubsAgeForFinalCheck <= oldest; mSubsAgeForFinalCheck++) {
@@ -409,12 +455,10 @@ public class InstantiationManager {
 			final List<Pair<QuantClause, List<Term>>> unitValueInstancesNewTerms = new ArrayList<>();
 			final List<Pair<QuantClause, List<Term>>> otherValueInstancesNewTerms = new ArrayList<>();
 
-			for (final QuantClause clause : currentQuantClauses) {
+			for (final QuantClause clause : currentQuantClausesWithoutTrueGroundLits) {
 				if (mQuantTheory.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
 				}
-				final PiecewiseConstantModel model =
-						fcMethod == QuantFinalCheckMethod.MODEL_BASED ? new PiecewiseConstantModel(mQuantTheory) : null;
 				final Set<List<Term>> subsForAge =
 						computeSubstitutionsForAge(interestingTermsSortedByAge.get(clause), mSubsAgeForFinalCheck);
 				for (final List<Term> subs : subsForAge) {
@@ -565,7 +609,7 @@ public class InstantiationManager {
 	 *            a term.
 	 * @return the age of the CCTerm if the term has a CCTerm, 0 else.
 	 */
-	private int getTermAge(final Term t) {
+	int getTermAge(final Term t) {
 		final CCTerm cc = mClausifier.getCCTerm(t);
 		return cc != null ? cc.getAge() : 0;
 	}
@@ -924,39 +968,6 @@ public class InstantiationManager {
 			litValue = litValue.negate();
 		}
 		return litValue;
-	}
-
-	/**
-	 * Evaluate a literal for a given substitution in the final check. The result can only be true or false, in the
-	 * final check, everything can be evaluated. We assume piecewise constant functions as models.
-	 * 
-	 * TODO: Should we first check if it is an E-matching literal as we have the equivalent terms then?
-	 * 
-	 * @param quantLit
-	 * @param substitution
-	 * @return
-	 */
-	private InstanceValue evaluateLitInstanceModelBased(final QuantLiteral quantLit, final List<Term> subs,
-			final PiecewiseConstantModel model) {
-		InstanceValue litValue = mDefaultValueForLitDawgs;
-		final boolean isNeg = quantLit.isNegated();
-		final QuantLiteral atom = quantLit.getAtom();
-		if (atom instanceof QuantEquality) {
-			final QuantEquality eq = (QuantEquality) atom;
-			if (!eq.getLhs().getSort().isNumericSort()) {
-				litValue = evaluateCCEqualityModelBased(eq, subs, model);
-			} else {
-				litValue = evaluateLAEqualityModelBased(eq, subs, model);
-			}
-		} else {
-			litValue = evaluateBoundConstraintModelBased((QuantBoundConstraint) atom, subs, model);
-		}
-
-		if (isNeg) {
-			litValue = litValue.negate();
-		}
-		assert litValue == InstanceValue.FALSE || litValue == InstanceValue.TRUE;
-		return litValue; // must be true or false
 	}
 
 	/**
@@ -1365,7 +1376,7 @@ public class InstantiationManager {
 		final List<QuantLiteral> nonArithmeticalLits = new ArrayList<>();
 		for (final QuantLiteral quantLit : quantClause.getQuantLits()) {
 			if (quantLit.isArithmetical()) {
-				final InstanceValue val = evaluateArithmeticalLiteralModelBased(quantLit, substitution);
+				final InstanceValue val = model.evaluateArithmeticalLiteral(quantLit, substitution);
 				clauseValue = clauseValue.combine(val);
 			} else {
 				nonArithmeticalLits.add(quantLit);
@@ -1376,7 +1387,7 @@ public class InstantiationManager {
 		}
 		boolean hasOnlyKnownTerms = true;
 		for (final QuantLiteral quantLit : nonArithmeticalLits) {
-			final InstanceValue litValue = evaluateLitInstanceModelBased(quantLit, substitution, model);
+			final InstanceValue litValue = model.evaluateLiteral(quantLit, substitution);
 			// hasOnlyKnownTerms &= model.knowsAllTerms(); TODO
 			clauseValue = clauseValue.combine(litValue);
 			if (clauseValue == InstanceValue.TRUE) {
@@ -1669,79 +1680,6 @@ public class InstantiationManager {
 		}
 	}
 
-	/* ========================================= Model based instantiation ========================================= */
-
-	private InstanceValue evaluateCCEqualityModelBased(final QuantEquality qEq, final List<Term> subs,
-			final PiecewiseConstantModel model) {
-		final CCTerm leftCC = model.evaluateInCC(qEq.getLhs(), Arrays.asList(qEq.getClause().getVars()), subs);
-		final CCTerm rightCC = model.evaluateInCC(qEq.getRhs(), Arrays.asList(qEq.getClause().getVars()), subs);
-		assert leftCC != null && rightCC != null;
-		if (mQuantTheory.getCClosure().isEqSet(leftCC, rightCC)) {
-			return InstanceValue.TRUE;
-		} else {
-			return InstanceValue.FALSE; // In the final check, CC classes that are not equal are distinct.
-		}
-	}
-
-	private InstanceValue evaluateLAEqualityModelBased(final QuantEquality qEq, final List<Term> subs,
-			final PiecewiseConstantModel model) {
-		final SMTAffineTerm diff = new SMTAffineTerm(qEq.getLhs());
-		diff.add(Rational.MONE, qEq.getRhs());
-		final Rational value = model.evaluateInArith(diff, Arrays.asList(qEq.getClause().getVars()), subs);
-		if (value == Rational.ZERO) {
-			return InstanceValue.TRUE;
-		} else {
-			return InstanceValue.FALSE;
-		}
-	}
-
-	private InstanceValue evaluateBoundConstraintModelBased(final QuantBoundConstraint qBc, final List<Term> subs,
-			final PiecewiseConstantModel model) {
-		final SMTAffineTerm affine = qBc.getAffineTerm();
-		final Rational value = model.evaluateInArith(affine, Arrays.asList(qBc.getClause().getVars()), subs);
-		if (value.compareTo(Rational.ZERO) <= 0) {
-			return InstanceValue.TRUE;
-		} else {
-			return InstanceValue.FALSE;
-		}
-	}
-
-	private InstanceValue evaluateArithmeticalLiteralModelBased(final QuantLiteral qLit, final List<Term> subs) {
-		assert qLit.isArithmetical();
-		final SharedTermEvaluator evaluator = new SharedTermEvaluator(mClausifier);
-		final Theory theory = mQuantTheory.getTheory();
-		if (qLit instanceof QuantEquality) {
-			final QuantEquality qEq = (QuantEquality) qLit;
-			assert qEq.getLhs() instanceof TermVariable && qEq.getRhs().getFreeVars().length == 0;
-			final Term leftSubs = subs.get(qLit.getClause().getVarIndex((TermVariable) qEq.getLhs()));
-			if (QuantUtil.isLambda(leftSubs)) {
-				return InstanceValue.FALSE;
-			} else {
-				if (evaluator.evaluate(leftSubs, theory).equals(evaluator.evaluate(qEq.getRhs(), theory))) {
-					return InstanceValue.TRUE;
-				} else {
-					return InstanceValue.FALSE;
-				}
-			}
-		} else {
-			final Term[] termLtTerm = QuantUtil.getArithmeticalTermLtTerm(qLit, mClausifier.getTermCompiler());
-			final Term groundLhs = termLtTerm[0].getFreeVars().length == 0 ? termLtTerm[0]
-					: subs.get(qLit.getClause().getVarIndex((TermVariable) termLtTerm[0]));
-			final Term groundRhs = termLtTerm[1].getFreeVars().length == 0 ? termLtTerm[1]
-					: subs.get(qLit.getClause().getVarIndex((TermVariable) termLtTerm[1]));
-			if (QuantUtil.isLambda(groundRhs)) {
-				return InstanceValue.FALSE;
-			} else {
-				if (QuantUtil.isLambda(groundLhs)
-						|| evaluator.evaluate(groundLhs, theory).compareTo(evaluator.evaluate(groundRhs, theory)) < 0) {
-					return InstanceValue.TRUE;
-				} else {
-					return InstanceValue.FALSE;
-				}
-			}
-		}
-	}
-
 	/* ============================================================================================================== */
 
 	private void recordSubstAgeForStats(final int age, final boolean isProducedByFinalCheck) {
@@ -1963,7 +1901,7 @@ public class InstantiationManager {
 	enum InstanceValue {
 		TRUE, FALSE, ONE_UNDEF, UNKNOWN_TERM, OTHER, IRRELEVANT;
 
-		private InstanceValue combine(final InstanceValue other) {
+		InstanceValue combine(final InstanceValue other) {
 			if (this == IRRELEVANT || other == IRRELEVANT) {
 				return IRRELEVANT;
 			} else if (this == TRUE || other == TRUE) {
@@ -1977,7 +1915,7 @@ public class InstantiationManager {
 			}
 		}
 
-		private InstanceValue negate() {
+		InstanceValue negate() {
 			if (this == TRUE) {
 				return FALSE;
 			} else if (this == FALSE) {
@@ -1994,13 +1932,94 @@ public class InstantiationManager {
 		 *            the relevant values.
 		 * @return the InstanceValue itself, if contained in the relevant values, or IRRELEVANT else.
 		 */
-		private InstanceValue keepOnlyRelevant(final List<InstanceValue> values) {
+		InstanceValue keepOnlyRelevant(final List<InstanceValue> values) {
 			for (final InstanceValue val : values) {
 				if (this == val) {
 					return this;
 				}
 			}
 			return IRRELEVANT;
+		}
+	}
+
+	/**
+	 * Get the existing/ already computed instances for a given QuantClause, as a map from substitutions to InstClauses.
+	 * Note: If a substitution maps to null, this means that the resulting clause instance was trivially true or the substitution not allowed.
+	 */
+	Map<List<Term>, InstClause> getClauseInstances(final QuantClause clause) {
+		assert clause != null && mClauseInstances.containsKey(clause);
+		return mClauseInstances.get(clause);
+	}
+
+
+	/**
+	 * Get the existing/already computes literal instances, as a map from substitutions (the order corresponds to the free variables in the literal term) to ILiteral.
+	 * If an instance is trivially true or false, this is marked by the TrueLiteral mTrue or the FalseLiteral mFalse, respectively.
+	 */
+	Map<List<Term>, ILiteral> getLitInstances(final QuantLiteral lit) {
+		assert lit != null;
+		return mLiteralInstances.containsKey(lit) ? mLiteralInstances.get(lit) : new HashMap<>();
+
+	}
+
+	void registerLitInst(final QuantLiteral qLit, final Map<TermVariable, Term> subst, final ILiteral inst) {
+		assert inst instanceof Literal || inst == mTRUE || inst == mFALSE;
+		final List<Term> litVarSubst = new ArrayList<>();
+		for (final TermVariable var : qLit.getTerm().getFreeVars()) {
+			litVarSubst.add(subst.get(var));
+		}
+		if (!mLiteralInstances.containsKey(qLit)) {
+			mLiteralInstances.put(qLit, new HashMap<>());
+		}
+		if (!mLiteralInstances.get(qLit).containsKey(litVarSubst)) {
+			mLiteralInstances.get(qLit).put(litVarSubst, inst);
+		}
+	}
+
+	void registerTrivialInst(final QuantLiteral qLit, final Map<TermVariable, Term> subst, final boolean isTrueInst) {
+		registerLitInst(qLit, subst, isTrueInst ? mTRUE : mFALSE);
+	}
+
+	private static class TrueLiteral implements ILiteral { // Copied from Clausifier
+		@Override
+		public ILiteral getAtom() {
+			return this;
+		}
+
+		@Override
+		public ILiteral negate() {
+			return mFALSE;
+		}
+
+		@Override
+		public boolean isGround() {
+			return true;
+		}
+
+		@Override
+		public Term getSMTFormula(final Theory theory, final boolean quoted) {
+			return theory.mTrue;
+		}
+	}
+	private static class FalseLiteral implements ILiteral { // Copied from Clausifier
+		@Override
+		public ILiteral getAtom() {
+			return this;
+		}
+
+		@Override
+		public ILiteral negate() {
+			return mTRUE;
+		}
+
+		@Override
+		public boolean isGround() {
+			return true;
+		}
+
+		@Override
+		public Term getSMTFormula(final Theory theory, final boolean quoted) {
+			return theory.mFalse;
 		}
 	}
 }
