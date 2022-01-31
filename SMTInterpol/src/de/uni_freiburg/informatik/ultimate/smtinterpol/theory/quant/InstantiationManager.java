@@ -411,7 +411,7 @@ public class InstantiationManager {
 				}
 				clause.updateInterestingTermsAllVars();
 				Term[] subst = instSearcher.findSomeNonSatSubstitution(clause, null);
-				while (subst != null) {
+				while (subst != null && !mClausifier.getEngine().isTerminationRequested()) {
 					final InstClause inst = computeClauseInstance(clause, Arrays.asList(subst), instOrigin);
 					if (inst != null) {
 						final int numUndef = inst.countAndSetUndefLits();

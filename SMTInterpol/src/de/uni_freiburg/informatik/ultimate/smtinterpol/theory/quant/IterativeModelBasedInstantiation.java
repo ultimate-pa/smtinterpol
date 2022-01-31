@@ -116,7 +116,7 @@ public class IterativeModelBasedInstantiation {
 				}
 			}
 		}
-		while (!mTodo.isEmpty()) {
+		while (!mTodo.isEmpty() && !mQuantTheory.getClausifier().getEngine().isTerminationRequested()) {
 			final Pair<Term[], BitSet> cand = mTodo.remove();
 			final Term[] subs = cand.getFirst();
 			final int satLitPos = findSatisfiedLiteralPosition(subs, cand.getSecond());
@@ -236,6 +236,9 @@ public class IterativeModelBasedInstantiation {
 			final List<Term[]> oldMinimalSubs = new ArrayList<>();
 			oldMinimalSubs.addAll(minimalSubs);
 			for (final Term[] s : oldMinimalSubs) {
+				if (mQuantTheory.getClausifier().getEngine().isTerminationRequested()) {
+					return Collections.emptyList();
+				}
 				final List<Term> interesting = mInterestingTermsSorted.get(v);
 				final Term currentSubs = s[posInClause];
 				final int currentSubsPosInInteresting = interesting.indexOf(currentSubs);
