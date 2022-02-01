@@ -187,7 +187,7 @@ public class PiecewiseConstantModel {
 			return InstanceValue.FALSE;
 		}
 	}
-	
+
 	/**
 	 * For a given (possibly quantified) term, get the CC class that this term evaluates to in the current model under
 	 * the given substitution.
@@ -202,11 +202,12 @@ public class PiecewiseConstantModel {
 	 */
 	CCTerm evaluateInCC(final Term term, final List<Term> vars, final List<Term> subs) { // TODO: Non-recursive
 		assert vars.size() == subs.size();
+		final CCTerm ccModel;
 		if (term.getFreeVars().length == 0) {
-			return mClausifier.getCCTerm(term);
+			ccModel = mClausifier.getCCTerm(term);
 		} else if (term instanceof TermVariable) {
 			assert vars.contains(term) && subs.get(vars.indexOf(term)).getFreeVars().length == 0;
-			return mClausifier.getCCTerm(subs.get(vars.indexOf(term)));
+			ccModel = mClausifier.getCCTerm(subs.get(vars.indexOf(term)));
 		} else if (Clausifier.needCCTerm(term)) {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol fsym = appTerm.getFunction();
@@ -239,7 +240,7 @@ public class PiecewiseConstantModel {
 				// if weakIRep has a select, take this select
 				final CCTerm weakIRepSelect = indexCC == null ? null : arrayTheory.getWeakIRepSelect(arrayCC, indexCC);
 				if (weakIRepSelect != null) {
-					return weakIRepSelect;
+					ccModel = weakIRepSelect;
 				} else {
 					final CCTerm weakRep = arrayTheory.getWeakRep(arrayCC);
 					final CCTerm weakIRep = indexCC == null ? null : arrayTheory.getWeakIRep(arrayCC, indexCC);
@@ -249,10 +250,10 @@ public class PiecewiseConstantModel {
 						}
 						PartialFunction arrayModel = mArrayModels.get(weakRep);
 						final CCTerm model = findModel(arrayModel, 0, indexModel, new Sort[] { indexSort });
-						return model != null ? model : mClausifier.getCCTerm(mQuantTheory.getLambda(term.getSort()));
+						ccModel = model != null ? model : mClausifier.getCCTerm(mQuantTheory.getLambda(term.getSort()));
 					} else { // else take arbitrary value
 						// TODO Use fresh value if value domain is infinite, to avoid extensionality
-						return mClausifier.getCCTerm(mQuantTheory.getLambda(appTerm.getSort()));
+						ccModel = mClausifier.getCCTerm(mQuantTheory.getLambda(appTerm.getSort()));
 					}
 				}
 			} else {
@@ -263,27 +264,29 @@ public class PiecewiseConstantModel {
 				assert funcModel != null;
 				if (funcModel.isComplete()) { // default value
 					assert funcModel.mNumArgs == fsym.getParameterSorts().length;
-					return funcModel.mModelValue;
-				}
-				final Object[] argModels = new Object[args.length];
-				final Sort[] argSorts = new Sort[args.length];
-				for (int i = 0; i < args.length; i++) {
-					final Term a = args[i];
-					final Sort aSort = a.getSort();
-					argSorts[i] = aSort;
-					if (aSort.isNumericSort()) {
-						argModels[i] = evaluateInArith(a, vars, subs);
-					} else {
-						argModels[i] = evaluateInCC(a, vars, subs);
+					ccModel = funcModel.mModelValue;
+				} else {
+					final Object[] argModels = new Object[args.length];
+					final Sort[] argSorts = new Sort[args.length];
+					for (int i = 0; i < args.length; i++) {
+						final Term a = args[i];
+						final Sort aSort = a.getSort();
+						argSorts[i] = aSort;
+						if (aSort.isNumericSort()) {
+							argModels[i] = evaluateInArith(a, vars, subs);
+						} else {
+							argModels[i] = evaluateInCC(a, vars, subs);
+						}
 					}
+					final CCTerm model = findModel(funcModel, 0, argModels, argSorts);
+					ccModel = model != null ? model : mClausifier.getCCTerm(mQuantTheory.getLambda(term.getSort()));
 				}
-				final CCTerm model = findModel(funcModel, 0, argModels, argSorts);
-				return model != null ? model : mClausifier.getCCTerm(mQuantTheory.getLambda(term.getSort()));
 			}
 		} else {
 			assert term.getSort().isNumericSort();
-			return null;
+			ccModel = null;
 		}
+		return ccModel == null ? null : ccModel.getRepresentative();
 	}
 
 	/**
