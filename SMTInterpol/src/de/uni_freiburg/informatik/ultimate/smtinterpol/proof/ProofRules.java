@@ -28,6 +28,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -107,6 +108,14 @@ public class ProofRules {
 	public final static String EXTDIFF = "extdiff";
 	public final static String CONST = "const";
 
+	// axioms for datatypes
+	public final static String DT_PROJECT = "dt-project";
+	public final static String DT_CONS = "dt-cons";
+	public final static String DT_TESTI = "dt-test+";
+	public final static String DT_TESTE = "dt-test-";
+	public final static String DT_EXHAUST = "dt-exhaust";
+	public final static String DT_ACYCLIC = "dt-acyclic";
+	public final static String DT_MATCH = "dt-match";
 
 	/**
 	 * sort name for proofs.
@@ -614,6 +623,31 @@ public class ProofRules {
 		}, subProof);
 	}
 
+	public Term dtProject(final Term selConsTerm) {
+		return mTheory.annotatedTerm(annotate(":" + DT_PROJECT, new Term[] { selConsTerm }), mAxiom);
+	}
+
+	public Term dtTestI(final Term consTerm) {
+		return mTheory.annotatedTerm(annotate(":" + DT_TESTI, new Term[] { consTerm }), mAxiom);
+	}
+
+	public Term dtTestE(final String otherConstructor, final Term consTerm) {
+		return mTheory.annotatedTerm(annotate(":" + DT_TESTE, new Object[] { otherConstructor, consTerm }), mAxiom);
+	}
+
+	public Term dtExhaust(final Term term) {
+		return mTheory.annotatedTerm(annotate(":" + DT_EXHAUST, new Object[] { term }),
+				mAxiom);
+	}
+
+	public Term dtAcyclic(final Term nestedTerm, final Term subTerm) {
+		return mTheory.annotatedTerm(annotate(":" + DT_ACYCLIC, new Object[] { nestedTerm, subTerm }), mAxiom);
+	}
+
+	public Term dtMatch(final MatchTerm matchTerm) {
+		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, new Object[] { matchTerm }), mAxiom);
+	}
+
 	public static void printProof(final Appendable appender, final Term proof) {
 		new PrintProof().append(appender, proof);
 	}
@@ -1084,6 +1118,35 @@ public class ProofRules {
 							mTodo.add(" ");
 						}
 						mTodo.add("(" + annots[0].getKey().substring(1));
+						return;
+					}
+					case ":" + DT_PROJECT: {
+						assert annots.length == 1;
+						final Term[] params = (Term[]) annots[0].getValue();
+						assert params.length == 1;
+						mTodo.add(")");
+						mTodo.add(params[0]);
+						mTodo.add("(" + DT_PROJECT + " ");
+						return;
+					}
+					case ":" + DT_TESTI: {
+						assert annots.length == 1;
+						final Term[] params = (Term[]) annots[0].getValue();
+						assert params.length == 1;
+						mTodo.add(")");
+						mTodo.add(params[0]);
+						mTodo.add("(" + DT_TESTI + " ");
+						return;
+					}
+					case ":" + DT_TESTE: {
+						assert annots.length == 1;
+						final Object[] params = (Object[]) annots[0].getValue();
+						assert params.length == 2;
+						mTodo.add(")");
+						mTodo.add(params[1]);
+						mTodo.add(" ");
+						mTodo.add(params[0]);
+						mTodo.add("(" + DT_TESTE + " ");
 						return;
 					}
 					}

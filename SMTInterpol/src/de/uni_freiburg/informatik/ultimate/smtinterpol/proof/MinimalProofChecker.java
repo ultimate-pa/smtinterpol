@@ -30,6 +30,8 @@ import java.util.Stack;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.DataType;
+import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -983,6 +985,64 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term constArray = theory.term(SMTLIBConstants.CONST, null, arraySort, value);
 			final Term select = theory.term(SMTLIBConstants.SELECT, constArray, index);
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, select, value), true) };
+		}
+		case ":" + ProofRules.DT_PROJECT: {
+			if (!theory.getLogic().isDatatype()) {
+				throw new AssertionError();
+			}
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 1;
+			final ApplicationTerm selConsTerm = (ApplicationTerm) params[0];
+			final FunctionSymbol selector = selConsTerm.getFunction();
+			assert selector.isSelector();
+			final ApplicationTerm consTerm = (ApplicationTerm) selConsTerm.getParameters()[0];
+			if (!consTerm.getFunction().isConstructor()) {
+				throw new AssertionError();
+			}
+			final DataType dataType = (DataType) consTerm.getSort().getSortSymbol();
+			final Constructor cons = dataType.findConstructor(consTerm.getFunction().getName());
+			final int selectPos = cons.findSelector(selector.getName());
+			final Term consArg = consTerm.getParameters()[selectPos];
+
+			// + (= (seli (cons a1 ... an)) ai)
+			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, selConsTerm, consArg);
+			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+		}
+		case ":" + ProofRules.DT_TESTI: {
+			if (!theory.getLogic().isDatatype()) {
+				throw new AssertionError();
+			}
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 1;
+			final ApplicationTerm consTerm = (ApplicationTerm) params[0];
+			final FunctionSymbol consFunc = consTerm.getFunction();
+			if (!consFunc.isConstructor()) {
+				throw new AssertionError();
+			}
+			final Term isTerm = theory.term(SMTLIBConstants.IS, new String[] { consFunc.getName() }, null, consTerm);
+
+			// + ((_ is cons) (cons a1 ... an))
+			return new ProofLiteral[] { new ProofLiteral(isTerm, true) };
+		}
+		case ":" + ProofRules.DT_TESTE: {
+			if (!theory.getLogic().isDatatype()) {
+				throw new AssertionError();
+			}
+			assert annots.length == 1;
+			final Object[] params = (Object[]) annots[0].getValue();
+			assert params.length == 2;
+			final String otherCons = (String) params[0];
+			final ApplicationTerm consTerm = (ApplicationTerm) params[1];
+			final FunctionSymbol consFunc = consTerm.getFunction();
+			if (!consFunc.isConstructor() || consFunc.getName().equals(otherCons)) {
+				throw new AssertionError();
+			}
+			final Term isTerm = theory.term(SMTLIBConstants.IS, new String[] { otherCons }, null, consTerm);
+
+			// + ((_ is otherCons) (cons a1 ... an))
+			return new ProofLiteral[] { new ProofLiteral(isTerm, false) };
 		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);

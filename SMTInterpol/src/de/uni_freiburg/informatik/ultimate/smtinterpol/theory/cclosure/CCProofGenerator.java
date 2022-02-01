@@ -552,15 +552,17 @@ public class CCProofGenerator {
 		final Term base = theory.or(args);
 
 		final IndexedPath[] paths = info.getPaths();
-		final boolean hasCycle = rule == RuleKind.DT_CYCLE;
-		final Object[] subannots = new Object[2 * paths.length + (diseq == null ? 0 : 1) + (hasCycle ? 2 : 0)];
+		Object[] lemmaAnnot = new Object[0];
+		if (rule != RuleKind.CC && mAnnot.mDTLemma != null && mAnnot.mDTLemma.getAnnotation() != null) {
+			lemmaAnnot = mAnnot.mDTLemma.getAnnotation();
+		}
+		final Object[] subannots = new Object[2 * paths.length + (diseq == null ? 0 : 1) + lemmaAnnot.length];
 		int k = 0;
 		if (diseq != null) {
 			subannots[k++] = theory.annotatedTerm(CCEquality.QUOTED_CC, diseq);
 		}
-		if (hasCycle) {
-			subannots[k++] = ":cycle";
-			subannots[k++] = mAnnot.mDTLemma.getCycleTerms();
+		for (final Object annot : lemmaAnnot) {
+			subannots[k++] = annot;
 		}
 		for (final IndexedPath p : paths) {
 			final CCTerm index = p.getIndex();

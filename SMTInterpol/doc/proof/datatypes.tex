@@ -1,0 +1,146 @@
+\documentclass[a4paper]{article}
+\usepackage{xspace}
+\usepackage{relsize}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{pxfonts}
+\usepackage{mathpartir}
+\newcommand\mT{\mathcal{T}}
+\newcommand\T{$\mT$\xspace}
+\newcommand\Tp{$\mT'$\xspace}
+\newcommand\mtp{\models_{\mT'}}
+\newcommand\syms{\mathop{\mathit{syms}}}
+\newcommand\si{SMTInterpol\xspace}
+\newcommand\sversion{2.0}
+\newcommand\siv{\si~\sversion}
+\newcommand\gen[1]{\mathop{gen}\nolimits_{#1}}
+\newcommand\dom{\mathop{dom}}
+\newcommand\todo[1]{\textcolor{red}{TODO: #1}}
+\newcommand\seqcomp{\circledwedge}
+\newcommand\choicecomp{\circledvee}
+\newcommand\quoted[1]{\ulcorner #1 \urcorner}
+
+\newcommand\true{\mathbf{true}}
+\newcommand\false{\mathbf{false}}
+\newcommand\isC{\mathit{isC}}
+
+\title{Datatype Proof Rules}
+\author{Jochen Hoenicke \and Moritz Mohr}
+\date{2021/01/31}
+\begin{document}
+\maketitle
+\section{Proof Rules for Theory of Data Types}
+
+\paragraph{Rule 1} (dt-project)
+
+\[
+\frac{C_i(v_1,\dots,v_n) \sim u, s_{ij}(u) \in V}{s_{ij}(u) \sim v_j}
+\]
+
+This rule ensures that $s_{ij}(C_i(v_1,\dots,v_n)) = v_j$.  It is
+instantiated whenever there is a select term $s_{ij}(u)$ among the
+E-graph terms $V$ whose argument $u$ equals some matching constructor
+term.
+
+
+\paragraph{Rule 2a} (dt-tester)
+
+\[
+\frac{C_i(v_1,\dots,v_n) \sim u, \isC_i(u)\in V}{\isC_i(u) \sim \true}
+\]
+
+This rule ensures that $\isC_i(C_i(v_1,\dots,v_n)) = \true$.  It is
+instantiated whenever there is a test term $\isC_i(u)$ among the
+E-graph terms $V$ whose argument $u$ equals some matching constructor
+term.
+
+
+\paragraph{Rule 2b} (dt-tester)
+
+\[
+\frac{C_i(v_1,\dots,v_n) \sim u, \isC_j(u)\in V}{\isC_j(u) \sim \false}
+\]
+
+Similarly, this rule ensures that $\isC_j(C_i(v_1,\dots,v_n)) = \true$.  It is
+instantiated whenever there is a test term $\isC_j(u)$ among the
+E-graph terms $V$ whose argument $u$ equals some constructor
+term with a different constructor.
+
+
+\paragraph{Rule 3} (dt-constructor)
+
+\[
+\frac{\isC_i(u) \sim \true, s_{i1}(u_1) \in V,u \sim u_1,\dots,s_{in}(u_n)\in V,u \sim u_n}{u \sim C_i(s_{i1}(u_1),\dots, s_{in}(u_n)}
+\]
+
+This rule is instantiated when there is a test term $\isC_i(u)$ that
+is equal to true in the E-graph and for each corresponding selector there
+is a term $s_{ij}(u_j)$ where $u_j$ equals $u$ in the E-graph.
+Then the new term $C_i(s_{i1}(u_1),\dots,s_{in}(u_n))$ is created and set
+equal to $u$.
+
+\paragraph{Rule 4}
+\[
+\frac{u \in V, |\tau_{s_{ij}}| < \infty,
+  |\tau_{ik}| < \infty|\text{ or }s_{ik}(u_k)\in V, u\sim u_k 
+  \text{ for }k\neq j}
+     {\text{add $s_{ij}(u)$ to $V$}}
+\]
+
+This rule creates the $s_{ij}(u)$ term if it currently does not
+exists, but may be important because the range of the selector is
+finite.  It is only important if the other selectors exists or are
+also finite.  In this case it may be necessary to enumerate all
+possible values for $s_{ij}(u)$ to find a conflict in each case.  By
+creating the term, the corresponding theory for the finite domain is
+forced to choose a concrete value for it.  Note that the term is only
+added if no equivalent term $s_{ij}(u_j)$ with $u\sim u_j$ already
+exists.
+
+\paragraph{Rule 5}
+\[
+\frac{u \in V, s_{i1}(u_1)\in V,u\sim u_1,\dots, s_{in}(u_n)\in V, u\sim u_n}{\text{add $\isC_i(u)$ to $V$}}
+\]
+
+Similar to the previous rule, this creates the $\isC_i(u)$ term if all
+selectors exists.  If $\isC_i(u)$ is then given the value $\true$,
+Rule~3 triggers.
+
+
+\paragraph{Rule 6} (dt-cases)
+\[
+\frac{\isC_1(u_1)\sim \false,\dots, \isC_n(u_n)\sim \false, u_1\sim\dots\sim u_n}{\bot}
+\]
+This rule reports a conflict if all test functions are currently $\false$.
+
+\paragraph{Rule 7} (dt-cycle)
+
+TODO
+
+\paragraph{Rule 8} (dt-injective)
+\[
+\frac{C_i(a_1,\dots,a_n) \sim C_i(b_1,\dots,b_n)}{a_1 \sim b_1,\dots, a_n\sim b_n}
+\]
+
+This rule ensures that constructors are injective and propagates the
+equality between their arguments.
+
+
+(dt-disjoint)
+\[
+\frac{C_i(a_1,\dots,a_n) \sim C_j(b_1,\dots,b_m)}{\bot}
+\]
+
+This rule reports a conflict if two different constructors are equal in
+the E-graph.
+
+\paragraph{Rule 9} (dt-unique)
+\[
+\frac{\isC_i(u_1) \sim \true, \isC_j(u_2)\sim \true, u_1\sim u_2)}{\bot}
+\]
+
+This rule reports a conflict if two different tester functions are both
+true in the E-graph.
+
+
+\end{document}

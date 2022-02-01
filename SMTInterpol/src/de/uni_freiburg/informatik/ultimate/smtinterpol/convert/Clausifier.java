@@ -1050,19 +1050,17 @@ public class Clausifier {
 					final DataType returnSort = (DataType) fs.getReturnSort().getSortSymbol();
 					final Constructor c = returnSort.findConstructor(fs.getName());
 
-					if (c != null) {
-						for (final String sel : c.getSelectors()) {
-							final FunctionSymbol selFs = mTheory.getFunction(sel, fs.getReturnSort());
-							mCClosure.insertReverseTrigger(selFs, ccTerm, 0,
-									new DTReverseTrigger(mDataTypeTheory, this, selFs, ccTerm));
-						}
-						for (final Constructor constr : returnSort.getConstructors()) {
-							final String[] index = new String[] { constr.getName() };
-							final FunctionSymbol isFs = mTheory.getFunctionWithResult("is", index, null,
-									fs.getReturnSort());
-							mCClosure.insertReverseTrigger(isFs, ccTerm, 0,
-									new DTReverseTrigger(mDataTypeTheory, this, isFs, ccTerm));
-						}
+					for (final String sel : c.getSelectors()) {
+						final FunctionSymbol selFs = mTheory.getFunction(sel, fs.getReturnSort());
+						mCClosure.insertReverseTrigger(selFs, ccTerm, 0,
+								new DTReverseTrigger(mDataTypeTheory, this, selFs, ccTerm));
+					}
+					for (final Constructor constr : returnSort.getConstructors()) {
+						final String[] index = new String[] { constr.getName() };
+						final FunctionSymbol isFs = mTheory.getFunctionWithResult("is", index, null,
+								fs.getReturnSort());
+						mCClosure.insertReverseTrigger(isFs, ccTerm, 0,
+								new DTReverseTrigger(mDataTypeTheory, this, isFs, ccTerm));
 					}
 				}
 

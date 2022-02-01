@@ -1,8 +1,10 @@
 package de.uni_freiburg.informatik.ultimate.logic;
 
+import java.util.NoSuchElementException;
+
 /**
- * Represents an SMTLIB datatype sort.  
- * 
+ * Represents an SMTLIB datatype sort.
+ *
  * @author Jochen Hoenicke
  */
 public class DataType extends SortSymbol {
@@ -12,10 +14,10 @@ public class DataType extends SortSymbol {
 		private final Sort[] mArgumentSorts;
 		private final String[] mSelectors;
 
-		public Constructor(String name, String[] selectors, Sort[] argumentSorts) {
-			this.mName = name;
-			this.mSelectors = selectors;
-			this.mArgumentSorts = argumentSorts;
+		public Constructor(final String name, final String[] selectors, final Sort[] argumentSorts) {
+			mName = name;
+			mSelectors = selectors;
+			mArgumentSorts = argumentSorts;
 		}
 
 		public String getName() {
@@ -26,12 +28,22 @@ public class DataType extends SortSymbol {
 			return mArgumentSorts;
 		}
 
+		public int findSelector(final String selector) {
+			for (int i = 0; i < mSelectors.length; i++) {
+				if (mSelectors[i].equals(selector)) {
+					return i;
+				}
+			}
+			throw new NoSuchElementException();
+		}
+
 		public String[] getSelectors() {
 			return mSelectors;
 		}
 
+		@Override
 		public String toString() {
-			StringBuilder sb = new StringBuilder();
+			final StringBuilder sb = new StringBuilder();
 			sb.append("(");
 			sb.append(mName);
 			if (mSelectors.length != 0) {
@@ -49,10 +61,10 @@ public class DataType extends SortSymbol {
 		}
 	}
 
-	public DataType(Theory theory, String name, int numParams) {
+	public DataType(final Theory theory, final String name, final int numParams) {
 		super(theory, name, numParams, null, DATATYPE);
 	}
-	
+
 	/**
 	 * The constructors.
 	 */
@@ -62,7 +74,7 @@ public class DataType extends SortSymbol {
 	 */
 	Sort[] mSortVariables;
 
-	public void setConstructors(Sort[] sortVars, Constructor[] constrs) {
+	public void setConstructors(final Sort[] sortVars, final Constructor[] constrs) {
 		assert mConstructors == null;
 		mSortVariables = sortVars;
 		mConstructors = constrs;
@@ -72,13 +84,13 @@ public class DataType extends SortSymbol {
 		return mSortVariables;
 	}
 
-	public Constructor findConstructor(String name) {
+	public Constructor findConstructor(final String name) {
 		for (int i = 0; i < mConstructors.length; i++) {
 			if (mConstructors[i].getName().equals(name)) {
 				return mConstructors[i];
 			}
 		}
-		return null;
+		throw new NoSuchElementException();
 	}
 
 	public Constructor[] getConstructors() {

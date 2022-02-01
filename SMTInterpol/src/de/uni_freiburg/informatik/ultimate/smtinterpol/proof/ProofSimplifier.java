@@ -34,6 +34,8 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.DataType;
+import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
@@ -3188,6 +3190,137 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Convert a data type project lemma to a minimal proof. This lemma has the form
+	 * {@code w != cons(v1,...,vn), seli(w) = vi}. The inequality is missing if it
+	 * is implied by reflexivity. The equality is missing if it is a trivial
+	 * disequality.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :dt-project annotation. It has the
+	 *                     form {@code (= seli(w) vi) :cons cons(v1,...,vn)}.
+	 */
+	private Term convertDTProject(final Term[] clause, final Object[] ccAnnotation) {
+		assert ccAnnotation.length == 3;
+		final Theory theory = clause[0].getTheory();
+		/*
+		 * weakPaths maps from a symmetric pair to the set of weak indices such that a
+		 * weak path was proven for this pair. strongPaths contains the sets of all
+		 * proven strong paths.
+		 */
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		/* indexDiseqs contains all index equalities in the clause */
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		assert isApplication("=", goalEquality);
+		assert ccAnnotation[1].equals(":cons");
+		final ApplicationTerm consTerm = (ApplicationTerm) ccAnnotation[2];
+		final FunctionSymbol consFunc = consTerm.getFunction();
+		assert consFunc.isConstructor();
+		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+		assert goalTerms.length == 2;
+
+		assert goalTerms[0] instanceof ApplicationTerm;
+		final ApplicationTerm selectTerm = (ApplicationTerm) goalTerms[0];
+		final FunctionSymbol selector = selectTerm.getFunction();
+		assert selector.isSelector();
+		final Term selectArg = selectTerm.getParameters()[0];
+		final Term selectConsTerm = theory.term(selector, consTerm);
+		final Constructor cons = ((DataType) consTerm.getSort().getSortSymbol()).findConstructor(consFunc.getName());
+		final int selectPos = cons.findSelector(selector.getName());
+		final Term consArg = consTerm.getParameters()[selectPos];
+
+		Term proof = mProofRules.dtProject(selectConsTerm);
+		neededDisequalities.add(theory.term("=", selectTerm, consArg));
+
+		if (selectTerm != selectConsTerm) {
+			neededEqualities.add(theory.term("=", selectArg, consTerm));
+			proof = res(theory.term("=", selectConsTerm, consArg), proof,
+					mProofRules.trans(selectTerm, selectConsTerm, consArg));
+			proof = res(theory.term("=", selectTerm, selectConsTerm),
+					mProofRules.cong(selectTerm, selectConsTerm), proof);
+		}
+
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
+	 * Convert a data type tester lemma to a minimal proof. This lemma has the form
+	 * {@code w != cons(v1,...,vn), is_cons(w) = true} or
+	 * {@code w != cons(v1,...,vn), is_cons'(w) = false}. The inequality is missing
+	 * if it is implied by reflexivity. The equality is missing if it is a trivial
+	 * disequality.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :dt-tester annotation. It has the
+	 *                     form
+	 *                     {@code (= is_cons(w) true/false) :cons cons(v1,...,vn)}.
+	 */
+	private Term convertDTTester(final Term[] clause, final Object[] ccAnnotation) {
+		assert ccAnnotation.length == 3;
+		final Theory theory = clause[0].getTheory();
+		/*
+		 * weakPaths maps from a symmetric pair to the set of weak indices such that a
+		 * weak path was proven for this pair. strongPaths contains the sets of all
+		 * proven strong paths.
+		 */
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		/* indexDiseqs contains all index equalities in the clause */
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		assert isApplication("=", goalEquality);
+		assert ccAnnotation[1].equals(":cons");
+		final ApplicationTerm consTerm = (ApplicationTerm) ccAnnotation[2];
+		final FunctionSymbol consFunc = consTerm.getFunction();
+		assert consFunc.isConstructor();
+		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+		assert goalTerms.length == 2;
+
+		assert goalTerms[0] instanceof ApplicationTerm;
+		final ApplicationTerm testerTerm = (ApplicationTerm) goalTerms[0];
+		final FunctionSymbol tester = testerTerm.getFunction();
+		assert tester.getName().equals(SMTLIBConstants.IS);
+		final Term testerArg = testerTerm.getParameters()[0];
+		final Term testConsTerm = theory.term(tester, consTerm);
+		final Term trueFalseTerm = goalTerms[1];
+		final String otherCons = tester.getIndices()[0];
+		final boolean isSameCons = consFunc.getName().equals(otherCons);
+		assert trueFalseTerm == (isSameCons ? theory.mTrue : theory.mFalse);
+		final Term testConsEquality = theory.term(SMTLIBConstants.EQUALS, testConsTerm, trueFalseTerm);
+
+		Term proof;
+		if (isSameCons) {
+			proof = mProofRules.dtTestI(consTerm);
+			proof = res(testConsTerm, proof,
+					res(trueFalseTerm, mProofRules.trueIntro(), mProofRules.iffIntro2(testConsEquality)));
+		} else {
+			proof = mProofRules.dtTestE(otherCons, consTerm);
+			proof = res(testConsTerm,
+					res(trueFalseTerm, mProofRules.iffIntro1(testConsEquality), mProofRules.falseElim()), proof);
+		}
+		neededDisequalities.add(theory.term("=", testerTerm, trueFalseTerm));
+
+		if (testerTerm != testConsTerm) {
+			neededEqualities.add(theory.term("=", testerArg, consTerm));
+			proof = res(theory.term("=", testConsTerm, trueFalseTerm), proof,
+					mProofRules.trans(testerTerm, testConsTerm, trueFalseTerm));
+			proof = res(theory.term("=", testerTerm, testConsTerm), mProofRules.cong(testerTerm, testConsTerm),
+					proof);
+		}
+
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
 	 * Convert an instantiation lemma to a minimal proof.
 	 *
 	 * @param clause         the clause to convert
@@ -3258,6 +3391,12 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":read-const-weakeq":
 			subProof = convertArraySelectConstWeakEqLemma(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":dt-project":
+			subProof = convertDTProject(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":dt-tester":
+			subProof = convertDTTester(clause, (Object[]) lemmaAnnotation);
 			break;
 		case ":EQ":
 			subProof = convertEQLemma(clause);
