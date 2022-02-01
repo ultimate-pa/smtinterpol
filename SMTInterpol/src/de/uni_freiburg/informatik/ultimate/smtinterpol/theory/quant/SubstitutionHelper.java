@@ -254,80 +254,80 @@ public class SubstitutionHelper {
 
 		final ApplicationTerm atomTerm =
 				litTerm.getFunction().getName() == "not" ? (ApplicationTerm) litTerm.getParameters()[0] : litTerm;
-				assert atomTerm.getFunction().getName() == "<=" || atomTerm.getFunction().getName() == "=";
+		assert atomTerm.getFunction().getName() == "<=" || atomTerm.getFunction().getName() == "=";
 
-				final TermCompiler compiler = mClausifier.getTermCompiler();
-				// First check literals where a variable has been substituted by lambda
-				if (hasLambdaSubstitution(lit)) {
-					// TODO Check proof production!
-					if (lit.isArithmetical()) {
-						final Term lambdaSimp;
-						if (atomTerm.getFunction().getName() == "=") {
-							assert QuantUtil.isLambda(atomTerm.getParameters()[0]);
-							lambdaSimp = mTracker.intern(atomTerm, mQuantTheory.getTheory().mFalse);
-						} else {
-							final Term[] termLtTerm = QuantUtil.getArithmeticalTermLtTerm(lit, compiler);
-							final Term groundLhs =
-									termLtTerm[0].getFreeVars().length == 0 ? termLtTerm[0] : mSigma.get(termLtTerm[0]);
-									final Term groundRhs =
-											termLtTerm[1].getFreeVars().length == 0 ? termLtTerm[1] : mSigma.get(termLtTerm[1]);
-											if (QuantUtil.isLambda(groundRhs)) {
-												lambdaSimp = mTracker.intern(atomTerm, mQuantTheory.getTheory().mTrue);
-											} else {
-												assert QuantUtil.isLambda(groundLhs);
-												lambdaSimp = mTracker.intern(atomTerm, mQuantTheory.getTheory().mFalse);
-											}
-						}
-				return atomTerm != litTerm ? lambdaSimp
+		final TermCompiler compiler = mClausifier.getTermCompiler();
+		// First check literals where a variable has been substituted by lambda
+		if (hasLambdaSubstitution(lit)) {
+			// TODO Check proof production!
+			if (lit.isArithmetical()) {
+				final Term lambdaSimp;
+				if (atomTerm.getFunction().getName() == "=") {
+					assert QuantUtil.isLambda(atomTerm.getParameters()[0]);
+					lambdaSimp = mTracker.intern(atomTerm, mQuantTheory.getTheory().mFalse);
+				} else {
+					final Term[] termLtTerm = QuantUtil.getArithmeticalTermLtTerm(lit, compiler);
+					final Term groundLhs =
+							termLtTerm[0].getFreeVars().length == 0 ? termLtTerm[0] : mSigma.get(termLtTerm[0]);
+					final Term groundRhs =
+							termLtTerm[1].getFreeVars().length == 0 ? termLtTerm[1] : mSigma.get(termLtTerm[1]);
+					if (QuantUtil.isLambda(groundRhs)) { // t<lambda is false, hence the atom lambda<=t is true
+						lambdaSimp = mTracker.intern(atomTerm, mQuantTheory.getTheory().mTrue);
+					} else {
+						assert QuantUtil.isLambda(groundLhs);
+						lambdaSimp = mTracker.intern(atomTerm, mQuantTheory.getTheory().mFalse);
+					}
+				}
+				return atomTerm == litTerm ? lambdaSimp
 						: mClausifier.getSimplifier().convertNot(
 								mTracker.congruence(mTracker.reflexivity(litTerm), new Term[] { lambdaSimp }));
-					} else {
-						if (QuantUtil.containsLambdasInArithmetic(atomTerm.getParameters()[0])
-								|| QuantUtil.containsLambdasInArithmetic(atomTerm.getParameters()[1])) {
-							return null;
-						}
-					}
+			} else {
+				if (QuantUtil.containsLambdasInArithmetic(atomTerm.getParameters()[0])
+						|| QuantUtil.containsLambdasInArithmetic(atomTerm.getParameters()[1])) {
+					return null;
 				}
-				// Term compiler normalizes and simplifies <= literals.
-				if (atomTerm.getFunction().getName() == "<=") {
-					return compiler.transform(litTerm);
-				}
+			}
+		}
+		// Term compiler normalizes and simplifies <= literals.
+		if (atomTerm.getFunction().getName() == "<=") {
+			return compiler.transform(litTerm);
+		}
 
-				// Other quantified literals are equalities
-				assert atomTerm.getFunction().getName() == "=";
-				final Term lhs = atomTerm.getParameters()[0];
-				final Term rhs = atomTerm.getParameters()[1];
-				if (QuantUtil.isAuxApplication(lhs)) {
-					return mTracker.reflexivity(litTerm);
-				}
+		// Other quantified literals are equalities
+		assert atomTerm.getFunction().getName() == "=";
+		final Term lhs = atomTerm.getParameters()[0];
+		final Term rhs = atomTerm.getParameters()[1];
+		if (QuantUtil.isAuxApplication(lhs)) {
+			return mTracker.reflexivity(litTerm);
+		}
 
-				// Normalize lhs and rhs separately
-				Term normalizedAtom;
-				final Term normalizedLhs = compiler.transform(lhs);
-				final Term normalizedRhs = compiler.transform(rhs);
-				normalizedAtom =
-						mTracker.congruence(mTracker.reflexivity(atomTerm), new Term[] { normalizedLhs, normalizedRhs });
+		// Normalize lhs and rhs separately
+		Term normalizedAtom;
+		final Term normalizedLhs = compiler.transform(lhs);
+		final Term normalizedRhs = compiler.transform(rhs);
+		normalizedAtom =
+				mTracker.congruence(mTracker.reflexivity(atomTerm), new Term[] { normalizedLhs, normalizedRhs });
 
-				// Simplify equality literals similar to EqualityProxy. (TermCompiler already takes care of <= literals).
-				Term simplifiedAtom = mTracker.getProvedTerm(normalizedAtom);
-				assert simplifiedAtom instanceof ApplicationTerm;
-				final ApplicationTerm appTerm = (ApplicationTerm) simplifiedAtom;
-				if (appTerm.getFunction().getName() == "=") {
-					final Term trivialEq = Clausifier.checkAndGetTrivialEquality(appTerm.getParameters()[0],
-							appTerm.getParameters()[1], theory);
-					if (trivialEq != null) {
-						simplifiedAtom = trivialEq;
-					}
-				}
-				if (simplifiedAtom != mTracker.getProvedTerm(normalizedAtom)) {
-					normalizedAtom = mTracker.transitivity(normalizedAtom,
-							mTracker.intern(mTracker.getProvedTerm(normalizedAtom), simplifiedAtom));
-				}
-				if (atomTerm != litTerm) {
-					return mClausifier.getSimplifier()
-							.convertNot(mTracker.congruence(mTracker.reflexivity(litTerm), new Term[] { normalizedAtom }));
-				}
-				return normalizedAtom;
+		// Simplify equality literals similar to EqualityProxy. (TermCompiler already takes care of <= literals).
+		Term simplifiedAtom = mTracker.getProvedTerm(normalizedAtom);
+		assert simplifiedAtom instanceof ApplicationTerm;
+		final ApplicationTerm appTerm = (ApplicationTerm) simplifiedAtom;
+		if (appTerm.getFunction().getName() == "=") {
+			final Term trivialEq = Clausifier.checkAndGetTrivialEquality(appTerm.getParameters()[0],
+					appTerm.getParameters()[1], theory);
+			if (trivialEq != null) {
+				simplifiedAtom = trivialEq;
+			}
+		}
+		if (simplifiedAtom != mTracker.getProvedTerm(normalizedAtom)) {
+			normalizedAtom = mTracker.transitivity(normalizedAtom,
+					mTracker.intern(mTracker.getProvedTerm(normalizedAtom), simplifiedAtom));
+		}
+		if (atomTerm != litTerm) {
+			return mClausifier.getSimplifier()
+					.convertNot(mTracker.congruence(mTracker.reflexivity(litTerm), new Term[] { normalizedAtom }));
+		}
+		return normalizedAtom;
 	}
 
 	private SubstitutionResult buildTrueResult() {
