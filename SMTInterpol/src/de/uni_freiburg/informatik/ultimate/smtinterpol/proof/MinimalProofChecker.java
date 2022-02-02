@@ -1069,6 +1069,24 @@ public class MinimalProofChecker extends NonRecursive {
 			// + ((_ is otherCons) (cons a1 ... an))
 			return new ProofLiteral[] { new ProofLiteral(isTerm, false) };
 		}
+		case ":" + ProofRules.DT_EXHAUST: {
+			if (!theory.getLogic().isDatatype()) {
+				throw new AssertionError();
+			}
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 1;
+			final Term data = params[0];
+			final DataType dataType = (DataType) data.getSort().getSortSymbol();
+			final Constructor[] constrs = dataType.getConstructors();
+			// + ((_ is cons0) data) ... + ((_ is consn) data)
+			final ProofLiteral[] lits = new ProofLiteral[constrs.length];
+			for (int i = 0; i < lits.length; i++) {
+				final Term tester = theory.term(SMTLIBConstants.IS, new String[] { constrs[i].getName() }, null, data);
+				lits[i] = new ProofLiteral(tester, true);
+			}
+			return lits;
+		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);
 		}

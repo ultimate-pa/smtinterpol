@@ -3351,6 +3351,106 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Convert a data type cases lemma to a minimal proof. This lemma has the form
+	 * {@code ((_ is cons1) u1) != false, ... ((_ is consn) un) != false, u1 != u2,  ... u1 != un}.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :dt-tester annotation. It is a list
+	 *                     of the tester terms {@code ((_ is consi) ui)}.
+	 */
+	private Term convertDTCases(final Term[] clause, final Object[] ccAnnotation) {
+		final Theory theory = clause[0].getTheory();
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		assert ccAnnotation.length > 0;
+		final ApplicationTerm firstTester = (ApplicationTerm) ccAnnotation[0];
+		assert isApplication(SMTLIBConstants.IS, firstTester);
+		final Term firstData = firstTester.getParameters()[0];
+
+
+		Term proof = mProofRules.dtExhaust(firstData);
+		for (int i = 0; i < ccAnnotation.length; i++) {
+			final Term tester = (Term) ccAnnotation[i];
+			assert isApplication(SMTLIBConstants.IS, tester);
+			final FunctionSymbol testerFunc = ((ApplicationTerm) tester).getFunction();
+			final Term arg = ((ApplicationTerm) ccAnnotation[i]).getParameters()[0];
+			final Term testerEq = theory.term(SMTLIBConstants.EQUALS, tester, theory.mFalse);
+			Term subproof = res(theory.mFalse, mProofRules.iffElim2(testerEq), mProofRules.falseElim());
+			neededEqualities.add(testerEq);
+			final Term testerFirst = theory.term(testerFunc, firstData);
+			if (tester != testerFirst) {
+				final Term dataEq = theory.term(SMTLIBConstants.EQUALS, firstData, arg);
+				final Term testerFirstEq = theory.term(SMTLIBConstants.EQUALS, testerFirst, tester);
+				neededEqualities.add(dataEq);
+				subproof = res(testerFirstEq, mProofRules.cong(testerFirst, tester),
+						res(tester, mProofRules.iffElim2(testerFirstEq), subproof));
+			}
+			proof = res(testerFirst, proof, subproof);
+		}
+
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
+	 * Convert a data type cases lemma to a minimal proof. This lemma has the form
+	 * {@code ((_ is cons1) u1) != true, ((_ is cons2) u2) != true, u1 != u2}.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :dt-tester annotation. It is a list
+	 *                     of the two tester terms {@code ((_ is consi) ui)}.
+	 */
+	private Term convertDTUnique(final Term[] clause, final Object[] ccAnnotation) {
+		final Theory theory = clause[0].getTheory();
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		assert ccAnnotation.length == 2;
+		final ApplicationTerm firstTester = (ApplicationTerm) ccAnnotation[0];
+		assert isApplication(SMTLIBConstants.IS, firstTester);
+		final Term firstData = firstTester.getParameters()[0];
+		final ApplicationTerm secondTester = (ApplicationTerm) ccAnnotation[1];
+		assert isApplication(SMTLIBConstants.IS, secondTester);
+		final Term secondData = secondTester.getParameters()[0];
+		assert firstData.getSort() == secondData.getSort();
+		final DataType dataType = (DataType) firstData.getSort().getSortSymbol();
+		final Constructor firstCons = dataType.getConstructor(firstTester.getFunction().getIndices()[0]);
+		final String[] selectors = firstCons.getSelectors();
+		final Term[] selectTerms = new Term[selectors.length];
+		for (int i = 0; i < selectors.length; i++) {
+			selectTerms[i] = theory.term(selectors[i], firstData);
+		}
+		final Term consTerm = theory.term(firstCons.getName(), selectTerms);
+		final Term consEq = theory.term(SMTLIBConstants.EQUALS, consTerm, firstData);
+		final Term testConsTerm = theory.term(secondTester.getFunction(), consTerm);
+		Term proof = res(consEq, mProofRules.dtCons(firstTester), mProofRules.trans(consTerm, firstData, secondData));
+		neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, firstData, secondData));
+		proof = res(theory.term(SMTLIBConstants.EQUALS, consTerm, secondData), proof,
+				mProofRules.cong(testConsTerm, secondTester));
+		final Term secondConsTestEq = theory.term(SMTLIBConstants.EQUALS, testConsTerm, secondTester);
+		proof = res(secondConsTestEq, proof, mProofRules.iffElim1(secondConsTestEq));
+		proof = res(testConsTerm, proof, mProofRules.dtTestE(secondTester.getFunction().getIndices()[0], consTerm));
+
+		final Term firstTesterEq = theory.term(SMTLIBConstants.EQUALS, firstTester, theory.mTrue);
+		neededEqualities.add(firstTesterEq);
+		proof = res(firstTester, mProofRules.iffElim1(firstTesterEq), proof);
+		final Term secondTesterEq = theory.term(SMTLIBConstants.EQUALS, secondTester, theory.mTrue);
+		neededEqualities.add(secondTesterEq);
+		proof = res(secondTester, mProofRules.iffElim1(secondTesterEq), proof);
+		proof = res(theory.mTrue, mProofRules.trueIntro(), proof);
+
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
 	 * Convert an instantiation lemma to a minimal proof.
 	 *
 	 * @param clause         the clause to convert
@@ -3430,6 +3530,12 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":dt-constructor":
 			subProof = convertDTConstructor(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":dt-cases":
+			subProof = convertDTCases(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":dt-unique":
+			subProof = convertDTUnique(clause, (Object[]) lemmaAnnotation);
 			break;
 		case ":EQ":
 			subProof = convertEQLemma(clause);

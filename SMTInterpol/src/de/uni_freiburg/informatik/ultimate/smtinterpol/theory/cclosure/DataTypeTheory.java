@@ -189,9 +189,12 @@ public class DataTypeTheory implements ITheory {
 							if (prevIsApp.getArg() != trueIsApp.getArg()) {
 								reason.add(new SymmetricPair<>(prevIsApp.getArg(), trueIsApp.getArg()));
 							}
+							final Term[] testers = new Term[2];
+							testers[0] = prevIsApp.mFlatTerm;
+							testers[1] = trueIsApp.mFlatTerm;
 							@SuppressWarnings("unchecked")
 							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_UNIQUE,
-									reason.toArray(new SymmetricPair[reason.size()]), prevIsApp.getArg());
+									reason.toArray(new SymmetricPair[reason.size()]), testers);
 							final CongruencePath cp = new CongruencePath(mCClosure);
 							mClausifier.getLogger().debug("Conflict: Rule 9");
 							return cp.computeDTLemma(null, lemma, mClausifier.getEngine().isProofGenerationEnabled());
@@ -225,7 +228,11 @@ public class DataTypeTheory implements ITheory {
 				 */
 				if (isIndices.size() == dt.getConstructors().length) {
 					final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
-					for (final CCTerm isFun : isIndices.values()) {
+					final Term[] testers = new Term[dt.getConstructors().length];
+					int i = 0;
+					for (final Constructor consName : dt.getConstructors()) {
+						final CCTerm isFun = isIndices.get(consName.getName());
+						testers[i++] = isFun.mFlatTerm;
 						final CCTerm arg = ((CCAppTerm)isFun).mArg;
 						reason.add(new SymmetricPair<>(isFun, falseCC));
 						if (arg != cct) {
@@ -234,7 +241,7 @@ public class DataTypeTheory implements ITheory {
 					}
 					@SuppressWarnings("unchecked")
 					final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_CASES,
-							reason.toArray(new SymmetricPair[reason.size()]), cct);
+							reason.toArray(new SymmetricPair[reason.size()]), testers);
 					final CongruencePath cp = new CongruencePath(mCClosure);
 					mClausifier.getLogger().debug("Conflict: Rule 6");
 					return cp.computeDTLemma(null, lemma, mCClosure.getEngine().isProofGenerationEnabled());

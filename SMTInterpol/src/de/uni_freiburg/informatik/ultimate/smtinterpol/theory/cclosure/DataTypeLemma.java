@@ -82,12 +82,12 @@ public class DataTypeLemma {
 	}
 
 	public DataTypeLemma(final RuleKind rule,
-			final SymmetricPair<CCTerm>[] reason, final CCTerm dataType) {
+			final SymmetricPair<CCTerm>[] reason, final Term[] testerTerms) {
 		assert rule == RuleKind.DT_CASES || rule == RuleKind.DT_UNIQUE;
 		mRule = rule;
 		mReason = reason;
 		mMainEquality = null;
-		mAnnotation = new Object[] { ":datatype", dataType.getFlatTerm() };
+		mAnnotation = testerTerms;
 	}
 
 	public DataTypeLemma(final RuleKind rule, final SymmetricPair<CCTerm>[] reason, final CCTerm[] cycle) {
