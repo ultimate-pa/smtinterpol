@@ -57,10 +57,15 @@ public class IterativeModelBasedInstantiation {
 
 			/**
 			 * Compare two terms. Numeric terms are compared by their Rational model value. Non-numeric terms are
-			 * compared by their term age, and if they come from the same term age, by their hash code.
+			 * compared by their term age. If the model values or term ages are equal, they are compared by their hash
+			 * codes. A lambda is always the smallest term of its sort.
 			 */
 			@Override
 			public int compare(final Term t1, final Term t2) {
+				if (t1 == t2) {
+					return 0;
+				}
+				assert t1.getSort() == t2.getSort();
 				final boolean isLambda1 = QuantUtil.isLambda(t1);
 				final boolean isLambda2 = QuantUtil.isLambda(t2);
 				if (isLambda1) {
@@ -71,16 +76,20 @@ public class IterativeModelBasedInstantiation {
 				if (t1.getSort().isNumericSort()) {
 					final Rational val1 = mStEval.evaluate(t1, mQuantTheory.getTheory());
 					final Rational val2 = mStEval.evaluate(t2, mQuantTheory.getTheory());
-					return val1.compareTo(val2);
+					final int diff = val1.compareTo(val2);
+					if (diff != 0) {
+						return diff;
+					}
 				} else {
-					final int termAgeDiff = mQuantTheory.getInstantiationManager().getTermAge(t1)
-							- mQuantTheory.getInstantiationManager().getTermAge(t2);
+					final int age1 = mQuantTheory.getInstantiationManager().getTermAge(t1);
+					final int age2 = mQuantTheory.getInstantiationManager().getTermAge(t2);
+					final int termAgeDiff = age1 - age2;
 					if (termAgeDiff != 0) {
 						return termAgeDiff;
-					} else {
-						return t1.hashCode() - t2.hashCode();
 					}
 				}
+				assert t1.hashCode() != t2.hashCode();
+				return t1.hashCode() < t2.hashCode() ? -1 : 1;
 			}
 		};
 	}
