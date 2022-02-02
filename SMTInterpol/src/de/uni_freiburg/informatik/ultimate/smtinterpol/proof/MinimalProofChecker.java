@@ -1001,8 +1001,8 @@ public class MinimalProofChecker extends NonRecursive {
 				throw new AssertionError();
 			}
 			final DataType dataType = (DataType) consTerm.getSort().getSortSymbol();
-			final Constructor cons = dataType.findConstructor(consTerm.getFunction().getName());
-			final int selectPos = cons.findSelector(selector.getName());
+			final Constructor cons = dataType.getConstructor(consTerm.getFunction().getName());
+			final int selectPos = cons.getSelectorIndex(selector.getName());
 			final Term consArg = consTerm.getParameters()[selectPos];
 
 			// + (= (seli (cons a1 ... an)) ai)
@@ -1022,7 +1022,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			final Term dataTerm = isConsTerm.getParameters()[0];
 			final DataType dataType = (DataType) dataTerm.getSort().getSortSymbol();
-			final Constructor cons = dataType.findConstructor(isConsTerm.getFunction().getIndices()[0]);
+			final Constructor cons = dataType.getConstructor(isConsTerm.getFunction().getIndices()[0]);
 			final String[] selectors = cons.getSelectors();
 			final Term[] selectTerms = new Term[selectors.length];
 			for (int i = 0; i < selectors.length; i++) {

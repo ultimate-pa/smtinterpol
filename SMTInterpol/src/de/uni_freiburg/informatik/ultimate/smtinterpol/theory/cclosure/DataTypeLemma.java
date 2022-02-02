@@ -1,5 +1,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import java.util.Arrays;
+
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
@@ -119,5 +121,10 @@ public class DataTypeLemma {
 			cycleTerms[i++] = ccTerm.getFlatTerm();
 		}
 		return cycleTerms;
+	}
+
+	@Override
+	public String toString() {
+		return "DataTypeLemma[" + mRule + "," + mMainEquality + "," + Arrays.toString(mAnnotation) + "]";
 	}
 }

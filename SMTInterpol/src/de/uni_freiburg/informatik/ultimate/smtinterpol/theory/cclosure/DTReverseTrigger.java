@@ -100,7 +100,7 @@ public class DTReverseTrigger extends ReverseTrigger {
 			// If appTerm is a selector function, set it equal to the matching argument of mArg.
 			final FunctionSymbol fs = argAT.getFunction();
 			final DataType argDT = (DataType) fs.getReturnSort().getSortSymbol();
-			final Constructor c = argDT.findConstructor(argAT.getFunction().getName());
+			final Constructor c = argDT.getConstructor(argAT.getFunction().getName());
 			for (int i = 0; i < c.getSelectors().length; i++) {
 				if (mFunctionSymbol.getName() == c.getSelectors()[i]) {
 					final SymmetricPair<CCTerm> mainEq = new SymmetricPair<>(appTerm,

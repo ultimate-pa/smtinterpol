@@ -1048,7 +1048,7 @@ public class Clausifier {
 
 				if (fs.isConstructor()) {
 					final DataType returnSort = (DataType) fs.getReturnSort().getSortSymbol();
-					final Constructor c = returnSort.findConstructor(fs.getName());
+					final Constructor c = returnSort.getConstructor(fs.getName());
 
 					for (final String sel : c.getSelectors()) {
 						final FunctionSymbol selFs = mTheory.getFunction(sel, fs.getReturnSort());

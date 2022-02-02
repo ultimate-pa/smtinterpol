@@ -3225,8 +3225,8 @@ public class ProofSimplifier extends TermTransformer {
 		assert selector.isSelector();
 		final Term selectArg = selectTerm.getParameters()[0];
 		final Term selectConsTerm = theory.term(selector, consTerm);
-		final Constructor cons = ((DataType) consTerm.getSort().getSortSymbol()).findConstructor(consFunc.getName());
-		final int selectPos = cons.findSelector(selector.getName());
+		final Constructor cons = ((DataType) consTerm.getSort().getSortSymbol()).getConstructor(consFunc.getName());
+		final int selectPos = cons.getSelectorIndex(selector.getName());
 		final Term consArg = consTerm.getParameters()[selectPos];
 
 		Term proof = mProofRules.dtProject(selectConsTerm);
@@ -3336,7 +3336,7 @@ public class ProofSimplifier extends TermTransformer {
 		final ApplicationTerm consTerm = (ApplicationTerm) goalTerms[1];
 		final Term dataTerm = goalTerms[0];
 		final DataType dataType = (DataType) dataTerm.getSort().getSortSymbol();
-		final Constructor cons = dataType.findConstructor(consTerm.getFunction().getName());
+		final Constructor cons = dataType.getConstructor(consTerm.getFunction().getName());
 
 		final Term testerTerm = theory.term(SMTLIBConstants.IS, new String[] { cons.getName() }, null, dataTerm);
 		final Term testerTrueTerm = theory.term(SMTLIBConstants.EQUALS, testerTerm, theory.mTrue);

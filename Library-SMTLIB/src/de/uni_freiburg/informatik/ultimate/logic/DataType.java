@@ -28,7 +28,7 @@ public class DataType extends SortSymbol {
 			return mArgumentSorts;
 		}
 
-		public int findSelector(final String selector) {
+		public int getSelectorIndex(final String selector) {
 			for (int i = 0; i < mSelectors.length; i++) {
 				if (mSelectors[i].equals(selector)) {
 					return i;
@@ -90,7 +90,15 @@ public class DataType extends SortSymbol {
 				return mConstructors[i];
 			}
 		}
-		throw new NoSuchElementException();
+		return null;
+	}
+
+	public Constructor getConstructor(final String name) {
+		final Constructor constr = findConstructor(name);
+		if (constr == null) {
+			throw new NoSuchElementException();
+		}
+		return constr;
 	}
 
 	public Constructor[] getConstructors() {

@@ -390,7 +390,7 @@ public class DataTypeTheory implements ITheory {
 
 		if (trueTester != null) {
 			/* we know which constructor created the term, so return only matching selectors */
-			final Constructor c = datatype.findConstructor(trueTester.getIndices()[0]);
+			final Constructor c = datatype.getConstructor(trueTester.getIndices()[0]);
 			final Set<String> validSelectors = new HashSet<>();
 			validSelectors.addAll(Arrays.asList(c.getSelectors()));
 
@@ -403,7 +403,7 @@ public class DataTypeTheory implements ITheory {
 			/* we know at least which selectors cannot be right */
 			final Set<String> invalidSelectors = new HashSet<>();
 			for (final FunctionSymbol falseTester : falseTesters) {
-				final Constructor c = datatype.findConstructor(falseTester.getIndices()[0]);
+				final Constructor c = datatype.getConstructor(falseTester.getIndices()[0]);
 				invalidSelectors.addAll(Arrays.asList(c.getSelectors()));
 			}
 			for (final CCAppTerm s : selectors) {
@@ -551,6 +551,7 @@ public class DataTypeTheory implements ITheory {
 		// if we constructed new terms, their equalities have been removed in the backtracking process,
 		// so we need to check if they are still valid.
 		mPendingConflict = null;
+		mPendingLemmas.clear();
 		mPendingEqualities.clear();
 		final ArrayQueue<CCTerm> newRecheckOnBacktrack = new ArrayQueue<>();
 		while (!mRecheckOnBacktrack.isEmpty()) {
@@ -667,7 +668,7 @@ public class DataTypeTheory implements ITheory {
 
 		// check if there are all selector applications on the eq class
 		final DataType dt = (DataType) at.getFunction().getParameterSorts()[0].getSortSymbol();
-		final Constructor c = dt.findConstructor(consName);
+		final Constructor c = dt.getConstructor(consName);
 
 		final LinkedHashMap<String, Term> selectorApps = new LinkedHashMap<>();
 		for (final String s : c.getSelectors()) {
