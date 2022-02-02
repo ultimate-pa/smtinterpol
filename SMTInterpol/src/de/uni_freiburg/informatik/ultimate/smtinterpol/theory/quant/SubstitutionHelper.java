@@ -286,6 +286,13 @@ public class SubstitutionHelper {
 						|| QuantUtil.containsLambdasInArithmetic(atomTerm.getParameters()[1])) {
 					return null;
 				}
+				if (atomTerm.getFunction().getName() == "=") {
+					final Term lhs = atomTerm.getParameters()[0];
+					final Term rhs = atomTerm.getParameters()[1];
+					if (lhs.getSort().isNumericSort() && (QuantUtil.isLambda(lhs) || QuantUtil.isLambda(rhs))) {
+						return null; // TODO in which cases do we want to simplify?
+					}
+				}
 			}
 		}
 		// Term compiler normalizes and simplifies <= literals.
