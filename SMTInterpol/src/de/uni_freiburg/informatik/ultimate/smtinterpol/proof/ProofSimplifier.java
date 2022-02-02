@@ -3202,13 +3202,8 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertDTProject(final Term[] clause, final Object[] ccAnnotation) {
 		assert ccAnnotation.length == 3;
 		final Theory theory = clause[0].getTheory();
-		/*
-		 * weakPaths maps from a symmetric pair to the set of weak indices such that a
-		 * weak path was proven for this pair. strongPaths contains the sets of all
-		 * proven strong paths.
-		 */
+
 		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		/* indexDiseqs contains all index equalities in the clause */
 		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
@@ -3263,13 +3258,7 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertDTTester(final Term[] clause, final Object[] ccAnnotation) {
 		assert ccAnnotation.length == 3;
 		final Theory theory = clause[0].getTheory();
-		/*
-		 * weakPaths maps from a symmetric pair to the set of weak indices such that a
-		 * weak path was proven for this pair. strongPaths contains the sets of all
-		 * proven strong paths.
-		 */
 		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		/* indexDiseqs contains all index equalities in the clause */
 		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
@@ -3316,6 +3305,47 @@ public class ProofSimplifier extends TermTransformer {
 			proof = res(theory.term("=", testerTerm, testConsTerm), mProofRules.cong(testerTerm, testConsTerm),
 					proof);
 		}
+
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
+	 * Convert a data type constructor lemma to a minimal proof. This lemma has the
+	 * form {@code is_cons(w) != true, w = cons(sel1(w),...,seln(w))}.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :dt-tester annotation. It has the
+	 *                     form {@code (= w (cons (sel1 w) ... (seln w)))}.
+	 */
+	private Term convertDTConstructor(final Term[] clause, final Object[] ccAnnotation) {
+		assert ccAnnotation.length == 1;
+		final Theory theory = clause[0].getTheory();
+
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		assert isApplication("=", goalEquality);
+		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+		assert goalTerms.length == 2;
+
+		final ApplicationTerm consTerm = (ApplicationTerm) goalTerms[1];
+		final Term dataTerm = goalTerms[0];
+		final DataType dataType = (DataType) dataTerm.getSort().getSortSymbol();
+		final Constructor cons = dataType.findConstructor(consTerm.getFunction().getName());
+
+		final Term testerTerm = theory.term(SMTLIBConstants.IS, new String[] { cons.getName() }, null, dataTerm);
+		final Term testerTrueTerm = theory.term(SMTLIBConstants.EQUALS, testerTerm, theory.mTrue);
+
+		neededEqualities.add(testerTrueTerm);
+		neededDisequalities.add(theory.term(SMTLIBConstants.EQUALS, consTerm, dataTerm));
+		final Term proof = res(testerTerm,
+				res(theory.mTrue, mProofRules.trueIntro(), mProofRules.iffElim1(testerTrueTerm)),
+				mProofRules.dtCons(testerTerm));
 
 		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
 	}
@@ -3397,6 +3427,9 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":dt-tester":
 			subProof = convertDTTester(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":dt-constructor":
+			subProof = convertDTConstructor(clause, (Object[]) lemmaAnnotation);
 			break;
 		case ":EQ":
 			subProof = convertEQLemma(clause);

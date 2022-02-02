@@ -1009,6 +1009,31 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, selConsTerm, consArg);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
+		case ":" + ProofRules.DT_CONS: {
+			if (!theory.getLogic().isDatatype()) {
+				throw new AssertionError();
+			}
+			assert annots.length == 1;
+			final Term[] params = (Term[]) annots[0].getValue();
+			assert params.length == 1;
+			final ApplicationTerm isConsTerm = (ApplicationTerm) params[0];
+			if (!isConsTerm.getFunction().getName().equals(SMTLIBConstants.IS)) {
+				throw new AssertionError();
+			}
+			final Term dataTerm = isConsTerm.getParameters()[0];
+			final DataType dataType = (DataType) dataTerm.getSort().getSortSymbol();
+			final Constructor cons = dataType.findConstructor(isConsTerm.getFunction().getIndices()[0]);
+			final String[] selectors = cons.getSelectors();
+			final Term[] selectTerms = new Term[selectors.length];
+			for (int i = 0; i < selectors.length; i++) {
+				selectTerms[i] = theory.term(selectors[i], dataTerm);
+			}
+			final Term consTerm = theory.term(cons.getName(), selectTerms);
+
+			// - ((_ is cons) u), + (= (cons (sel1 u) ... (seln u)) u)
+			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, consTerm, dataTerm);
+			return new ProofLiteral[] { new ProofLiteral(isConsTerm, false), new ProofLiteral(provedEq, true) };
+		}
 		case ":" + ProofRules.DT_TESTI: {
 			if (!theory.getLogic().isDatatype()) {
 				throw new AssertionError();

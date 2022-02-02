@@ -647,9 +647,10 @@ public class DataTypeTheory implements ITheory {
 	private void Rule3(final CCAppTerm isTerm) {
 		// check if there is already a constructor application equal to the argument
 		final ApplicationTerm at = (ApplicationTerm) isTerm.mFlatTerm;
-		final Term arg = at.getParameters()[0];
+		final CCTerm arg = isTerm.mArg;
+		final Term argTerm = at.getParameters()[0];
 
-		final CCTerm argRep = isTerm.mArg.mRepStar;
+		final CCTerm argRep = arg.mRepStar;
 		final String consName = at.getFunction().getIndices()[0];
 		if (argRep == null) {
 			return;
@@ -678,10 +679,12 @@ public class DataTypeTheory implements ITheory {
 			while (argParInfo != null) {
 				if (argParInfo.mCCParents != null) {
 					for (final Parent p : argParInfo.mCCParents) {
-						if (p.getData().mFlatTerm instanceof ApplicationTerm) {
-							final String parFunName = ((ApplicationTerm) p.getData().mFlatTerm).getFunction().getName();
-							if (selectorApps.containsKey(parFunName)) {
-								selectorApps.put(parFunName, mTheory.term(parFunName, new Term[] {arg}));
+						final Term parentTerm = p.getData().getFlatTerm();
+						if (parentTerm instanceof ApplicationTerm) {
+							final FunctionSymbol parentFunc = ((ApplicationTerm) parentTerm).getFunction();
+							final String parentFuncName = parentFunc.getName();
+							if (selectorApps.containsKey(parentFuncName)) {
+								selectorApps.put(parentFuncName, mTheory.term(parentFunc, argTerm));
 							}
 						}
 					}
@@ -698,17 +701,11 @@ public class DataTypeTheory implements ITheory {
 
 		final Term consTerm = mTheory.term(consName, selectorApps.values().toArray(new Term[selectorApps.values().size()]));
 		final CCTerm consCCTerm = mClausifier.createCCTerm(consTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-		final SymmetricPair<CCTerm> eq = new SymmetricPair<>(argRep, consCCTerm);
-		final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
-		if (arg != argRep.mFlatTerm) {
-			reason.add(new SymmetricPair<>(mClausifier.getCCTerm(arg), argRep));
-		}
-		reason.add(new SymmetricPair<>(isTerm, mClausifier.getCCTerm(mTheory.mTrue)));
+		final SymmetricPair<CCTerm> eq = new SymmetricPair<>(arg, consCCTerm);
 		@SuppressWarnings("unchecked")
 		final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_CONSTRUCTOR, eq,
-				reason.toArray(new SymmetricPair[reason.size()]));
+				new SymmetricPair[] { new SymmetricPair<>(isTerm, mClausifier.getCCTerm(mTheory.mTrue)) });
 		addPendingLemma(lemma);
-
 	}
 
 	/**

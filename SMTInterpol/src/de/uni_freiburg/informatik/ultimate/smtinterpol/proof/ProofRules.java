@@ -627,6 +627,11 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + DT_PROJECT, new Term[] { selConsTerm }), mAxiom);
 	}
 
+	public Term dtCons(final Term isConsTerm) {
+		assert ((ApplicationTerm) isConsTerm).getFunction().getName().equals(SMTLIBConstants.IS);
+		return mTheory.annotatedTerm(annotate(":" + DT_CONS, new Term[] { isConsTerm }), mAxiom);
+	}
+
 	public Term dtTestI(final Term consTerm) {
 		return mTheory.annotatedTerm(annotate(":" + DT_TESTI, new Term[] { consTerm }), mAxiom);
 	}
@@ -636,16 +641,16 @@ public class ProofRules {
 	}
 
 	public Term dtExhaust(final Term term) {
-		return mTheory.annotatedTerm(annotate(":" + DT_EXHAUST, new Object[] { term }),
+		return mTheory.annotatedTerm(annotate(":" + DT_EXHAUST, new Term[] { term }),
 				mAxiom);
 	}
 
 	public Term dtAcyclic(final Term nestedTerm, final Term subTerm) {
-		return mTheory.annotatedTerm(annotate(":" + DT_ACYCLIC, new Object[] { nestedTerm, subTerm }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_ACYCLIC, new Term[] { nestedTerm, subTerm }), mAxiom);
 	}
 
 	public Term dtMatch(final MatchTerm matchTerm) {
-		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, new Object[] { matchTerm }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, new Term[] { matchTerm }), mAxiom);
 	}
 
 	public static void printProof(final Appendable appender, final Term proof) {
@@ -916,9 +921,15 @@ public class ProofRules {
 					case ":" + SELECTSTORE1:
 					case ":" + SELECTSTORE2:
 					case ":" + EXTDIFF:
-					case ":" + CONST: {
-						final Term[] params = (Term[]) annots[0].getValue();
+					case ":" + CONST:
+					case ":" + DT_PROJECT:
+					case ":" + DT_CONS:
+					case ":" + DT_TESTI:
+					case ":" + DT_EXHAUST:
+					case ":" + DT_ACYCLIC:
+					case ":" + DT_MATCH: {
 						assert annots.length == 1;
+						final Term[] params = (Term[]) annots[0].getValue();
 						mTodo.add(")");
 						for (int i = params.length - 1; i >= 0; i--) {
 							mTodo.add(params[i]);
@@ -1118,24 +1129,6 @@ public class ProofRules {
 							mTodo.add(" ");
 						}
 						mTodo.add("(" + annots[0].getKey().substring(1));
-						return;
-					}
-					case ":" + DT_PROJECT: {
-						assert annots.length == 1;
-						final Term[] params = (Term[]) annots[0].getValue();
-						assert params.length == 1;
-						mTodo.add(")");
-						mTodo.add(params[0]);
-						mTodo.add("(" + DT_PROJECT + " ");
-						return;
-					}
-					case ":" + DT_TESTI: {
-						assert annots.length == 1;
-						final Term[] params = (Term[]) annots[0].getValue();
-						assert params.length == 1;
-						mTodo.add(")");
-						mTodo.add(params[0]);
-						mTodo.add("(" + DT_TESTI + " ");
 						return;
 					}
 					case ":" + DT_TESTE: {
