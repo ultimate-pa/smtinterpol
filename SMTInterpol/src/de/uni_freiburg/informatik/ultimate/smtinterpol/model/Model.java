@@ -110,7 +110,7 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 					throw new UnsupportedOperationException("Modelproduction for EPR theory not implemented.");
 				}
 			} else if (theorySolver instanceof DataTypeTheory) {
-				throw new UnsupportedOperationException("Modelproduction for data type theory not implemented.");
+				// handled by CC theory
 			} else {
 				throw new InternalError("Unknown theory: " + theorySolver);
 			}
