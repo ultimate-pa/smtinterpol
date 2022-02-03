@@ -706,8 +706,9 @@ public class DataTypeTheory implements ITheory {
 		}
 
 		// create a new constructor application like C(s1(x), s2(x), ..., sm(x))
-
-		final Term consTerm = mTheory.term(consName, selectorApps.values().toArray(new Term[selectorApps.values().size()]));
+		final Sort consType = c.needsReturnOverload() ? argTerm.getSort() : null;
+		final Term consTerm = mTheory.term(consName, null, consType,
+				selectorApps.values().toArray(new Term[selectorApps.values().size()]));
 		final CCTerm consCCTerm = mClausifier.createCCTerm(consTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		final SymmetricPair<CCTerm> eq = new SymmetricPair<>(arg, consCCTerm);
 		@SuppressWarnings("unchecked")

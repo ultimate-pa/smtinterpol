@@ -20,12 +20,9 @@ package de.uni_freiburg.informatik.ultimate.logic;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.HashSet;
 import java.util.Map;
 
+import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.Theory.SolverSetup;
 
 /**
@@ -130,39 +127,6 @@ public class NoopScript implements Script {
 	}
 
 	/**
-	 * Check if a constructor of a datatype needs to be declared with RETURNOVERLOAD. This is the case if its arguments
-	 * do not contain all sort parameters.
-	 *
-	 * @param sortParams
-	 *            The sort parameters of the datatype.
-	 * @param argumentSorts
-	 *            The arguments of the constructor.
-	 * @return 0 or RETURNOVERLOAD, depending on if the flag is needed.
-	 */
-	private int checkReturnOverload(final Sort[] sortParams, final Sort[] argumentSorts) {
-		final BitSet unused = new BitSet();
-		unused.set(0, sortParams.length);
-		final ArrayDeque<Sort> todo = new ArrayDeque<>();
-		final HashSet<Sort> seen = new HashSet<>();
-		todo.addAll(Arrays.asList(argumentSorts));
-		while (!todo.isEmpty()) {
-			final Sort sort = todo.removeFirst();
-			if (seen.add(sort)) {
-				if (sort.isParametric()) {
-					for (int i = 0; i < sortParams.length; i++) {
-						if (sort == sortParams[i]) {
-							unused.clear(i);
-							break;
-						}
-					}
-				} else {
-					todo.addAll(Arrays.asList(sort.getArguments()));
-				}
-			}
-		}
-		return unused.isEmpty() ? 0 : FunctionSymbol.RETURNOVERLOAD;
-	}
-	/**
 	 * Declare internal functions for the constructors and selectors of the datatype.
 	 * @param datatype The datatype.
 	 * @param constrs The constructors.
@@ -184,11 +148,11 @@ public class NoopScript implements Script {
 		}
 		final Sort[] selectorParamSorts = new Sort[] { datatypeSort };
 
-		for (int i = 0; i < constrs.length; i++) {
+		for (final Constructor cons : constrs) {
 
-			final String constrName = constrs[i].getName();
-			final String[] selectors = constrs[i].getSelectors();
-			final Sort[] argumentSorts = constrs[i].getArgumentSorts();
+			final String constrName = cons.getName();
+			final String[] selectors = cons.getSelectors();
+			final Sort[] argumentSorts = cons.getArgumentSorts();
 
 			if (sortParams == null) {
 				getTheory().declareInternalFunction(constrName, argumentSorts, datatypeSort, FunctionSymbol.CONSTRUCTOR);
@@ -197,12 +161,14 @@ public class NoopScript implements Script {
 					getTheory().declareInternalFunction(selectors[j], selectorParamSorts, argumentSorts[j], FunctionSymbol.SELECTOR);
 				}
 			} else {
+				final int constrFlags = FunctionSymbol.CONSTRUCTOR
+						+ (cons.needsReturnOverload() ? FunctionSymbol.RETURNOVERLOAD : 0);
 				getTheory().declareInternalPolymorphicFunction(constrName, sortParams, argumentSorts,
-						datatypeSort, checkReturnOverload(sortParams, argumentSorts)+ FunctionSymbol.CONSTRUCTOR);
+						datatypeSort, constrFlags);
 
 				for (int j = 0; j < selectors.length; j++) {
 					getTheory().declareInternalPolymorphicFunction(selectors[j], sortParams, selectorParamSorts,
-							argumentSorts[j], 0);
+							argumentSorts[j], FunctionSymbol.SELECTOR);
 				}
 			}
 		}

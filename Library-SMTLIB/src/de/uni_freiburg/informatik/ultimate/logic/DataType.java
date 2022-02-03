@@ -1,5 +1,9 @@
 package de.uni_freiburg.informatik.ultimate.logic;
 
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
 
 /**
@@ -13,6 +17,7 @@ public class DataType extends SortSymbol {
 		private final String mName;
 		private final Sort[] mArgumentSorts;
 		private final String[] mSelectors;
+		private boolean mNeedsReturnOverload;
 
 		public Constructor(final String name, final String[] selectors, final Sort[] argumentSorts) {
 			mName = name;
@@ -39,6 +44,10 @@ public class DataType extends SortSymbol {
 
 		public String[] getSelectors() {
 			return mSelectors;
+		}
+
+		public boolean needsReturnOverload() {
+			return mNeedsReturnOverload;
 		}
 
 		@Override
@@ -78,6 +87,11 @@ public class DataType extends SortSymbol {
 		assert mConstructors == null;
 		mSortVariables = sortVars;
 		mConstructors = constrs;
+		if (sortVars != null) {
+			for (final Constructor cons : constrs) {
+				cons.mNeedsReturnOverload = checkReturnOverload(sortVars, cons.mArgumentSorts);
+			}
+		}
 	}
 
 	public Sort[] getSortVariables() {
@@ -103,5 +117,38 @@ public class DataType extends SortSymbol {
 
 	public Constructor[] getConstructors() {
 		return mConstructors;
+	}
+
+	/**
+	 * Check if a constructor of a datatype needs to be declared with
+	 * RETURNOVERLOAD. This is the case if its arguments do not contain all sort
+	 * parameters.
+	 *
+	 * @param sortParams    The sort parameters of the datatype.
+	 * @param argumentSorts The arguments of the constructor.
+	 * @return 0 or RETURNOVERLOAD, depending on if the flag is needed.
+	 */
+	private boolean checkReturnOverload(final Sort[] sortParams, final Sort[] argumentSorts) {
+		final BitSet unused = new BitSet();
+		unused.set(0, sortParams.length);
+		final ArrayDeque<Sort> todo = new ArrayDeque<>();
+		final HashSet<Sort> seen = new HashSet<>();
+		todo.addAll(Arrays.asList(argumentSorts));
+		while (!todo.isEmpty()) {
+			final Sort sort = todo.removeFirst();
+			if (seen.add(sort)) {
+				if (sort.isParametric()) {
+					for (int i = 0; i < sortParams.length; i++) {
+						if (sort == sortParams[i]) {
+							unused.clear(i);
+							break;
+						}
+					}
+				} else {
+					todo.addAll(Arrays.asList(sort.getArguments()));
+				}
+			}
+		}
+		return !unused.isEmpty();
 	}
 }

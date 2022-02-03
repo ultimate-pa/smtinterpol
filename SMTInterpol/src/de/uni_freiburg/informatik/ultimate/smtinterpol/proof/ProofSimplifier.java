@@ -3428,7 +3428,8 @@ public class ProofSimplifier extends TermTransformer {
 		for (int i = 0; i < selectors.length; i++) {
 			selectTerms[i] = theory.term(selectors[i], firstData);
 		}
-		final Term consTerm = theory.term(firstCons.getName(), selectTerms);
+		final Term consTerm = theory.term(firstCons.getName(), null,
+				(firstCons.needsReturnOverload() ? firstData.getSort() : null), selectTerms);
 		final Term consEq = theory.term(SMTLIBConstants.EQUALS, consTerm, firstData);
 		final Term testConsTerm = theory.term(secondTester.getFunction(), consTerm);
 		Term proof = res(consEq, mProofRules.dtCons(firstTester), mProofRules.trans(consTerm, firstData, secondData));

@@ -1028,7 +1028,8 @@ public class MinimalProofChecker extends NonRecursive {
 			for (int i = 0; i < selectors.length; i++) {
 				selectTerms[i] = theory.term(selectors[i], dataTerm);
 			}
-			final Term consTerm = theory.term(cons.getName(), selectTerms);
+			final Term consTerm = theory.term(cons.getName(), null,
+					(cons.needsReturnOverload() ? dataTerm.getSort() : null), selectTerms);
 
 			// - ((_ is cons) u), + (= (cons (sel1 u) ... (seln u)) u)
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, consTerm, dataTerm);
