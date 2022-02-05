@@ -3452,6 +3452,107 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Convert a data type dt-injective lemma to a minimal proof. This lemma has the
+	 * form {@code (cons a1 ... an) != (cons b1 ... bn), ai == bi}
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :dt-injective annotation. It has the
+	 *                     form
+	 *                     {@code ((= ai bi) :cons (cons a1 ... an) (cons b1 ... bn))}.
+	 */
+	private Term convertDTInjective(final Term[] clause, final Object[] ccAnnotation) {
+		final Theory theory = clause[0].getTheory();
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		assert ccAnnotation.length == 4;
+		final ApplicationTerm goalEquality = (ApplicationTerm) unquote((Term) ccAnnotation[0]);
+		assert ccAnnotation[1].equals(":cons");
+		final ApplicationTerm consTerm1 = (ApplicationTerm) ccAnnotation[2];
+		final ApplicationTerm consTerm2 = (ApplicationTerm) ccAnnotation[3];
+		assert consTerm1.getFunction() == consTerm2.getFunction();
+		assert consTerm1.getFunction().isConstructor();
+		final Term[] consArgs1 = consTerm1.getParameters();
+		final Term[] consArgs2 = consTerm2.getParameters();
+		final Term mainEq1 = goalEquality.getParameters()[0];
+		final Term mainEq2 = goalEquality.getParameters()[1];
+
+		// find the position of the arguments in the constructor for the terms in the
+		// main equality.
+		int pos;
+		for (pos = 0;; pos++) {
+			if (consArgs1[pos] == mainEq1 && consArgs2[pos] == mainEq2) {
+				break;
+			}
+		}
+
+		// the proof basically shows
+		// mainEquality[0] = (selpos cons1) = (selpos cons2) = mainEquality[1]
+		final DataType dataType = (DataType) consTerm1.getSort().getSortSymbol();
+		final Constructor cons = dataType.findConstructor(consTerm1.getFunction().getName());
+		final String selector = cons.getSelectors()[pos];
+		final Term sel1 = theory.term(selector, consTerm1);
+		final Term sel2 = theory.term(selector, consTerm2);
+		Term proof = mProofRules.trans(mainEq1, sel1, sel2, mainEq2);
+		neededDisequalities.add(goalEquality);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, mainEq1, sel1),
+				res(theory.term(SMTLIBConstants.EQUALS, sel1, mainEq1), mProofRules.dtProject(sel1),
+						mProofRules.symm(mainEq1, sel1)),
+				proof);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, sel2, mainEq2), mProofRules.dtProject(sel2), proof);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, sel1, sel2), mProofRules.cong(sel1, sel2), proof);
+		neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, consTerm1, consTerm2));
+
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
+	 * Convert a data type dt-injective lemma to a minimal proof. This lemma has the
+	 * form {@code (cons a1 ... an) != (cons' b1 ... bn')}, where cons and cons' are
+	 * different constructors.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :dt-disjoint annotation. It has the
+	 *                     form {@code :cons (cons a1 ... an) (cons' b1 ... bn'))}.
+	 */
+	private Term convertDTDisjoint(final Term[] clause, final Object[] ccAnnotation) {
+		final Theory theory = clause[0].getTheory();
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		assert ccAnnotation.length == 3;
+		assert ccAnnotation[0].equals(":cons");
+		final ApplicationTerm consTerm1 = (ApplicationTerm) ccAnnotation[1];
+		final ApplicationTerm consTerm2 = (ApplicationTerm) ccAnnotation[2];
+		assert consTerm1.getFunction() != consTerm2.getFunction();
+		assert consTerm1.getFunction().isConstructor();
+		assert consTerm2.getFunction().isConstructor();
+
+		// the proof basically shows a contradiction via:
+		// (iscons1 cons1) = (iscons1 cons2)
+		final Term isCons11 =
+				theory.term(SMTLIBConstants.IS, new String[] { consTerm1.getFunction().getName() }, null, consTerm1);
+		final Term isCons12 =
+				theory.term(SMTLIBConstants.IS, new String[] { consTerm1.getFunction().getName() }, null, consTerm2);
+		final Term isConsEq = theory.term(SMTLIBConstants.EQUALS, isCons11, isCons12);
+		Term proof = mProofRules.cong(isCons11, isCons12);
+		neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, consTerm1, consTerm2));
+		proof = res(isConsEq, proof, mProofRules.iffElim2(isConsEq));
+		proof = res(isCons11, mProofRules.dtTestI(consTerm1), proof);
+		proof = res(isCons12, proof, mProofRules.dtTestE(consTerm1.getFunction().getName(), consTerm2));
+
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
+	/**
 	 * Convert an instantiation lemma to a minimal proof.
 	 *
 	 * @param clause         the clause to convert
@@ -3537,6 +3638,12 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":dt-unique":
 			subProof = convertDTUnique(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":dt-injective":
+			subProof = convertDTInjective(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":dt-disjoint":
+			subProof = convertDTDisjoint(clause, (Object[]) lemmaAnnotation);
 			break;
 		case ":EQ":
 			subProof = convertEQLemma(clause);
