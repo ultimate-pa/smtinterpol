@@ -136,10 +136,13 @@ public class ArrayInterpolator {
 	 *
 	 * @return paths an array containing the proof paths
 	 */
-	private Term getDiseq(final InterpolatorClauseTermInfo clauseInfo) {
+	private ApplicationTerm getDiseq(final InterpolatorClauseTermInfo clauseInfo) {
 		final Object[] annotations = (Object[]) clauseInfo.getLemmaAnnotation();
 		assert annotations.length % 2 == 1;
-		return (Term) annotations[0];
+		final AnnotatedTerm quotedDiseq = (AnnotatedTerm) annotations[0];
+		final ApplicationTerm diseq = (ApplicationTerm) quotedDiseq.getSubterm();
+		assert diseq.getFunction().getName().equals(SMTLIBConstants.EQUALS);
+		return diseq;
 	}
 
 	/**
@@ -170,8 +173,6 @@ public class ArrayInterpolator {
 	 */
 	public Term[] computeInterpolants(final Term proofTerm) {
 		mLemmaInfo = mInterpolator.getClauseTermInfo(proofTerm);
-		mDiseq = (AnnotatedTerm) getDiseq(mLemmaInfo);
-		mDiseqInfo = mInterpolator.getAtomOccurenceInfo(mDiseq);
 		mEqualities = new HashMap<>();
 		mDisequalities = new HashMap<>();
 		mABSwitchOccur = mInterpolator.new Occurrence();
@@ -184,6 +185,10 @@ public class ArrayInterpolator {
 			map.put(new SymmetricPair<>(equality.getParameters()[0], equality.getParameters()[1]),
 					(AnnotatedTerm) atom);
 		}
+		final ApplicationTerm equality = getDiseq(mLemmaInfo);
+		final Term[] eqParams = equality.getParameters();
+		mDiseq = mDisequalities.get(new SymmetricPair<>(eqParams[0], eqParams[1]));
+		mDiseqInfo = mInterpolator.getAtomOccurenceInfo(mDiseq);
 
 		Term[] interpolants = new Term[mNumInterpolants];
 		if (mLemmaInfo.getLemmaType().equals(":read-over-weakeq")) {

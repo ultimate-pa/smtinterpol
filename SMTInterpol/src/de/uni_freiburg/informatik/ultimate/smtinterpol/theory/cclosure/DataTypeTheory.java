@@ -800,10 +800,10 @@ public class DataTypeTheory implements ITheory {
 				final SymmetricPair<CCTerm>[] reason = new SymmetricPair[] { new SymmetricPair<>(consCCTerm, mem) };
 				if (memAt.getFunction() == consAt.getFunction()) {
 					for (int i = 0; i < memAt.getParameters().length; i++) {
-						final CCTerm memArg = mClausifier.getCCTerm(memAt.getParameters()[i]);
 						final CCTerm consArg = mClausifier.getCCTerm(consAt.getParameters()[i]);
+						final CCTerm memArg = mClausifier.getCCTerm(memAt.getParameters()[i]);
 						if (memArg.mRepStar != consArg.mRepStar) {
-							final SymmetricPair<CCTerm> eqPair = new SymmetricPair<>(memArg, consArg);
+							final SymmetricPair<CCTerm> eqPair = new SymmetricPair<>(consArg, memArg);
 							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_INJECTIVE, eqPair, reason,
 									consCCTerm, mem);
 							addPendingLemma(lemma);
