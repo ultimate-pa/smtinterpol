@@ -1088,6 +1088,29 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			return lits;
 		}
+		case ":" + ProofRules.DT_ACYCLIC: {
+			if (!theory.getLogic().isDatatype()) {
+				throw new AssertionError();
+			}
+			assert annots.length == 1;
+			final Object[] params = (Object[]) annots[0].getValue();
+			assert params.length == 2;
+			final Term consTerm = (Term) params[0];
+			final int[] positions = (int[]) params[1];
+			if (positions.length == 0) {
+				throw new AssertionError();
+			}
+			Term subTerm = consTerm;
+			for (final int pos : positions) {
+				final ApplicationTerm parent = (ApplicationTerm) subTerm;
+				if (!parent.getFunction().isConstructor()) {
+					throw new AssertionError();
+				}
+				subTerm = parent.getParameters()[pos];
+			}
+			final Term provedIneq = theory.term(SMTLIBConstants.EQUALS, consTerm, subTerm);
+			return new ProofLiteral[] { new ProofLiteral(provedIneq, false) };
+		}
 		default:
 			throw new AssertionError("Unknown axiom " + axiom);
 		}

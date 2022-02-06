@@ -3552,6 +3552,147 @@ public class ProofSimplifier extends TermTransformer {
 		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
 	}
 
+	private int checkAndFindConsArg(final Term consTerm, final Term argTerm) {
+		if (!(consTerm instanceof ApplicationTerm)) {
+			return -1;
+		}
+		final ApplicationTerm appTerm = (ApplicationTerm) consTerm;
+		if (!appTerm.getFunction().isConstructor()) {
+			return -1;
+		}
+		final Term[] consArgs = appTerm.getParameters();
+		for (int i = 0; i < consArgs.length; i++) {
+			if (consArgs[i] == argTerm) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	/**
+	 * Convert a data type dt-cycle lemma to a minimal proof. The lemma is annotated
+	 * with a cycle {@code a1,b1,a2,b2,..,an} that shows that {@code a1} is equal to
+	 * a constructor call on itself. The lemma must contain {@code ai=bi} negated
+	 * and {@code a(i+1)} is a child of {@code bi} in the sense that either
+	 * {@code bi} is a term {@code cons(..,a(i+1),...)}, or that {@code a(i+1)} is a
+	 * term {@code sel(bi)} and for the corresponding constructor
+	 * {@code is_cons(bi) = true} occurs negated in the lemma.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :dt-cycle annotation. It has the form
+	 *                     {@code :cycle a1 b1 a2 b2 ... an} where a1 == an.
+	 */
+	private Term convertDTCycle(final Term[] clause, final Object[] ccAnnotation) {
+		final Theory theory = clause[0].getTheory();
+		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		final HashSet<Term> neededEqualities = new HashSet<>();
+		final HashSet<Term> neededDisequalities = new HashSet<>();
+
+		assert ccAnnotation.length == 2;
+		assert ccAnnotation[0].equals(":cycle");
+		final Term[] cycle = (Term[]) ccAnnotation[1];
+		assert cycle.length >= 3;
+		assert cycle.length % 2 == 1;
+		assert cycle[0] == cycle[cycle.length - 1];
+
+		// Build the running cons term backwards over the cycle.
+		// Also build the proof that the running cons term is equal to the corresponding
+		// term in the cycle.
+
+		Term runningTerm = cycle[0];
+		Term proof = mProofRules.refl(runningTerm);
+		final int[] argSequence = new int[(cycle.length - 1) / 2];
+		for (int i = cycle.length - 3; i >= 0; i -= 2) {
+			final Term selectTerm = cycle[i+2];
+			final Term consTerm = cycle[i+1];
+			int pos = checkAndFindConsArg(consTerm, selectTerm);
+			if (pos >= 0) {
+				if (runningTerm == selectTerm) {
+					runningTerm = consTerm;
+					proof = mProofRules.refl(runningTerm);
+				} else {
+					final Term[] consArgs = ((ApplicationTerm) consTerm).getParameters().clone();
+					consArgs[pos] = runningTerm;
+					for (int argnr = 0; argnr < consArgs.length; argnr++) {
+						if (argnr != pos) {
+							neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, consArgs[argnr], consArgs[argnr]));
+						}
+					}
+					final Term newRunningTerm = theory.term(((ApplicationTerm) consTerm).getFunction(), consArgs);
+					proof = res(theory.term(SMTLIBConstants.EQUALS, runningTerm, selectTerm), proof,
+							mProofRules.cong(newRunningTerm, consTerm));
+					runningTerm = newRunningTerm;
+				}
+				argSequence[i / 2] = pos;
+			} else {
+				final ApplicationTerm appTerm = (ApplicationTerm) selectTerm;
+				assert appTerm.getFunction().isSelector();
+				assert consTerm.getSort() == appTerm.getParameters()[0].getSort();
+				final DataType dataType = (DataType) consTerm.getSort().getSortSymbol();
+				final Constructor[] constrs = dataType.getConstructors();
+				findSelector: {
+					for (final Constructor c : constrs) {
+						final String[] selectors = c.getSelectors();
+						for (pos = 0; pos < selectors.length; pos++) {
+							if (selectors[pos].equals(appTerm.getFunction().getName())) {
+								final Term[] consArgs = new Term[selectors.length];
+								final Term[] runningArgs = new Term[selectors.length];
+								for (int argnr = 0; argnr < consArgs.length; argnr++) {
+									consArgs[argnr] = theory.term(selectors[argnr], consTerm);
+									if (argnr != pos) {
+										runningArgs[argnr] = consArgs[argnr];
+										neededEqualities.add(
+												theory.term(SMTLIBConstants.EQUALS, consArgs[argnr], consArgs[argnr]));
+									} else {
+										runningArgs[argnr] = runningTerm;
+									}
+								}
+								final Term newConsTerm = theory.term(c.getName(), null,
+										(c.needsReturnOverload() ? consTerm.getSort() : null), consArgs);
+								final Term newRunningTerm = theory.term(c.getName(), null,
+										(c.needsReturnOverload() ? consTerm.getSort() : null), runningArgs);
+								final Term isConsTerm = theory.term(SMTLIBConstants.IS, new String[] { c.getName() },
+										null, consTerm);
+								proof = res(theory.term(SMTLIBConstants.EQUALS, runningTerm, selectTerm), proof,
+										mProofRules.cong(newRunningTerm, newConsTerm));
+								proof = res(theory.term(SMTLIBConstants.EQUALS, newRunningTerm, newConsTerm), proof,
+										mProofRules.trans(newRunningTerm, newConsTerm, consTerm));
+								final Term isConsEq = theory.term(SMTLIBConstants.EQUALS, isConsTerm, theory.mTrue);
+								proof = res(theory.term(SMTLIBConstants.EQUALS, newConsTerm, consTerm),
+										mProofRules.dtCons(isConsTerm), proof);
+								proof = res(isConsTerm,
+										res(theory.mTrue, mProofRules.trueIntro(), mProofRules.iffElim1(isConsEq)),
+										proof);
+								neededEqualities.add(isConsEq);
+								runningTerm = newRunningTerm;
+								argSequence[i / 2] = pos;
+								break findSelector;
+							}
+						}
+					}
+					// selector not found in datatype
+					throw new AssertionError();
+				}
+			}
+			final Term eqterm = cycle[i];
+			if (eqterm != consTerm) {
+				proof = res(theory.term(SMTLIBConstants.EQUALS, runningTerm, consTerm), proof,
+						mProofRules.trans(runningTerm, consTerm, eqterm));
+				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, consTerm, eqterm));
+			}
+		}
+
+		// Now runningTerm = cons(...cycle[0]...) and proof shows runningTerm =
+		// cycle[0].
+
+		proof = res(theory.term(SMTLIBConstants.EQUALS, runningTerm, cycle[0]), proof,
+				mProofRules.dtAcyclic(runningTerm, argSequence));
+		return resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
+	}
+
 	/**
 	 * Convert an instantiation lemma to a minimal proof.
 	 *
@@ -3644,6 +3785,9 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":dt-disjoint":
 			subProof = convertDTDisjoint(clause, (Object[]) lemmaAnnotation);
+			break;
+		case ":dt-cycle":
+			subProof = convertDTCycle(clause, (Object[]) lemmaAnnotation);
 			break;
 		case ":EQ":
 			subProof = convertEQLemma(clause);
