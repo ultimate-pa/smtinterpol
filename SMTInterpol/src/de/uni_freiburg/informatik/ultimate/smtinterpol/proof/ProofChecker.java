@@ -32,6 +32,8 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.DataType;
+import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
@@ -584,7 +586,6 @@ public class ProofChecker extends NonRecursive {
 		} else if (lemmaType == ":dt-project" || lemmaType == ":dt-tester" || lemmaType == ":dt-constructor"
 				|| lemmaType == ":dt-cases" || lemmaType == ":dt-unique" || lemmaType == ":dt-injective"
 				|| lemmaType == ":dt-disjoint" || lemmaType == ":dt-cycle") {
-			reportWarning("Unchecked datatype lemma " + annTerm);
 			checkDataTypeLemma(lemmaType, clause, (Object[]) lemmaAnnotation);
 		} else if (lemmaType == ":trichotomy") {
 			checkTrichotomy(clause);
@@ -613,12 +614,42 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	/**
-	 * Check a CC lemma for correctness. If a problem is found, an error is reported.
+	 * Collect literals in a CC or array lemma clause
 	 *
-	 * @param clause
-	 *            the clause to check
-	 * @param ccAnnotation
-	 *            the argument of the :CC annotation.
+	 * @param clause        the clause.
+	 * @param equalities    HashMap to store equalities (negated in the clause).
+	 * @param disequalities HashMap to store disequalities (positive in the clause).
+	 */
+	private void collectEqualities(final Term[] clause, final Set<SymmetricPair<Term>> equalities,
+			final Set<SymmetricPair<Term>> disequalities) {
+		for (final Term literal : clause) {
+			final boolean negated = isApplication("not", literal);
+			final Term quotedAtom = negated ? ((ApplicationTerm) literal).getParameters()[0] : literal;
+			final Term atom = unquote(quotedAtom);
+			if (!isApplication("=", atom)) {
+				reportError("Unknown literal in array lemma.");
+				return;
+			}
+			final Term[] sides = ((ApplicationTerm) atom).getParameters();
+			if (sides.length != 2) {
+				reportError("Unknown literal in array lemma.");
+				return;
+			}
+			if (negated) {
+				// negated atom in clause -> equality in conflict
+				equalities.add(new SymmetricPair<>(sides[0], sides[1]));
+			} else {
+				disequalities.add(new SymmetricPair<>(sides[0], sides[1]));
+			}
+		}
+	}
+
+	/**
+	 * Check a CC lemma for correctness. If a problem is found, an error is
+	 * reported.
+	 *
+	 * @param clause       the clause to check
+	 * @param ccAnnotation the argument of the :CC annotation.
 	 */
 	private void checkCCLemma(final Term[] clause, final Object[] ccAnnotation) {
 		if (ccAnnotation.length < 3 || !(ccAnnotation[0] instanceof Term) || ccAnnotation[1] != ":subpath"
@@ -631,30 +662,10 @@ public class ProofChecker extends NonRecursive {
 		// The goal equality
 		final Term goalEquality = unquote((Term) ccAnnotation[0]);
 
-		/* collect literals and search for the disequality */
+		/* collect literals */
 		final HashSet<SymmetricPair<Term>> allEqualities = new HashSet<>();
-		boolean foundDiseq = false;
-		for (final Term literal : clause) {
-			if (isApplication("not", literal)) {
-				Term atom = ((ApplicationTerm) literal).getParameters()[0];
-				atom = unquote(atom);
-				if (!isApplication("=", atom)) {
-					reportError("Unknown literal in CC lemma.");
-					return;
-				}
-				final Term[] sides = ((ApplicationTerm) atom).getParameters();
-				if (sides.length != 2) {
-					reportError("Expected binary equality, found " + atom);
-					return;
-				}
-				allEqualities.add(new SymmetricPair<>(sides[0], sides[1]));
-			} else {
-				if (unquote(literal) != goalEquality || foundDiseq) {
-					reportError("Unexpected positive literal in CC lemma.");
-				}
-				foundDiseq = true;
-			}
-		}
+		final HashSet<SymmetricPair<Term>> allDisequalities = new HashSet<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final Term[] mainPath = (Term[]) ccAnnotation[startSubpathAnnot + 1];
 		if (mainPath.length < 2) {
@@ -670,8 +681,15 @@ public class ProofChecker extends NonRecursive {
 			reportError("Expected binary equality in CC lemma");
 			return;
 		}
-		if (!foundDiseq && !checkTrivialDisequality(sides[0], sides[1])) {
-			reportError("Did not find goal equality in CC lemma");
+		if (allDisequalities.isEmpty()) {
+			if (!checkTrivialDisequality(sides[0], sides[1])) {
+				reportError("Did not find goal equality in CC lemma");
+			}
+		} else {
+			final SymmetricPair<Term> diseq = allDisequalities.iterator().next();
+			if (!diseq.equals(new SymmetricPair<>(sides[0], sides[1])) || allDisequalities.size() != 1) {
+				reportError("Unexpected positive literal in CC lemma.");
+			}
 		}
 		if (!new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1])
 				.equals(new SymmetricPair<>(sides[0], sides[1]))) {
@@ -730,30 +748,12 @@ public class ProofChecker extends NonRecursive {
 		 * weakPaths maps from a symmetric pair to the set of weak indices such that a weak path was proven for this
 		 * pair. strongPaths contains the sets of all proven strong paths.
 		 */
-		final HashSet<SymmetricPair<Term>> allEqualities = new HashSet<>();
-		/* indexDiseqs contains all index equalities in the clause */
-		final HashSet<SymmetricPair<Term>> allDisequalities = new HashSet<>();
 
-		/* collect literals and search for the disequality */
-		for (final Term literal : clause) {
-			final boolean negated = isApplication("not", literal);
-			final Term atom = unquote(negated ? ((ApplicationTerm) literal).getParameters()[0] : literal);
-			if (!isApplication("=", atom)) {
-				reportError("Unknown literal in array lemma.");
-				return;
-			}
-			final Term[] sides = ((ApplicationTerm) atom).getParameters();
-			if (sides.length != 2) {
-				reportError("Unknown literal in array lemma.");
-				return;
-			}
-			if (negated) {
-				// negated atom in clause -> equality in conflict
-				allEqualities.add(new SymmetricPair<>(sides[0], sides[1]));
-			} else {
-				allDisequalities.add(new SymmetricPair<>(sides[0], sides[1]));
-			}
-		}
+		/* collect literals */
+		final HashSet<SymmetricPair<Term>> allEqualities = new HashSet<>();
+		final HashSet<SymmetricPair<Term>> allDisequalities = new HashSet<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
 		final Term goalEquality = unquote((Term) ccAnnotation[0]);
 		if (!isApplication("=", goalEquality)) {
 			reportError("Goal equality is not an equality in array lemma");
@@ -1072,7 +1072,209 @@ public class ProofChecker extends NonRecursive {
 	 * @param ccAnnotation the argument of the :CC annotation.
 	 */
 	private void checkDataTypeLemma(final String type, final Term[] clause, final Object[] ccAnnotation) {
-		// FIXME: add checks
+		/* collect literals */
+		final HashSet<SymmetricPair<Term>> allEqualities = new HashSet<>();
+		final HashSet<SymmetricPair<Term>> allDisequalities = new HashSet<>();
+		collectEqualities(clause, allEqualities, allDisequalities);
+
+		switch (type) {
+		case ":dt-project": {
+			assert ccAnnotation.length == 3;
+
+			final Term goalEquality = unquote((Term) ccAnnotation[0]);
+			if (!isApplication("=", goalEquality)) {
+				reportError("malformed main equality in dt-project");
+			}
+			if (!ccAnnotation[1].equals(":cons")) {
+				reportError(":cons annotation missing in dt-project");
+			}
+			final ApplicationTerm consTerm = (ApplicationTerm) ccAnnotation[2];
+			final FunctionSymbol consFunc = consTerm.getFunction();
+			if (!consFunc.isConstructor()) {
+				reportError("constructor term expected in :cons annotation");
+			}
+			final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+			if (goalTerms.length != 2) {
+				reportError("malformed main equality in dt-project");
+			}
+
+			if (!(goalTerms[0] instanceof ApplicationTerm)) {
+				reportError("select term expected in dt-project");
+			}
+			final ApplicationTerm selectTerm = (ApplicationTerm) goalTerms[0];
+			final FunctionSymbol selector = selectTerm.getFunction();
+			if (!selector.isSelector()) {
+				reportError("select term expected in dt-project");
+			}
+			final Term selectArg = selectTerm.getParameters()[0];
+			final Constructor cons = ((DataType) consTerm.getSort().getSortSymbol()).getConstructor(consFunc.getName());
+			final int selectPos = cons.getSelectorIndex(selector.getName());
+			final Term consArg = consTerm.getParameters()[selectPos];
+			if (goalTerms[1] != consArg) {
+				reportError("malformed main equality in dt-project");
+			}
+
+			if (!allDisequalities.contains(new SymmetricPair<>(selectTerm, consArg))
+					&& !checkTrivialDisequality(selectTerm, consArg)) {
+				reportError("missing main equality in dt-project");
+			}
+			if (!allEqualities.contains(new SymmetricPair<>(selectArg, consTerm))
+					&& !checkTrivialEquality(selectArg, consTerm)) {
+				reportError("missing cons equality in dt-project");
+			}
+			break;
+		}
+		case ":dt-tester": {
+			assert ccAnnotation.length == 3;
+
+			final Term goalEquality = unquote((Term) ccAnnotation[0]);
+			if (!isApplication("=", goalEquality)) {
+				reportError("malformed main equality in dt-tester");
+			}
+			if (!ccAnnotation[1].equals(":cons")) {
+				reportError(":cons annotation missing in dt-tester");
+			}
+			final ApplicationTerm consTerm = (ApplicationTerm) ccAnnotation[2];
+			final FunctionSymbol consFunc = consTerm.getFunction();
+			if (!consFunc.isConstructor()) {
+				reportError("constructor term expected in :cons annotation");
+			}
+			final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+			if (goalTerms.length != 2) {
+				reportError("malformed main equality in dt-tester");
+			}
+
+			if (!isApplication(SMTLIBConstants.IS, goalTerms[0])) {
+				reportError("select term expected in dt-tester");
+			}
+			final ApplicationTerm testerTerm = (ApplicationTerm) goalTerms[0];
+			final FunctionSymbol tester = testerTerm.getFunction();
+			final Term testerArg = testerTerm.getParameters()[0];
+			final String otherCons = tester.getIndices()[0];
+			final boolean isSameCons = consFunc.getName().equals(otherCons);
+			if (!isApplication((isSameCons ? SMTLIBConstants.TRUE : SMTLIBConstants.FALSE), goalTerms[1])) {
+				reportError("malformed main equality in dt-tester");
+			}
+
+			if (!allDisequalities.contains(new SymmetricPair<>(goalTerms[0], goalTerms[1]))
+					&& !checkTrivialDisequality(goalTerms[0], goalTerms[1])) {
+				reportError("missing main equality in dt-tester");
+			}
+			if (!allEqualities.contains(new SymmetricPair<>(testerArg, consTerm))
+					&& !checkTrivialEquality(testerArg, consTerm)) {
+				reportError("missing cons equality in dt-tester");
+			}
+			break;
+		}
+		case ":dt-constructor": {
+			assert ccAnnotation.length == 1;
+
+			final Term goalEquality = unquote((Term) ccAnnotation[0]);
+			if (!isApplication("=", goalEquality)) {
+				reportError("malformed main equality in dt-constructor");
+			}
+			final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+			if (goalTerms.length != 2) {
+				reportError("malformed main equality in dt-constructor");
+			}
+
+			final Term dataTerm = goalTerms[0];
+			if (!(goalTerms[1] instanceof ApplicationTerm)) {
+				reportError("select term expected in dt-constructor");
+			}
+			final ApplicationTerm consTerm = (ApplicationTerm) goalTerms[1];
+			if (!consTerm.getFunction().isConstructor()) {
+				reportError("constructor term expected in dt-constructor");
+			}
+			final DataType dataType = (DataType) dataTerm.getSort().getSortSymbol();
+			final Constructor cons = dataType.getConstructor(consTerm.getFunction().getName());
+			final Term testerTerm = mSkript.term(SMTLIBConstants.IS, new String[] { cons.getName() }, null, dataTerm);
+			final Term trueTerm = mSkript.term(SMTLIBConstants.TRUE);
+
+			if (!allDisequalities.contains(new SymmetricPair<>(goalTerms[0], goalTerms[1]))
+					&& !checkTrivialDisequality(goalTerms[0], goalTerms[1])) {
+				reportError("missing main equality in dt-constructor");
+			}
+			final Term[] consArgs = consTerm.getParameters();
+			final String[] selects = cons.getSelectors();
+			for (int i = 0; i < consArgs.length; i++) {
+				final Term selectTerm = mSkript.term(selects[i], dataTerm);
+				if (!allEqualities.contains(new SymmetricPair<>(consArgs[i], selectTerm))
+						&& !checkTrivialEquality(consArgs[i], selectTerm)) {
+					reportError("missing is equality in dt-constructor");
+				}
+			}
+			if (!allEqualities.contains(new SymmetricPair<>(testerTerm, trueTerm))) {
+				reportError("missing is condition in dt-constructor");
+			}
+			break;
+		}
+		case ":dt-cases": {
+			assert ccAnnotation.length > 0;
+			for (int i = 0; i < ccAnnotation.length; i++) {
+				if (!(ccAnnotation[i] instanceof Term) || !isApplication(SMTLIBConstants.IS, (Term) ccAnnotation[i])) {
+					reportError("malformed dt-cases annotation: " + Arrays.toString(ccAnnotation));
+				}
+			}
+			final ApplicationTerm firstTester = (ApplicationTerm) ccAnnotation[0];
+			final Term firstData = firstTester.getParameters()[0];
+			final DataType dataType = (DataType) firstData.getSort().getSortSymbol();
+			final Constructor constrs[] = dataType.getConstructors();
+			if (constrs.length != ccAnnotation.length) {
+				reportError("dt-cases annotation of wrong length: " + Arrays.toString(ccAnnotation));
+			}
+			final Term falseTerm = mSkript.term(SMTLIBConstants.FALSE);
+
+			for (int i = 0; i < ccAnnotation.length; i++) {
+				final ApplicationTerm tester = (ApplicationTerm) ccAnnotation[i];
+				assert isApplication(SMTLIBConstants.IS, tester);
+				if (!constrs[i].getName().equals(tester.getFunction().getIndices()[0])) {
+					reportError("dt-cases with wrong tester order: " + Arrays.toString(ccAnnotation));
+				}
+				if (!allEqualities.contains(new SymmetricPair<>(tester, falseTerm))) {
+					reportError("missing test equality in clause in dt-cases");
+				}
+
+				final Term arg = tester.getParameters()[0];
+				if (!allEqualities.contains(new SymmetricPair<>(arg, firstData))
+						&& !checkTrivialEquality(arg, firstData)) {
+					reportError("missing arg equality in clause in dt-cases");
+				}
+			}
+			break;
+		}
+		case ":dt-unique": {
+			if (ccAnnotation.length != 2) {
+				reportError("dt-unique annotation of wrong length: " + Arrays.toString(ccAnnotation));
+			}
+			assert ccAnnotation.length > 0;
+			for (int i = 0; i < ccAnnotation.length; i++) {
+				if (!(ccAnnotation[i] instanceof Term) || !isApplication(SMTLIBConstants.IS, (Term) ccAnnotation[i])) {
+					reportError("malformed dt-unique annotation: " + Arrays.toString(ccAnnotation));
+				}
+			}
+			final ApplicationTerm firstTester = (ApplicationTerm) ccAnnotation[0];
+			final Term firstData = firstTester.getParameters()[0];
+			final Term trueTerm = mSkript.term(SMTLIBConstants.TRUE);
+
+			for (int i = 0; i < ccAnnotation.length; i++) {
+				final ApplicationTerm tester = (ApplicationTerm) ccAnnotation[i];
+				assert isApplication(SMTLIBConstants.IS, tester);
+				if (!allEqualities.contains(new SymmetricPair<>(tester, trueTerm))) {
+					reportError("missing test equality in clause in dt-unique");
+				}
+
+				final Term arg = tester.getParameters()[0];
+				if (!allEqualities.contains(new SymmetricPair<>(arg, firstData))
+						&& !checkTrivialEquality(arg, firstData)) {
+					reportError("missing arg equality in clause in dt-unique");
+				}
+			}
+			break;
+		}
+		default:
+			reportWarning("Unchecked datatype lemma " + type);
+		}
 		return;
 	}
 
