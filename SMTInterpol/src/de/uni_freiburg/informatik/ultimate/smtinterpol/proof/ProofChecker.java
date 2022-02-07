@@ -1272,10 +1272,168 @@ public class ProofChecker extends NonRecursive {
 			}
 			break;
 		}
+		case ":dt-injective": {
+			if (ccAnnotation.length != 4) {
+				reportError("malformed annotation of dt-injective");
+			}
+
+			final Term goalEquality = unquote((Term) ccAnnotation[0]);
+			if (!isApplication("=", goalEquality)) {
+				reportError("malformed main equality in dt-injective");
+			}
+			final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+			if (goalTerms.length != 2) {
+				reportError("malformed main equality in dt-injective");
+			}
+			if (!allDisequalities.contains(new SymmetricPair<>(goalTerms[0], goalTerms[1]))
+					&& !checkTrivialDisequality(goalTerms[0], goalTerms[1])) {
+				reportError("missing main equality in dt-constructor");
+			}
+
+			if (!ccAnnotation[1].equals(":cons") || !(ccAnnotation[2] instanceof ApplicationTerm)
+					|| !(ccAnnotation[3] instanceof ApplicationTerm)) {
+				reportError("malformed annotation of dt-injective");
+			}
+			final ApplicationTerm consTerm1 = (ApplicationTerm) ccAnnotation[2];
+			final ApplicationTerm consTerm2 = (ApplicationTerm) ccAnnotation[3];
+			if (!consTerm1.getFunction().isConstructor() || consTerm2.getFunction() != consTerm1.getFunction()) {
+				reportError("constructor terms expected in dt-injective");
+			}
+			if (!allEqualities.contains(new SymmetricPair<>(consTerm1, consTerm2))
+					&& !checkTrivialEquality(consTerm1, consTerm2)) {
+				reportError("missing cons equality in dt-injective");
+			}
+			final Term[] consArgs1 = consTerm1.getParameters();
+			final Term[] consArgs2 = consTerm2.getParameters();
+			final Term mainEq1 = goalTerms[0];
+			final Term mainEq2 = goalTerms[1];
+
+			// find the position of the arguments in the constructor for the terms in the
+			// main equality.
+			findPos: {
+				for (int pos = 0; pos < consArgs1.length; pos++) {
+					if (consArgs1[pos] == mainEq1 && consArgs2[pos] == mainEq2) {
+						break findPos;
+					}
+				}
+				reportError("main equality not found in constructor arguments in dt-injective");
+			}
+			break;
+		}
+		case ":dt-disjoint": {
+			if (ccAnnotation.length != 3) {
+				reportError("malformed annotation of dt-disjoint");
+			}
+
+			if (!ccAnnotation[0].equals(":cons") || !(ccAnnotation[1] instanceof ApplicationTerm)
+					|| !(ccAnnotation[2] instanceof ApplicationTerm)) {
+				reportError("malformed annotation of dt-disjoint");
+			}
+			final ApplicationTerm consTerm1 = (ApplicationTerm) ccAnnotation[1];
+			final ApplicationTerm consTerm2 = (ApplicationTerm) ccAnnotation[2];
+			if (!consTerm1.getFunction().isConstructor() || !consTerm2.getFunction().isConstructor()) {
+				reportError("constructor terms expected in dt-disjoint");
+			}
+			if (consTerm1.getFunction() == consTerm2.getFunction()) {
+				reportError("different constructors expected in dt-disjoint");
+			}
+			if (!allEqualities.contains(new SymmetricPair<>(consTerm1, consTerm2))
+					&& !checkTrivialEquality(consTerm1, consTerm2)) {
+				reportError("missing cons equality in dt-disjoint");
+			}
+			break;
+		}
+		case ":dt-cycle": {
+			if (ccAnnotation.length != 2) {
+				reportError("malformed annotation of dt-cycle");
+			}
+
+			if (!ccAnnotation[0].equals(":cycle") || !(ccAnnotation[1] instanceof Term[])) {
+				reportError("malformed annotation of dt-cycle");
+			}
+			final Term[] cycle = (Term[]) ccAnnotation[1];
+			if (cycle.length < 3 || cycle.length % 2 != 1 || cycle[0] != cycle[cycle.length - 1]) {
+				reportError("malformed cycle in dt-cycle");
+			}
+
+			for (int i = cycle.length - 3; i >= 0; i -= 2) {
+				final Term selectTerm = cycle[i+2];
+				final Term consTerm = cycle[i+1];
+				if (!checkConsArg(consTerm, selectTerm)
+						&& !checkSelect(selectTerm, consTerm, allEqualities)) {
+					reportError("child check failed: " + consTerm + " and " + selectTerm);
+				}
+				if (!allEqualities.contains(new SymmetricPair<>(cycle[i], consTerm))
+						&& !checkTrivialEquality(cycle[i], consTerm)) {
+					reportError("missing equality in dt-cycle");
+				}
+			}
+			break;
+		}
 		default:
-			reportWarning("Unchecked datatype lemma " + type);
+			reportError("Unchecked datatype lemma " + type);
 		}
 		return;
+	}
+
+	/**
+	 * Check if consTerm is a constructor and argTerm is one of its arguments
+	 *
+	 * @param consTerm the constructor term
+	 * @param argTerm  the argument to find.
+	 * @return true if consTerm is an application of a constructor and argTerm is
+	 *         one of consTerm's arguments.
+	 */
+	private boolean checkConsArg(final Term consTerm, final Term argTerm) {
+		if (!(consTerm instanceof ApplicationTerm)) {
+			return false;
+		}
+		final ApplicationTerm appTerm = (ApplicationTerm) consTerm;
+		if (!appTerm.getFunction().isConstructor()) {
+			return false;
+		}
+
+		for (final Term arg : appTerm.getParameters()) {
+			if (arg == argTerm) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Check if selectTerm is a selector call and dataTerm is its argument. Also
+	 * checks that there the corresponding tester is included in the equalities.
+	 *
+	 * @param selectTerm the selector call.
+	 * @param dataTerm   the expected argument.
+	 * @param equalities the defined equalities.
+	 * @return true if selectTerm is an application of a selector, dataTerm is its
+	 *         argument and there is a corresponding tester on dataTerm with the
+	 *         correct constructor that is included in the equalities.
+	 */
+	private boolean checkSelect(final Term selectTerm, final Term dataTerm, final Set<SymmetricPair<Term>> equalities) {
+		if (!(selectTerm instanceof ApplicationTerm)) {
+			return false;
+		}
+		final ApplicationTerm appTerm = (ApplicationTerm) selectTerm;
+		if (!appTerm.getFunction().isSelector()) {
+			return false;
+		}
+		if (appTerm.getParameters()[0] != dataTerm) {
+			return false;
+		}
+		final DataType dataType = (DataType) dataTerm.getSort().getSortSymbol();
+		for (final Constructor c : dataType.getConstructors()) {
+			for (final String selName : c.getSelectors()) {
+				if (selName.equals(appTerm.getFunction().getName())) {
+					final Term trueTerm = mSkript.term(SMTLIBConstants.TRUE);
+					final Term isConsTerm = mSkript.term(SMTLIBConstants.IS, new String[] { c.getName() }, null, dataTerm);
+					return equalities.contains(new SymmetricPair<>(isConsTerm, trueTerm));
+				}
+			}
+		}
+		return false;
 	}
 
 	/**
