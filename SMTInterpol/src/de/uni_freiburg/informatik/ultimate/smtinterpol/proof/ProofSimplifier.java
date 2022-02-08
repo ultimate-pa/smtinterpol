@@ -39,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
@@ -604,6 +605,118 @@ public class ProofSimplifier extends TermTransformer {
 		throw new AssertionError();
 	}
 
+	private Term convertTautDtMatch(final String rule, final Term[] clause) {
+		// there are two different matchCase tautologies:
+		// boolean case: +/~(match ...), ~(is_cons c), ~/+(case ...)
+		// term case: ~(is_cons c), (= (match ...) (case ...))
+		// similarly, there are two different matchDefault tautologies:
+		// boolean case: +/~(match ...), (is_cons c1), ..., (is_cons cn) ~/+(case ...)
+		// term case: (is_cons c1), ..., (is_cons cn), (= (match ...) (case ...))
+		boolean negated;
+		// use the first literal to distinguish between boolean and term case.
+		final boolean boolCase = clause[0] instanceof MatchTerm
+				|| (isApplication(SMTLIBConstants.NOT, clause[0])
+						&& ((ApplicationTerm) clause[0]).getParameters()[0] instanceof MatchTerm);
+		MatchTerm matchTerm;
+		ApplicationTerm isTerm = null;
+		if (boolCase) {
+			// boolean case
+			assert clause.length >= 2;
+			negated = isApplication(SMTLIBConstants.NOT, clause[0]);
+			matchTerm = (MatchTerm) (negated ? ((ApplicationTerm) clause[0]).getParameters()[0] : clause[0]);
+			if (rule.equals(":matchCase")) {
+				assert isApplication(SMTLIBConstants.NOT, clause[1]);
+				final Term tester = ((ApplicationTerm) clause[1]).getParameters()[0];
+				assert isApplication(SMTLIBConstants.IS, tester);
+				isTerm = (ApplicationTerm) tester;
+			}
+		} else {
+			// term case
+			assert clause.length >= 1;
+			negated = false;
+			if (rule.equals(":matchCase")) {
+				assert isApplication(SMTLIBConstants.NOT, clause[0]);
+				final Term tester = ((ApplicationTerm) clause[0]).getParameters()[0];
+				assert isApplication(SMTLIBConstants.IS, tester);
+				isTerm = (ApplicationTerm) tester;
+			}
+			assert isApplication(SMTLIBConstants.EQUALS, clause[clause.length - 1]);
+			final ApplicationTerm eqTerm = (ApplicationTerm) clause[clause.length - 1];
+			assert eqTerm.getParameters().length == 2;
+			matchTerm = (MatchTerm) eqTerm.getParameters()[0];
+		}
+
+		final Constructor[] constrs = matchTerm.getConstructors();
+		int caseNr;
+		if (rule.equals(":matchCase")) {
+			for (caseNr = 0; caseNr < constrs.length; caseNr++) {
+				if (constrs[caseNr].getName().equals(isTerm.getFunction().getIndices()[0])) {
+					break;
+				}
+			}
+			assert caseNr < constrs.length && constrs[caseNr] != null;
+		} else {
+			caseNr = constrs.length - 1;
+			assert constrs[caseNr] == null;
+		}
+		final Theory theory = matchTerm.getTheory();
+		final Term dataTerm = matchTerm.getDataTerm();
+		Term iteTerm = MinimalProofChecker.buildIteForMatch(matchTerm);
+
+		final ArrayList<Term> eqSequence = new ArrayList<>();
+		eqSequence.add(matchTerm);
+		for (int i = 0; i < caseNr; i++) {
+			assert isApplication(SMTLIBConstants.ITE, iteTerm);
+			eqSequence.add(iteTerm);
+			iteTerm = ((ApplicationTerm) iteTerm).getParameters()[2];
+		}
+		if (caseNr < constrs.length - 1) {
+			assert isApplication(SMTLIBConstants.ITE, iteTerm);
+			eqSequence.add(iteTerm);
+			iteTerm = ((ApplicationTerm) iteTerm).getParameters()[1];
+		}
+		eqSequence.add(iteTerm);
+		Term proof = mProofRules.trans(eqSequence.toArray(new Term[eqSequence.size()]));
+		proof = res(theory.term(SMTLIBConstants.EQUALS, matchTerm, eqSequence.get(1)), mProofRules.dtMatch(matchTerm),
+				proof);
+		final Constructor cons = constrs[caseNr];
+		Term consTerm = null;
+		if (rule.equals(":matchCase")) {
+			final Term[] selectTerms = new Term[cons.getSelectors().length];
+			for (int i = 0; i < selectTerms.length; i++) {
+				selectTerms[i] = theory.term(cons.getSelectors()[i], dataTerm);
+			}
+			consTerm = theory.term(constrs[caseNr].getName(), null,
+					(constrs[caseNr].needsReturnOverload() ? dataTerm.getSort() : null), selectTerms);
+		}
+		for (int i = 0; i < caseNr; i++) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, eqSequence.get(i + 1), eqSequence.get(i + 2)),
+					mProofRules.ite2(eqSequence.get(i + 1)), proof);
+			if (rule.equals(":matchCase")) {
+				final String[] index = new String[] { constrs[i].getName() };
+				final Term isConsData = theory.term(SMTLIBConstants.IS, index, null, dataTerm);
+				final Term isConsCons = theory.term(SMTLIBConstants.IS, index, null, consTerm);
+				final Term isConsEq = theory.term(SMTLIBConstants.EQUALS, isConsCons, isConsData);
+				proof = res(isConsData, proof, mProofRules.iffElim1(isConsEq));
+				proof = res(isConsEq, mProofRules.cong(isConsCons, isConsData), proof);
+				proof = res(isConsCons, proof, mProofRules.dtTestE(constrs[i].getName(), consTerm));
+			}
+		}
+		if (rule.equals(":matchCase") && caseNr > 0) {
+			final Term isConsCons = theory.term(SMTLIBConstants.IS, new String[] { cons.getName() }, null, dataTerm);
+			proof = res(theory.term(SMTLIBConstants.EQUALS, consTerm, dataTerm), mProofRules.dtCons(isConsCons), proof);
+		}
+		if (caseNr < constrs.length - 1) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, eqSequence.get(caseNr + 1), eqSequence.get(caseNr + 2)),
+					mProofRules.ite1(eqSequence.get(caseNr + 1)), proof);
+		}
+		if (boolCase) {
+			final Term matchEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
+			proof = res(matchEq, proof, (negated ? mProofRules.iffElim2(matchEq) : mProofRules.iffElim1(matchEq)));
+		}
+		return proof;
+	}
+
 	private Term convertTautology(final Term taut) {
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) taut;
 		final Term clause = annotTerm.getSubterm();
@@ -816,6 +929,10 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":diff":
 			proof = convertTautDiff(clauseLits);
+			break;
+		case ":matchCase":
+		case ":matchDefault":
+			proof = convertTautDtMatch(ruleName, clauseLits);
 			break;
 		default: {
 			proof = mProofRules.oracle(termToProofLiterals(clause), annotTerm.getAnnotations());

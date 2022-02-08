@@ -1120,24 +1120,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert params.length == 1;
 			final MatchTerm matchTerm = (MatchTerm) params[0];
-			final Term dataTerm = matchTerm.getDataTerm();
-			final Term[] cases = matchTerm.getCases();
-			final TermVariable[][] vars = matchTerm.getVariables();
-			final Constructor[] constrs = matchTerm.getConstructors();
-			Term iteTerm;
-			if (constrs[constrs.length - 1] == null) {
-				assert vars[constrs.length - 1].length == 1;
-				iteTerm = theory.let(vars[constrs.length - 1], new Term[] { dataTerm }, cases[constrs.length - 1]);
-			} else {
-				iteTerm = buildLetForMatch(constrs[constrs.length - 1], vars[constrs.length - 1], dataTerm,
-						cases[constrs.length - 1]);
-			}
-			for (int i = constrs.length - 2; i >= 0; i--) {
-				final Term condTerm = theory.term(SMTLIBConstants.IS, new String[] { constrs[i].getName() }, null,
-						dataTerm);
-				final Term caseTerm = buildLetForMatch(constrs[i], vars[i], dataTerm, cases[i]);
-				iteTerm = theory.ifthenelse(condTerm, caseTerm, iteTerm);
-			}
+			final Term iteTerm = buildIteForMatch(matchTerm);
 
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
@@ -1150,12 +1133,36 @@ public class MinimalProofChecker extends NonRecursive {
 	private static Term buildLetForMatch(final Constructor constr, final TermVariable[] vars, final Term dataTerm,
 			final Term caseTerm) {
 		final Theory theory = dataTerm.getTheory();
-		assert constr.getSelectors().length == vars.length;
 		final Term[] selectTerms = new Term[vars.length];
-		for (int i = 0; i < vars.length; i++) {
-			selectTerms[i] = theory.term(constr.getSelectors()[i], dataTerm);
+		if (constr == null) {
+			assert vars.length == 1;
+			selectTerms[0] = dataTerm;
+		} else {
+			assert constr.getSelectors().length == vars.length;
+			for (int i = 0; i < vars.length; i++) {
+				selectTerms[i] = theory.term(constr.getSelectors()[i], dataTerm);
+			}
 		}
-		return theory.let(vars, selectTerms, caseTerm);
+		return new FormulaUnLet().unlet(theory.let(vars, selectTerms, caseTerm));
+	}
+
+	public static Term buildIteForMatch(final MatchTerm matchTerm) {
+		final Theory theory = matchTerm.getTheory();
+		final Term dataTerm = matchTerm.getDataTerm();
+		final Term[] cases = matchTerm.getCases();
+		final TermVariable[][] vars = matchTerm.getVariables();
+		final Constructor[] constrs = matchTerm.getConstructors();
+
+		Term iteTerm;
+		iteTerm = buildLetForMatch(constrs[constrs.length - 1], vars[constrs.length - 1], dataTerm,
+				cases[constrs.length - 1]);
+		for (int i = constrs.length - 2; i >= 0; i--) {
+			final Term condTerm = theory.term(SMTLIBConstants.IS, new String[] { constrs[i].getName() }, null,
+					dataTerm);
+			final Term caseTerm = buildLetForMatch(constrs[i], vars[i], dataTerm, cases[i]);
+			iteTerm = theory.term(SMTLIBConstants.ITE, condTerm, caseTerm, iteTerm);
+		}
+		return iteTerm;
 	}
 
 	public ProofLiteral[] checkAssert(final Term axiom) {
