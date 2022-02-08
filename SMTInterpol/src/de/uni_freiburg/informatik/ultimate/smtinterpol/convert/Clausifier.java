@@ -1771,7 +1771,7 @@ public class Clausifier {
 				// substitute argument TermVariables with the according selector function
 				int s_i = 0;
 				for (final String sel : c.getSelectors()) {
-					final Term selTerm = theory.term(theory.getFunctionSymbol(sel), dataTerm);
+					final Term selTerm = theory.term(sel, dataTerm);
 					argSubs.put(term.getVariables()[c_i][s_i++], selTerm);
 				}
 				rule = ProofConstants.AUX_MATCH_CASE;
