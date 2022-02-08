@@ -86,6 +86,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
  * It basically executes the following script:
  * <pre>
  * (set-option :produce-proofs true)
+ * (set-option :produce-interpolants true)
  * (set-logic QF_UFLIA)
  * (declare-fun x () Int)
  * (declare-fun y () Int)
@@ -106,6 +107,7 @@ public final class Spin2012 {
 	public static void main(String[] args) {
 		final SMTInterpol script = new SMTInterpol(new DefaultLogger());
 		script.setOption(":produce-proofs", true);
+		script.setOption(":produce-interpolants", true);
 		script.setLogic(Logics.QF_UFLIA);
 		script.declareFun("x", new Sort[0], script.sort("Int"));
 		script.declareFun("y", new Sort[0], script.sort("Int"));
