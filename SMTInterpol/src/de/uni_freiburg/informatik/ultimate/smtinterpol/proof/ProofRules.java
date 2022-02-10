@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
+import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
@@ -132,6 +133,7 @@ public class ProofRules {
 	public final static String ANNOT_POS = ":pos";
 	public final static String ANNOT_UNIT = ":unit";
 	public final static String ANNOT_DEFINE_FUN = ":define-fun";
+	public final static String ANNOT_DECLARE_FUN = ":declare-fun";
 
 	public ProofRules(final Theory theory) {
 		mTheory = theory;
@@ -624,6 +626,12 @@ public class ProofRules {
 		}, subProof);
 	}
 
+	public Term declareFun(final FunctionSymbol func, final Term subProof) {
+		assert func.getName().startsWith("@");
+		return mTheory.annotatedTerm(new Annotation[] { new Annotation(ANNOT_DECLARE_FUN, new Object[] { func }), },
+				subProof);
+	}
+
 	public Term dtProject(final Term selConsTerm) {
 		assert ((ApplicationTerm) selConsTerm).getFunction().isSelector();
 		assert ((ApplicationTerm) ((ApplicationTerm) selConsTerm).getParameters()[0]).getFunction().isConstructor();
@@ -840,8 +848,13 @@ public class ProofRules {
 				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN;
 	}
 
+	public static boolean isDeclareFun(final Term proof) {
+		return proof instanceof AnnotatedTerm
+				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DECLARE_FUN;
+	}
+
 	public static boolean isProof(final Term proof) {
-		return isDefineFun(proof) || isProofRule(RES, proof) || isAxiom(proof);
+		return proof.getSort().isInternal() && proof.getSort().getName().equals(PREFIX + PROOF);
 	}
 
 	public static class PrintProof extends PrintTerm {
@@ -868,6 +881,28 @@ public class ProofRules {
 						mTodo.add(" ");
 						mTodo.add(vars[i]);
 						mTodo.add(i == 0 ? "(" : " (");
+					}
+					mTodo.add(" (");
+					mTodo.add(func.getApplicationString());
+					mTodo.add("((" + annots[0].getKey().substring(1) + " ");
+					return;
+				} else if (annots.length == 1 && annots[0].getKey() == ANNOT_DECLARE_FUN) {
+					final Object[] annotVal = (Object[]) annots[0].getValue();
+					assert annotVal.length == 2;
+					final FunctionSymbol func = (FunctionSymbol) annotVal[0];
+					final LambdaTerm definition = (LambdaTerm) annotVal[1];
+					mTodo.add(")");
+					mTodo.add(annotTerm.getSubterm());
+					mTodo.add(" ");
+					mTodo.add(")");
+					mTodo.add(func.getReturnSort());
+					mTodo.add(") ");
+					final Sort[] paramSorts = func.getParameterSorts();
+					for (int i = paramSorts.length - 1; i >= 0; i--) {
+						mTodo.add(paramSorts[i]);
+						if (i > 0) {
+							mTodo.add(" ");
+						}
 					}
 					mTodo.add(" (");
 					mTodo.add(func.getApplicationString());
@@ -1215,6 +1250,60 @@ public class ProofRules {
 				default:
 					break;
 				}
+			}
+
+			if (proof instanceof LetTerm) {
+				final LetTerm let = (LetTerm) proof;
+				final TermVariable[] vars = let.getVariables();
+				final Term[] values = let.getValues();
+				boolean hasLetProof = false;
+				boolean hasLetTerm = false;
+				for (int i = 0; i < vars.length; i++) {
+					if (isProof(values[i])) {
+						hasLetProof = true;
+					} else {
+						hasLetTerm = true;
+					}
+				}
+				// close parentheses
+				if (hasLetTerm) {
+					mTodo.addLast(")");
+				}
+				if (hasLetProof) {
+					mTodo.addLast(")");
+				}
+				// Add subterm to stack.
+				mTodo.addLast(let.getSubTerm());
+				// add the let-proof for proof variables.
+				if (hasLetProof) {
+					// Add subterm to stack.
+					// Add assigned values to stack
+					String sep = ")) ";
+					for (int i = values.length - 1; i >= 0; i--) {
+						if (isProof(values[i])) {
+							mTodo.addLast(sep);
+							mTodo.addLast(values[i]);
+							mTodo.addLast("(" + vars[i].toString() + " ");
+							sep = ") ";
+						}
+					}
+					mTodo.addLast("(let-proof (");
+				}
+				// add the let for non-proof variables.
+				if (hasLetTerm) {
+					// Add assigned values to stack
+					String sep = ")) ";
+					for (int i = values.length - 1; i >= 0; i--) {
+						if (!isProof(values[i])) {
+							mTodo.addLast(sep);
+							mTodo.addLast(values[i]);
+							mTodo.addLast("(" + vars[i].toString() + " ");
+							sep = ") ";
+						}
+					}
+					mTodo.addLast("(let (");
+				}
+				return;
 			}
 			super.walkTerm(proof);
 		}
