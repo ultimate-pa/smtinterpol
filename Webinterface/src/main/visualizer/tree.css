@@ -76,8 +76,7 @@ ul, .tree {
   /* IE 9 */
   -webkit-transform: rotate(90deg);
   /* Safari */
-  '
-transform: rotate(90deg);
+  transform: rotate(90deg);
 }
 
 .nested {
@@ -88,9 +87,19 @@ transform: rotate(90deg);
   display: block;
 }
 
-.node_literals {
+.inner_node_literals {
   color: green;
   border: 1px solid green;
+}
+
+.clause_literals {
+  color: purple;
+  border: 1px solid purple;
+}
+
+.lemma_literals {
+  color: orange;
+  border: 1px solid orange;
 }
 
 .node_pivot {

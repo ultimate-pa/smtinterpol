@@ -16,6 +16,8 @@ class Node {
     this.is_leaf = false;
     this.node_literals = new Set();
     this.node_pivot = "";
+    this.is_lemma_node = false;
+    this.is_clause_node = false;
     // Intermediate_result is the resolution of the current nodes children with their literals and pivots.
     this.intermediate_result = new Set();
   }
@@ -222,11 +224,13 @@ function extract_literals_clause(clause) {
   return literals;
 }
 
-function extract_literals(text) {
+function extract_literals(text, node) {
   if (text.includes("lemma")) {
+    node.is_lemma_node = true;
     return extract_literals_lemma(text);
   }
   if (text.includes("clause")) {
+    node.is_clause_node = true;
     return extract_literals_clause(text);
   }
 }
@@ -259,7 +263,7 @@ function parseLeaf() {
   }
   // Assign the found text to the newly created leaf.
   node.node_text = newStr;
-  node.node_literals = extract_literals(newStr);
+  node.node_literals = extract_literals(newStr, node);
   if (newStr.includes(":pivot")) {
     node.node_pivot = extract_pivot(newStr);
   }
@@ -420,15 +424,19 @@ function visualize_proof(input) {
 function create_tree(current_node, parent_id) {
   if (current_node.children.length !== 0) {
     let node_id = "node" + current_node.node_id;
-    document.getElementById(parent_id).innerHTML += '<li><span class="arrow"><span class="node_literals">{' +Array.from(current_node.node_literals) +'}</span> <span class="node_pivot">'
-    +current_node.node_pivot+'</span> <span class="intermediate_result">{'+Array.from(current_node.intermediate_result)+'}</span></span> <ul class="nested" id=' + node_id + '></ul></li>';
+    let current_pivot = check_pivot_availability(current_node);
+    let current_literal = check_node_literal_lemma_clause(current_node);
+    document.getElementById(parent_id).innerHTML += current_literal+current_pivot+
+    '</span> <span class="intermediate_result">{'+Array.from(current_node.intermediate_result)+'}</span></span> <ul class="nested" id=' + node_id + '></ul></li>';
     for (var i = 0; i < current_node.children.length; i++) {
       create_tree(current_node.children[i], node_id);
     }
   } else if (current_node.children.length === 0) {
     let node_id = "node" + current_node.node_id;
-    document.getElementById(parent_id).innerHTML += '<li><span class="node_literals">{' + Array.from(current_node.node_literals)+'}</span> <span class="node_pivot">'
-    +current_node.node_pivot+'</span> <span class="intermediate_result">{'+Array.from(current_node.intermediate_result)+'}</span></li>';
+    let current_pivot = check_pivot_availability(current_node);
+    let current_literal = check_leaf_literal_lemma_clause(current_node);
+    document.getElementById(parent_id).innerHTML += current_literal+current_pivot+
+    '</span> <span class="intermediate_result">{'+Array.from(current_node.intermediate_result)+'}</span></li>';
   }
 }
 
@@ -452,4 +460,38 @@ window.onload = function() {
       });
     }
   });
+}
+
+// Check if pivot is available and either return it or just the bracket to close
+// the node_literals array in the string for the html site
+function check_pivot_availability(node) {
+  if (node.node_pivot) {
+    let str1 = '}</span> <span class="node_pivot">';
+    let str2 = node.node_pivot;
+    return str1+str2;
+  } else {
+    return "}";
+  }
+}
+
+// Check if literal of the leaf contains @lemma or @clause to highlight it later
+function check_leaf_literal_lemma_clause(node) {
+  if (node.is_lemma_node) {
+    return '<li><span class="lemma_literals">{' + Array.from(node.node_literals);
+  } else if (node.is_clause_node) {
+    return '<li><span class="clause_literals">{' + Array.from(node.node_literals);
+  } else {
+    return '<li><span class="inner_node_literals">{' + Array.from(node.node_literals);
+  }
+}
+
+// Check if literal of the node contains @lemma or @clause to highlight it later
+function check_node_literal_lemma_clause(node) {
+  if (node.is_lemma_node) {
+    return '<li><span class="arrow"><span class="lemma_literals">{' +Array.from(node.node_literals);
+  } else if (node.is_clause_node) {
+    return '<li><span class="arrow"><span class="clause_literals">{' +Array.from(node.node_literals);
+  } else {
+    return '<li><span class="arrow"><span class="inner_node_literals">{' +Array.from(node.node_literals);
+  }
 }
