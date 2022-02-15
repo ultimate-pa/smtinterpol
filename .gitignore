@@ -9,6 +9,9 @@ smtinterpol-smtcomp.tar.gz
 Lexer.java
 LexerSymbols.java
 Parser.java
+ProofParser.java
+ProofLexer.java
+ProofSymbols.java
 
 # Automatically generated version #
 SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.java

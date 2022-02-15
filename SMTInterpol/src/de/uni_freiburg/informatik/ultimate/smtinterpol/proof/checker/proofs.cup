@@ -30,409 +30,409 @@ import com.github.jhoenicke.javacup.runtime.Symbol;
 import com.github.jhoenicke.javacup.runtime.SimpleSymbolFactory;
 import java.util.Map;
 
-parser Parser;
-option symbols = LexerSymbols;
+parser ProofParser;
+option symbols = ProofSymbols;
 option java15, compact_red, newpositions;
 
 parser code {:
-    String filename;
-    ParseEnvironment env;
+	String filename;
+	ParseEnvironment env;
 
-    public static final Sort[] EMPTY_SORT_ARRAY = {};
+	public static final Sort[] EMPTY_SORT_ARRAY = {};
 
-    public Script getScript() {
-    }
+	public Script getScript() {
+	}
 
-    public ProofRules getProofRules() {
-    }
+	public ProofRules getProofRules() {
+	}
 
-    public void report_error(String s, Object sym) {
-        String location;
-        if (sym instanceof SimpleSymbolFactory.LineColumnSymbol) {
-            SimpleSymbolFactory.LineColumnSymbol bsym = (SimpleSymbolFactory.LineColumnSymbol) sym;
-            location = bsym.getLocation();
-        } else if ((sym instanceof Symbol)
-                   && ((Symbol)sym).sym == LexerSymbols.EOF) {
-            location = "EOF";
-        } else
-            location = "UNKNOWN";
+	public void report_error(String s, Object sym) {
+		String location;
+		if (sym instanceof SimpleSymbolFactory.LineColumnSymbol) {
+			SimpleSymbolFactory.LineColumnSymbol bsym = (SimpleSymbolFactory.LineColumnSymbol) sym;
+			location = bsym.getLocation();
+		} else if ((sym instanceof Symbol)
+				   && ((Symbol)sym).sym == LexerSymbols.EOF) {
+			location = "EOF";
+		} else
+			location = "UNKNOWN";
 
-        action_obj.setError(filename+":"+location+": "+s);
-    }
+		action_obj.setError(filename+":"+location+": "+s);
+	}
 
-    public void report_error(String s) {
-        report_error(s, cur_token);
-    }
+	public void report_error(String s) {
+		report_error(s, cur_token);
+	}
 
-    public void syntax_error(Symbol sym) {
-        report_error("Syntax Error", sym);
-        env.printError(action_obj.getError());
-    }
+	public void syntax_error(Symbol sym) {
+		report_error("Syntax Error", sym);
+		env.printError(action_obj.getError());
+	}
 
-    public void setFileName(String filename) {
-        this.filename = filename;
-    }
+	public void setFileName(String filename) {
+		this.filename = filename;
+	}
 
-    public void setParseEnvironment(ParseEnvironment env) {
-        this.env = env;
-    }
+	public void setParseEnvironment(ParseEnvironment env) {
+		this.env = env;
+	}
 :}
 
 action code {:
-    ScopedHashMap<String,TermVariable> localVars =
-        new ScopedHashMap<String, TermVariable>(false);
-    Sort[] mSortParams = null;
-    static Sort[] emptySortArray = new Sort[0];
-    Sort mMatchSort = null;
+	ScopedHashMap<String,TermVariable> localVars =
+		new ScopedHashMap<String, TermVariable>(false);
+	Sort[] mSortParams = null;
+	static Sort[] emptySortArray = new Sort[0];
+	Sort mMatchSort = null;
 
-    static class Binding {
-        TermVariable mVar;
-        Term mTerm;
-        public Binding(TermVariable var, Term term) {
-            mVar = var;
-            mTerm = term;
-        }
-        TermVariable getVar() {
-            return mVar;
-        }
-        Term getTerm() {
-            return mTerm;
-        }
-    }
+	static class Binding {
+		TermVariable mVar;
+		Term mTerm;
+		public Binding(TermVariable var, Term term) {
+			mVar = var;
+			mTerm = term;
+		}
+		TermVariable getVar() {
+			return mVar;
+		}
+		Term getTerm() {
+			return mTerm;
+		}
+	}
 
-    static class IndexedIdentifier {
-        String mName;
-        String[] mIndices;
-        public IndexedIdentifier(String name, String[] indices) {
-            mName = name;
-            mIndices = indices;
-        }
-        public String getName() {
-            return mName;
-        }
-        public String[] getIndices() {
-            return mIndices;
-        }
+	static class IndexedIdentifier {
+		String mName;
+		String[] mIndices;
+		public IndexedIdentifier(String name, String[] indices) {
+			mName = name;
+			mIndices = indices;
+		}
+		public String getName() {
+			return mName;
+		}
+		public String[] getIndices() {
+			return mIndices;
+		}
 
-        public String toString() {
-            if (mIndices == null)
-                return mName;
-            return "(_ "+mName+" "+Arrays.toString(mIndices)+")";
-        }
-    }
+		public String toString() {
+			if (mIndices == null)
+				return mName;
+			return "(_ "+mName+" "+Arrays.toString(mIndices)+")";
+		}
+	}
 
-    static class QualIdentifier {
-        String mName;
-        String[] mIndices;
-        Sort mSort;
-        public QualIdentifier(IndexedIdentifier id, Sort sort) {
-            mName = id.getName();
-            mIndices = id.getIndices();
-            mSort = sort;
-        }
-        public String getIdentifier() {
-            return mName;
-        }
-        public String[] getIndices() {
-            return mIndices;
-        }
-        public Sort getSort() {
-            return mSort;
-        }
+	static class QualIdentifier {
+		String mName;
+		String[] mIndices;
+		Sort mSort;
+		public QualIdentifier(IndexedIdentifier id, Sort sort) {
+			mName = id.getName();
+			mIndices = id.getIndices();
+			mSort = sort;
+		}
+		public String getIdentifier() {
+			return mName;
+		}
+		public String[] getIndices() {
+			return mIndices;
+		}
+		public Sort getSort() {
+			return mSort;
+		}
 
-        public String toString() {
-            String indexedId;
-            if (mIndices == null)
-                indexedId = mName;
-            else
-                indexedId = "(_ "+mName+" "+Arrays.toString(mIndices)+")";
-            if (mSort == null)
-                return indexedId;
-            return "(as " + indexedId + " " + mSort + ")";
-        }
-    }
+		public String toString() {
+			String indexedId;
+			if (mIndices == null)
+				indexedId = mName;
+			else
+				indexedId = "(_ "+mName+" "+Arrays.toString(mIndices)+")";
+			if (mSort == null)
+				return indexedId;
+			return "(as " + indexedId + " " + mSort + ")";
+		}
+	}
 
-    static class SelectorDec {
-        String mSelector;
-        Sort mArgumentSort;
-        public SelectorDec(String selector, Sort argumentSort) {
-            mSelector = selector;
-            mArgumentSort = argumentSort; 
-        }
-        public String getSelector() {
-            return mSelector;
-        }
-        public Sort getArgumentSort() {
-            return mArgumentSort;
-        }
-        public String toString() {
-            return "(" + mSelector + " " + mArgumentSort + ")";
-        }
-    }
+	static class SelectorDec {
+		String mSelector;
+		Sort mArgumentSort;
+		public SelectorDec(String selector, Sort argumentSort) {
+			mSelector = selector;
+			mArgumentSort = argumentSort; 
+		}
+		public String getSelector() {
+			return mSelector;
+		}
+		public Sort getArgumentSort() {
+			return mArgumentSort;
+		}
+		public String toString() {
+			return "(" + mSelector + " " + mArgumentSort + ")";
+		}
+	}
 
-    static class ParametricConstructors {
-        final DataType.Constructor[] mConstructors;
-        final Sort[] mSortParams;
-        public ParametricConstructors(DataType.Constructor[] constructors) {
-            mConstructors = constructors;
-            mSortParams = null;
-        }
-        public ParametricConstructors(DataType.Constructor[] constructors, Sort[] sortparams) {
-            mConstructors = constructors;
-            mSortParams = sortparams;
-        }
-        public DataType.Constructor[] getConstructors() {
-            return mConstructors;
-        }
-        public Sort[] getSortParams() {
-            return mSortParams;
-        }
-    }
+	static class ParametricConstructors {
+		final DataType.Constructor[] mConstructors;
+		final Sort[] mSortParams;
+		public ParametricConstructors(DataType.Constructor[] constructors) {
+			mConstructors = constructors;
+			mSortParams = null;
+		}
+		public ParametricConstructors(DataType.Constructor[] constructors, Sort[] sortparams) {
+			mConstructors = constructors;
+			mSortParams = sortparams;
+		}
+		public DataType.Constructor[] getConstructors() {
+			return mConstructors;
+		}
+		public Sort[] getSortParams() {
+			return mSortParams;
+		}
+	}
 
-    class Pattern {
-        DataType.Constructor mConstructor;
-        TermVariable[] mVars;
-        Sort[] mSorts;
+	class Pattern {
+		DataType.Constructor mConstructor;
+		TermVariable[] mVars;
+		Sort[] mSorts;
 
-        public Pattern(String constructor, String[] vars) {
-            for (int i = 0; i < vars.length; i++) {
-                for (int j = 0; j < i; j++) {
-                    if (vars[j].equals(vars[i])) {
-                        throw new SMTLIBException("Variables must all be distinct.");
-                    }
-                }
-            }
+		public Pattern(String constructor, String[] vars) {
+			for (int i = 0; i < vars.length; i++) {
+				for (int j = 0; j < i; j++) {
+					if (vars[j].equals(vars[i])) {
+						throw new SMTLIBException("Variables must all be distinct.");
+					}
+				}
+			}
 
-            DataType dataType = (DataType) mMatchSort.getSortSymbol();
-            mConstructor = dataType.findConstructor(constructor);
-            if (mConstructor == null) {
-                throw new SMTLIBException("Constructor not found.");
-            }
-            mSorts = mConstructor.getArgumentSorts();
-            mVars = new TermVariable[vars.length];
-            if (mSorts.length != mVars.length) {
-                throw new SMTLIBException("Number of constructor arguments does not match.");
-            }
+			DataType dataType = (DataType) mMatchSort.getSortSymbol();
+			mConstructor = dataType.findConstructor(constructor);
+			if (mConstructor == null) {
+				throw new SMTLIBException("Constructor not found.");
+			}
+			mSorts = mConstructor.getArgumentSorts();
+			mVars = new TermVariable[vars.length];
+			if (mSorts.length != mVars.length) {
+				throw new SMTLIBException("Number of constructor arguments does not match.");
+			}
 
-            for (int i = 0; i < vars.length; i++) {
-                Sort sort = mSorts[i].mapSort(mMatchSort.getArguments());
-                mVars[i] = createTermVariable(vars[i], sort);
-            }
-        }
+			for (int i = 0; i < vars.length; i++) {
+				Sort sort = mSorts[i].mapSort(mMatchSort.getArguments());
+				mVars[i] = createTermVariable(vars[i], sort);
+			}
+		}
 
-        public Pattern(String constructor) {
-            mConstructor = ((DataType) mMatchSort.getSortSymbol()).findConstructor(constructor);
-            if (mConstructor == null) {
-                mVars = new TermVariable[1];
-                mVars[0] = createTermVariable(constructor, mMatchSort);
-            } else {
-                mVars = new TermVariable[0];
-                if (mConstructor.getArgumentSorts().length != 0) {
-                    throw new SMTLIBException("Number of constructor arguments does not match.");
-                }
-            }
-        }
+		public Pattern(String constructor) {
+			mConstructor = ((DataType) mMatchSort.getSortSymbol()).findConstructor(constructor);
+			if (mConstructor == null) {
+				mVars = new TermVariable[1];
+				mVars[0] = createTermVariable(constructor, mMatchSort);
+			} else {
+				mVars = new TermVariable[0];
+				if (mConstructor.getArgumentSorts().length != 0) {
+					throw new SMTLIBException("Number of constructor arguments does not match.");
+				}
+			}
+		}
 
-        public TermVariable[] getVars() {
-            return mVars;
-        }
+		public TermVariable[] getVars() {
+			return mVars;
+		}
 
-        public DataType.Constructor getConstructor() {
-            return mConstructor;
-        }
+		public DataType.Constructor getConstructor() {
+			return mConstructor;
+		}
 
-        public String toString() {
-            if (mConstructor == null) {
-                return mVars[0].toString();
-            } else {
-                StringBuilder sb = new StringBuilder();
-                sb.append('('). append(mConstructor.getName());
-                for (TermVariable tv : mVars) {
-                    sb.append(' ').append(tv);
-                }
-                sb.append(')');
-                return sb.toString();
-            }
-        }
-    }
+		public String toString() {
+			if (mConstructor == null) {
+				return mVars[0].toString();
+			} else {
+				StringBuilder sb = new StringBuilder();
+				sb.append('('). append(mConstructor.getName());
+				for (TermVariable tv : mVars) {
+					sb.append(' ').append(tv);
+				}
+				sb.append(')');
+				return sb.toString();
+			}
+		}
+	}
 
-    static class MatchCase {
-        Pattern mPattern;
-        Term mCase;
+	static class MatchCase {
+		Pattern mPattern;
+		Term mCase;
 
-        public MatchCase(Pattern pattern, Term caseTerm) {
-            mPattern = pattern;
-            mCase = caseTerm;
-        }
+		public MatchCase(Pattern pattern, Term caseTerm) {
+			mPattern = pattern;
+			mCase = caseTerm;
+		}
 
-        public Pattern getPattern() {
-            return mPattern;
-        }
+		public Pattern getPattern() {
+			return mPattern;
+		}
 
-        public Term getCase() {
-            return mCase;
-        }
+		public Term getCase() {
+			return mCase;
+		}
 
-        public String toString() {
-            return "(" + mPattern + " " + mCase + ")";
-        }
-    }
+		public String toString() {
+			return "(" + mPattern + " " + mCase + ")";
+		}
+	}
 
-    Term createMatchTerm (Symbol sym, Term dataArg, MatchCase[] matchCases) {
-        /* first check if some argument is null.  In this case we already reported an error and should return null. */
-        if (mMatchSort == null) {
-            return null;
-        }
-        for (MatchCase matchCase : matchCases) {
-            if (matchCase == null) {
-                return null;
-            }
-        }
-        DataType matchDatatype = (DataType) mMatchSort.getSortSymbol();
-        if (!checkPatterns(matchDatatype, matchCases)) {
-            parser.report_error("Either match term contains a pattern consisting of a variable or all constructors must occur in one of the patterns.", sym);
-            return null;
-        }
-        TermVariable[][] vars = new TermVariable[matchCases.length][];
-        Term[] cases = new Term[matchCases.length];
-        DataType.Constructor[] constructors = new DataType.Constructor[matchCases.length];
-        for (int i = 0; i < matchCases.length; i++) {
-            vars[i] = matchCases[i].getPattern().getVars();
-            cases[i] = matchCases[i].getCase();
-            constructors[i] = matchCases[i].getPattern().getConstructor();
-        }
-        return parser.getScript().match(dataArg, vars, cases, constructors);
-    }
+	Term createMatchTerm (Symbol sym, Term dataArg, MatchCase[] matchCases) {
+		/* first check if some argument is null.  In this case we already reported an error and should return null. */
+		if (mMatchSort == null) {
+			return null;
+		}
+		for (MatchCase matchCase : matchCases) {
+			if (matchCase == null) {
+				return null;
+			}
+		}
+		DataType matchDatatype = (DataType) mMatchSort.getSortSymbol();
+		if (!checkPatterns(matchDatatype, matchCases)) {
+			parser.report_error("Either match term contains a pattern consisting of a variable or all constructors must occur in one of the patterns.", sym);
+			return null;
+		}
+		TermVariable[][] vars = new TermVariable[matchCases.length][];
+		Term[] cases = new Term[matchCases.length];
+		DataType.Constructor[] constructors = new DataType.Constructor[matchCases.length];
+		for (int i = 0; i < matchCases.length; i++) {
+			vars[i] = matchCases[i].getPattern().getVars();
+			cases[i] = matchCases[i].getCase();
+			constructors[i] = matchCases[i].getPattern().getConstructor();
+		}
+		return parser.getScript().match(dataArg, vars, cases, constructors);
+	}
 
-    // Function to check that either match term contains a pattern consisting of a variable
-    // or all constructors must occur in one of the patterns.
-    public boolean checkPatterns(DataType matchDatatype, MatchCase[] matchCases) {
-        for (int i = 0; i < matchCases.length; i++) {
-            if (matchCases[i].getPattern().getConstructor() == null) {
-                return true;
-            }
-        }
-        DataType.Constructor[] allConstrs = matchDatatype.getConstructors();
-        for (int i = 0; i < allConstrs.length; i++) {
-            boolean constrFound = false;
-            for (int j = 0; j < matchCases.length; j++) {
-                if (matchCases[j].getPattern().getConstructor().getName().equals(allConstrs[i].getName())) {
-                    constrFound = true;
-                }
-            }
-            if (!constrFound) {
-                return false;
-            }
-        }
-        return true;
-    }
+	// Function to check that either match term contains a pattern consisting of a variable
+	// or all constructors must occur in one of the patterns.
+	public boolean checkPatterns(DataType matchDatatype, MatchCase[] matchCases) {
+		for (int i = 0; i < matchCases.length; i++) {
+			if (matchCases[i].getPattern().getConstructor() == null) {
+				return true;
+			}
+		}
+		DataType.Constructor[] allConstrs = matchDatatype.getConstructors();
+		for (int i = 0; i < allConstrs.length; i++) {
+			boolean constrFound = false;
+			for (int j = 0; j < matchCases.length; j++) {
+				if (matchCases[j].getPattern().getConstructor().getName().equals(allConstrs[i].getName())) {
+					constrFound = true;
+				}
+			}
+			if (!constrFound) {
+				return false;
+			}
+		}
+		return true;
+	}
 
-    String errorMessage;
-    public void setError(String message) {
-        if (errorMessage == null)
-            errorMessage = message;
-    }
-    public boolean hasError() {
-        return errorMessage != null;
-    }
-    public String getError() {
-        String result = errorMessage;
-        errorMessage = null;
-        return result;
-    }
+	String errorMessage;
+	public void setError(String message) {
+		if (errorMessage == null)
+			errorMessage = message;
+	}
+	public boolean hasError() {
+		return errorMessage != null;
+	}
+	public String getError() {
+		String result = errorMessage;
+		errorMessage = null;
+		return result;
+	}
 
-    private Sort[] getSortParams() {
-        return mSortParams;
-    }
+	private Sort[] getSortParams() {
+		return mSortParams;
+	}
 
-    private void pushSortParams(String[] sortVars) {
-        assert mSortParams == null;
-        mSortParams = parser.getScript().sortVariables(sortVars);
-    }
+	private void pushSortParams(String[] sortVars) {
+		assert mSortParams == null;
+		mSortParams = parser.getScript().sortVariables(sortVars);
+	}
 
-    private void popSortParams() {
-        assert mSortParams != null;
-        mSortParams = null;
-    }
+	private void popSortParams() {
+		assert mSortParams != null;
+		mSortParams = null;
+	}
 
-    public Sort lookupSort(Symbol sym, IndexedIdentifier id, Sort[] args) {
-        for (Sort s: args) {
-            if (s == null) return null;
-        }
-        String name = id.getName();
-        if (args.length == 0 && id.getIndices() == null && mSortParams != null) {
-            for (Sort s: mSortParams) {
-                if (s.getName().equals(name))
-                    return s;
-            }
-        }
-        try {
-            return parser.getScript().sort(name, id.getIndices(), args);
-        } catch (SMTLIBException se) {
-            parser.report_error("Undeclared sort ("+id+" "+args.length+")", sym);
-        }
-        return null;
-    }
+	public Sort lookupSort(Symbol sym, IndexedIdentifier id, Sort[] args) {
+		for (Sort s: args) {
+			if (s == null) return null;
+		}
+		String name = id.getName();
+		if (args.length == 0 && id.getIndices() == null && mSortParams != null) {
+			for (Sort s: mSortParams) {
+				if (s.getName().equals(name))
+					return s;
+			}
+		}
+		try {
+			return parser.getScript().sort(name, id.getIndices(), args);
+		} catch (SMTLIBException se) {
+			parser.report_error("Undeclared sort ("+id+" "+args.length+")", sym);
+		}
+		return null;
+	}
 
-    public Term createTerm(Symbol fsym, String name, String[] indices, Sort resultSort, Term[] param) {
-        // check if there was an error when creating the child term.
-        for (Term p : param) {
-            if (p == null)
-                return null;
-        }
-        try {
-            return parser.getScript().term(name, indices, resultSort, param);
-        } catch (SMTLIBException se) {
-            parser.report_error(se.getMessage(), fsym);
-        }
-        return null;
-    }
+	public Term createTerm(Symbol fsym, String name, String[] indices, Sort resultSort, Term[] param) {
+		// check if there was an error when creating the child term.
+		for (Term p : param) {
+			if (p == null)
+				return null;
+		}
+		try {
+			return parser.getScript().term(name, indices, resultSort, param);
+		} catch (SMTLIBException se) {
+			parser.report_error(se.getMessage(), fsym);
+		}
+		return null;
+	}
 
-    public TermVariable createTermVariable(String name, Sort sort) {
-        if (sort == null)
-            return null;
-        try {
-            TermVariable tv = parser.getScript().variable(name, sort);
-            localVars.put(tv.getName(), tv);
-            return tv;
-        } catch (SMTLIBException cannotHappen) {}
-        // Actually unreachable
-        throw new AssertionError();
-    }
+	public TermVariable createTermVariable(String name, Sort sort) {
+		if (sort == null)
+			return null;
+		try {
+			TermVariable tv = parser.getScript().variable(name, sort);
+			localVars.put(tv.getName(), tv);
+			return tv;
+		} catch (SMTLIBException cannotHappen) {}
+		// Actually unreachable
+		throw new AssertionError();
+	}
 
-    private Term getTermVariable(String name) {
-        return localVars.get(name);
-    }
+	private Term getTermVariable(String name) {
+		return localVars.get(name);
+	}
 
-    public Term annotateTerm(Term term, Annotation[] annots) {
-        if (term == null)
-            return null;
-        try {
-            return parser.getScript().annotate(term, annots);
-        } catch (SMTLIBException se) {
-            parser.report_error(se.getMessage());
-        }
-        return null;
-    }
+	public Term annotateTerm(Term term, Annotation[] annots) {
+		if (term == null)
+			return null;
+		try {
+			return parser.getScript().annotate(term, annots);
+		} catch (SMTLIBException se) {
+			parser.report_error(se.getMessage());
+		}
+		return null;
+	}
 
-    public void beginFunction(String funcName, Sort[] paramSorts, Sort resultSort) {
-        parser.getScript().push(1);
-        parser.getScript().getTheory().declareInternalFunction(funcName, paramSorts, resultSort, 0);
-    }
+	public void beginFunction(String funcName, Sort[] paramSorts, Sort resultSort) {
+		parser.getScript().push(1);
+		parser.getScript().getTheory().declareInternalFunction(funcName, paramSorts, resultSort, 0);
+	}
 
-    public Term defineFun(String funcName, TermVariable[] vars, Term definition, Term subProof) {
-        Theory theory = parser.getScript().getTheory();
-        FunctionSymbol funcSym = theory.getFunctionSymbol(funcName);
-        parser.getScript().pop(1);
-        return parser.getProofRules().defineFun(funcSym, theory.lambda(vars, definition), subProof);
-    }
+	public Term defineFun(String funcName, TermVariable[] vars, Term definition, Term subProof) {
+		Theory theory = parser.getScript().getTheory();
+		FunctionSymbol funcSym = theory.getFunctionSymbol(funcName);
+		parser.getScript().pop(1);
+		return parser.getProofRules().defineFun(funcSym, theory.lambda(vars, definition), subProof);
+	}
 
-    public Term declareFun(String funcName, Sort[] paramSorts, Sort resultSort, Term subProof) {
-        Theory theory = parser.getScript().getTheory();
-        FunctionSymbol funcSym = theory.getFunctionSymbol(funcName);
-        parser.getScript().pop(1);
-        return parser.getProofRules().declareFun(funcSym, subProof);
-    }
+	public Term declareFun(String funcName, Sort[] paramSorts, Sort resultSort, Term subProof) {
+		Theory theory = parser.getScript().getTheory();
+		FunctionSymbol funcSym = theory.getFunctionSymbol(funcName);
+		parser.getScript().pop(1);
+		return parser.getProofRules().declareFun(funcSym, subProof);
+	}
 :}
 
 /*init with {: getScanner().init(); :} */
@@ -727,7 +727,8 @@ proof ::= LPAR axiom:ax RPAR {: RESULT = ax; :}
           {: beginFunction(fun, param, result); :}
              proof:subproof RPAR
           {: RESULT = declareFun(fun, param, result, subproof); :}
-        | LPAR ORACLE literal* attribute*:attribs RPAR;
+        | LPAR ORACLE literal*:lits attribute*:attribs RPAR
+          {: RESULT = parser.getProofRules().oracle(lits, attribs); :};
 
 symbol ::= SYMBOL
          | PLUS | MINUS

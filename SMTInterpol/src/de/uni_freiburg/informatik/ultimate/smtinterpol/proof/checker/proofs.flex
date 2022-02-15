@@ -30,7 +30,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
  */
 %%
 
-%class Lexer
+%class ProofLexer
 %public
 %unicode
 %implements com.github.jhoenicke.javacup.runtime.Scanner
@@ -100,115 +100,115 @@ Keyword = ":" {SMTLetterDigit}+
 %%
 
 <YYINITIAL>  {
-  "("                    { return symbol(LexerSymbols.LPAR); }
-  ")"                    { return symbol(LexerSymbols.RPAR); }
+  "("                    { return symbol(ProofSymbols.LPAR); }
+  ")"                    { return symbol(ProofSymbols.RPAR); }
 
-  "+"                    { return symbol(LexerSymbols.PLUS, yytext()); }
-  "-"                    { return symbol(LexerSymbols.MINUS, yytext()); }
+  "+"                    { return symbol(ProofSymbols.PLUS, yytext()); }
+  "-"                    { return symbol(ProofSymbols.MINUS, yytext()); }
 
   /* Predefined Symbols */
   /* Terms */
-  "_"                    { return symbol(LexerSymbols.UNDERSCORE, yytext()); }
-  "!"                    { return symbol(LexerSymbols.BANG, yytext()); }
-  "as"                   { return symbol(LexerSymbols.AS, yytext()); }
-  "choose"               { return symbol(LexerSymbols.CHOOSE, yytext()); }
-  "exists"               { return symbol(LexerSymbols.EXISTS, yytext()); }
-  "forall"               { return symbol(LexerSymbols.FORALL, yytext()); }
-  "let"                  { return symbol(LexerSymbols.LET, yytext()); }
-  "match"                { return symbol(LexerSymbols.MATCH, yytext()); }
+  "_"                    { return symbol(ProofSymbols.UNDERSCORE, yytext()); }
+  "!"                    { return symbol(ProofSymbols.BANG, yytext()); }
+  "as"                   { return symbol(ProofSymbols.AS, yytext()); }
+  "choose"               { return symbol(ProofSymbols.CHOOSE, yytext()); }
+  "exists"               { return symbol(ProofSymbols.EXISTS, yytext()); }
+  "forall"               { return symbol(ProofSymbols.FORALL, yytext()); }
+  "let"                  { return symbol(ProofSymbols.LET, yytext()); }
+  "match"                { return symbol(ProofSymbols.MATCH, yytext()); }
 
   /* proof rules */
-  "assume"               { return symbol(LexerSymbols.ASSUME, yytext()); }
-  "res"                  { return symbol(LexerSymbols.RES, yytext()); }
-  "let-proof"            { return symbol(LexerSymbols.LETPROOF, yytext()); }
-  "define-fun"           { return symbol(LexerSymbols.DEFINEFUN, yytext()); }
-  "declare-fun"          { return symbol(LexerSymbols.DECLAREFUN, yytext()); }
-  "oracle"               { return symbol(LexerSymbols.ORACLE, yytext()); }
-  "par"                  { return symbol(LexerSymbols.PAR, yytext()); }
+  "assume"               { return symbol(ProofSymbols.ASSUME, yytext()); }
+  "res"                  { return symbol(ProofSymbols.RES, yytext()); }
+  "let-proof"            { return symbol(ProofSymbols.LETPROOF, yytext()); }
+  "define-fun"           { return symbol(ProofSymbols.DEFINEFUN, yytext()); }
+  "declare-fun"          { return symbol(ProofSymbols.DECLAREFUN, yytext()); }
+  "oracle"               { return symbol(ProofSymbols.ORACLE, yytext()); }
+  "par"                  { return symbol(ProofSymbols.PAR, yytext()); }
 
   /* axioms */
-  "false-"               { return symbol(LexerSymbols.FALSEE, yytext()); }
-  "true+"                { return symbol(LexerSymbols.TRUEI, yytext()); }
-  "not+"                 { return symbol(LexerSymbols.NOTI, yytext()); }
-  "not-"                 { return symbol(LexerSymbols.NOTE, yytext()); }
-  "or+"                  { return symbol(LexerSymbols.ORI, yytext()); }
-  "or-"                  { return symbol(LexerSymbols.ORE, yytext()); }
-  "and+"                 { return symbol(LexerSymbols.ANDI, yytext()); }
-  "and-"                 { return symbol(LexerSymbols.ANDE, yytext()); }
-  "=>+"                  { return symbol(LexerSymbols.IMPI, yytext()); }
-  "=>-"                  { return symbol(LexerSymbols.IMPE, yytext()); }
-  "=+1"                  { return symbol(LexerSymbols.IFFI1, yytext()); }
-  "=+2"                  { return symbol(LexerSymbols.IFFI2, yytext()); }
-  "=-1"                  { return symbol(LexerSymbols.IFFE1, yytext()); }
-  "=-2"                  { return symbol(LexerSymbols.IFFE2, yytext()); }
-  "xor+"                 { return symbol(LexerSymbols.XORI, yytext()); }
-  "xor-"                 { return symbol(LexerSymbols.XORE, yytext()); }
-  "forall+"              { return symbol(LexerSymbols.FORALLI, yytext()); }
-  "forall-"              { return symbol(LexerSymbols.FORALLE, yytext()); }
-  "exists+"              { return symbol(LexerSymbols.EXISTSI, yytext()); }
-  "exists-"              { return symbol(LexerSymbols.EXISTSE, yytext()); }
+  "false-"               { return symbol(ProofSymbols.FALSEE, yytext()); }
+  "true+"                { return symbol(ProofSymbols.TRUEI, yytext()); }
+  "not+"                 { return symbol(ProofSymbols.NOTI, yytext()); }
+  "not-"                 { return symbol(ProofSymbols.NOTE, yytext()); }
+  "or+"                  { return symbol(ProofSymbols.ORI, yytext()); }
+  "or-"                  { return symbol(ProofSymbols.ORE, yytext()); }
+  "and+"                 { return symbol(ProofSymbols.ANDI, yytext()); }
+  "and-"                 { return symbol(ProofSymbols.ANDE, yytext()); }
+  "=>+"                  { return symbol(ProofSymbols.IMPI, yytext()); }
+  "=>-"                  { return symbol(ProofSymbols.IMPE, yytext()); }
+  "=+1"                  { return symbol(ProofSymbols.IFFI1, yytext()); }
+  "=+2"                  { return symbol(ProofSymbols.IFFI2, yytext()); }
+  "=-1"                  { return symbol(ProofSymbols.IFFE1, yytext()); }
+  "=-2"                  { return symbol(ProofSymbols.IFFE2, yytext()); }
+  "xor+"                 { return symbol(ProofSymbols.XORI, yytext()); }
+  "xor-"                 { return symbol(ProofSymbols.XORE, yytext()); }
+  "forall+"              { return symbol(ProofSymbols.FORALLI, yytext()); }
+  "forall-"              { return symbol(ProofSymbols.FORALLE, yytext()); }
+  "exists+"              { return symbol(ProofSymbols.EXISTSI, yytext()); }
+  "exists-"              { return symbol(ProofSymbols.EXISTSE, yytext()); }
 
-  "=+"                   { return symbol(LexerSymbols.EQI, yytext()); }
-  "=-"                   { return symbol(LexerSymbols.EQE, yytext()); }
-  "distinct+"            { return symbol(LexerSymbols.DISTINCTI, yytext()); }
-  "distinct-"            { return symbol(LexerSymbols.DISTINCTE, yytext()); }
-  "ite1"                 { return symbol(LexerSymbols.ITE1, yytext()); }
-  "ite2"                 { return symbol(LexerSymbols.ITE2, yytext()); }
-  "refl"                 { return symbol(LexerSymbols.REFL, yytext()); }
-  "symm"                 { return symbol(LexerSymbols.SYMM, yytext()); }
-  "trans"                { return symbol(LexerSymbols.TRANS, yytext()); }
-  "cong"                 { return symbol(LexerSymbols.CONG, yytext()); }
-  "expand"               { return symbol(LexerSymbols.EXPAND, yytext()); }
-  "del!"                 { return symbol(LexerSymbols.DELANNOT, yytext()); }
+  "=+"                   { return symbol(ProofSymbols.EQI, yytext()); }
+  "=-"                   { return symbol(ProofSymbols.EQE, yytext()); }
+  "distinct+"            { return symbol(ProofSymbols.DISTINCTI, yytext()); }
+  "distinct-"            { return symbol(ProofSymbols.DISTINCTE, yytext()); }
+  "ite1"                 { return symbol(ProofSymbols.ITE1, yytext()); }
+  "ite2"                 { return symbol(ProofSymbols.ITE2, yytext()); }
+  "refl"                 { return symbol(ProofSymbols.REFL, yytext()); }
+  "symm"                 { return symbol(ProofSymbols.SYMM, yytext()); }
+  "trans"                { return symbol(ProofSymbols.TRANS, yytext()); }
+  "cong"                 { return symbol(ProofSymbols.CONG, yytext()); }
+  "expand"               { return symbol(ProofSymbols.EXPAND, yytext()); }
+  "del!"                 { return symbol(ProofSymbols.DELANNOT, yytext()); }
 
   /* Arithmetic */
-  "divisible-def"        { return symbol(LexerSymbols.DIVISIBLEDEF, yytext()); }
-  ">def"                 { return symbol(LexerSymbols.GTDEF, yytext()); }
-  ">=def"                { return symbol(LexerSymbols.GEQDEF, yytext()); }
-  "trichotomy"           { return symbol(LexerSymbols.TRICHOTOMY, yytext()); }
-  "total"                { return symbol(LexerSymbols.TOTAL, yytext()); }
-  "total-int"            { return symbol(LexerSymbols.TOTALINT, yytext()); }
-  "farkas"               { return symbol(LexerSymbols.FARKAS, yytext()); }
-  "to_int-high"          { return symbol(LexerSymbols.TOINTHIGH, yytext()); }
-  "to_int-low"           { return symbol(LexerSymbols.TOINTLOW, yytext()); }
-  "-def"                 { return symbol(LexerSymbols.MINUSDEF, yytext()); }
-  "/def"                 { return symbol(LexerSymbols.DIVIDEDEF, yytext()); }
-  "poly+"                { return symbol(LexerSymbols.POLYADD, yytext()); }
-  "poly*"                { return symbol(LexerSymbols.POLYMUL, yytext()); }
-  "to_real-def"          { return symbol(LexerSymbols.TOREALDEF, yytext()); }
-  "div-low"              { return symbol(LexerSymbols.DIVLOW, yytext()); }
-  "div-high"             { return symbol(LexerSymbols.DIVHIGH, yytext()); }
-  "mod-def"              { return symbol(LexerSymbols.MODDEF, yytext()); }
+  "divisible-def"        { return symbol(ProofSymbols.DIVISIBLEDEF, yytext()); }
+  ">def"                 { return symbol(ProofSymbols.GTDEF, yytext()); }
+  ">=def"                { return symbol(ProofSymbols.GEQDEF, yytext()); }
+  "trichotomy"           { return symbol(ProofSymbols.TRICHOTOMY, yytext()); }
+  "total"                { return symbol(ProofSymbols.TOTAL, yytext()); }
+  "total-int"            { return symbol(ProofSymbols.TOTALINT, yytext()); }
+  "farkas"               { return symbol(ProofSymbols.FARKAS, yytext()); }
+  "to_int-high"          { return symbol(ProofSymbols.TOINTHIGH, yytext()); }
+  "to_int-low"           { return symbol(ProofSymbols.TOINTLOW, yytext()); }
+  "-def"                 { return symbol(ProofSymbols.MINUSDEF, yytext()); }
+  "/def"                 { return symbol(ProofSymbols.DIVIDEDEF, yytext()); }
+  "poly+"                { return symbol(ProofSymbols.POLYADD, yytext()); }
+  "poly*"                { return symbol(ProofSymbols.POLYMUL, yytext()); }
+  "to_real-def"          { return symbol(ProofSymbols.TOREALDEF, yytext()); }
+  "div-low"              { return symbol(ProofSymbols.DIVLOW, yytext()); }
+  "div-high"             { return symbol(ProofSymbols.DIVHIGH, yytext()); }
+  "mod-def"              { return symbol(ProofSymbols.MODDEF, yytext()); }
 
   /* arrays */
-  "selectstore1"         { return symbol(LexerSymbols.SELECTSTORE1, yytext()); }
-  "selectstore2"         { return symbol(LexerSymbols.SELECTSTORE2, yytext()); }
-  "extdiff"              { return symbol(LexerSymbols.EXTDIFF, yytext()); }
-  "const"                { return symbol(LexerSymbols.CONST, yytext()); }
+  "selectstore1"         { return symbol(ProofSymbols.SELECTSTORE1, yytext()); }
+  "selectstore2"         { return symbol(ProofSymbols.SELECTSTORE2, yytext()); }
+  "extdiff"              { return symbol(ProofSymbols.EXTDIFF, yytext()); }
+  "const"                { return symbol(ProofSymbols.CONST, yytext()); }
 
   /* datatypes */
-  "dt-project"           { return symbol(LexerSymbols.DT_PROJECT, yytext()); }
-  "dt-cons"              { return symbol(LexerSymbols.DT_CONS, yytext()); }
-  "dt-test+"             { return symbol(LexerSymbols.DT_TESTI, yytext()); }
-  "dt-test-"             { return symbol(LexerSymbols.DT_TESTE, yytext()); }
-  "dt-exhaust"           { return symbol(LexerSymbols.DT_EXHAUST, yytext()); }
-  "dt-acyclic"           { return symbol(LexerSymbols.DT_ACYCLIC, yytext()); }
-  "dt-match"             { return symbol(LexerSymbols.DT_MATCH, yytext()); }
+  "dt-project"           { return symbol(ProofSymbols.DT_PROJECT, yytext()); }
+  "dt-cons"              { return symbol(ProofSymbols.DT_CONS, yytext()); }
+  "dt-test+"             { return symbol(ProofSymbols.DT_TESTI, yytext()); }
+  "dt-test-"             { return symbol(ProofSymbols.DT_TESTE, yytext()); }
+  "dt-exhaust"           { return symbol(ProofSymbols.DT_EXHAUST, yytext()); }
+  "dt-acyclic"           { return symbol(ProofSymbols.DT_ACYCLIC, yytext()); }
+  "dt-match"             { return symbol(ProofSymbols.DT_MATCH, yytext()); }
 
   /* Predefined Keywords */
-  ":named"               { return symbol(LexerSymbols.CNAMED, yytext()); }
-  ":pattern"             { return symbol(LexerSymbols.CPATTERN, yytext()); }
+  ":named"               { return symbol(ProofSymbols.CNAMED, yytext()); }
+  ":pattern"             { return symbol(ProofSymbols.CPATTERN, yytext()); }
 
   /* Other Symbols and Keywords */
-  {QuotedSymbol}         { return symbol(LexerSymbols.SYMBOL, yytext().substring(1, yylength()-1)); }
-  {Symbol}               { return symbol(LexerSymbols.SYMBOL, yytext()); }
-  {Keyword}              { return symbol(LexerSymbols.KEYWORD, yytext()); }
+  {QuotedSymbol}         { return symbol(ProofSymbols.SYMBOL, yytext().substring(1, yylength()-1)); }
+  {Symbol}               { return symbol(ProofSymbols.SYMBOL, yytext()); }
+  {Keyword}              { return symbol(ProofSymbols.KEYWORD, yytext()); }
   
   /* Numbers and Strings */
-  {Numeral}              { return symbol(LexerSymbols.NUMERAL, convertNumeral(yytext())); }
-  {Decimal}              { return symbol(LexerSymbols.DECIMAL, new BigDecimal(yytext())); }
-  {HexaDecimal}          { return symbol(LexerSymbols.HEXADECIMAL, yytext()); }
-  {Binary}               { return symbol(LexerSymbols.BINARY, yytext()); }
+  {Numeral}              { return symbol(ProofSymbols.NUMERAL, convertNumeral(yytext())); }
+  {Decimal}              { return symbol(ProofSymbols.DECIMAL, new BigDecimal(yytext())); }
+  {HexaDecimal}          { return symbol(ProofSymbols.HEXADECIMAL, yytext()); }
+  {Binary}               { return symbol(ProofSymbols.BINARY, yytext()); }
   \"                     { string = new StringBuilder(); yybegin(STRING25); }
 
  
@@ -225,11 +225,11 @@ Keyword = ":" {SMTLetterDigit}+
   \"                             { String value = string.toString();
                                    string = null;
                                    yybegin(YYINITIAL);
-                                   return symbol(LexerSymbols.STRING, value); }
+                                   return symbol(ProofSymbols.STRING, value); }
 }
 
 
 /* error fallback */
-.|\n                             { return symbol(LexerSymbols.error, yytext()); }
+.|\n                             { return symbol(ProofSymbols.error, yytext()); }
 
-<<EOF>>                          { return symbol(LexerSymbols.EOF); }
+<<EOF>>                          { return symbol(ProofSymbols.EOF); }
