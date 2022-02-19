@@ -35,15 +35,18 @@ option symbols = ProofSymbols;
 option java15, compact_red, newpositions;
 
 parser code {:
-	String filename;
-	ParseEnvironment env;
+	String mFilename;
+	Script mScript;
+	ProofRules mProofRules;
 
 	public static final Sort[] EMPTY_SORT_ARRAY = {};
 
 	public Script getScript() {
+		return mScript;
 	}
 
 	public ProofRules getProofRules() {
+		return mProofRules;
 	}
 
 	public void report_error(String s, Object sym) {
@@ -52,12 +55,12 @@ parser code {:
 			SimpleSymbolFactory.LineColumnSymbol bsym = (SimpleSymbolFactory.LineColumnSymbol) sym;
 			location = bsym.getLocation();
 		} else if ((sym instanceof Symbol)
-				   && ((Symbol)sym).sym == LexerSymbols.EOF) {
+				   && ((Symbol)sym).sym == ProofSymbols.EOF) {
 			location = "EOF";
 		} else
 			location = "UNKNOWN";
 
-		action_obj.setError(filename+":"+location+": "+s);
+		action_obj.setError(mFilename+":"+location+": "+s);
 	}
 
 	public void report_error(String s) {
@@ -66,15 +69,15 @@ parser code {:
 
 	public void syntax_error(Symbol sym) {
 		report_error("Syntax Error", sym);
-		env.printError(action_obj.getError());
 	}
 
 	public void setFileName(String filename) {
-		this.filename = filename;
+		mFilename = filename;
 	}
 
-	public void setParseEnvironment(ParseEnvironment env) {
-		this.env = env;
+	public void setScript(Script script) {
+		mScript = script;
+		mProofRules = new ProofRules(script.getTheory());
 	}
 :}
 
