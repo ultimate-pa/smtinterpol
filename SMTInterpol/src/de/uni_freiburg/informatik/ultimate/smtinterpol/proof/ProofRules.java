@@ -30,7 +30,6 @@ import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -39,6 +38,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 
 public class ProofRules {
 	// the function symbols
@@ -148,6 +148,14 @@ public class ProofRules {
 
 		if (mTheory.getDeclaredSorts().containsKey(PREFIX + PROOF)) {
 			return;
+		}
+
+		// In case SMTInterpol is not running
+		if (!mTheory.getFunctionFactories().containsKey(SMTInterpolConstants.DIFF)) {
+			final Sort[] vars = mTheory.createSortVariables("Index", "Elem");
+			final Sort array = mTheory.getSort("Array", vars);
+			mTheory.declareInternalPolymorphicFunction(SMTInterpolConstants.DIFF, vars, new Sort[] { array, array },
+					vars[0], FunctionSymbol.UNINTERPRETEDINTERNAL);
 		}
 
 		mTheory.declareInternalSort(PREFIX + PROOF, 0, 0);
@@ -665,7 +673,7 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + DT_ACYCLIC, new Object[] { consTerm, positions }), mAxiom);
 	}
 
-	public Term dtMatch(final MatchTerm matchTerm) {
+	public Term dtMatch(final Term matchTerm) {
 		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, new Term[] { matchTerm }), mAxiom);
 	}
 
@@ -888,9 +896,8 @@ public class ProofRules {
 					return;
 				} else if (annots.length == 1 && annots[0].getKey() == ANNOT_DECLARE_FUN) {
 					final Object[] annotVal = (Object[]) annots[0].getValue();
-					assert annotVal.length == 2;
+					assert annotVal.length == 1;
 					final FunctionSymbol func = (FunctionSymbol) annotVal[0];
-					final LambdaTerm definition = (LambdaTerm) annotVal[1];
 					mTodo.add(")");
 					mTodo.add(annotTerm.getSubterm());
 					mTodo.add(" ");
@@ -1158,7 +1165,7 @@ public class ProofRules {
 						assert annots.length == 1;
 						mTodo.add(")");
 						if (c.signum() < 0) {
-							mTodo.add("(- " + c.toString() + ")");
+							mTodo.add("(- " + c.abs().toString() + ")");
 						} else {
 							mTodo.add(c);
 						}
@@ -1206,7 +1213,7 @@ public class ProofRules {
 						}
 						mTodo.add(" (" + positions[0]);
 						mTodo.add(params[0]);
-						mTodo.add("(" + DT_TESTE + " ");
+						mTodo.add("(" + DT_ACYCLIC + " ");
 						return;
 					}
 					}

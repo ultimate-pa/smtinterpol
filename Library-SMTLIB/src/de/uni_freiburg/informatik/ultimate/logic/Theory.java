@@ -1523,6 +1523,10 @@ public class Theory {
 		return mDeclaredSorts;
 	}
 
+	public Map<String, FunctionSymbolFactory> getFunctionFactories() {
+		return mFunFactory;
+	}
+
 	private FunctionSymbol getModelValueSymbol(final String name, final Sort sort) {
 		final int hash = HashUtils.hashJenkins(name.hashCode(), sort);
 		for (final FunctionSymbol symb : mModelValueCache.iterateHashCode(hash)) {
