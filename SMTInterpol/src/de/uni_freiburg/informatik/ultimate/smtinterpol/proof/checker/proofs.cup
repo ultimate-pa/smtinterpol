@@ -28,7 +28,6 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import com.github.jhoenicke.javacup.runtime.Symbol;
 import com.github.jhoenicke.javacup.runtime.SimpleSymbolFactory;
-import java.util.Map;
 
 parser ProofParser;
 option symbols = ProofSymbols;
@@ -69,6 +68,7 @@ parser code {:
 
 	public void syntax_error(Symbol sym) {
 		report_error("Syntax Error", sym);
+		System.err.println(action_obj.getError());
 	}
 
 	public void setFileName(String filename) {
@@ -281,6 +281,21 @@ action code {:
 		}
 	}
 
+	static class CoeffTerm {
+		BigInteger mCoeff;
+		Term mTerm;
+		public CoeffTerm(BigInteger coeff, Term term) {
+			mCoeff = coeff;
+			mTerm = term;
+		}
+		BigInteger getCoeff() {
+			return mCoeff;
+		}
+		Term getTerm() {
+			return mTerm;
+		}
+	}
+
 	Term createMatchTerm (Symbol sym, Term dataArg, MatchCase[] matchCases) {
 		/* first check if some argument is null.  In this case we already reported an error and should return null. */
 		if (mMatchSort == null) {
@@ -342,20 +357,6 @@ action code {:
 		String result = errorMessage;
 		errorMessage = null;
 		return result;
-	}
-
-	private Sort[] getSortParams() {
-		return mSortParams;
-	}
-
-	private void pushSortParams(String[] sortVars) {
-		assert mSortParams == null;
-		mSortParams = parser.getScript().sortVariables(sortVars);
-	}
-
-	private void popSortParams() {
-		assert mSortParams != null;
-		mSortParams = null;
 	}
 
 	public Sort lookupSort(Symbol sym, IndexedIdentifier id, Sort[] args) {
@@ -436,6 +437,22 @@ action code {:
 		parser.getScript().pop(1);
 		return parser.getProofRules().declareFun(funcSym, subProof);
 	}
+
+	public FunctionSymbol checkCongFunction(final QualIdentifier fun1, final Term[] args1, final QualIdentifier fun2, final Term[] args2) {
+		if (!fun1.toString().equals(fun2.toString()) || args1.length != args2.length) {
+			parser.report_error("congruence needs same function symbol");
+			return null;
+		}
+		final Sort[] paramSorts = new Sort[args1.length];
+		for (int i = 0; i < args1.length; i++) {
+			paramSorts[i] = args1[i].getSort();
+			if (paramSorts[i] != args2[i].getSort()) {
+				parser.report_error("congruence doesn't type check");
+				return null;
+			}
+		}
+		return parser.getScript().getTheory().getFunctionWithResult(fun1.getIdentifier(), fun1.getIndices(), fun1.getSort(), paramSorts);
+	}
 :}
 
 /*init with {: getScanner().init(); :} */
@@ -464,7 +481,8 @@ terminal BigDecimal DECIMAL;
 terminal String HEXADECIMAL, BINARY, STRING;
 terminal LPAR, RPAR;
 
-non terminal String keyword, symbol, allsymbol;
+non terminal BigInteger integer;
+non terminal String keyword, symbol, symbol_not_axiom, allsymbol;
 non terminal String keywordAttr;
 non terminal String keywordNoAttr;
 non terminal String index;
@@ -472,6 +490,7 @@ non terminal IndexedIdentifier identifier, identifierIndexed;
 non terminal Object specConstant;
 non terminal Object sExpr;
 non terminal QuotedObject string;
+non terminal CoeffTerm coeffTerm;
 
 non terminal Sort sort;
 non terminal Object attributeValue;
@@ -673,16 +692,155 @@ varBindingProof ::= LPAR symbol:sym proof:t RPAR
             }
           :};
 
+coeffTerm ::= NUMERAL:coeff term:t {: RESULT = new CoeffTerm(coeff, t); :};
+integer ::= NUMERAL:n
+          | LPAR MINUS NUMERAL:n RPAR {: RESULT = n.negate(); :};
+
 axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
         | TRUEI {: RESULT = parser.getProofRules().trueIntro(); :}
-        | NOTI term:t {: RESULT = parser.getProofRules().notIntro(t); :}
-        | NOTE term:t {: RESULT = parser.getProofRules().notElim(t); :}
-        | ORI NUMERAL:n term*:t {: RESULT = parser.getProofRules().orIntro(n.intValue(), parser.getScript().term(SMTLIBConstants.OR, t)); :}
-        | ORE term*:t {: RESULT = parser.getProofRules().orElim(parser.getScript().term(SMTLIBConstants.OR, t)); :}
-        | IMPI NUMERAL:n term*:t {: RESULT = parser.getProofRules().impIntro(n.intValue(), parser.getScript().term(SMTLIBConstants.IMPLIES, t)); :}
-        | IMPE term*:t {: RESULT = parser.getProofRules().impElim(parser.getScript().term(SMTLIBConstants.IMPLIES, t)); :}
-        | ANDI term*:t {: RESULT = parser.getProofRules().andIntro(parser.getScript().term(SMTLIBConstants.AND, t)); :}
-        | ANDE NUMERAL:n term*:t {: RESULT = parser.getProofRules().andElim(n.intValue(), parser.getScript().term(SMTLIBConstants.AND, t)); :};
+        | LPAR NOTI term:t RPAR {: RESULT = parser.getProofRules().notIntro(parser.getScript().term(SMTLIBConstants.NOT, t)); :}
+        | LPAR NOTE term:t RPAR {: RESULT = parser.getProofRules().notElim(parser.getScript().term(SMTLIBConstants.NOT, t)); :}
+        | LPAR ORI NUMERAL:n term*:t RPAR {: RESULT = parser.getProofRules().orIntro(n.intValue(), parser.getScript().term(SMTLIBConstants.OR, t)); :}
+        | LPAR ORE term*:t RPAR {: RESULT = parser.getProofRules().orElim(parser.getScript().term(SMTLIBConstants.OR, t)); :}
+        | LPAR IMPI NUMERAL:n term*:t RPAR {: RESULT = parser.getProofRules().impIntro(n.intValue(), parser.getScript().term(SMTLIBConstants.IMPLIES, t)); :}
+        | LPAR IMPE term*:t RPAR {: RESULT = parser.getProofRules().impElim(parser.getScript().term(SMTLIBConstants.IMPLIES, t)); :}
+        | LPAR ANDI term*:t RPAR {: RESULT = parser.getProofRules().andIntro(parser.getScript().term(SMTLIBConstants.AND, t)); :}
+        | LPAR ANDE NUMERAL:n term*:t RPAR
+          {: RESULT = parser.getProofRules().andElim(n.intValue(), parser.getScript().term(SMTLIBConstants.AND, t)); :}
+        | LPAR IFFI1 term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().iffIntro1(parser.getScript().term(SMTLIBConstants.EQUALS, t1, t2)); :}
+        | LPAR IFFI2 term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().iffIntro2(parser.getScript().term(SMTLIBConstants.EQUALS, t1, t2)); :}
+        | LPAR IFFE1 term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().iffElim1(parser.getScript().term(SMTLIBConstants.EQUALS, t1, t2)); :}
+        | LPAR IFFE2 term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().iffElim2(parser.getScript().term(SMTLIBConstants.EQUALS, t1, t2)); :}
+        | LPAR XORI LPAR term*:ts1 RPAR LPAR term*:ts2 RPAR LPAR term*:ts3 RPAR RPAR
+          {: RESULT = parser.getProofRules().xorIntro(ts1, ts2, ts3); :}
+        | LPAR XORE LPAR term*:ts1 RPAR LPAR term*:ts2 RPAR LPAR term*:ts3 RPAR RPAR
+          {: RESULT = parser.getProofRules().xorElim(ts1, ts2, ts3); :}
+        | LPAR FORALLI {: localVars.beginScope(); :} LPAR sortedVar+:vars RPAR term:t RPAR
+          {: localVars.endScope();
+             RESULT = parser.getProofRules().forallIntro((QuantifiedFormula) parser.getScript().quantifier(Script.FORALL, vars, t)); :}
+        | LPAR FORALLE {: localVars.beginScope(); :} LPAR varBinding+:bindings RPAR term:t RPAR
+          {: TermVariable[] vars = new TermVariable[bindings.length];
+             Term[] terms = new Term[bindings.length];
+             for (int i = 0; i < bindings.length; i++) {
+                 if (bindings[i] != null) {
+                     vars[i] = bindings[i].getVar();
+                     terms[i] = bindings[i].getTerm();
+                 }
+             }
+             localVars.endScope();
+             RESULT = parser.getProofRules().forallElim(terms, (QuantifiedFormula) parser.getScript().quantifier(Script.FORALL, vars, t)); :}
+        | LPAR EXISTSI {: localVars.beginScope(); :} LPAR varBinding+:bindings RPAR term:t RPAR
+          {: TermVariable[] vars = new TermVariable[bindings.length];
+             Term[] terms = new Term[bindings.length];
+             for (int i = 0; i < bindings.length; i++) {
+                 if (bindings[i] != null) {
+                     vars[i] = bindings[i].getVar();
+                     terms[i] = bindings[i].getTerm();
+                 }
+             }
+             localVars.endScope();
+             RESULT = parser.getProofRules().existsIntro(terms, (QuantifiedFormula) parser.getScript().quantifier(Script.EXISTS, vars, t)); :}
+        | LPAR EXISTSE {: localVars.beginScope(); :} LPAR sortedVar+:vars RPAR term:t RPAR
+          {: localVars.endScope();
+             RESULT = parser.getProofRules().existsElim((QuantifiedFormula) parser.getScript().quantifier(Script.EXISTS, vars, t)); :}
+        | LPAR EQI term*:ts RPAR
+          {: RESULT = parser.getProofRules().equalsIntro(parser.getScript().term(SMTLIBConstants.EQUALS, ts)); :}
+        | LPAR EQE NUMERAL:i NUMERAL:j term*:ts RPAR
+          {: RESULT = parser.getProofRules().equalsElim(i.intValue(), j.intValue(), parser.getScript().term(SMTLIBConstants.EQUALS, ts)); :}
+        | LPAR DISTINCTI term*:ts RPAR
+          {: RESULT = parser.getProofRules().distinctIntro(parser.getScript().term(SMTLIBConstants.DISTINCT, ts)); :}
+        | LPAR DISTINCTE NUMERAL:i NUMERAL:j term*:ts RPAR
+          {: RESULT = parser.getProofRules().distinctElim(i.intValue(), j.intValue(), parser.getScript().term(SMTLIBConstants.DISTINCT, ts)); :}
+        | LPAR REFL term:t RPAR
+          {: RESULT = parser.getProofRules().refl(t); :}
+        | LPAR SYMM term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().symm(t1, t2); :}
+        | LPAR TRANS term*:ts RPAR
+          {: RESULT = parser.getProofRules().trans(ts); :}
+        | LPAR CONG LPAR qualIdentifier:fun1 term+:args1 RPAR LPAR qualIdentifier:fun2 term+:args2 RPAR RPAR
+          {: FunctionSymbol fsym = checkCongFunction(fun1, args1, fun2, args2);
+             RESULT = parser.getProofRules().cong(fsym, args1, args2); :}
+        | LPAR EXPAND term:t RPAR
+          {: RESULT = parser.getProofRules().expand(t); :}
+        | LPAR ITE1 term:t1 term:t2 term:t3 RPAR
+          {: RESULT = parser.getProofRules().ite1(parser.getScript().term(SMTLIBConstants.ITE, t1, t2, t3)); :}
+        | LPAR ITE2 term:t1 term:t2 term:t3 RPAR
+          {: RESULT = parser.getProofRules().ite2(parser.getScript().term(SMTLIBConstants.ITE, t1, t2, t3)); :}
+        | LPAR DELANNOT term:t RPAR
+          {: RESULT = parser.getProofRules().delAnnot((AnnotatedTerm) t); :}
+        | LPAR DIVISIBLEDEF NUMERAL:d term:t RPAR
+          {: RESULT = parser.getProofRules().divisible(d, t); :}
+        | LPAR GTDEF term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().gtDef(parser.getScript().term(SMTLIBConstants.GT, t1, t2)); :}
+        | LPAR GEQDEF term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().geqDef(parser.getScript().term(SMTLIBConstants.GEQ, t1, t2)); :}
+        | LPAR TRICHOTOMY term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().trichotomy(t1, t2); :}
+        | LPAR TOTAL term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().total(t1, t2); :}
+        | LPAR TOTALINT term:t1 integer:c2 RPAR
+          {: RESULT = parser.getProofRules().totalInt(t1, c2); :}
+        | LPAR FARKAS coeffTerm*:coeffTerms RPAR
+          {: BigInteger[] coeffs = new BigInteger[coeffTerms.length];
+             Term[] terms = new Term[coeffTerms.length];
+             for (int i = 0; i < coeffTerms.length; i++) {
+                 coeffs[i] = coeffTerms[i].getCoeff();
+                 terms[i] = coeffTerms[i].getTerm();
+             }
+             RESULT = parser.getProofRules().farkas(terms, coeffs); :}
+        | LPAR POLYADD term:plusTerm term:result RPAR
+          {: RESULT = parser.getProofRules().polyAdd(plusTerm, result); :}
+        | LPAR POLYMUL term:mulTerm term:result RPAR
+          {: RESULT = parser.getProofRules().polyMul(mulTerm, result); :}
+        | LPAR TOREALDEF term:t RPAR
+          {: RESULT = parser.getProofRules().toRealDef(parser.getScript().term(SMTLIBConstants.TO_REAL, t)); :}
+        | LPAR DIVIDEDEF term*:ts RPAR
+          {: RESULT = parser.getProofRules().divideDef(parser.getScript().term(SMTLIBConstants.DIVIDE, ts)); :}
+        | LPAR MINUSDEF term*:ts RPAR
+          {: RESULT = parser.getProofRules().minusDef(parser.getScript().term(SMTLIBConstants.MINUS, ts)); :}
+        | LPAR TOINTLOW term:t RPAR
+          {: RESULT = parser.getProofRules().toIntLow(t); :}
+        | LPAR TOINTHIGH term:t RPAR
+          {: RESULT = parser.getProofRules().toIntHigh(t); :}
+        | LPAR DIVLOW term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().divLow(t1, t2); :}
+        | LPAR DIVHIGH term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().divHigh(t1, t2); :}
+        | LPAR MODDEF term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().modDef(t1, t2); :}
+        | LPAR SELECTSTORE1 term:a term:i term:v RPAR
+          {: RESULT = parser.getProofRules().selectStore1(a, i, v); :}
+        | LPAR SELECTSTORE2 term:a term:i term:v term:j RPAR
+          {: RESULT = parser.getProofRules().selectStore2(a, i, v, j); :}
+        | LPAR EXTDIFF term:a term:b RPAR
+          {: RESULT = parser.getProofRules().extDiff(a, b); :}
+        | LPAR CONST term:v term:i RPAR
+          {: RESULT = parser.getProofRules().constArray(v, i); :}
+        | LPAR DT_PROJECT term:t RPAR
+          {: RESULT = parser.getProofRules().dtProject(t); :}
+        | LPAR DT_CONS term:t RPAR
+          {: RESULT = parser.getProofRules().dtCons(t); :}
+        | LPAR DT_TESTI term:t RPAR
+          {: RESULT = parser.getProofRules().dtTestI(t); :}
+        | LPAR DT_TESTE symbol:ocons term:t RPAR
+          {: RESULT = parser.getProofRules().dtTestE(ocons, t); :}
+        | LPAR DT_EXHAUST term:t RPAR
+          {: RESULT = parser.getProofRules().dtExhaust(t); :}
+        | LPAR DT_ACYCLIC term:t LPAR NUMERAL*:argpos RPAR RPAR
+          {: int[] intpos = new int[argpos.length];
+             for (int i = 0; i < argpos.length; i++) {
+                 intpos[i] = argpos[i].intValue();
+             }
+             RESULT = parser.getProofRules().dtAcyclic(t, intpos); :}
+        | LPAR DT_MATCH term:t RPAR
+          {: RESULT = parser.getProofRules().dtMatch(t); :}
+        | LPAR BANG proof:p attribute+:attr RPAR
+          {: RESULT = p; :}
+        ;
 
 literal ::= PLUS term:t {: RESULT = new ProofLiteral(t, true); :}
           | MINUS term:t {: RESULT = new ProofLiteral(t, false); :};
@@ -694,11 +852,11 @@ letfront ::= LPAR LET {: localVars.beginScope(); :}
                   LPAR varBindingProof+:bindings RPAR
                   {: RESULT = bindings; :};
 
-proof ::= LPAR axiom:ax RPAR {: RESULT = ax; :}
+proof ::= axiom:ax {: RESULT = ax; :}
         | LPAR ASSUME term:assertion RPAR {: RESULT = parser.getProofRules().asserted(assertion); :}
-        | LPAR RES term:pivot proof:lhs proof:rhs
+        | LPAR RES term:pivot proof:lhs proof:rhs RPAR
           {: RESULT = parser.getProofRules().resolutionRule(pivot, lhs, rhs); :}
-        | symbol:var
+        | symbol_not_axiom:var
          {: RESULT = getTermVariable(var);
             if (RESULT == null) {
                 parser.report_error("Undeclared proof variable");
@@ -737,6 +895,17 @@ symbol ::= SYMBOL
          | PLUS | MINUS
          | ASSUME | RES | LETPROOF | ORACLE | DECLAREFUN | DEFINEFUN
          | FALSEE | TRUEI | NOTI | NOTE | ORI | ORE | ANDI | ANDE | IMPI | IMPE
+         | IFFI1 | IFFI2 | IFFE1 | IFFE2 | XORI | XORE | FORALLI | FORALLE | EXISTSI | EXISTSE
+         | EQI | EQE | DISTINCTI | DISTINCTE | ITE1 | ITE2 | REFL | SYMM | TRANS | CONG | EXPAND | DELANNOT
+         | DIVISIBLEDEF | GTDEF | GEQDEF | TRICHOTOMY | TOTAL | TOTALINT | FARKAS | TOINTHIGH | TOINTLOW
+         | MINUSDEF | DIVIDEDEF | POLYADD | POLYMUL | TOREALDEF | DIVLOW | DIVHIGH | MODDEF
+         | SELECTSTORE1 | SELECTSTORE2 | EXTDIFF | CONST
+         | DT_PROJECT | DT_CONS | DT_TESTI | DT_TESTE | DT_EXHAUST | DT_ACYCLIC | DT_MATCH;
+
+symbol_not_axiom ::= SYMBOL
+         | PLUS | MINUS
+         | ASSUME | RES | LETPROOF | ORACLE | DECLAREFUN | DEFINEFUN
+         | NOTI | NOTE | ORI | ORE | ANDI | ANDE | IMPI | IMPE
          | IFFI1 | IFFI2 | IFFE1 | IFFE2 | XORI | XORE | FORALLI | FORALLE | EXISTSI | EXISTSE
          | EQI | EQE | DISTINCTI | DISTINCTE | ITE1 | ITE2 | REFL | SYMM | TRANS | CONG | EXPAND | DELANNOT
          | DIVISIBLEDEF | GTDEF | GEQDEF | TRICHOTOMY | TOTAL | TOTALINT | FARKAS | TOINTHIGH | TOINTLOW
