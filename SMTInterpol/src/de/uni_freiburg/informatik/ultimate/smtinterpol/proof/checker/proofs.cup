@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2012 University of Freiburg
+ * Copyright (C) 2022 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -876,7 +876,7 @@ proof ::= axiom:ax {: RESULT = ax; :}
                 RESULT = null;
             else
                 RESULT = parser.getScript().let(vars, terms, t); :}
-        | LPAR DEFINEFUN symbol:fun LPAR sortedVar*:vars RPAR term:definition
+        | LPAR LPAR DEFINEFUN symbol:fun LPAR sortedVar*:vars RPAR term:definition RPAR
           {: Sort[] varSorts = new Sort[vars.length];
              for (int i = 0; i < vars.length; i++) {
                  varSorts[i] = vars[i].getSort();
@@ -884,7 +884,7 @@ proof ::= axiom:ax {: RESULT = ax; :}
              beginFunction(fun, varSorts, definition.getSort()); :}
              proof:subproof RPAR
           {: RESULT = defineFun(fun, vars, definition, subproof); :}
-        | LPAR DECLAREFUN symbol:fun LPAR sort*:param RPAR sort:result
+        | LPAR LPAR DECLAREFUN symbol:fun LPAR sort*:param RPAR sort:result RPAR
           {: beginFunction(fun, param, result); :}
              proof:subproof RPAR
           {: RESULT = declareFun(fun, param, result, subproof); :}
