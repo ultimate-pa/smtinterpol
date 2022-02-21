@@ -44,7 +44,7 @@ public class CheckingScript extends NoopScript {
 	private final ScopedArrayList<Term> mAssertions = new ScopedArrayList<>();
 	final SimpleSymbolFactory mSymfactory = new SimpleSymbolFactory();
 
-	private final SExprLexer mLexer;
+	private SExprLexer mLexer;
 
 	public class SExprLexer implements Scanner {
 		private final Scanner mLexer;
@@ -80,10 +80,20 @@ public class CheckingScript extends NoopScript {
 		}
 	}
 
-	public CheckingScript(final LogProxy logger, final String proofReader) {
+	public CheckingScript(final LogProxy logger, final String proofFile) {
 		mLogger = logger;
-		mProofFile = proofReader;
-		final ProofLexer wrappedLexer = new ProofLexer(openProofReader(mProofFile));
+		mProofFile = proofFile;
+		setProofReader(openProofReader(proofFile));
+	}
+
+	public CheckingScript(final LogProxy logger, final String proofFile, final Reader proofReader) {
+		mLogger = logger;
+		mProofFile = proofFile;
+		setProofReader(proofReader);
+	}
+
+	public void setProofReader(final Reader proofReader) {
+		final ProofLexer wrappedLexer = new ProofLexer(proofReader);
 		wrappedLexer.setSymbolFactory(mSymfactory);
 		mLexer = new SExprLexer(wrappedLexer);
 	}
@@ -135,6 +145,14 @@ public class CheckingScript extends NoopScript {
 		}
 	}
 
+	public void printError(final String result) {
+		mLogger.error(result);
+	}
+
+	public void printResult(final Object result) {
+		System.out.println(result.toString());
+	}
+
 	@Override
 	public Term getProof() {
 		mLexer.clearEOF();
@@ -144,7 +162,9 @@ public class CheckingScript extends NoopScript {
 		try {
 			final Term proof = (Term) proofParser.parse().value;
 			if (new MinimalProofChecker(this, mLogger).check(proof)) {
-				System.out.println("valid");
+				printResult("valid");
+			} else {
+				printResult("invalid");
 			}
 		} catch (final Exception ex) {
 			throw new RuntimeException("Unexpected exception", ex);
