@@ -631,37 +631,40 @@ public class ProofRules {
 	}
 
 	public Term defineFun(final FunctionSymbol func, final Term definition, final Term subProof) {
-		assert func.getName().startsWith("@");
 		return mTheory.annotatedTerm(new Annotation[] {
 				new Annotation(ANNOT_DEFINE_FUN, new Object[] { func, definition }),
 		}, subProof);
 	}
 
 	public Term declareFun(final FunctionSymbol func, final Term subProof) {
-		assert func.getName().startsWith("@");
 		return mTheory.annotatedTerm(new Annotation[] { new Annotation(ANNOT_DECLARE_FUN, new Object[] { func }), },
 				subProof);
 	}
 
 	public Term dtProject(final Term selConsTerm) {
-		assert ((ApplicationTerm) selConsTerm).getFunction().isSelector();
-		assert ((ApplicationTerm) ((ApplicationTerm) selConsTerm).getParameters()[0]).getFunction().isConstructor();
+		// assertion doesn't work if inequalities is a term variable (letted terms).
+		// assert ((ApplicationTerm) selConsTerm).getFunction().isSelector();
+		// assert ((ApplicationTerm) ((ApplicationTerm)
+		// selConsTerm).getParameters()[0]).getFunction().isConstructor();
 		return mTheory.annotatedTerm(annotate(":" + DT_PROJECT, new Term[] { selConsTerm }), mAxiom);
 	}
 
 	public Term dtCons(final Term isConsTerm) {
-		assert ((ApplicationTerm) isConsTerm).getFunction().getName().equals(SMTLIBConstants.IS);
+		// assertion doesn't work if inequalities is a term variable (letted terms).
+		// assert ((ApplicationTerm) isConsTerm).getFunction().getName().equals(SMTLIBConstants.IS);
 		return mTheory.annotatedTerm(annotate(":" + DT_CONS, new Term[] { isConsTerm }), mAxiom);
 	}
 
 	public Term dtTestI(final Term consTerm) {
-		assert ((ApplicationTerm) consTerm).getFunction().isConstructor();
+		// assertion doesn't work if inequalities is a term variable (letted terms).
+		// assert ((ApplicationTerm) consTerm).getFunction().isConstructor();
 		return mTheory.annotatedTerm(annotate(":" + DT_TESTI, new Term[] { consTerm }), mAxiom);
 	}
 
 	public Term dtTestE(final String otherConstructor, final Term consTerm) {
-		assert ((ApplicationTerm) consTerm).getFunction().isConstructor();
-		assert !((ApplicationTerm) consTerm).getFunction().getName().equals(otherConstructor);
+		// assertion doesn't work if inequalities is a term variable (letted terms).
+		// assert ((ApplicationTerm) consTerm).getFunction().isConstructor();
+		// assert !((ApplicationTerm) consTerm).getFunction().getName().equals(otherConstructor);
 		return mTheory.annotatedTerm(annotate(":" + DT_TESTE, new Object[] { otherConstructor, consTerm }), mAxiom);
 	}
 
@@ -672,7 +675,8 @@ public class ProofRules {
 	}
 
 	public Term dtAcyclic(final Term consTerm, final int[] positions) {
-		assert checkConstructorPath(consTerm, positions);
+		// assertion doesn't work if inequalities is a term variable (letted terms).
+		// assert checkConstructorPath(consTerm, positions);
 		return mTheory.annotatedTerm(annotate(":" + DT_ACYCLIC, new Object[] { consTerm, positions }), mAxiom);
 	}
 
