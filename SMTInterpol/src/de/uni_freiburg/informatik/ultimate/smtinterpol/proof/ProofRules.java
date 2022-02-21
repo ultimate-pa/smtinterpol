@@ -474,8 +474,6 @@ public class ProofRules {
 	}
 
 	public Term farkas(final Term[] inequalities, final BigInteger[] coefficients) {
-		// assertion doesn't work if inequalities is a term variable (letted terms).
-		// assert checkFarkas(inequalities, coefficients);
 		return mTheory.annotatedTerm(annotate(":" + FARKAS, inequalities, new Annotation(ANNOT_COEFFS, coefficients)),
 				mAxiom);
 	}
@@ -489,8 +487,6 @@ public class ProofRules {
 	 * @return the axiom.
 	 */
 	public Term polyAdd(final Term plusTerm, final Term result) {
-		// assertion doesn't work if inequalities is a term variable (letted terms).
-		// assert checkPolyAdd(plusTerm, result);
 		return mTheory.annotatedTerm(annotate(":" + POLYADD, new Term[] { plusTerm, result }), mAxiom);
 	}
 
@@ -503,8 +499,6 @@ public class ProofRules {
 	 * @return the axiom.
 	 */
 	public Term polyMul(final Term mulTerm, final Term result) {
-		// assertion doesn't work if inequalities is a term variable (letted terms).
-		// assert checkPolyMul(mulTerm, result);
 		return mTheory.annotatedTerm(annotate(":" + POLYMUL, new Term[] { mulTerm, result }), mAxiom);
 	}
 
@@ -642,29 +636,18 @@ public class ProofRules {
 	}
 
 	public Term dtProject(final Term selConsTerm) {
-		// assertion doesn't work if inequalities is a term variable (letted terms).
-		// assert ((ApplicationTerm) selConsTerm).getFunction().isSelector();
-		// assert ((ApplicationTerm) ((ApplicationTerm)
-		// selConsTerm).getParameters()[0]).getFunction().isConstructor();
 		return mTheory.annotatedTerm(annotate(":" + DT_PROJECT, new Term[] { selConsTerm }), mAxiom);
 	}
 
 	public Term dtCons(final Term isConsTerm) {
-		// assertion doesn't work if inequalities is a term variable (letted terms).
-		// assert ((ApplicationTerm) isConsTerm).getFunction().getName().equals(SMTLIBConstants.IS);
 		return mTheory.annotatedTerm(annotate(":" + DT_CONS, new Term[] { isConsTerm }), mAxiom);
 	}
 
 	public Term dtTestI(final Term consTerm) {
-		// assertion doesn't work if inequalities is a term variable (letted terms).
-		// assert ((ApplicationTerm) consTerm).getFunction().isConstructor();
 		return mTheory.annotatedTerm(annotate(":" + DT_TESTI, new Term[] { consTerm }), mAxiom);
 	}
 
 	public Term dtTestE(final String otherConstructor, final Term consTerm) {
-		// assertion doesn't work if inequalities is a term variable (letted terms).
-		// assert ((ApplicationTerm) consTerm).getFunction().isConstructor();
-		// assert !((ApplicationTerm) consTerm).getFunction().getName().equals(otherConstructor);
 		return mTheory.annotatedTerm(annotate(":" + DT_TESTE, new Object[] { otherConstructor, consTerm }), mAxiom);
 	}
 
@@ -675,8 +658,6 @@ public class ProofRules {
 	}
 
 	public Term dtAcyclic(final Term consTerm, final int[] positions) {
-		// assertion doesn't work if inequalities is a term variable (letted terms).
-		// assert checkConstructorPath(consTerm, positions);
 		return mTheory.annotatedTerm(annotate(":" + DT_ACYCLIC, new Object[] { consTerm, positions }), mAxiom);
 	}
 
@@ -714,7 +695,6 @@ public class ProofRules {
 			poly.add(Rational.ONE, t);
 		}
 		poly.add(Rational.MONE, result);
-		assert poly.isZero();
 		return poly.isZero();
 	}
 
@@ -737,7 +717,6 @@ public class ProofRules {
 			poly.mul(new Polynomial(t));
 		}
 		poly.add(Rational.MONE, result);
-		assert poly.isZero();
 		return poly.isZero();
 	}
 
@@ -820,7 +799,6 @@ public class ProofRules {
 			sum.add(coeff.negate(), params[1]);
 		}
 		final boolean okay = sum.isConstant() && sum.getConstant().signum() >= (strict ? 0 : 1);
-		assert okay;
 		return okay;
 	}
 
@@ -840,10 +818,14 @@ public class ProofRules {
 	}
 
 	public static boolean checkConstructorPath(Term consTerm, final int[] positions) {
-		assert positions.length > 0;
+		if (positions.length == 0) {
+			return false;
+		}
 		for (final int pos : positions) {
 			final ApplicationTerm term = (ApplicationTerm) consTerm;
-			assert term.getFunction().isConstructor() && pos >= 0 && pos < term.getParameters().length;
+			if (!term.getFunction().isConstructor() || pos < 0 || pos >= term.getParameters().length) {
+				return false;
+			}
 			consTerm = term.getParameters()[pos];
 		}
 		return true;
