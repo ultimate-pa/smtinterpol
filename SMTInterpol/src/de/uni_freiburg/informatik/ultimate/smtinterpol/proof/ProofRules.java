@@ -474,7 +474,8 @@ public class ProofRules {
 	}
 
 	public Term farkas(final Term[] inequalities, final BigInteger[] coefficients) {
-		assert checkFarkas(inequalities, coefficients);
+		// assertion doesn't work if inequalities is a term variable (letted terms).
+		// assert checkFarkas(inequalities, coefficients);
 		return mTheory.annotatedTerm(annotate(":" + FARKAS, inequalities, new Annotation(ANNOT_COEFFS, coefficients)),
 				mAxiom);
 	}
@@ -488,7 +489,8 @@ public class ProofRules {
 	 * @return the axiom.
 	 */
 	public Term polyAdd(final Term plusTerm, final Term result) {
-		assert checkPolyAdd(plusTerm, result);
+		// assertion doesn't work if inequalities is a term variable (letted terms).
+		// assert checkPolyAdd(plusTerm, result);
 		return mTheory.annotatedTerm(annotate(":" + POLYADD, new Term[] { plusTerm, result }), mAxiom);
 	}
 
@@ -501,7 +503,8 @@ public class ProofRules {
 	 * @return the axiom.
 	 */
 	public Term polyMul(final Term mulTerm, final Term result) {
-		assert checkPolyMul(mulTerm, result);
+		// assertion doesn't work if inequalities is a term variable (letted terms).
+		// assert checkPolyMul(mulTerm, result);
 		return mTheory.annotatedTerm(annotate(":" + POLYMUL, new Term[] { mulTerm, result }), mAxiom);
 	}
 

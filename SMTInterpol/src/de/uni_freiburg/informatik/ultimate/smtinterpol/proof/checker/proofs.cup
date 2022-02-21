@@ -412,7 +412,7 @@ action code {:
 		if (term == null)
 			return null;
 		try {
-			return parser.getScript().annotate(term, annots);
+			return parser.getScript().getTheory().annotatedTerm(annots, term);
 		} catch (SMTLIBException se) {
 			parser.report_error(se.getMessage());
 		}

@@ -8,10 +8,12 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.checker.CheckingScript;
 import org.teavm.jso.JSBody;
 
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.io.PrintWriter;
 
 public class Main implements SolverInterface {
 
@@ -37,6 +39,31 @@ public class Main implements SolverInterface {
 		SMTInterpol solver = new SMTInterpol(null, options);
 		WebEnvironment pe = new WebEnvironment(solver, options);
 		pe.parseStream(new StringReader(inputString), "<webinput>");
+	}
+
+	public void runProofChecker(String inputString, String proofString) {
+		final DefaultLogger logger = new DefaultLogger();
+		final OptionMap options = new OptionMap(logger, true);
+
+		Script solver = new CheckingScript(logger, "<proofinput>", new StringReader(proofString)) {
+			public void printResult(Object result) {
+				postMessage(result.toString());
+			}
+		};
+		WebEnvironment pe = new WebEnvironment(solver, options) {
+			@Override
+			public void printResponse(Object response) {
+			}
+		};
+		try {
+			pe.parseStream(new StringReader(inputString), "<webinput>");
+		} catch (Exception ex) {
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			pw.close();
+			postMessage(sw.toString());
+		}
 	}
 
 	public class WebEnvironment extends ParseEnvironment {
