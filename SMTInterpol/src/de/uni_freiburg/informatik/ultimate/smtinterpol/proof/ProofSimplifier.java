@@ -613,6 +613,8 @@ public class ProofSimplifier extends TermTransformer {
 		// boolean case: +/~(match ...), (is_cons c1), ..., (is_cons cn) ~/+(case ...)
 		// term case: (is_cons c1), ..., (is_cons cn), (= (match ...) (case ...))
 		boolean negated;
+		// check for matchCase or matchDefault.
+		final boolean isMatchCase = rule.equals(":matchCase");
 		// use the first literal to distinguish between boolean and term case.
 		final boolean boolCase = clause[0] instanceof MatchTerm
 				|| (isApplication(SMTLIBConstants.NOT, clause[0])
@@ -624,7 +626,7 @@ public class ProofSimplifier extends TermTransformer {
 			assert clause.length >= 2;
 			negated = isApplication(SMTLIBConstants.NOT, clause[0]);
 			matchTerm = (MatchTerm) (negated ? ((ApplicationTerm) clause[0]).getParameters()[0] : clause[0]);
-			if (rule.equals(":matchCase")) {
+			if (isMatchCase) {
 				assert isApplication(SMTLIBConstants.NOT, clause[1]);
 				final Term tester = ((ApplicationTerm) clause[1]).getParameters()[0];
 				assert isApplication(SMTLIBConstants.IS, tester);
@@ -634,7 +636,7 @@ public class ProofSimplifier extends TermTransformer {
 			// term case
 			assert clause.length >= 1;
 			negated = false;
-			if (rule.equals(":matchCase")) {
+			if (isMatchCase) {
 				assert isApplication(SMTLIBConstants.NOT, clause[0]);
 				final Term tester = ((ApplicationTerm) clause[0]).getParameters()[0];
 				assert isApplication(SMTLIBConstants.IS, tester);
@@ -648,16 +650,11 @@ public class ProofSimplifier extends TermTransformer {
 
 		final Constructor[] constrs = matchTerm.getConstructors();
 		int caseNr;
-		if (rule.equals(":matchCase")) {
-			for (caseNr = 0; caseNr < constrs.length; caseNr++) {
-				if (constrs[caseNr].getName().equals(isTerm.getFunction().getIndices()[0])) {
+		for (caseNr = 0; caseNr < constrs.length; caseNr++) {
+			if (isMatchCase ? constrs[caseNr].getName().equals(isTerm.getFunction().getIndices()[0])
+					: constrs[caseNr] == null) {
 					break;
-				}
 			}
-			assert caseNr < constrs.length && constrs[caseNr] != null;
-		} else {
-			caseNr = constrs.length - 1;
-			assert constrs[caseNr] == null;
 		}
 		final Theory theory = matchTerm.getTheory();
 		final Term dataTerm = matchTerm.getDataTerm();
@@ -670,7 +667,7 @@ public class ProofSimplifier extends TermTransformer {
 			eqSequence.add(iteTerm);
 			iteTerm = ((ApplicationTerm) iteTerm).getParameters()[2];
 		}
-		if (caseNr < constrs.length - 1) {
+		if (isMatchCase && caseNr < constrs.length - 1) {
 			assert isApplication(SMTLIBConstants.ITE, iteTerm);
 			eqSequence.add(iteTerm);
 			iteTerm = ((ApplicationTerm) iteTerm).getParameters()[1];
@@ -681,18 +678,18 @@ public class ProofSimplifier extends TermTransformer {
 				proof);
 		final Constructor cons = constrs[caseNr];
 		Term consTerm = null;
-		if (rule.equals(":matchCase")) {
+		if (isMatchCase) {
 			final Term[] selectTerms = new Term[cons.getSelectors().length];
 			for (int i = 0; i < selectTerms.length; i++) {
 				selectTerms[i] = theory.term(cons.getSelectors()[i], dataTerm);
 			}
-			consTerm = theory.term(constrs[caseNr].getName(), null,
-					(constrs[caseNr].needsReturnOverload() ? dataTerm.getSort() : null), selectTerms);
+			consTerm = theory.term(cons.getName(), null, (cons.needsReturnOverload() ? dataTerm.getSort() : null),
+					selectTerms);
 		}
 		for (int i = 0; i < caseNr; i++) {
 			proof = res(theory.term(SMTLIBConstants.EQUALS, eqSequence.get(i + 1), eqSequence.get(i + 2)),
 					mProofRules.ite2(eqSequence.get(i + 1)), proof);
-			if (rule.equals(":matchCase")) {
+			if (isMatchCase) {
 				final String[] index = new String[] { constrs[i].getName() };
 				final Term isConsData = theory.term(SMTLIBConstants.IS, index, null, dataTerm);
 				final Term isConsCons = theory.term(SMTLIBConstants.IS, index, null, consTerm);
@@ -702,17 +699,18 @@ public class ProofSimplifier extends TermTransformer {
 				proof = res(isConsCons, proof, mProofRules.dtTestE(constrs[i].getName(), consTerm));
 			}
 		}
-		if (rule.equals(":matchCase") && caseNr > 0) {
+		if (isMatchCase && caseNr > 0) {
 			final Term isConsCons = theory.term(SMTLIBConstants.IS, new String[] { cons.getName() }, null, dataTerm);
 			proof = res(theory.term(SMTLIBConstants.EQUALS, consTerm, dataTerm), mProofRules.dtCons(isConsCons), proof);
 		}
-		if (caseNr < constrs.length - 1) {
+		if (isMatchCase && caseNr < constrs.length - 1) {
 			proof = res(theory.term(SMTLIBConstants.EQUALS, eqSequence.get(caseNr + 1), eqSequence.get(caseNr + 2)),
 					mProofRules.ite1(eqSequence.get(caseNr + 1)), proof);
 		}
 		if (boolCase) {
 			final Term matchEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
 			proof = res(matchEq, proof, (negated ? mProofRules.iffElim2(matchEq) : mProofRules.iffElim1(matchEq)));
+			proof = removeNot(proof, iteTerm, negated);
 		}
 		return proof;
 	}

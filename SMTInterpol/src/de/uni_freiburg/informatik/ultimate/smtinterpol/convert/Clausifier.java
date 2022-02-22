@@ -1587,11 +1587,11 @@ public class Clausifier {
 			final MatchTerm mt = (MatchTerm) term;
 			final Term dataTerm = mt.getDataTerm();
 			final Map<Constructor, Term> cases = new LinkedHashMap<>();
-			int c_i = 0;
-			for (final Constructor c : mt.getConstructors()) {
+			final Constructor[] constrs = mt.getConstructors();
+			for (int caseNr = 0; caseNr < constrs.length; caseNr++) {
+				final Constructor c = constrs[caseNr];
 				Annotation rule;
 				if (cases.containsKey(c)) {
-					c_i++;
 					continue;
 				}
 
@@ -1602,9 +1602,8 @@ public class Clausifier {
 				if (c == null) {
 					// if c == null, this is the default case which matches everything else
 					clause.addAll(cases.values());
-					argSubs.put(mt.getVariables()[c_i][0], dataTerm);
+					argSubs.put(mt.getVariables()[caseNr][0], dataTerm);
 					rule = ProofConstants.AUX_MATCH_DEFAULT;
-					assert c_i == mt.getConstructors().length - 1;
 				} else {
 					// build is-condition
 					final FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] { c.getName() }, null,
@@ -1617,7 +1616,7 @@ public class Clausifier {
 					int s_i = 0;
 					for (final String sel : c.getSelectors()) {
 						final Term selTerm = theory.term(theory.getFunctionSymbol(sel), dataTerm);
-						argSubs.put(mt.getVariables()[c_i][s_i++], selTerm);
+						argSubs.put(mt.getVariables()[caseNr][s_i++], selTerm);
 					}
 					rule = ProofConstants.AUX_MATCH_CASE;
 				}
@@ -1625,7 +1624,7 @@ public class Clausifier {
 				// build implicated literal
 				final FormulaUnLet unlet = new FormulaUnLet();
 				unlet.addSubstitutions(argSubs);
-				final Term equalTerm = unlet.unlet(mt.getCases()[c_i]);
+				final Term equalTerm = unlet.unlet(mt.getCases()[caseNr]);
 				if (positive) {
 					clause.add(equalTerm);
 				} else {
@@ -1633,7 +1632,10 @@ public class Clausifier {
 				}
 				final Term axiom = mTracker.tautology(theory.term("or", clause.toArray(new Term[clause.size()])), rule);
 				buildAuxClause(negLit, axiom, source);
-				c_i++;
+				if (c == null) {
+					// skip all remaining cases
+					break;
+				}
 			}
 		} else {
 			throw new AssertionError("Don't know how to create aux axiom: " + term);
@@ -1744,10 +1746,10 @@ public class Clausifier {
 		final Theory theory = term.getTheory();
 		final Term dataTerm = term.getDataTerm();
 		final Map<Constructor, Term> cases = new LinkedHashMap<>();
-		int c_i = 0;
-		for (final Constructor c : term.getConstructors()) {
+		final Constructor[] constrs = term.getConstructors();
+		for (int caseNr = 0; caseNr < constrs.length; caseNr++) {
+			final Constructor c = constrs[caseNr];
 			if (cases.containsKey(c)) {
-				c_i++;
 				continue;
 			}
 
@@ -1757,22 +1759,21 @@ public class Clausifier {
 			if (c == null) {
 				// if c == null, this is the default case which matches everything else
 				clause.addAll(cases.values());
-				argSubs.put(term.getVariables()[c_i][0], dataTerm);
+				argSubs.put(term.getVariables()[caseNr][0], dataTerm);
 				rule = ProofConstants.AUX_MATCH_DEFAULT;
-				assert c_i == term.getConstructors().length - 1;
 			} else {
 				// build is-condition
 				final FunctionSymbol isFs = theory.getFunctionWithResult("is", new String[] { c.getName() }, null,
 						dataTerm.getSort());
 				final Term isTerm = theory.term(isFs, dataTerm);
-				cases.put(c, isTerm);
+				cases.put(constrs[caseNr], isTerm);
 				clause.add(theory.term("not", isTerm));
 
 				// substitute argument TermVariables with the according selector function
 				int s_i = 0;
 				for (final String sel : c.getSelectors()) {
 					final Term selTerm = theory.term(sel, dataTerm);
-					argSubs.put(term.getVariables()[c_i][s_i++], selTerm);
+					argSubs.put(term.getVariables()[caseNr][s_i++], selTerm);
 				}
 				rule = ProofConstants.AUX_MATCH_CASE;
 			}
@@ -1780,10 +1781,14 @@ public class Clausifier {
 			// build implicated equality
 			final FormulaUnLet unlet = new FormulaUnLet();
 			unlet.addSubstitutions(argSubs);
-			final Term caseTerm = mTheory.term("=", term, unlet.unlet(term.getCases()[c_i]));
+			final Term caseTerm = mTheory.term("=", term, unlet.unlet(term.getCases()[caseNr]));
 			clause.add(caseTerm);
 			buildTautology(theory, clause.toArray(new Term[clause.size()]), rule, source);
-			c_i++;
+
+			if (c == null) {
+				// the variable pattern matches everything, so skip the rest.
+				break;
+			}
 		}
 	}
 
