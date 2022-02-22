@@ -1211,10 +1211,17 @@ public class MinimalProofChecker extends NonRecursive {
 		iteTerm = buildLetForMatch(constrs[constrs.length - 1], vars[constrs.length - 1], dataTerm,
 				cases[constrs.length - 1]);
 		for (int i = constrs.length - 2; i >= 0; i--) {
-			final Term condTerm = theory.term(SMTLIBConstants.IS, new String[] { constrs[i].getName() }, null,
-					dataTerm);
 			final Term caseTerm = buildLetForMatch(constrs[i], vars[i], dataTerm, cases[i]);
-			iteTerm = theory.term(SMTLIBConstants.ITE, condTerm, caseTerm, iteTerm);
+			if (constrs[i] == null) {
+				// SMT-LIB standard allows the default case in the middle, with the semantics
+				// that
+				// all following cases are redundant.
+				iteTerm = caseTerm;
+			} else {
+				final Term condTerm = theory.term(SMTLIBConstants.IS, new String[] { constrs[i].getName() }, null,
+						dataTerm);
+				iteTerm = theory.term(SMTLIBConstants.ITE, condTerm, caseTerm, iteTerm);
+			}
 		}
 		return iteTerm;
 	}
