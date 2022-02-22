@@ -51,19 +51,21 @@ body {
 
 #main {
     margin: 0;
-    max-width: 70em;
+    max-width: 60em;
     background: white;
     padding: 0 1em 1em 1em;
 }
 
-h1 { font-size: 16pt; }
-h2 { font-size: 14pt; }
+h1, h2, h3, h4, h5, h6 {
+    font-weight:bold;
+}
+
+h1 { font-size: 26pt; }
+h2 { font-size: 22px; }
+h3 { font-size: 17px; }
+h4 { font-size: 15px; }
 
 a { text-decoration: none; }
-
-table {
-    margin: .3em;
-}
 
 td {
     padding: .3em;
@@ -86,6 +88,36 @@ footer {
 
 #main img {
     max-width: 100%;
+}
+
+p, blockquote, ul, ol, dl, li, table, pre {
+	margin: 15px 0;
+}
+
+code, pre, #ws, #message {
+	font-family: Monaco, monospace;
+	font-size: 10pt;
+	border-radius: 3px;
+	background-color: #F8F8F8;
+	color: inherit;
+}
+
+code {
+	border: 1px solid #EAEAEA;
+	margin: 0 2px;
+	padding: 0 5px;
+}
+
+pre {
+	border: 1px solid #CCCCCC;
+	overflow: auto;
+	padding: 4px 8px;
+}
+
+pre > code {
+	border: 0;
+	margin: 0;
+	padding: 0;
 }
 
 @media screen and (min-width: 48.25em) {
