@@ -1,8 +1,8 @@
 ; prove eq_diamond4 by symmetry breaking.
 ;
 ; We first create a formula F_, where we conditionally swap yi and zi
-; and show that the resulting formula is still equivalence by congruence
-; and or-symmetry.
+; and show that the resulting formula is equivalent to the original
+; formula F.  This proof uses mainly congruence and or-symmetry.
 ;
 ; The condition under which we swap will be chosen such that in the
 ; or-subformulas always the first disjunct is true (we swap if the disjunct
