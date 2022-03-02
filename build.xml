@@ -9,13 +9,13 @@ smtinterpol.jar:   Create main jar file (in dist)
 starexec:          Create starexec package
 deltadebugger.jar: Create delta debugger
 dist:              Create all jar files
-distribution:      Build website.
+web:               Build website
 stage:             Upload new version to Maven Central (owner only)
         </echo>
     </target>
     <import file="smtinterpol2-publicapi.xml"/>
     <taskdef uri="antlib:org.apache.maven.resolver.ant" resource="org/apache/maven/resolver/ant/antlib.xml"
-	     classpath="libs/maven-resolver-ant-tasks-1.3.1-uber.jar" />
+             classpath="libs/maven-resolver-ant-tasks-1.3.1-uber.jar" />
     <property name="artifactId" value="smtinterpol"/>
     <!-- Build everything  -->
     <target name="all" depends="dist"/>
@@ -193,10 +193,20 @@ stage:             Upload new version to Maven Central (owner only)
         </jar>
     </target>
     <!-- Create a new distribution -->
-    <target name="distribution" depends="smtinterpol.jar,create_src_jar">
+    <target name="web" depends="smtinterpol.jar,create_src_jar">
         <exec executable="make" dir="SMTInterpol/web/html">
             <arg line="distribution"/>
         </exec>
+        <exec executable="mvn" dir="Webinterface">
+            <arg line="clean"/>
+            <arg line="install"/>
+        </exec>
+        <echo>
+          Now copy the files:
+          scp SMTInterpol/web/html/gen/* webserver:/export/server/httpd/ultimate/smtinterpol
+          scp Webinterface/target/smtinterpol-web-1.0-SNAPSHOT.war webserver:.
+          ssh webserver 'umask 022 &amp;&amp; unzip -o -q -d /export/server/httpd/ultimate/smtinterpol/online/ ~/smtinterpol-web-1.0-SNAPSHOT.war'
+        </echo>
     </target>
     <!-- Create the starexec solver zip file -->
     <target name="starexec" depends="get-version,smtinterpol.jar">
@@ -233,6 +243,12 @@ java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=fal
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" files="Parser.java,Lexer.java,LexerSymbols.java"/>
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/" files="Version.java"/>
         </delete>
+        <exec executable="make" dir="SMTInterpol/web/html">
+            <arg line="clean"/>
+        </exec>
+        <exec executable="mvn" dir="Webinterface">
+            <arg line="clean"/>
+        </exec>
     </target>
     <!-- Delete the executable jar and the source zip -->
     <target name="distclean" description="Cleans a previously build including dist files" depends="clean">
@@ -380,39 +396,39 @@ java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=fal
     <target name="dist" depends="clean,create_src_jar, smtinterpol.jar, javadoc-jar" description="Generate the distribution">
     </target>
     <target name="stage" depends="dist" description="stage release version for deploying to Maven staging repository">
-	<copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/${jar.basename}-pom.xml">
+        <copy file="pom_template.xml" overwrite="true" tofile="${jar.outdir}/${jar.basename}-pom.xml">
             <filterchain>
-		<expandproperties/>
+                <expandproperties/>
             </filterchain>
-	</copy>
+        </copy>
 
-	<echo>
-	    Now sign all jar files and pom.xml in ${dist}:
-	    for i in ${jar.outdir}/${jar.basename}*; do gpg --detach-sig -a --sign -u 5ef57534 $$i; done
+        <echo>
+            Now sign all jar files and pom.xml in ${dist}:
+            for i in ${jar.outdir}/${jar.basename}*; do gpg --detach-sig -a --sign -u 5ef57534 $$i; done
 
-	    Then run `ant deploy`.
-	</echo>
+            Then run `ant deploy`.
+        </echo>
     </target>
 
     <target name="deploy" description="Deploy maven release (you need to stage and sign first)" depends="get-version">
-	<echo>
-	    Uploading artifacts using ~/.m2/settings.xml. I hope you have the
-	    permissions to do this.
-	</echo>
+        <echo>
+            Uploading artifacts using ~/.m2/settings.xml. I hope you have the
+            permissions to do this.
+        </echo>
 
-	<resolver:pom file="${jar.outdir}/${jar.basename}-pom.xml" id="pom"/>
-	<resolver:artifacts id="output">
-	    <artifact file="${jar.outdir}/${jar.basename}.jar" />
-	    <artifact type="jar.asc" file="${jar.outdir}/${jar.basename}.jar.asc" />
-	    <artifact classifier="sources" file="${jar.outdir}/${jar.basename}-sources.jar" />
-	    <artifact classifier="sources" type="jar.asc" file="${jar.outdir}/${jar.basename}-sources.jar.asc" />
-	    <artifact classifier="javadoc" file="${jar.outdir}/${jar.basename}-javadoc.jar" />
-	    <artifact classifier="javadoc" type="jar.asc" file="${jar.outdir}/${jar.basename}-javadoc.jar.asc" />
-	    <artifact type="pom.asc" file="${jar.outdir}/${jar.basename}-pom.xml.asc" />
-	</resolver:artifacts>
-	<resolver:deploy artifactsref="output">
-	    <remoterepo refid="ossrh"/>
-	</resolver:deploy>
+        <resolver:pom file="${jar.outdir}/${jar.basename}-pom.xml" id="pom"/>
+        <resolver:artifacts id="output">
+            <artifact file="${jar.outdir}/${jar.basename}.jar" />
+            <artifact type="jar.asc" file="${jar.outdir}/${jar.basename}.jar.asc" />
+            <artifact classifier="sources" file="${jar.outdir}/${jar.basename}-sources.jar" />
+            <artifact classifier="sources" type="jar.asc" file="${jar.outdir}/${jar.basename}-sources.jar.asc" />
+            <artifact classifier="javadoc" file="${jar.outdir}/${jar.basename}-javadoc.jar" />
+            <artifact classifier="javadoc" type="jar.asc" file="${jar.outdir}/${jar.basename}-javadoc.jar.asc" />
+            <artifact type="pom.asc" file="${jar.outdir}/${jar.basename}-pom.xml.asc" />
+        </resolver:artifacts>
+        <resolver:deploy artifactsref="output">
+            <remoterepo refid="ossrh"/>
+        </resolver:deploy>
         <echo>
 Log into https://oss.sonatype.org as jhoenicke.
 Click "Staging Repository", scroll down to de.uni-freiburg...
@@ -439,29 +455,17 @@ Click Release.
         <property name="sonar.java.test.libraries" value="${dir.workspace}/SMTInterpol/lib/*.jar"/>
         <property name="sonar.java.coveragePlugin" value="jacoco"/>
         <property name="sonar.coverage.jacoco.xmlReportPaths" value="${dir.workspace}/testreports/jacoco.xml"/>
-        <!-- 	<resources id="sonar-exclusions">
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Lexer.java" />
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/LexerSymbols.java" />
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs/Parser.java" />
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Lexer.java" />
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/LexerSymbols.java" />
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib/Parser.java" />
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Lexer.java" />
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/LexerSymbols.java" />
-	  <fileset file="src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2/Parser.java" />
-    </resources>
-	<pathconvert property="sonar.exclusions" refid="sonar-exclusions" pathsep="," /> -->
         <property name="sonar.exclusions" value="
-	**/dimacs/Lexer.java,
-	**/dimacs/LexerSymbols.java,
-	**/dimacs/Parser.java,
-	**/smtlib/Lexer.java,
-	**/smtlib/LexerSymbols.java,
-	**/smtlib/Parser.java,
-	**/smtlib2/Lexer.java,
-	**/smtlib2/LexerSymbols.java,
-	**/smtlib2/Parser.java
-	"/>
+        **/dimacs/Lexer.java,
+        **/dimacs/LexerSymbols.java,
+        **/dimacs/Parser.java,
+        **/smtlib/Lexer.java,
+        **/smtlib/LexerSymbols.java,
+        **/smtlib/Parser.java,
+        **/smtlib2/Lexer.java,
+        **/smtlib2/LexerSymbols.java,
+        **/smtlib2/Parser.java
+        "/>
         <echo>Excluding the following auto-generated files from analysis: ${sonar.exclusions}</echo>
         <!-- Execute the SonarQube analysis -->
         <sonar:sonar/>

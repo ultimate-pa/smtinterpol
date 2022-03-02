@@ -2,7 +2,7 @@
 ;
 ; we define new variables yi_ (for i=0,1,2), with
 ;
-;  yi_ = { yi if xi=yi=xi+1, we
+;  yi_ = { yi if xi=yi=xi+1
 ;        { zi otherwise
 ;
 ; then we can proof x0=y0_=x1=...=y2_=x3.
@@ -38,14 +38,14 @@ unsat
 	    (Ct17 (and- 1 t07 t17 t27 t31))
 	    (Ct27 (and- 2 t07 t17 t27 t31)))
 
-; We rename zi to yi depending on whether (and (= xi yi) (= yi xi)) holds.
+; We rename zi to yi depending on whether (and (= xi yi) (= yi xi+1)) holds.
 ; Because of the disjunction, the renamed formula
 ;   (and (= xi yi_) (= yi_ xi))
 ; will always hold.
 
 (let ((y0_ (ite t05 y0 z0))
       (y1_ (ite t15 y1 z1))
-      (y2_ (ite t25 y2 z2))
+      (y2_ (ite t25 y2 z2)))
 
 ; Now proof the "renamed" subformulas t05_, t15_, t25_
 
@@ -54,7 +54,7 @@ unsat
       (t10_ (= x1 y1_))
       (t11_ (= y1_ x2))
       (t20_ (= x2 y2_))
-      (t21_ (= y2_ x3))
+      (t21_ (= y2_ x3)))
 (let ((t05_ (and t00_ t01_))
       (t15_ (and t10_ t11_))
       (t25_ (and t20_ t21_)))
