@@ -1,0 +1,86 @@
+unsat
+; first proof the core clause, i.e. the contradiction of the following
+; inequalities.  Note that the literals were already normalized, in
+; particular the application of - was removed
+(let ((ineq1_ (<= 0 (+ (* 2730000000000 x) (* (- 2450000000001) y))))
+      (ineq2_ (<= (+ (* 2730000000000 x) (* (- 2450000000001) y)) 9999999999))
+      (ineq3_ (<= 1 (+ (* 2730000000001 x) (* (- 2450000000000) y))))
+      (ineq4_ (<= (+ (* 2730000000001 x) (* (- 2450000000000) y)) 10000000000)))
+(let ((diag (+ (* 273 x) (* (- 245) y))))
+(let-proof ((C5
+  (res (<= 1 diag)
+    (res (<= diag 0)
+      (total-int diag 0)
+      (farkas 273 ineq3_ 245 ineq1_ 5180000000001 (<= diag 0)))
+    (farkas 273 ineq4_ 245 ineq2_ 5180000000001 (<= 1 diag)))))
+; now proof the rewrite of the minus application.
+(let ((x1 (* 2730000000000 x))
+      (y1 (* 2450000000001 y))
+      (my1 (* (- 2450000000001) y))
+      (x2 (* 2730000000001 x))
+      (y2 (* 2450000000000 y))
+      (my2 (* (- 2450000000000) y)))
+; first show eq1: (= (- x1 y1) (+ x1 my1)) and similar for eq2
+(let-proof ((eq1
+   (res (= (- x1 y1) (+ x1 (* (- 1) y1)))
+        (-def x1 y1)
+	(res (= (+ x1 (* (- 1) y1)) (+ x1 my1))
+	   (res (= x1 x1)
+	     (refl x1)
+	     (res (= (* (- 1) y1) my1)
+	       (poly* (* (- 1) y1) my1)
+	       (cong (+ x1 (* (- 1) y1)) (+ x1 my1))))
+	   (trans (- x1 y1) (+ x1 (* (- 1) y1)) (+ x1 my1)))))
+	    (eq2
+   (res (= (- x2 y2) (+ x2 (* (- 1) y2)))
+        (-def x2 y2)
+	(res (= (+ x2 (* (- 1) y2)) (+ x2 my2))
+	   (res (= x2 x2)
+	     (refl x2)
+	     (res (= (* (- 1) y2) my2)
+	       (poly* (* (- 1) y2) my2)
+	       (cong (+ x2 (* (- 1) y2)) (+ x2 my2))))
+	   (trans (- x2 y2) (+ x2 (* (- 1) y2)) (+ x2 my2))))))
+; Now these are the inequalities, as they appear in the SMT script
+(let ((ineq1 (<= 0 (- x1 y1)))
+      (ineq2 (<= (- x1 y1) 9999999999))
+      (ineq3 (<= 1 (- x2 y2)))
+      (ineq4 (<= (- x2 y2) 10000000000)))
+(let ((F (and ineq1 ineq2 ineq3 ineq4)))
+(let-proof ((C0 (assume F)))
+(let-proof ((C1 (res F C0 (and- 0 ineq1 ineq2 ineq3 ineq4)))
+            (C2 (res F C0 (and- 1 ineq1 ineq2 ineq3 ineq4)))
+	    (C3 (res F C0 (and- 2 ineq1 ineq2 ineq3 ineq4)))
+	    (C4 (res F C0 (and- 3 ineq1 ineq2 ineq3 ineq4))))
+; now proof the inequalities with rewritten minus application	    
+(let-proof ((C1_
+  (res ineq1 C1
+    (res (= ineq1 ineq1_)
+      (res (= 0 0) (refl 0) (res (= (- x1 y1) (+ x1 my1)) eq1
+        (cong (<= 0 (- x1 y1)) (<= 0 (+ x1 my1)))))
+      (=-2 ineq1 ineq1_))))
+            (C2_
+  (res ineq2 C2
+    (res (= ineq2 ineq2_)
+      (res (= 9999999999 9999999999) (refl 9999999999) (res (= (- x1 y1) (+ x1 my1)) eq1
+        (cong (<= (- x1 y1) 9999999999) (<= (+ x1 my1) 9999999999))))
+      (=-2 ineq2 ineq2_))))
+            (C3_
+  (res ineq3 C3
+    (res (= ineq3 ineq3_)
+      (res (= 1 1) (refl 1) (res (= (- x2 y2) (+ x2 my2)) eq2
+        (cong (<= 1 (- x2 y2)) (<= 1 (+ x2 my2)))))
+      (=-2 ineq3 ineq3_))))
+            (C4_
+  (res ineq4 C4
+    (res (= ineq4 ineq4_)
+      (res (= 10000000000 10000000000) (refl 10000000000) (res (= (- x2 y2) (+ x2 my2)) eq2
+        (cong (<= (- x2 y2) 10000000000) (<= (+ x2 my2) 10000000000))))
+      (=-2 ineq4 ineq4_)))))
+; finally resolve the proved inequalities with the core lemma.
+(res ineq1_ C1_
+(res ineq2_ C2_
+(res ineq3_ C3_
+(res ineq4_ C4_
+  C5))))
+))))))))))
