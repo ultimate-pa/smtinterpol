@@ -1,0 +1,7 @@
+unsat
+(let  ((eq (= (+ 1 1) 2)))
+  (res (not eq)
+    (assume (not eq))
+    (res eq
+      (poly+ (+ 1 1) 2)
+      (not- eq))))

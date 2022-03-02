@@ -1,0 +1,45 @@
+; prove eq_diamond4 by triangulating the equality graph.
+;
+; After adding the equalities x0=x1, x1=x2, x2=x3, we can easily show
+; each one of them using the corresponding disjunction in the input
+; formula.  The final proof is then also a simple application of
+; transitivity.
+
+unsat
+(let ((t00 (= x0 y0))
+      (t01 (= y0 x1))
+      (t02 (= x0 z0))
+      (t03 (= z0 x1))
+      (t04 (= x0 x1))
+      (t10 (= x1 y1))
+      (t11 (= y1 x2))
+      (t12 (= x1 z1))
+      (t13 (= z1 x2))
+      (t14 (= x1 x2))
+      (t20 (= x2 y2))
+      (t21 (= y2 x3))
+      (t22 (= x2 z2))
+      (t23 (= z2 x3))
+      (t24 (= x2 x3))
+      (t30 (= x0 x3)))
+(let ((t05 (and t00 t01))
+      (t06 (and t02 t03))
+      (t15 (and t10 t11))
+      (t16 (and t12 t13))
+      (t25 (and t20 t21))
+      (t26 (and t22 t23)))
+(let ((t07 (or t05 t06))
+      (t17 (or t15 t16))
+      (t27 (or t25 t26))
+      (t31 (not t30)))
+(let ((F (and t07 t17 t27 t31)))
+(let-proof ((C0 (! (res t05 (res t06 (or- t05 t06) (res t02 (and- 0 t02 t03) (res t03 (and- 1 t02 t03) (trans x0 z0 x1)))) (res t00 (and- 0 t00 t01) (res t01 (and- 1 t00 t01) (trans x0 y0 x1)))) :proves ( - t07 + t04)))
+      (C1 (! (res t15 (res t16 (or- t15 t16) (res t12 (and- 0 t12 t13) (res t13 (and- 1 t12 t13) (trans x1 z1 x2)))) (res t10 (and- 0 t10 t11) (res t11 (and- 1 t10 t11) (trans x1 y1 x2)))) :proves ( - t17 + t14)))
+      (C2 (! (res t25 (res t26 (or- t25 t26) (res t22 (and- 0 t22 t23) (res t23 (and- 1 t22 t23) (trans x2 z2 x3)))) (res t20 (and- 0 t20 t21) (res t21 (and- 1 t20 t21) (trans x2 y2 x3)))) :proves ( - t27 + t24))))
+   (res F (assume F)
+     (res t04 (res t07 (and- 0 t07 t17 t27 t31) C0)
+     (res t14 (res t17 (and- 1 t07 t17 t27 t31) C1)
+     (res t24 (res t27 (and- 2 t07 t17 t27 t31) C2)
+       (res t30 (trans x0 x1 x2 x3)
+         (res t31 (and- 3 t07 t17 t27 t31) (not- t30)))))))
+)))))

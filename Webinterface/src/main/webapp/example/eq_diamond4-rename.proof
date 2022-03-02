@@ -1,0 +1,178 @@
+; proof eq_diamond4 by conditionally renaming zi to yi.
+;
+; we define new variables yi_ (for i=0,1,2), with
+;
+;  yi_ = { yi if xi=yi=xi+1, we
+;        { zi otherwise
+;
+; then we can proof x0=y0_=x1=...=y2_=x3.
+
+unsat
+(let ((t00 (= x0 y0))
+      (t01 (= y0 x1))
+      (t02 (= x0 z0))
+      (t03 (= z0 x1))
+      (t10 (= x1 y1))
+      (t11 (= y1 x2))
+      (t12 (= x1 z1))
+      (t13 (= z1 x2))
+      (t20 (= x2 y2))
+      (t21 (= y2 x3))
+      (t22 (= x2 z2))
+      (t23 (= z2 x3))
+      (t30 (= x0 x3)))
+(let ((t05 (and t00 t01))
+      (t06 (and t02 t03))
+      (t15 (and t10 t11))
+      (t16 (and t12 t13))
+      (t25 (and t20 t21))
+      (t26 (and t22 t23)))
+(let ((t07 (or t05 t06))
+      (t17 (or t15 t16))
+      (t27 (or t25 t26))
+      (t31 (not t30)))
+(let ((F (and t07 t17 t27 t31)))
+
+;; prove the ti7 clauses
+(let-proof ((Ct07 (and- 0 t07 t17 t27 t31))
+	    (Ct17 (and- 1 t07 t17 t27 t31))
+	    (Ct27 (and- 2 t07 t17 t27 t31)))
+
+; We rename zi to yi depending on whether (and (= xi yi) (= yi xi)) holds.
+; Because of the disjunction, the renamed formula
+;   (and (= xi yi_) (= yi_ xi))
+; will always hold.
+
+(let ((y0_ (ite t05 y0 z0))
+      (y1_ (ite t15 y1 z1))
+      (y2_ (ite t25 y2 z2))
+
+; Now proof the "renamed" subformulas t05_, t15_, t25_
+
+(let ((t00_ (= x0 y0_))
+      (t01_ (= y0_ x1))
+      (t10_ (= x1 y1_))
+      (t11_ (= y1_ x2))
+      (t20_ (= x2 y2_))
+      (t21_ (= y2_ x3))
+(let ((t05_ (and t00_ t01_))
+      (t15_ (and t10_ t11_))
+      (t25_ (and t20_ t21_)))
+
+; prove that t05_ equals t05 or t06 (depending on t05).
+
+(let-proof (
+  (Ct05- (!
+    (res (= y0_ y0) (ite1 t05 y0 z0)
+      (res (= t00_ t00)
+        (res (= x0 x0) (refl x0)
+          (cong (= x0 y0_) (= x0 y0)))
+        (res (= t01_ t01)
+          (res (= x1 x1) (refl x1)
+            (cong (= y0_ x1) (= y0 x1)))
+          (cong (and t00_ t01_) (and t00 t01)))))
+    :proves ( - t05 +(= t05_ t05))))
+  (Ct06+ (!
+    (res (= y0_ z0) (ite2 t05 y0 z0)
+      (res (= t00_ t02)
+        (res (= x0 x0) (refl x0)
+          (cong (= x0 y0_) (= x0 z0)))
+        (res (= t01_ t03)
+          (res (= x1 x1) (refl x1)
+            (cong (= y0_ x1) (= z0 x1)))
+          (cong (and t00_ t01_) (and t02 t03)))))
+       :proves ( + t05 +(= t05_ t06)))))
+
+; prove t05_ from (and t05 t06)
+
+(let-proof ((Ct05_
+   (res t05
+      (res t06
+         (res t07 Ct07 (or- t05 t06))
+	 (res (= t05_ t06) Ct06+ (=-1 t05_ t06)))
+      (res (= t05_ t05) Ct05- (=-1 t05_ t05)))))
+	 
+
+;; similarly for t15 and t25...
+
+(let-proof ((Ct15- (!
+       (res (= t10_ t10)
+        (res (= x1 x1) (refl x1)
+	(res (= y1_ y1) (ite1 t15 y1 z1)
+          (cong (= x1 y1_) (= x1 y1))))
+       (res (= t11_ t11)
+	(res (= y1_ y1) (ite1 t15 y1 z1)
+        (res (= x2 x2) (refl x2)
+          (cong (= y1_ x2) (= y1 x2))))
+       (cong (and t10_ t11_) (and t10 t11))))
+       :proves ( - t15 +(= t15_ t15))))
+      (Ct16+ (!
+       (res (= t10_ t12)
+        (res (= x1 x1) (refl x1)
+	(res (= y1_ z1) (ite2 t15 y1 z1)
+          (cong (= x1 y1_) (= x1 z1))))
+       (res (= t11_ t13)
+	(res (= y1_ z1) (ite2 t15 y1 z1)
+        (res (= x2 x2) (refl x2)
+          (cong (= y1_ x2) (= z1 x2))))
+       (cong (and t10_ t11_) (and t12 t13))))
+       :proves ( + t15 +(= t15_ t16)))))
+
+(let-proof ((Ct15_
+   (res t15
+      (res t16
+         (res t17 Ct17 (or- t15 t16))
+	 (res (= t15_ t16) Ct16+ (=-1 t15_ t16)))
+      (res (= t15_ t15) Ct15- (=-1 t15_ t15)))))
+	 
+
+(let-proof ((Ct25- (!
+       (res (= t20_ t20)
+        (res (= x2 x2) (refl x2)
+	(res (= y2_ y2) (ite1 t25 y2 z2)
+          (cong (= x2 y2_) (= x2 y2))))
+       (res (= t21_ t21)
+	(res (= y2_ y2) (ite1 t25 y2 z2)
+        (res (= x3 x3) (refl x3)
+          (cong (= y2_ x3) (= y2 x3))))
+       (cong (and t20_ t21_) (and t20 t21))))
+       :proves ( - t25 +(= t25_ t25))))
+      (Ct26+ (!
+       (res (= t20_ t22)
+        (res (= x2 x2) (refl x2)
+	(res (= y2_ z2) (ite2 t25 y2 z2)
+          (cong (= x2 y2_) (= x2 z2))))
+       (res (= t21_ t23)
+	(res (= y2_ z2) (ite2 t25 y2 z2)
+        (res (= x3 x3) (refl x3)
+          (cong (= y2_ x3) (= z2 x3))))
+       (cong (and t20_ t21_) (and t22 t23))))
+       :proves ( + t25 +(= t25_ t26)))))
+
+(let-proof ((Ct25_
+   (res t25
+      (res t26
+         (res t27 Ct27 (or- t25 t26))
+	 (res (= t25_ t26) Ct26+ (=-1 t25_ t26)))
+      (res (= t25_ t25) Ct25- (=-1 t25_ t25)))))
+	 
+
+; final proof using transitivity
+
+  (res F (assume F) 
+  (res t05_ Ct05_
+  (res t00_ (and- 0 t00_ t01_)
+  (res t01_ (and- 1 t00_ t01_)
+  (res t15_ Ct15_
+  (res t10_ (and- 0 t10_ t11_)
+  (res t11_ (and- 1 t10_ t11_)
+  (res t25_ Ct25_
+  (res t20_ (and- 0 t20_ t21_)
+  (res t21_ (and- 1 t20_ t21_)
+  (res t30
+    (trans x0 y0_ x1 y1_ x2 y2_ x3)
+    (res t31
+      (and- 3 t07 t17 t27 t31)
+      (not- t30)))))))))))))
+
+))))))))))))))
