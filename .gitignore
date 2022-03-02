@@ -45,6 +45,7 @@ doc-smtinterpol
 *.smt2
 !/SMTInterpolTest/test/**/*.smt2
 !/SMTInterpol/web/*.smt2
+!/Webinterface/src/main/webapp/example/*.smt2
 *.jar
 !libs/*.jar
 !**/lib/*.jar

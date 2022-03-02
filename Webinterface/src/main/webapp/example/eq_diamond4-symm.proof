@@ -1,0 +1,359 @@
+; prove eq_diamond4 by symmetry breaking.
+;
+; We first create a formula F_, where we conditionally swap yi and zi
+; and show that the resulting formula is still equivalence by congruence
+; and or-symmetry.
+;
+; The condition under which we swap will be chosen such that in the
+; or-subformulas always the first disjunct is true (we swap if the disjunct
+; is false).
+;
+; After proving that F is equal to F_ by symmetry, we can then use the
+; fact that we swapped such that in each disjunction the first
+; disjunct is true.  The remaining proof is then simple using
+; transitivity.
+
+unsat
+(let-proof ((orsymm
+  (let ((skx (choose (x Bool) (not (forall ((y Bool)) (= (or x y) (or y x)))))))
+  (let ((sky (choose (y Bool) (not (= (or skx y) (or y skx))))))
+  (res (= (or skx sky) (or sky skx))
+    (res (or skx sky)
+      (res (or sky skx)
+        (=+1 (or skx sky) (or sky skx))
+	(res skx (res sky (or- sky skx) (or+ 1 skx sky)) (or+ 0 skx sky)))
+      (res (or sky skx)
+	(res skx (res sky (or- skx sky) (or+ 0 sky skx)) (or+ 1 sky skx))
+        (=+2 (or skx sky) (or sky skx))))
+    (forall+ ((x Bool) (y Bool)) (= (or x y) (or y x))))))))
+
+(let ((t00 (= x0 y0))
+      (t01 (= y0 x1))
+      (t02 (= x0 z0))
+      (t03 (= z0 x1))
+      (t10 (= x1 y1))
+      (t11 (= y1 x2))
+      (t12 (= x1 z1))
+      (t13 (= z1 x2))
+      (t20 (= x2 y2))
+      (t21 (= y2 x3))
+      (t22 (= x2 z2))
+      (t23 (= z2 x3))
+      (t30 (= x0 x3)))
+(let ((t05 (and t00 t01))
+      (t06 (and t02 t03))
+      (t15 (and t10 t11))
+      (t16 (and t12 t13))
+      (t25 (and t20 t21))
+      (t26 (and t22 t23)))
+(let ((t07 (or t05 t06))
+      (t17 (or t15 t16))
+      (t27 (or t25 t26))
+      (t31 (not t30)))
+(let ((F (and t07 t17 t27 t31)))
+
+; proof formula by symmetry breaking.
+;
+; First we note that F[y0,z0] = F[z0,y0] modulo symmetry of or.
+; This means we can swap y0 and z0 and get an equivalent formula.
+;
+; Now use symmetry breaking on t05: (and (= x0 y0) (= y0 x1))
+; Note that t05[z0/y0] is t06.
+;   i.e. if t05 holds, we do no rename.
+;        if t05 does not hold, we swap y0 and z0.
+; This allows us to prove in the end the symmetry breaking
+; clause "t06_ => t05_" for the renamed variables.
+;
+; We use similarly symmetry breaking on t15: (and (= x1 y1) (= y1 x2))
+; with y1 and z1, and so on.
+;
+; The first step is to define y0_ as y0 if t05 holds and z0 otherwise.
+; Similarly z0_ is z0 if t05 holds and y0 otherwise.
+; This is the main trick of the proof.  We need to make the renaming
+; of the terms explicit in the formula.  We then show that after this
+; renaming, we get an equivalent formula F_ and we get the symmetry
+; breaking clauses in addition.
+
+(let ((y0_ (ite t05 y0 z0))
+      (y1_ (ite t15 y1 z1))
+      (y2_ (ite t25 y2 z2))
+      (z0_ (ite t05 z0 y0))
+      (z1_ (ite t15 z1 y1))
+      (z2_ (ite t25 z2 y2)))
+
+; Now define the "renamed" subformulas
+
+(let ((t00_ (= x0 y0_))
+      (t01_ (= y0_ x1))
+      (t02_ (= x0 z0_))
+      (t03_ (= z0_ x1))
+      (t10_ (= x1 y1_))
+      (t11_ (= y1_ x2))
+      (t12_ (= x1 z1_))
+      (t13_ (= z1_ x2))
+      (t20_ (= x2 y2_))
+      (t21_ (= y2_ x3))
+      (t22_ (= x2 z2_))
+      (t23_ (= z2_ x3)))
+(let ((t05_ (and t00_ t01_))
+      (t06_ (and t02_ t03_))
+      (t15_ (and t10_ t11_))
+      (t16_ (and t12_ t13_))
+      (t25_ (and t20_ t21_))
+      (t26_ (and t22_ t23_)))
+(let ((t07_ (or t05_ t06_))
+      (t17_ (or t15_ t16_))
+      (t27_ (or t25_ t26_)))
+(let ((F_ (and t07_ t17_ t27_ t31)))
+
+;; Now we show some symmetries, namely that
+;;  t05  implies t05_ = t05  and  t06_ = t06
+;;  ~t05 implies t06_ = t05  and  t05_ = t06.
+
+;; show symmetries
+(let-proof ((Ct05- (!
+       (res (= t00_ t00)
+        (res (= x0 x0) (refl x0)
+          (res (= y0_ y0) (ite1 t05 y0 z0)
+            (cong (= x0 y0_) (= x0 y0))))
+       (res (= t01_ t01)
+	(res (= y0_ y0) (ite1 t05 y0 z0)
+          (res (= x1 x1) (refl x1)
+            (cong (= y0_ x1) (= y0 x1))))
+       (cong (and t00_ t01_) (and t00 t01))))
+       :proves ( - t05 +(= t05_ t05))))
+      (Ct06- (!
+       (res (= t02_ t02)
+        (res (= x0 x0) (refl x0)
+	(res (= z0_ z0) (ite1 t05 z0 y0)
+          (cong (= x0 z0_) (= x0 z0))))
+       (res (= t03_ t03)
+	(res (= z0_ z0) (ite1 t05 z0 y0)
+        (res (= x1 x1) (refl x1)
+          (cong (= z0_ x1) (= z0 x1))))
+       (cong (and t02_ t03_) (and t02 t03))))
+       :proves ( - t05 +(= t06_ t06))))
+      (Ct05+ (!
+       (res (= t02_ t00)
+        (res (= x0 x0) (refl x0)
+	(res (= z0_ y0) (ite2 t05 z0 y0)
+          (cong (= x0 z0_) (= x0 y0))))
+       (res (= t03_ t01)
+	(res (= z0_ y0) (ite2 t05 z0 y0)
+        (res (= x1 x1) (refl x1)
+          (cong (= z0_ x1) (= y0 x1))))
+       (cong (and t02_ t03_) (and t00 t01))))
+       :proves ( + t05 +(= t06_ t05))))
+      (Ct06+ (!
+       (res (= t00_ t02)
+        (res (= x0 x0) (refl x0)
+	(res (= y0_ z0) (ite2 t05 y0 z0)
+          (cong (= x0 y0_) (= x0 z0))))
+       (res (= t01_ t03)
+	(res (= y0_ z0) (ite2 t05 y0 z0)
+        (res (= x1 x1) (refl x1)
+          (cong (= y0_ x1) (= z0 x1))))
+       (cong (and t00_ t01_) (and t02 t03))))
+       :proves ( + t05 +(= t05_ t06)))))
+
+;; similarly for t15 and t25...
+
+(let-proof ((Ct15- (!
+       (res (= t10_ t10)
+        (res (= x1 x1) (refl x1)
+	(res (= y1_ y1) (ite1 t15 y1 z1)
+          (cong (= x1 y1_) (= x1 y1))))
+       (res (= t11_ t11)
+	(res (= y1_ y1) (ite1 t15 y1 z1)
+        (res (= x2 x2) (refl x2)
+          (cong (= y1_ x2) (= y1 x2))))
+       (cong (and t10_ t11_) (and t10 t11))))
+       :proves ( - t15 +(= t15_ t15))))
+      (Ct16- (!
+       (res (= t12_ t12)
+        (res (= x1 x1) (refl x1)
+	(res (= z1_ z1) (ite1 t15 z1 y1)
+          (cong (= x1 z1_) (= x1 z1))))
+       (res (= t13_ t13)
+	(res (= z1_ z1) (ite1 t15 z1 y1)
+        (res (= x2 x2) (refl x2)
+          (cong (= z1_ x2) (= z1 x2))))
+       (cong (and t12_ t13_) (and t12 t13))))
+       :proves ( - t15 +(= t16_ t16))))
+      (Ct15+ (!
+       (res (= t12_ t10)
+        (res (= x1 x1) (refl x1)
+	(res (= z1_ y1) (ite2 t15 z1 y1)
+          (cong (= x1 z1_) (= x1 y1))))
+       (res (= t13_ t11)
+	(res (= z1_ y1) (ite2 t15 z1 y1)
+        (res (= x2 x2) (refl x2)
+          (cong (= z1_ x2) (= y1 x2))))
+       (cong (and t12_ t13_) (and t10 t11))))
+       :proves ( + t15 +(= t16_ t15))))
+      (Ct16+ (!
+       (res (= t10_ t12)
+        (res (= x1 x1) (refl x1)
+	(res (= y1_ z1) (ite2 t15 y1 z1)
+          (cong (= x1 y1_) (= x1 z1))))
+       (res (= t11_ t13)
+	(res (= y1_ z1) (ite2 t15 y1 z1)
+        (res (= x2 x2) (refl x2)
+          (cong (= y1_ x2) (= z1 x2))))
+       (cong (and t10_ t11_) (and t12 t13))))
+       :proves ( + t15 +(= t15_ t16)))))
+
+(let-proof ((Ct25- (!
+       (res (= t20_ t20)
+        (res (= x2 x2) (refl x2)
+	(res (= y2_ y2) (ite1 t25 y2 z2)
+          (cong (= x2 y2_) (= x2 y2))))
+       (res (= t21_ t21)
+	(res (= y2_ y2) (ite1 t25 y2 z2)
+        (res (= x3 x3) (refl x3)
+          (cong (= y2_ x3) (= y2 x3))))
+       (cong (and t20_ t21_) (and t20 t21))))
+       :proves ( - t25 +(= t25_ t25))))
+      (Ct26- (!
+       (res (= t22_ t22)
+        (res (= x2 x2) (refl x2)
+	(res (= z2_ z2) (ite1 t25 z2 y2)
+          (cong (= x2 z2_) (= x2 z2))))
+       (res (= t23_ t23)
+	(res (= z2_ z2) (ite1 t25 z2 y2)
+        (res (= x3 x3) (refl x3)
+          (cong (= z2_ x3) (= z2 x3))))
+       (cong (and t22_ t23_) (and t22 t23))))
+       :proves ( - t25 +(= t26_ t26))))
+      (Ct25+ (!
+       (res (= t22_ t20)
+        (res (= x2 x2) (refl x2)
+	(res (= z2_ y2) (ite2 t25 z2 y2)
+          (cong (= x2 z2_) (= x2 y2))))
+       (res (= t23_ t21)
+	(res (= z2_ y2) (ite2 t25 z2 y2)
+        (res (= x3 x3) (refl x3)
+          (cong (= z2_ x3) (= y2 x3))))
+       (cong (and t22_ t23_) (and t20 t21))))
+       :proves ( + t25 +(= t26_ t25))))
+      (Ct26+ (!
+       (res (= t20_ t22)
+        (res (= x2 x2) (refl x2)
+	(res (= y2_ z2) (ite2 t25 y2 z2)
+          (cong (= x2 y2_) (= x2 z2))))
+       (res (= t21_ t23)
+	(res (= y2_ z2) (ite2 t25 y2 z2)
+        (res (= x3 x3) (refl x3)
+          (cong (= y2_ x3) (= z2 x3))))
+       (cong (and t20_ t21_) (and t22 t23))))
+       :proves ( + t25 +(= t25_ t26)))))
+
+;; Now we can show that (= t07_ t07) using orsymm if ~t05 holds.
+(let-proof ((Ct07 (!
+   (res t05
+     (res (= t06_ t05) Ct05+
+       (res (= t05_ t06) Ct06+
+       (res (= (or t06_ t05_) (or t05 t06))
+         (cong (or t06_ t05_) (or t05 t06))
+       (res (= (or t05_ t06_) (or t06_ t05_))
+         (res (forall ((x Bool) (y Bool)) (= (or x y) (or y x)))
+	   orsymm
+           (forall- ((x t05_) (y t06_)) (= (or x y) (or y x))))
+       (trans (or t05_ t06_) (or t06_ t05_) (or t05 t06))))))
+     (res (= t05_ t05) Ct05-
+     (res (= t06_ t06) Ct06-
+       (cong (or t05_ t06_) (or t05 t06)))))
+     :proves ( + (= t07_ t07)))))
+
+;; similarly for t17_ and t27_...
+(let-proof ((Ct17 (!
+   (res t15
+     (res (= t16_ t15) Ct15+
+       (res (= t15_ t16) Ct16+
+       (res (= (or t16_ t15_) (or t15 t16))
+         (cong (or t16_ t15_) (or t15 t16))
+       (res (= (or t15_ t16_) (or t16_ t15_))
+         (res (forall ((x Bool) (y Bool)) (= (or x y) (or y x)))
+           orsymm (forall- ((x t15_) (y t16_)) (= (or x y) (or y x))))
+       (trans (or t15_ t16_) (or t16_ t15_) (or t15 t16))))))
+     (res (= t15_ t15) Ct15-
+     (res (= t16_ t16) Ct16-
+       (cong (or t15_ t16_) (or t15 t16)))))
+     :proves ( + (= t17_ t17)))))
+
+(let-proof ((Ct27 (!
+   (res t25
+     (res (= t26_ t25) Ct25+
+       (res (= t25_ t26) Ct26+
+       (res (= (or t26_ t25_) (or t25 t26))
+         (cong (or t26_ t25_) (or t25 t26))
+       (res (= (or t25_ t26_) (or t26_ t25_))
+         (res (forall ((x Bool) (y Bool)) (= (or x y) (or y x)))
+           orsymm (forall- ((x t25_) (y t26_)) (= (or x y) (or y x))))
+       (trans (or t25_ t26_) (or t26_ t25_) (or t25 t26))))))
+     (res (= t25_ t25) Ct25-
+     (res (= t26_ t26) Ct26-
+       (cong (or t25_ t26_) (or t25 t26)))))
+     :proves ( + (= t27_ t27)))))
+
+;; prove F_, the symmetric version of F
+;; by showing F_ is equivalent to F and then using the assumption F.
+
+;; note that in this case we can do all three substitutions yi <-> zi
+;; for i = 0..2 at the same time, because each subterm contains only one
+;; of the three substitutions.  If the formula would mix the variables
+;; more, it would have been necessary to show this in three steps:
+;; F = F[y0_,z0_] = F[y0_,z0_,y1_,z1_] = F[y0_,z0_,y1_,z1_,y2_,z2_]
+
+(let-proof ((CF_ (!
+    (res (= F_ F)
+      (res (= t07_ t07) Ct07
+       (res (= t17_ t17) Ct17
+        (res (= t27_ t27) Ct27
+         (res (= t31 t31) (refl t31)
+          (cong (and t07_ t17_ t27_ t31) (and t07 t17 t27 t31))))))
+      (res F (assume F) (=-1 F_ F)))
+      :proves ( + F_ ))))
+
+;; prove symmetry breaking clauses ( - ti6_ + ti5_ )
+;; these are now tautologies, thanks to our definition of yi_, zi_
+(let-proof ((Ct05_ (!
+   (res t05
+     (res (= t06_ t05) Ct05+ (=-2 t06_ t05))
+     (res (= t05_ t05) Ct05- (=-1 t05_ t05)))
+   :proves ( - t06_ t05_ )))
+      (Ct15_ (!
+   (res t15
+     (res (= t16_ t15) Ct15+ (=-2 t16_ t15))
+     (res (= t15_ t15) Ct15- (=-1 t15_ t15)))
+   :proves ( - t16_ t15_ )))
+      (Ct25_ (!
+   (res t25
+     (res (= t26_ t25) Ct25+ (=-2 t26_ t25))
+     (res (= t25_ t25) Ct25- (=-1 t25_ t25)))
+   :proves ( - t26_ t25_ ))))
+
+; final proof using symmetry breaking clauses.
+;
+; Note that this only uses the primed formulas.
+
+  (res F_ CF_
+  (res t07_ (and- 0 t07_ t17_ t27_ t31)
+  (res t05_ (res t06_ (or- t05_ t06_) Ct05_)
+  (res t00_ (and- 0 t00_ t01_)
+  (res t01_ (and- 1 t00_ t01_)
+  (res t17_ (and- 1 t07_ t17_ t27_ t31)
+  (res t15_ (res t16_ (or- t15_ t16_) Ct15_)
+  (res t10_ (and- 0 t10_ t11_)
+  (res t11_ (and- 1 t10_ t11_)
+  (res t27_ (and- 2 t07_ t17_ t27_ t31)
+  (res t25_ (res t26_ (or- t25_ t26_) Ct25_)
+  (res t20_ (and- 0 t20_ t21_)
+  (res t21_ (and- 1 t20_ t21_)
+  (res t30
+    (trans x0 y0_ x1 y1_ x2 y2_ x3)
+    (res t31
+      (and- 3 t07_ t17_ t27_ t31)
+      (not- t30))))))))))))))))
+
+))))))))))))))))))

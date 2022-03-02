@@ -90,6 +90,10 @@
     <button id="stop" disabled>Abort</button>
     <button id="proofcheck">Check Proof</button>
     &nbsp;
+    <select id="example" name="example">
+      <option value="choose" selected>Choose Example...</option>
+    </select>
+    &nbsp;
     <svg id="cogwheels" width="20" height="20" viewBox="0 120 400 400" style="visibility:hidden">
       <g style="fill:#000" >
         <path id="smallcog" d="M200 236v-21l-29-4c-2-10-6-18-11-26l18-23 -15-15 -23 18c-8-5-17-9-26-11l-4-29H90l-4 29c-10 2-18 6-26 11l-23-18 -15 15 18 23c-5 8-9 17-11 26L0 215v21l29 4c2 10 6 18 11 26l-18 23 15 15 23-18c8 5 17 9 26 11l4 29h21l4-29c10-2 18-6 26-11l23 18 15-15 -18-23c5-8 9-17 11-26L200 236zM100 262c-20 0-37-17-37-37s17-37 37-37c20 0 37 17 37 37S121 262 100 262z"/>
@@ -111,9 +115,26 @@
   let output = document.getElementById("result");
   var fileUploader = document.getElementById("upload");
   var proofPanel = document.getElementById("proof");
+  var exampleSelect = document.getElementById("example");
 
   var worker;
   var mode;
+
+  var examples = [
+      [ "1 + 1 = 2", "oneplusone.smt2", "oneplusone.proof" ],
+      [ "eq_diamond2 (simple)", "eq_diamond2.smt2", "eq_diamond2.proof" ],
+      [ "eq_diamond4 (triangulation)", "eq_diamond4.smt2", "eq_diamond4-eq.proof" ],
+      [ "eq_diamond4 (renaming)", "eq_diamond4.smt2", "eq_diamond4-rename.proof" ],
+      [ "eq_diamond4 (symmetry breaking)", "eq_diamond4.smt2", "eq_diamond4-symm.proof" ],
+      [ "pigeon hole 5", "pigeon-hole-5.smt2", "pigeon-hole-5.proof" ],
+      [ "pigeon hole 10", "pigeon-hole-10.smt2", "pigeon-hole-10.proof" ],
+  ];
+
+  function initExample() {
+      for (var i = 0; i < examples.length; i++) {
+	  exampleSelect.add(new Option(examples[i][0], i));
+      }
+  }
 
   function showCog() {
       document.getElementById("cogwheels").style.visibility = "visible";
@@ -206,6 +227,17 @@
       ev.preventDefault();
   }
 
+  function loadExample(ev) {
+      var example = examples[exampleSelect.value];
+      if (example == undefined) {
+	  return;
+      }
+      var smt2 = "./example/"+ example[1];
+      var proof = "./example/"+ example[2];
+      fetch(smt2).then(response => response.text()).then(text => inputPanel.value = text);
+      fetch(proof).then(response => response.text()).then(text => proofPanel.value = text);
+  }
+  
   runButton.onclick = run;
   stopButton.onclick = stop;
   checkButton.onclick = checkProof;
@@ -214,6 +246,8 @@
   inputPanel.ondragover=dragoverHandler;
 
   fileUploader.onchange=uploadFile;
+  exampleSelect.onchange=loadExample;
+  initExample();
 </script>
     </div>
     <footer>
