@@ -235,7 +235,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Term[] subst = mProofRules.getSkolemVars(universalVars, qf.getSubformula(), true);
 		final FormulaUnLet unletter = new FormulaUnLet();
 		final Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
-		return removeNot(mProofRules.forallIntro(qf), result, true);
+		return removeNot(mProofRules.forallIntro(qf), result, false);
 	}
 
 	/**
@@ -259,7 +259,17 @@ public class ProofSimplifier extends TermTransformer {
 		// subst must contain one substitution for each variable
 		assert universalVars.length == subst.length;
 
-		Term proof = mProofRules.forallElim(subst, qf);
+		// don't substitute term variables that are not free in the clause
+		final Term[] realSubst = new Term[subst.length];
+		for (int i = 0; i < subst.length; i++) {
+			if (subst[i] instanceof TermVariable && !Arrays.asList(clause[1].getFreeVars()).contains(subst[i])) {
+				realSubst[i] = mProofRules.choose((TermVariable) subst[i], mSkript.term(SMTLIBConstants.TRUE));
+			} else {
+				realSubst[i] = subst[i];
+			}
+		}
+
+		Term proof = mProofRules.forallElim(realSubst, qf);
 		// remove negations
 		final FormulaUnLet unletter = new FormulaUnLet();
 		final Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
@@ -938,6 +948,8 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		}
 		assert checkProof(proof, termToProofLiterals(clause));
+		assert new HashSet<>(Arrays.asList(proof.getFreeVars()))
+				.equals(new HashSet<>(Arrays.asList(clause.getFreeVars())));
 		return proof;
 	}
 
@@ -2517,6 +2529,8 @@ public class ProofSimplifier extends TermTransformer {
 			subProof = mProofRules.oracle(termToProofLiterals(rewriteStmt), annotTerm.getAnnotations());
 		}
 		assert checkProof(subProof, termToProofLiterals(rewriteStmt));
+		assert new HashSet<>(Arrays.asList(subProof.getFreeVars()))
+				.equals(new HashSet<>(Arrays.asList(rewriteStmt.getFreeVars())));
 		return annotateProved(rewriteStmt, subProof);
 	}
 
@@ -3921,6 +3935,8 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		}
 		assert checkProof(subProof, termToProofLiterals(lemma));
+		assert new HashSet<>(Arrays.asList(subProof.getFreeVars()))
+				.equals(new HashSet<>(Arrays.asList(lemma.getFreeVars())));
 		return subProof;
 	}
 
