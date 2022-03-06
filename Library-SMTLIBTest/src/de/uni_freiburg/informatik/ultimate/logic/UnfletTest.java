@@ -25,12 +25,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet.UnletType;
 
 @RunWith(JUnit4.class)
 public class UnfletTest {
 
-	Theory mTheory = new Theory(Logics.AUFLIRA);
+	Theory mTheory = new Theory(Logics.AUFDTLIRA);
 
 	Sort mIntSort = mTheory.getSort("Int");
 	Sort[] mInt2 = arr(mIntSort, mIntSort);
@@ -100,14 +101,70 @@ public class UnfletTest {
 
 		letTerm = mTheory.let(mY, mX, mTheory.exists(arr(mX), mTheory.equals(mX, mY)));
 		Assert.assertEquals("(let ((y x)) (exists ((x Int)) (= x y)))", letTerm.toStringDirect());
-		Assert.assertEquals("(exists ((.unlet.0 Int)) (= .unlet.0 x))", mUnletter.unlet(letTerm).toStringDirect());
+		Assert.assertEquals("(exists ((.x Int)) (= .x x))", mUnletter.unlet(letTerm).toStringDirect());
 
 		letTerm = mTheory.let(arr(mX, mY), arr(mY, mZ), mTheory.exists(arr(mY), mTheory.equals(mX, mY)));
 		Assert.assertEquals("(let ((x y) (y z)) (exists ((y Int)) (= x y)))", letTerm.toStringDirect());
 		final Term unlet = mUnletter.unlet(letTerm);
-		final String varname = ((QuantifiedFormula) unlet).getVariables()[0].toStringDirect();
-		Assert.assertEquals(".unlet.", varname.substring(0, 7));// NOCHECKSTYLE
-		Assert.assertEquals("(exists ((" + varname + " Int)) (= y " + varname + "))", unlet.toStringDirect());
+		Assert.assertEquals("(exists ((.y Int)) (= y .y))", unlet.toStringDirect());
+	}
+
+	private void declareListType() {
+		final Script script = new NoopScript(mTheory);
+		final DataType listType = script.datatype("List", 0);
+		final Constructor[] listConstrs = new Constructor[] {
+				script.constructor("nil", new String[0], new Sort[0]),
+				script.constructor("cons", new String[] { "car", "cdr" }, new Sort[] { mIntSort, script.sort("List") })
+		};
+		script.declareDatatype(listType, listConstrs);
+	}
+
+	@Test
+	public void testBoundRename() {
+		declareListType();
+		final Sort listSort = mTheory.getSort("List");
+		final DataType listType = (DataType) listSort.getSortSymbol();
+		final TermVariable xList = mTheory.createTermVariable("x", mTheory.getSort("List"));
+		final TermVariable yList = mTheory.createTermVariable("y", mTheory.getSort("List"));
+		final TermVariable uList = mTheory.createTermVariable("u", mTheory.getSort("List"));
+		final TermVariable wInt = mTheory.createTermVariable("w", mIntSort);
+		final TermVariable vInt = mTheory.createTermVariable("v", mIntSort);
+		final TermVariable[][] caseVars = new TermVariable[][] { new TermVariable[] { mZ, xList },
+				new TermVariable[] { xList } };
+		final Term[] cases = new Term[] {
+				mTheory.and(mTheory.equals(mZ, wInt), mTheory.equals(xList, mTheory.term("cons", vInt, yList))),
+				mTheory.equals(xList, yList) };
+		final Constructor[] constrs = new Constructor[] { listType.getConstructor("cons"), null };
+		final Term term1 = mTheory.let(new TermVariable[] { yList, wInt }, new Term[] { xList, mZ },
+				mTheory.match(xList, caseVars, cases, constrs));
+
+		Assert.assertEquals("(let ((y x) (w z)) (match x (((cons z x) (and (= z w) (= x (cons v y)))) (x (= x y)))))",
+				term1.toStringDirect());
+		Assert.assertEquals("(match x (((cons .z .x) (and (= .z z) (= .x (cons v x)))) (.x (= .x x))))",
+				mUnletter.unlet(term1).toStringDirect());
+
+		final Term term2a = mTheory.let(new TermVariable[] { uList, vInt }, new Term[] { xList, mZ },
+				mTheory.exists(new TermVariable[] { mZ, xList }, term1));
+		final Term term2b = mTheory.let(new TermVariable[] { uList, vInt }, new Term[] { xList, mZ },
+				mTheory.exists(new TermVariable[] { mZ, xList }, mUnletter.unlet(term1)));
+
+		Assert.assertEquals(
+				"(exists ((.z Int) (x List)) (match x (((cons ..z .x) (and (= ..z .z) (= .x (cons z x)))) (.x (= .x x)))))",
+				mUnletter.unlet(term2a).toStringDirect());
+		Assert.assertEquals(mUnletter.unlet(term2a), mUnletter.unlet(term2b));
+
+		final Term term3a = mTheory.let(new TermVariable[] { vInt }, new Term[] { mX },
+				mTheory.exists(new TermVariable[] { mZ, xList }, term1));
+		final Term term3b = mTheory.let(new TermVariable[] { vInt }, new Term[] { mX },
+				mTheory.exists(new TermVariable[] { mZ, xList }, mUnletter.unlet(term1)));
+
+		Assert.assertEquals(
+				"(exists ((z Int) (.x List)) (match .x (((cons .z ..x) (and (= .z z) (= ..x (cons x .x)))) (..x (= ..x .x)))))",
+				mUnletter.unlet(term3a).toStringDirect());
+		Assert.assertEquals(
+				"(exists ((z Int) (.x List)) (match .x (((cons .z ..x) (and (= .z z) (= ..x (cons x .x)))) (..x (= ..x .x)))))",
+				mUnletter.unlet(term3b).toStringDirect());
+		Assert.assertEquals(mUnletter.unlet(term3a), mUnletter.unlet(term3b));
 	}
 
 	@Test
