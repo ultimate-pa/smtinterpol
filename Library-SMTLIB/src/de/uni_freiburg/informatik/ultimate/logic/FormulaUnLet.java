@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2012 University of Freiburg
+ * Copyright (C) 2009-2022 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -117,19 +117,38 @@ public class FormulaUnLet extends TermTransformer {
 		return transform(term);
 	}
 
-	public void startVarScope(final TermVariable[] vars) {
-		/* check which variables are in the image of the substitution */
-		final HashSet<TermVariable> used = new HashSet<>();
-		for (final Map.Entry<TermVariable, Term> substTerms : mLetMap.entrySet()) {
-			if (!Arrays.asList(vars).contains(substTerms.getKey())) {
-				used.addAll(Arrays.asList(substTerms.getValue().getFreeVars()));
+	public void startVarScope(final Term body, final TermVariable[] vars) {
+		/* compute all variables that are indirectly used inside the body */
+		final HashSet<String> usedOutside = new HashSet<>();
+		final HashSet<TermVariable> bodyVars = new HashSet<>();
+		bodyVars.addAll(Arrays.asList(body.getFreeVars()));
+		for (final TermVariable tv : vars) {
+			bodyVars.remove(tv);
+		}
+		for (final TermVariable tv : bodyVars) {
+			final Term refTerm = mLetMap.get(tv);
+			if (refTerm != null) {
+				for (final TermVariable usedTv : refTerm.getFreeVars()) {
+					String name = usedTv.getName();
+					usedOutside.add(name);
+					// also add the base names in case the variable was already protected by
+					// previous unlet.
+					while (name.charAt(0) == '.') {
+						name = name.substring(1);
+						usedOutside.add(name);
+					}
+				}
 			}
 		}
 
 		mLetMap.beginScope();
 		for (int i = 0; i < vars.length; i++) {
-			if (used.contains(vars[i])) {
-				mLetMap.put(vars[i], vars[i].getTheory().createFreshTermVariable("unlet", vars[i].getSort()));
+			if (usedOutside.contains(vars[i].getName())) {
+				String newName = "." + vars[i].getName();
+				while (usedOutside.contains(newName)) {
+					newName = "." + newName;
+				}
+				mLetMap.put(vars[i], vars[i].getTheory().createTermVariable(newName, vars[i].getSort()));
 			} else {
 				if (mLetMap.containsKey(vars[i])) {
 					mLetMap.remove(vars[i]);
@@ -169,11 +188,11 @@ public class FormulaUnLet extends TermTransformer {
 			preConvertLet(letTerm, letTerm.getValues());
 		} else if (term instanceof LambdaTerm) {
 			final LambdaTerm lambda = (LambdaTerm) term;
-			startVarScope(lambda.getVariables());
+			startVarScope(lambda.getSubterm(), lambda.getVariables());
 			super.convert(term);
 		} else if (term instanceof QuantifiedFormula) {
 			final QuantifiedFormula qf = (QuantifiedFormula)term;
-			startVarScope(qf.getVariables());
+			startVarScope(qf.getSubformula(), qf.getVariables());
 			super.convert(term);
 		} else if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
@@ -255,7 +274,7 @@ public class FormulaUnLet extends TermTransformer {
 		if (caseNr > 0) {
 			mMatchVars.add(endVarScope(oldMatch.getVariables()[caseNr - 1]));
 		}
-		startVarScope(oldMatch.getVariables()[caseNr]);
+		startVarScope(oldMatch.getCases()[caseNr], oldMatch.getVariables()[caseNr]);
 		super.preConvertMatchCase(oldMatch, caseNr);
 	}
 
