@@ -1,3 +1,16 @@
+.ace_editor {
+    font-family: Monaco, monospace;
+    font-size: 10pt;
+    border: 1px solid lightgray;
+    margin: auto;
+    height: 200px;
+}
+
+.scrollmargin {
+    height: 80px;
+    text-align: center;
+}
+
 .inputarea {
     display: flex;
     flex-direction: column;
