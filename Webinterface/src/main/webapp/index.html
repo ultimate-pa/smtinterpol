@@ -55,9 +55,7 @@
   Please note that running large problems can affect the performance of
   your browser.</p>
 
-  <div class="inputarea">
-    <textarea id="input" rows="25" autofocus>
-; Can you prove that 1 + 1 is 2?
+  <div id="editor">; Can you prove that 1 + 1 is 2?
 
 (set-option :produce-proofs true)
 (set-option :proof-level lowlevel)
@@ -65,10 +63,11 @@
 (assert (not (= (+ 1 1) 2)))
 (check-sat)
 (get-proof)
-    </textarea>
+  </div>
   <br/>
+  <div class="inputarea">
   <div class="buttons">
-    <input type="file" name="upload" id="upload" />
+    <input type="file" name="upload" id="upload" accept=".smt2" />
     <button id="run">Run SMTInterpol</button>
     <button id="stop" disabled>Abort</button>
     &nbsp;
@@ -82,9 +81,18 @@
 </div>
 <pre id="result">Run SMTInterpol to see the result here !</pre>
 
+<script src="ace/ace.js" type="text/javascript" charset="utf-8"></script>
 <script>
+  var editor = ace.edit("editor", {
+      theme: "ace/theme/textmate",
+      mode: "ace/mode/smtlib",
+      minLines: 8,
+      maxLines: 30,
+      wrap: true,
+      autoScrollEditorIntoView: true
+  });
   var runButton = document.getElementById("run");
-  var inputPanel = document.getElementById("input");
+  var inputDocument = editor.session.getDocument();
   var stopButton = document.getElementById("stop");
   let output = document.getElementById("result");
   var fileUploader = document.getElementById("upload");
@@ -113,7 +121,7 @@
       worker = new Worker('webworker.js');
       worker.addEventListener('message', workerMessaged);
       worker.addEventListener('error', workerError);
-      worker.postMessage(inputPanel.value);
+      worker.postMessage(inputDocument.getValue());
   }
 
   var optnewline = ""
@@ -143,7 +151,7 @@
   function readFile(file) {
       let reader = new FileReader()
       reader.onload = function(e) {
-	  inputPanel.value = e.target.result;
+	  inputDocument.setValue(e.target.result);
       }
       reader.readAsText(file);
   }
@@ -166,8 +174,8 @@
   runButton.onclick = run;
   stopButton.onclick = stop;
 
-  inputPanel.ondrop=dropHandler;
-  inputPanel.ondragover=dragoverHandler;
+  document.getElementById("editor").ondrop=dropHandler;
+  document.getElementById("editor").ondragover=dragoverHandler;
 
   fileUploader.onchange=uploadFile;
 </script>

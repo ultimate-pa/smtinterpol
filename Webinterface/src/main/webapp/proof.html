@@ -73,17 +73,17 @@
     proof format</a>.
     </p>
 
-  <div class="inputarea">
-    <textarea id="input" rows="25" autofocus>
-; Can you prove that 1 + 1 is 2?
+    <div id="editor">; Can you prove that 1 + 1 is 2?
 
 (set-option :produce-proofs true)
+(set-option :proof-level lowlevel)
 (set-logic QF_LIA)
 (assert (not (= (+ 1 1) 2)))
 (check-sat)
 (get-proof)
-    </textarea>
+    </div>
   <br/>
+  <div class="inputarea">
   <div class="buttons">
     <input type="file" name="upload" id="upload" />
     <button id="run">Run SMTInterpol</button>
@@ -101,20 +101,36 @@
       </g>
     </svg>
   </div>
-  <br/>
-    <textarea id="proof" rows="25">
-    </textarea>
 </div>
-<pre id="result">Run SMTInterpol to see the result here !</pre>
+  <br/>
+  <div id="proof"></div>
+<pre id="result"></pre>
 
+<script src="ace/ace.js" type="text/javascript" charset="utf-8"></script>
 <script>
+  var editor = ace.edit("editor", {
+      theme: "ace/theme/textmate",
+      mode: "ace/mode/smtlib",
+      minLines: 8,
+      maxLines: 30,
+      wrap: true,
+      autoScrollEditorIntoView: true
+  });
+  var proofEditor = ace.edit("proof", {
+      theme: "ace/theme/textmate",
+      mode: "ace/mode/smtlib",
+      minLines: 8,
+      maxLines: 15,
+      wrap: true,
+      autoScrollEditorIntoView: true
+  });
   var runButton = document.getElementById("run");
-  var inputPanel = document.getElementById("input");
+  var inputDocument = editor.session.getDocument();
   var stopButton = document.getElementById("stop");
   var checkButton = document.getElementById("proofcheck");
   let output = document.getElementById("result");
   var fileUploader = document.getElementById("upload");
-  var proofPanel = document.getElementById("proof");
+  var proofDocument = proofEditor.session.getDocument();
   var exampleSelect = document.getElementById("example");
 
   var worker;
@@ -160,11 +176,11 @@
       showCog();
       mode="run";
       output.textContent = "";
-      proofPanel.value = "";
+      proofDocument.setValue("");
       worker = new Worker('webworker.js');
       worker.addEventListener('message', workerMessaged);
       worker.addEventListener('error', workerError);
-      worker.postMessage(inputPanel.value);
+      worker.postMessage(inputDocument.getValue());
   }
 
   function checkProof(){
@@ -175,8 +191,8 @@
       worker.addEventListener('message', workerMessaged);
       worker.addEventListener('error', workerError);
       worker.postMessage("proofcheck");
-      worker.postMessage(inputPanel.value);
-      worker.postMessage(proofPanel.value);
+      worker.postMessage(inputDocument.getValue());
+      worker.postMessage(proofDocument.getValue());
   }
 
   function workerMessaged(ev){
@@ -190,7 +206,7 @@
 	      alert("Proof is " + data);
 	      output.textContent += data + "\n";
 	  } else {
-	      proofPanel.value += data + "\n";
+	      proofDocument.setValue(proofDocument.getValue() + data + "\n");
 	  }
       }
   }
@@ -205,26 +221,37 @@
       hideCog();
   }
 
-  function readFile(file) {
+  function readFile(file, document) {
       let reader = new FileReader()
       reader.onload = function(e) {
-	  inputPanel.value = e.target.result;
+	  document.setValue(e.target.result);
       }
       reader.readAsText(file);
   }
 
   function uploadFile(ev) {
-      readFile(fileUploader.files[0]);
+      readFile(fileUploader.files[0], inputDocument);
   }
 
-  function dropHandler(ev) {
+  function dropHandlerInput(ev) {
       ev.preventDefault();
       if (ev.dataTransfer.files) {
 	  // Use DataTransfer interface to access the file(s)
-	  readFile(ev.dataTransfer.files[0]);
+	  readFile(ev.dataTransfer.files[0], inputDocument);
       }
   }
-  function dragoverHandler(ev) {
+  function dragoverHandlerInput(ev) {
+      ev.preventDefault();
+  }
+
+  function dropHandlerProof(ev) {
+      ev.preventDefault();
+      if (ev.dataTransfer.files) {
+	  // Use DataTransfer interface to access the file(s)
+	  readFile(ev.dataTransfer.files[0], proofDocument);
+      }
+  }
+  function dragoverHandlerProof(ev) {
       ev.preventDefault();
   }
 
@@ -235,16 +262,18 @@
       }
       var smt2 = "./example/"+ example[1];
       var proof = "./example/"+ example[2];
-      fetch(smt2).then(response => response.text()).then(text => inputPanel.value = text);
-      fetch(proof).then(response => response.text()).then(text => proofPanel.value = text);
+      fetch(smt2).then(response => response.text()).then(text => inputDocument.setValue(text));
+      fetch(proof).then(response => response.text()).then(text => proofDocument.setValue(text));
   }
   
   runButton.onclick = run;
   stopButton.onclick = stop;
   checkButton.onclick = checkProof;
 
-  inputPanel.ondrop=dropHandler;
-  inputPanel.ondragover=dragoverHandler;
+  document.getElementById("editor").ondrop=dropHandlerInput;
+  document.getElementById("editor").ondragover=dragoverHandlerInput;
+  document.getElementById("proof").ondrop=dropHandlerProof;
+  document.getElementById("proof").ondragover=dragoverHandlerProof;
 
   fileUploader.onchange=uploadFile;
   exampleSelect.onchange=loadExample;
