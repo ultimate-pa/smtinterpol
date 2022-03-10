@@ -2098,6 +2098,10 @@ public class Clausifier {
 		return mEngine;
 	}
 
+	public ArrayTheory getArrayTheory() {
+		return mArrayTheory;
+	}
+
 	public CClosure getCClosure() {
 		return mCClosure;
 	}
