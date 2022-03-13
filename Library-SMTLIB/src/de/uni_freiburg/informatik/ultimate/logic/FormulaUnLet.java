@@ -26,7 +26,21 @@ import java.util.Map;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
- * This class removes all let terms from the formula.  The result
+ * This class removes all let terms from the formula. It's a term transformer
+ * that transforms a term with lets into an equivalent term without let.
+ *
+ * A tricky issue here are variable name clashes that can appear when renaming.
+ * This class will check whether renaming is necessary, i.e., if a let makes a
+ * variable with the same name as a bounded variable visible inside the
+ * quantifier. A simple example is
+ * {@code (let ((y x)) (exists ((x Int)) (= x y)))}. In this case the variable
+ * of the inner quantifier is renamed by adding dots in front of it. Note that
+ * symbols starting with a dot are reserved for solver use.
+ *
+ * By renaming in a consistent manner and by only renaming if there is a name
+ * clash, the unletted form of an assumed term in a proof should be equal to the
+ * unletted asserted term.
+ *
  * @author Jochen Hoenicke
  */
 public class FormulaUnLet extends TermTransformer {
@@ -117,6 +131,17 @@ public class FormulaUnLet extends TermTransformer {
 		return transform(term);
 	}
 
+	/**
+	 * This is called for each quantifier, lambda term, or match term that
+	 * introduces new bound variables. It determines if there is a name clash and
+	 * renamed the bound variables accordingly. It adds the corresponding renaming
+	 * to the let map.
+	 *
+	 * This also adds a new scope to the let map.
+	 *
+	 * @param body The term that contains the bounded variables.
+	 * @param vars The bounded variables that may need to be renamed.
+	 */
 	public void startVarScope(final Term body, final TermVariable[] vars) {
 		/* compute all variables that are indirectly used inside the body */
 		final HashSet<String> usedOutside = new HashSet<>();
@@ -131,8 +156,17 @@ public class FormulaUnLet extends TermTransformer {
 				for (final TermVariable usedTv : refTerm.getFreeVars()) {
 					String name = usedTv.getName();
 					usedOutside.add(name);
-					// also add the base names in case the variable was already protected by
-					// previous unlet.
+					// Also add the base names in case the variable was already protected by
+					// previous unlet. The reason for this is a term like
+
+					// (let ((z x)) (exists ((x Int)) (and (= x z) (let ((y x)) (exists ((x Int)) (= x y))))))
+
+					// If the inner term is renamed first, the inner x must be renamed, because
+					// of the clash with y. If the whole term is renamed, the outer "exists"
+					// (i.e. variable y) is already renamed to ".x" and doesn't directly clash with
+					// the inner quantifiers name. By adding this code here we ensure that the inner
+					// x is also renamed, even though it doesn't clash with .x and also not with the
+					// free x (variable z), which is not visible inside the inner-most quantifier.
 					while (name.charAt(0) == '.') {
 						name = name.substring(1);
 						usedOutside.add(name);
@@ -157,6 +191,13 @@ public class FormulaUnLet extends TermTransformer {
 		}
 	}
 
+	/**
+	 * Ends a variable scope and determines the renamed bounded variables.
+	 *
+	 * @param vars the bounded variables of the exists, lambda or match term.
+	 * @return the renamed variables in case renaming bounded variables were
+	 *         necessary (returns vars if no renaming was necessary).
+	 */
 	public TermVariable[] endVarScope(final TermVariable[] vars) {
 		TermVariable[] newVars = vars;
 		for (int i = 0; i < vars.length; i++) {
