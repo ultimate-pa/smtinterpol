@@ -259,17 +259,7 @@ public class ProofSimplifier extends TermTransformer {
 		// subst must contain one substitution for each variable
 		assert universalVars.length == subst.length;
 
-		// don't substitute term variables that are not free in the clause
-		final Term[] realSubst = new Term[subst.length];
-		for (int i = 0; i < subst.length; i++) {
-			if (subst[i] instanceof TermVariable && !Arrays.asList(clause[1].getFreeVars()).contains(subst[i])) {
-				realSubst[i] = mProofRules.choose((TermVariable) subst[i], mSkript.term(SMTLIBConstants.TRUE));
-			} else {
-				realSubst[i] = subst[i];
-			}
-		}
-
-		Term proof = mProofRules.forallElim(realSubst, qf);
+		Term proof = mProofRules.forallElim(subst, qf);
 		// remove negations
 		final FormulaUnLet unletter = new FormulaUnLet();
 		final Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
@@ -948,8 +938,6 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		}
 		assert checkProof(proof, termToProofLiterals(clause));
-		assert new HashSet<>(Arrays.asList(proof.getFreeVars()))
-				.equals(new HashSet<>(Arrays.asList(clause.getFreeVars())));
 		return proof;
 	}
 
@@ -2529,8 +2517,6 @@ public class ProofSimplifier extends TermTransformer {
 			subProof = mProofRules.oracle(termToProofLiterals(rewriteStmt), annotTerm.getAnnotations());
 		}
 		assert checkProof(subProof, termToProofLiterals(rewriteStmt));
-		assert new HashSet<>(Arrays.asList(subProof.getFreeVars()))
-				.equals(new HashSet<>(Arrays.asList(rewriteStmt.getFreeVars())));
 		return annotateProved(rewriteStmt, subProof);
 	}
 
@@ -3935,8 +3921,6 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		}
 		assert checkProof(subProof, termToProofLiterals(lemma));
-		assert new HashSet<>(Arrays.asList(subProof.getFreeVars()))
-				.equals(new HashSet<>(Arrays.asList(lemma.getFreeVars())));
 		return subProof;
 	}
 
@@ -4628,6 +4612,15 @@ public class ProofSimplifier extends TermTransformer {
 		mAuxDefs = collector.getAuxDef();
 		proof = new RewriteSkolem(collector.getSkolems()).transform(proof);
 		proof = super.transform(proof);
+		final TermVariable[] freeVars = proof.getFreeVars();
+		if (freeVars.length > 0) {
+			final Theory theory = proof.getTheory();
+			final Term[] values = new Term[freeVars.length];
+			for (int i = 0; i < freeVars.length; i++) {
+				values[i] = mProofRules.choose(freeVars[i], theory.mTrue);
+			}
+			proof = new FormulaUnLet().unlet(theory.let(freeVars, values, proof));
+		}
 		for (final Map.Entry<FunctionSymbol, LambdaTerm> definition : mAuxDefs.entrySet()) {
 			proof = mProofRules.defineFun(definition.getKey(), definition.getValue(), proof);
 		}
