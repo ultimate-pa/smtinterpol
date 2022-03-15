@@ -151,7 +151,7 @@ public class ProofRules {
 		}
 
 		// In case SMTInterpol is not running
-		if (!mTheory.getFunctionFactories().containsKey(SMTInterpolConstants.DIFF)) {
+		if (mTheory.getLogic().isArray() && !mTheory.getFunctionFactories().containsKey(SMTInterpolConstants.DIFF)) {
 			final Sort[] vars = mTheory.createSortVariables("Index", "Elem");
 			final Sort array = mTheory.getSort("Array", vars);
 			mTheory.declareInternalPolymorphicFunction(SMTInterpolConstants.DIFF, vars, new Sort[] { array, array },
