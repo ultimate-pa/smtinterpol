@@ -52,7 +52,7 @@ unsat
       (t31 (not t30)))
 (let ((F (and t07 t17 t27 t31)))
 
-; proof formula by symmetry breaking.
+; prove formula by symmetry breaking.
 ;
 ; First we note that F[y0,z0] = F[z0,y0] modulo symmetry of or.
 ; This means we can swap y0 and z0 and get an equivalent formula.

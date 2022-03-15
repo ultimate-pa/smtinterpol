@@ -1,5 +1,5 @@
 unsat
-; first proof the core clause, i.e. the contradiction of the following
+; first prove the core clause, i.e. the contradiction of the following
 ; inequalities.  Note that the literals were already normalized, in
 ; particular the application of - was removed
 (let ((ineq1_ (<= 0 (+ (* 2730000000000 x) (* (- 2450000000001) y))))
@@ -13,7 +13,7 @@ unsat
       (total-int diag 0)
       (farkas 273 ineq3_ 245 ineq1_ 5180000000001 (<= diag 0)))
     (farkas 273 ineq4_ 245 ineq2_ 5180000000001 (<= 1 diag)))))
-; now proof the rewrite of the minus application.
+; now prove the rewrite of the minus application.
 (let ((x1 (* 2730000000000 x))
       (y1 (* 2450000000001 y))
       (my1 (* (- 2450000000001) y))
@@ -52,7 +52,7 @@ unsat
             (C2 (res F C0 (and- 1 ineq1 ineq2 ineq3 ineq4)))
 	    (C3 (res F C0 (and- 2 ineq1 ineq2 ineq3 ineq4)))
 	    (C4 (res F C0 (and- 3 ineq1 ineq2 ineq3 ineq4))))
-; now proof the inequalities with rewritten minus application	    
+; now prove the inequalities with rewritten minus application
 (let-proof ((C1_
   (res ineq1 C1
     (res (= ineq1 ineq1_)

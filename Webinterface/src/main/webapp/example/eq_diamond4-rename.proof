@@ -1,11 +1,11 @@
-; proof eq_diamond4 by conditionally renaming zi to yi.
+; prove eq_diamond4 by conditionally renaming zi to yi.
 ;
 ; we define new variables yi_ (for i=0,1,2), with
 ;
 ;  yi_ = { yi if xi=yi=xi+1
 ;        { zi otherwise
 ;
-; then we can proof x0=y0_=x1=...=y2_=x3.
+; then we can prove x0=y0_=x1=...=y2_=x3.
 
 unsat
 (let ((t00 (= x0 y0))
@@ -47,7 +47,7 @@ unsat
       (y1_ (ite t15 y1 z1))
       (y2_ (ite t25 y2 z2)))
 
-; Now proof the "renamed" subformulas t05_, t15_, t25_
+; Now prove the "renamed" subformulas t05_, t15_, t25_
 
 (let ((t00_ (= x0 y0_))
       (t01_ (= y0_ x1))
@@ -91,7 +91,7 @@ unsat
          (res t07 Ct07 (or- t05 t06))
 	 (res (= t05_ t06) Ct06+ (=-1 t05_ t06)))
       (res (= t05_ t05) Ct05- (=-1 t05_ t05)))))
-	 
+
 
 ;; similarly for t15 and t25...
 
@@ -124,7 +124,7 @@ unsat
          (res t17 Ct17 (or- t15 t16))
 	 (res (= t15_ t16) Ct16+ (=-1 t15_ t16)))
       (res (= t15_ t15) Ct15- (=-1 t15_ t15)))))
-	 
+
 
 (let-proof ((Ct25- (!
        (res (= t20_ t20)
@@ -155,11 +155,11 @@ unsat
          (res t27 Ct27 (or- t25 t26))
 	 (res (= t25_ t26) Ct26+ (=-1 t25_ t26)))
       (res (= t25_ t25) Ct25- (=-1 t25_ t25)))))
-	 
+
 
 ; final proof using transitivity
 
-  (res F (assume F) 
+  (res F (assume F)
   (res t05_ Ct05_
   (res t00_ (and- 0 t00_ t01_)
   (res t01_ (and- 1 t00_ t01_)
