@@ -485,6 +485,9 @@ Click Release.
         **/smtlib2/Lexer.java,
         **/smtlib2/LexerSymbols.java,
         **/smtlib2/Parser.java
+        **/proof/checker/ProofParser.java
+        **/proof/checker/ProofLexer.java
+        **/proof/checker/ProofSymbols.java
         "/>
         <echo>Excluding the following auto-generated files from analysis: ${sonar.exclusions}</echo>
         <!-- Execute the SonarQube analysis -->
