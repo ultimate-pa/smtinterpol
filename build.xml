@@ -259,6 +259,7 @@ java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=fal
             <fileset dir="${dir.workspace}/SMTInterpolTest/release"/>
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib" files="Parser.java,Lexer.java,LexerSymbols.java"/>
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2" files="Parser.java,Lexer.java,LexerSymbols.java"/>
+            <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/proof/checker" files="ProofParser.java,ProofLexer.java,ProofSymbols.java"/>
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" files="Parser.java,Lexer.java,LexerSymbols.java"/>
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/" files="Version.java"/>
         </delete>
