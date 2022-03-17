@@ -79,6 +79,25 @@ stage:             Upload new version to Maven Central (owner only)
         <property name="workspacedir" value="${dir.workspace}"/>
         <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/smtlib2"/>
     </target>
+    <!-- Build proof checker parser and lexer -->
+    <target name="check_proofchecker.cup_current">
+        <uptodate property="proofchecker.cup.current">
+            <srcfiles dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/proof/checker" includes="*.cup,*.flex"/>
+            <srcfiles file="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
+            <mapper>
+                <globmapper from="proofs.cup" to="ProofParser.java"/>
+                <globmapper from="proofs.cup" to="ProofSymbols.java"/>
+                <globmapper from="proofs.flex" to="ProofLexer.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}proof${file.separator}checker${file.separator}ProofParser.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}proof${file.separator}checker${file.separator}ProofSymbols.java"/>
+                <globmapper from="${javacup.jar}" to="${dir.workspace}${file.separator}SMTInterpol${file.separator}src${file.separator}de${file.separator}uni_freiburg${file.separator}informatik${file.separator}ultimate${file.separator}smtinterpol${file.separator}proof${file.separator}checker${file.separator}ProofLexer.java"/>
+            </mapper>
+        </uptodate>
+    </target>
+    <target name="proofchecker.cup" depends="check_proofchecker.cup_current" unless="proofchecker.cup.current">
+        <property name="workspacedir" value="${dir.workspace}"/>
+        <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/proof/checker"/>
+    </target>
     <!-- Build dimacs parser and lexer -->
     <target name="check_dimacs.cup_current">
         <uptodate property="dimacs.cup.current">
@@ -99,7 +118,7 @@ stage:             Upload new version to Maven Central (owner only)
         <ant antfile="build-parser.xml" dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs"/>
     </target>
     <!-- Compile SMTInterpol -->
-    <target name="prepare" depends="get-version,smtlib1.cup,smtlib2.cup,dimacs.cup">
+    <target name="prepare" depends="get-version,smtlib1.cup,smtlib2.cup,proofchecker.cup,dimacs.cup">
         <copy file="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.template" overwrite="true" tofile="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/Version.java">
             <filterchain>
                 <expandproperties/>
