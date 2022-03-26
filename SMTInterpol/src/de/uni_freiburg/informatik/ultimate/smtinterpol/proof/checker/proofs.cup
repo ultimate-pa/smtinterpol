@@ -888,7 +888,7 @@ proof ::= axiom:ax {: RESULT = ax; :}
           {: beginFunction(fun, param, result); :}
              proof:subproof RPAR
           {: RESULT = declareFun(fun, param, result, subproof); :}
-        | LPAR ORACLE literal*:lits attribute*:attribs RPAR
+        | LPAR ORACLE LPAR literal*:lits RPAR attribute*:attribs RPAR
           {: RESULT = parser.getProofRules().oracle(lits, attribs); :};
 
 symbol ::= SYMBOL
