@@ -44,6 +44,7 @@ public class CheckingScript extends NoopScript {
 	private final ScopedArrayList<Term> mAssertions = new ScopedArrayList<>();
 	final SimpleSymbolFactory mSymfactory = new SimpleSymbolFactory();
 
+	private LBool mLastCheckSat;
 	private SExprLexer mLexer;
 
 	public class SExprLexer implements Scanner {
@@ -67,10 +68,10 @@ public class CheckingScript extends NoopScript {
 			}
 			if (nextSymbol.sym == ProofSymbols.RPAR) {
 				mParenLevel--;
-				if (mParenLevel == 0) {
-					// s-expression ends here
-					mEOFSymbol = mSymfactory.newSymbol("", ProofSymbols.EOF, nextSymbol, nextSymbol);
-				}
+			}
+			if (mParenLevel == 0) {
+				// s-expression ends here
+				mEOFSymbol = mSymfactory.newSymbol("", ProofSymbols.EOF, nextSymbol, nextSymbol);
 			}
 			return nextSymbol;
 		}
@@ -154,20 +155,56 @@ public class CheckingScript extends NoopScript {
 	}
 
 	@Override
+	public LBool checkSat() {
+		mLexer.clearEOF();
+		final Symbol result, eof;
+		try {
+			result = mLexer.next_token();
+			eof = mLexer.next_token();
+		} catch (final Exception ex) {
+			throw new RuntimeException("Unexpected exception", ex);
+		}
+		if (result.sym != ProofSymbols.SYMBOL) {
+			mLastCheckSat = LBool.UNKNOWN;
+		} else {
+			assert result.sym == ProofSymbols.SYMBOL;
+			assert eof.sym == ProofSymbols.EOF;
+			try {
+				mLastCheckSat = LBool.valueOf(((String) result.value).toUpperCase());
+			} catch (final IllegalArgumentException ex) {
+				mLastCheckSat = LBool.UNKNOWN;
+			}
+		}
+		return mLastCheckSat;
+	}
+
+	@Override
 	public Term getProof() {
 		mLexer.clearEOF();
-		final ProofParser proofParser = new ProofParser(mLexer, mSymfactory);
-		proofParser.setFileName(mProofFile);
-		proofParser.setScript(this);
-		try {
-			final Term proof = (Term) proofParser.parse().value;
+		if (mLastCheckSat == LBool.UNSAT) {
+			final ProofParser proofParser = new ProofParser(mLexer, mSymfactory);
+			proofParser.setFileName(mProofFile);
+			proofParser.setScript(this);
+			final Term proof;
+			try {
+				proof = (Term) proofParser.parse().value;
+			} catch (final Exception ex) {
+				throw new RuntimeException("Unexpected exception", ex);
+			}
 			if (new MinimalProofChecker(this, mLogger).check(proof)) {
 				printResult("valid");
 			} else {
 				printResult("invalid");
 			}
-		} catch (final Exception ex) {
-			throw new RuntimeException("Unexpected exception", ex);
+		} else {
+			printResult(mLastCheckSat.toString());
+			try {
+				while (mLexer.next_token().sym != ProofSymbols.EOF) {
+					// gobble tokens
+				}
+			} catch (final Exception ex) {
+				throw new RuntimeException("Unexpected exception", ex);
+			}
 		}
 		return null;
 	}

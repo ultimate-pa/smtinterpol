@@ -505,7 +505,7 @@ non terminal Term constantTerm, term, proof, axiom;
 non terminal ProofLiteral literal;
 non terminal Term goal;
 
-goal ::= symbol proof:p {: RESULT = p; :};
+goal ::= proof:p {: RESULT = p; :};
 
 string ::= STRING:n {: RESULT = new QuotedObject(n, true); :};
 
