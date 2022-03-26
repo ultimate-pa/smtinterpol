@@ -485,4 +485,78 @@ public class ProofSimplifierTest {
 			checkLemmaOrRewrite(tautology, new Term[] { equality, litp });
 		}
 	}
+
+	public void checkIteTermBound(final Term iteTerm, final Term baseTerm, final Rational min, final Rational max) {
+		final Annotation rule = ProofConstants.AUX_TERM_ITE_BOUND;
+		final SMTAffineTerm sumMin = new SMTAffineTerm(baseTerm);
+		sumMin.add(min);
+		sumMin.add(Rational.MONE, iteTerm);
+		final Term leqMin = mTheory.term(SMTLIBConstants.LEQ, sumMin.toTerm(baseTerm.getSort()),
+				Rational.ZERO.toTerm(baseTerm.getSort()));
+		final Term tautologyMin = mSmtInterpol.term(ProofConstants.FN_TAUTOLOGY, mSmtInterpol.annotate(leqMin, rule));
+		checkLemmaOrRewrite(tautologyMin, new Term[] { leqMin });
+
+		final SMTAffineTerm sumMax = new SMTAffineTerm(iteTerm);
+		sumMax.add(Rational.MONE, baseTerm);
+		sumMax.add(Rational.MONE.mul(max));
+		final Term leqMax = mTheory.term(SMTLIBConstants.LEQ, sumMax.toTerm(baseTerm.getSort()),
+				Rational.ZERO.toTerm(baseTerm.getSort()));
+		final Term tautologyMax = mSmtInterpol.term(ProofConstants.FN_TAUTOLOGY, mSmtInterpol.annotate(leqMax, rule));
+		checkLemmaOrRewrite(tautologyMax, new Term[] { leqMax });
+	}
+
+	public void checkSomeIteTermBound(final Term[] boolTerms, final Term baseTerm) {
+		final Rational[] rationals = new Rational[] { Rational.ZERO, Rational.valueOf(10,1),
+				Rational.MONE, Rational.valueOf(new BigInteger("1000000000000000000000000000"), BigInteger.ONE),
+				Rational.valueOf(1, 1),
+				Rational.valueOf(-5, 1) };
+		final Term[] modTerms = new Term[rationals.length];
+		for (int i = 0; i < rationals.length; i++) {
+			final SMTAffineTerm sum = new SMTAffineTerm(baseTerm);
+			sum.add(rationals[i]);
+			modTerms[i] = sum.toTerm(baseTerm.getSort());
+		}
+		final Term simpleIte = mTheory.term(SMTLIBConstants.ITE, boolTerms[0], modTerms[0], modTerms[1]);
+		checkIteTermBound(simpleIte, baseTerm, rationals[0], rationals[1]);
+		final Term nestedIte = mTheory.term(SMTLIBConstants.ITE, boolTerms[1], simpleIte, modTerms[2]);
+		checkIteTermBound(nestedIte, baseTerm, rationals[2], rationals[1]);
+		final Term complexIte = mTheory.term(SMTLIBConstants.ITE, boolTerms[2],
+				mTheory.term(SMTLIBConstants.ITE, boolTerms[1], modTerms[5], modTerms[3]),
+				mTheory.term(SMTLIBConstants.ITE, boolTerms[3], simpleIte,
+						mTheory.term(SMTLIBConstants.ITE, boolTerms[0], modTerms[4], nestedIte)));
+		checkIteTermBound(complexIte, baseTerm, rationals[5], rationals[3]);
+	}
+
+	@Test
+	public void testIteTermBound() {
+		final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);
+		final Sort realSort = mTheory.getSort(SMTLIBConstants.REAL);
+		final Term[] intTerms = generateDummyTerms("i", 2, intSort);
+		final Term[] realTerms = generateDummyTerms("r", 2, realSort);
+		final Term[] boolTerms = generateDummyTerms("b", 6, mTheory.getBooleanSort());
+		final SMTAffineTerm intSum1 = new SMTAffineTerm(intTerms[0]);
+		intSum1.mul(Rational.TWO);
+		final SMTAffineTerm intSum2 = new SMTAffineTerm(intTerms[0]);
+		intSum2.mul(Rational.MONE);
+		final SMTAffineTerm intSum3 = new SMTAffineTerm(intTerms[0]);
+		intSum3.add(Rational.MONE, intTerms[1]);
+		intSum3.add(Rational.TWO);
+		final SMTAffineTerm realSum1 = new SMTAffineTerm(realTerms[0]);
+		realSum1.mul(Rational.valueOf(2, 3));
+		final SMTAffineTerm realSum2 = new SMTAffineTerm(realTerms[0]);
+		realSum2.mul(Rational.MONE);
+		final SMTAffineTerm realSum3 = new SMTAffineTerm(realTerms[0]);
+		realSum3.add(Rational.valueOf(-5, 7), realTerms[1]);
+		realSum3.add(Rational.TWO);
+
+		final Term[] baseTerms = new Term[] { intTerms[0], realTerms[0], mTheory.rational(Rational.ZERO, intSort),
+				mTheory.rational(Rational.ONE, intSort), mTheory.rational(Rational.MONE, intSort),
+				mTheory.rational(Rational.ZERO, realSort), mTheory.rational(Rational.ONE, realSort),
+				mTheory.rational(Rational.MONE, realSort), intSum1.toTerm(intSort), intSum2.toTerm(intSort),
+				intSum3.toTerm(intSort), intSum1.toTerm(realSort), intSum2.toTerm(realSort), intSum3.toTerm(realSort),
+				realSum1.toTerm(realSort), realSum2.toTerm(realSort), realSum3.toTerm(realSort) };
+		for (final Term base : baseTerms) {
+			checkSomeIteTermBound(boolTerms, base);
+		}
+	}
 }

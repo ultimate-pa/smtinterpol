@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -216,6 +217,253 @@ public class ProofSimplifier extends TermTransformer {
 			assert proofs.size() == 1;
 			return proofs.get(0);
 		}
+	}
+
+	/**
+	 * Check if an iteTerm is the ite in the TermITEBound term. A :termITEBound
+	 * axiom has the form {@pre (<= (+ iteTerm (- maxValue)) 0)} or {@pre (<= (+
+	 * minValue (- iteTerm)) 0)}. The problem is that iteTerm may not be the first
+	 * term in the sum and that max/minValue may itself consist of several terms
+	 * that are summed, including other ite terms. Here we check that for the given
+	 * possibleIteTerm and it's factor in the sum, the sum is either of the firsts
+	 * or second form.
+	 *
+	 * @param sum             The sum, i.e. the left-hand-side of the <= term.
+	 * @param possibleIteTerm the candidate ite term. We assume that it is indeed an
+	 *                        ite term.
+	 * @param factor          the factor of the ite term in the sum. This should be
+	 *                        1 or -1.
+	 * @return true if the sum is of the correct form.
+	 */
+	private boolean checkIteinIteBound(final SMTAffineTerm sum, final ApplicationTerm possibleIteTerm,
+			final Rational factor) {
+		assert isApplication(SMTLIBConstants.ITE, possibleIteTerm);
+		Term[] iteArgs = possibleIteTerm.getParameters();
+		boolean zeroSeen = false;
+		final HashSet<Term> visited = new HashSet<>();
+		final ArrayDeque<Term> toCheck = new ArrayDeque<>();
+		toCheck.add(iteArgs[2]);
+		toCheck.add(iteArgs[1]);
+		// Now check for each ti if replacing ti with (ite c t1 t2) in sum results a
+		// non-positive constant.
+		while (!toCheck.isEmpty()) {
+			final Term candidate = toCheck.removeLast();
+			if (visited.add(candidate)) {
+				if (isApplication("ite", candidate)) {
+					// nested ite. push the other branches to toCheck queue
+					iteArgs = ((ApplicationTerm) candidate).getParameters();
+					toCheck.addLast(iteArgs[1]);
+					toCheck.addLast(iteArgs[2]);
+				} else {
+					// replace (ite c t e) with candidate in sum, by adding
+					// (- candidate (ite c t e)) * factor
+					final SMTAffineTerm sumWithCandidate = new SMTAffineTerm(candidate);
+					sumWithCandidate.add(Rational.MONE, possibleIteTerm);
+					sumWithCandidate.mul(factor);
+					sumWithCandidate.add(sum);
+
+					// Afterwards the literal should be <= 0, to make the clause true.
+					if (!sumWithCandidate.isConstant() || sumWithCandidate.getConstant().signum() > 0) {
+						return false;
+					}
+					if (sumWithCandidate.getConstant().signum() == 0) {
+						zeroSeen = true;
+					}
+				}
+			}
+		}
+		// check that the bound is tight, i.e. one of the sums should be 0.
+		return zeroSeen;
+	}
+
+	/**
+	 * Find the ite in the TermITEBound term. A :termITEBound axiom has the form
+	 * {@pre (<= (+ iteTerm (- maxValue)) 0)} or {@pre (<= (+ minValue (- iteTerm))
+	 * 0)}. The problem is that iteTerm may not be the first term in the sum and
+	 * that max/minValue may itself consist of several terms that are summed,
+	 * including other ite terms. We find the right ite term just by trying all
+	 * candidates and check if they match.
+	 *
+	 * @param sum The sum, i.e. the left-hand-side of the <= term.
+	 * @return The iteTerm.
+	 * @throws AssertionError if there is no candidate ite term.
+	 */
+	private ApplicationTerm findAndCheckIteinIteBound(final SMTAffineTerm sum) {
+		for (final Map.Entry<Term, Rational> entry : sum.getSummands().entrySet()) {
+			if (isApplication("ite", entry.getKey()) && entry.getValue().abs() == Rational.ONE) {
+				final ApplicationTerm iteTerm = (ApplicationTerm) entry.getKey();
+				if (checkIteinIteBound(sum, iteTerm, entry.getValue())) {
+					return iteTerm;
+				}
+			}
+		}
+		throw new AssertionError();
+	}
+
+	/**
+	 * Collect the leafs from the given iteTerm and build the proof for the clause
+	 * {@pre (or (= iteTerm leaf1) ... (= iteTerm leafn))}
+	 *
+	 * @param iteTerm  the ite term.
+	 * @param allLeafs a set were all leafs are added to.
+	 * @return the proof for the clause.
+	 */
+	private Term proveIteEqualsLeafs(final ApplicationTerm iteTerm, final Set<Term> allLeafs) {
+		assert isApplication(SMTLIBConstants.ITE, iteTerm);
+		final Theory theory = iteTerm.getTheory();
+		Term[] iteArgs = iteTerm.getParameters();
+		final ArrayDeque<Term> todo = new ArrayDeque<>();
+		final ArrayDeque<ApplicationTerm> subIteTerms = new ArrayDeque<>();
+		final HashSet<Term> visited = new HashSet<>();
+		Term proof = res(iteArgs[0], mProofRules.ite2(iteTerm), mProofRules.ite1(iteTerm));
+		todo.add(iteArgs[2]);
+		todo.add(iteArgs[1]);
+		// find leafs and subIteTerms and bring subIteTerms in topological order.
+		while (!todo.isEmpty()) {
+			final Term candidate = todo.removeLast();
+			if (!visited.contains(candidate)) {
+				if (isApplication("ite", candidate)) {
+					final ApplicationTerm subIteTerm = (ApplicationTerm) candidate;
+					iteArgs = subIteTerm.getParameters();
+					if (!visited.contains(iteArgs[1]) || !visited.contains(iteArgs[2])) {
+						// if children have not been visited yet, visit them first, then visit ite again.
+						todo.addLast(candidate);
+						todo.addLast(iteArgs[1]);
+						todo.addLast(iteArgs[2]);
+					} else {
+						// children already visited.  Add candidate to subIteTerms in reverse order and visit it.
+						// this way children are guaranteed to appear after parents.
+						subIteTerms.addFirst(subIteTerm);
+						visited.add(candidate);
+					}
+				} else {
+					// this is a leaf term
+					allLeafs.add(candidate);
+					visited.add(candidate);
+				}
+			}
+		}
+		// now proof {@pre (or ... (= iteTerm t) ...)} for all leafs.
+		for (final ApplicationTerm subIteTerm : subIteTerms) {
+			iteArgs = subIteTerm.getParameters();
+			Term subProof = res(iteArgs[0], mProofRules.ite2(subIteTerm), mProofRules.ite1(subIteTerm));
+			for (int i = 1; i < 3; i++) {
+				final Term eq2 = theory.term(SMTLIBConstants.EQUALS, subIteTerm, iteArgs[i]);
+				subProof = res(eq2, subProof, mProofRules.trans(iteTerm, subIteTerm, iteArgs[i]));
+			}
+			final Term eq1 = theory.term(SMTLIBConstants.EQUALS, iteTerm, subIteTerm);
+			proof = res(eq1, proof, subProof);
+		}
+		return proof;
+	}
+
+	private Term convertTermITEBound(final Term[] clause) {
+		// Check for the form: (<= (+ (ite c1 t1 t2) x) 0) where (+ ti x) must be
+		// constant and <= 0.
+		// The ite can also be nested, i.e. (<= (+ (ite c1 (ite c2 t1 t2) (ite c3 t3
+		// t4)) x) 0)
+		// The ite can also be negated.
+		// One of the (+ ti x) terms must be equal to 0.
+		// The conditions ci can have arbitrary form.
+		assert clause.length == 1 && isApplication("<=", clause[0]);
+		final Term[] leqArgs = ((ApplicationTerm) clause[0]).getParameters();
+		assert leqArgs.length == 2 && isZero(leqArgs[1]);
+		final SMTAffineTerm sum = new SMTAffineTerm(leqArgs[0]);
+		final Theory theory = clause[0].getTheory();
+
+		final ApplicationTerm iteTerm = findAndCheckIteinIteBound(sum);
+		final LinkedHashSet<Term> allLeafs = new LinkedHashSet<>();
+		final LinkedHashSet<Term> neededRefls = new LinkedHashSet<>();
+		Term proof = proveIteEqualsLeafs(iteTerm, allLeafs);
+
+		final Sort sort = iteTerm.getSort();
+		final FunctionSymbol lt = theory.getFunctionWithResult(SMTLIBConstants.LT, null, null, sort, sort);
+		int itePos = -1;
+		Term[] sumArgs = null;
+		boolean isNegated = false;
+		if (isApplication(SMTLIBConstants.PLUS, leqArgs[0])) {
+			sumArgs = ((ApplicationTerm) leqArgs[0]).getParameters();
+			for (int i = 0; i < sumArgs.length; i++) {
+				if (sumArgs[i] == iteTerm) {
+					itePos = i;
+					break;
+				} else if (isApplication(SMTLIBConstants.MUL, sumArgs[i])) {
+					final Term[] mulArgs = ((ApplicationTerm) sumArgs[i]).getParameters();
+					if (mulArgs.length == 2 && mulArgs[1] == iteTerm) {
+						itePos = i;
+						isNegated = true;
+						break;
+					}
+				}
+			}
+			assert itePos >= 0;
+		} else {
+			if (leqArgs[0] != iteTerm) {
+				isNegated = true;
+			}
+		}
+
+		for (final Term leaf : allLeafs) {
+			// replace (ite c t e) with leaf in sum by congruence
+			Term eq = theory.term(SMTLIBConstants.EQUALS, iteTerm, leaf);
+			Polynomial newSum = new Polynomial(leaf);
+			Term newLeaf = leaf;
+			if (isNegated) {
+				final ApplicationTerm mulIte = (ApplicationTerm) (itePos >= 0 ? sumArgs[itePos] : leqArgs[0]);
+				final Term[] mulArgs = mulIte.getParameters();
+				final Term[] newMulArgs = mulArgs.clone();
+				newMulArgs[1] = leaf;
+				proof = res(eq, proof, mProofRules.cong(mulIte.getFunction(), mulArgs, newMulArgs));
+				final Term rhs = theory.term(mulIte.getFunction(), newMulArgs);
+				neededRefls.add(mulArgs[0]);
+				newSum.mul(new Polynomial(newMulArgs[0]));
+				newLeaf = newSum.toTerm(leaf.getSort());
+				if (rhs != newLeaf) {
+					proof = res(theory.term(SMTLIBConstants.EQUALS, mulIte, rhs), proof,
+							res(theory.term(SMTLIBConstants.EQUALS, rhs, newLeaf),
+								mProofRules.polyMul(rhs, newLeaf), mProofRules.trans(mulIte, rhs, newLeaf)));
+				}
+				eq = theory.term(SMTLIBConstants.EQUALS, mulIte, newLeaf);
+			}
+			if (itePos >= 0) {
+				final FunctionSymbol plus = ((ApplicationTerm) leqArgs[0]).getFunction();
+				final Term[] newSumArgs = sumArgs.clone();
+				newSumArgs[itePos] = newLeaf;
+				final Term rhs = theory.term(plus, newSumArgs);
+				proof = res(eq, proof, mProofRules.cong(plus, sumArgs, newSumArgs));
+				newSum = new Polynomial();
+				for (int i = 0; i < newSumArgs.length; i++) {
+					newSum.add(Rational.ONE, newSumArgs[i]);
+					if (i != itePos) {
+						neededRefls.add(newSumArgs[i]);
+					}
+				}
+				newLeaf = newSum.toTerm(leaf.getSort());
+				if (rhs != newLeaf) {
+					proof = res(theory.term(SMTLIBConstants.EQUALS, leqArgs[0], rhs), proof,
+							res(theory.term(SMTLIBConstants.EQUALS, rhs, newLeaf),
+									mProofRules.polyAdd(rhs, newLeaf), mProofRules.trans(leqArgs[0], rhs, newLeaf)));
+				}
+				eq = theory.term(SMTLIBConstants.EQUALS, leqArgs[0], newLeaf);
+			}
+			// Now show ~(< 0 leqArgs[0]) from ~(< 0 newLeaf)
+			final Term[] oldArgs = new Term[] { leqArgs[1], leqArgs[0] };
+			final Term[] newArgs = new Term[] { leqArgs[1], newLeaf };
+			proof = res(eq, proof, mProofRules.cong(lt, oldArgs, newArgs));
+			neededRefls.add(leqArgs[1]);
+			final Term oldLt = theory.term(lt, oldArgs);
+			final Term newLt = theory.term(lt, newArgs);
+			final Term ltEqual = theory.term(SMTLIBConstants.EQUALS, oldLt, newLt);
+			proof = res(ltEqual, proof, mProofRules.iffElim2(ltEqual));
+			proof = res(newLt, proof, mProofRules.farkas(new Term[] { newLt }, new BigInteger[] { BigInteger.ONE }));
+		}
+
+		// Now we have a proof for ~(< 0 leqArgs[0]); finish using total and reflexivity.
+		proof = res(theory.term(lt, leqArgs[1], leqArgs[0]), mProofRules.total(leqArgs[0], leqArgs[1]), proof);
+		for (final Term t : neededRefls) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, t, t), mProofRules.refl(t), proof);
+		}
+		return proof;
 	}
 
 	/**
@@ -903,6 +1151,10 @@ public class ProofSimplifier extends TermTransformer {
 		case ":termITE": {
 			assert isApplication("or", clause);
 			proof = convertTermITE(clauseLits);
+			break;
+		}
+		case ":termITEBound": {
+			proof = convertTermITEBound(clauseLits);
 			break;
 		}
 		case ":trueNotFalse": {
