@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashSet;
 
@@ -172,6 +173,35 @@ public class ProofRules {
 				FunctionSymbol.RETURNOVERLOAD);
 	}
 
+	private static boolean isKeyword(final Object obj) {
+		return obj instanceof String && ((String) obj).charAt(0) == ':';
+	}
+
+	static Annotation[] convertSExprToAnnotation(final Object[] objects) {
+		final ArrayList<Annotation> annots = new ArrayList<>();
+		for (int i = 0; i < objects.length; i++) {
+			assert isKeyword(objects[i]);
+			final String keyword = (String) objects[i];
+			Object value = null;
+			if (i + 1 < objects.length && !isKeyword(objects[i + 1])) {
+				i++;
+				value = objects[i];
+			}
+			annots.add(new Annotation(keyword, value));
+		}
+		return annots.toArray(new Annotation[annots.size()]);
+	}
+
+	static Object[] convertAnnotationsToSExpr(final Annotation[] annots) {
+		final ArrayList<Object> sexpr = new ArrayList<>();
+		for (final Annotation a : annots) {
+			sexpr.add(a.getKey());
+			if (a.getValue() != null) {
+				sexpr.add(a.getValue());
+			}
+		}
+		return sexpr.toArray(new Object[sexpr.size()]);
+	}
 	public Term resolutionRule(final Term pivot, final Term proofPos, final Term proofNeg) {
 		return mTheory.term(PREFIX + RES, pivot, proofPos, proofNeg);
 	}
@@ -425,7 +455,7 @@ public class ProofRules {
 
 	public Term delAnnot(final Term annotTerm) {
 		final Term subterm = ((AnnotatedTerm) annotTerm).getSubterm();
-		final Annotation[] subAnnots = ((AnnotatedTerm) annotTerm).getAnnotations();
+		final Object[] subAnnots = convertAnnotationsToSExpr(((AnnotatedTerm) annotTerm).getAnnotations());
 		return mTheory.annotatedTerm(annotate(":" + DELANNOT, new Object[] { subterm, subAnnots }), mAxiom);
 	}
 
@@ -1120,13 +1150,10 @@ public class ProofRules {
 						final Object[] params = (Object[]) annots[0].getValue();
 						assert params.length == 2;
 						final Term subterm = (Term) params[0];
-						final Annotation[] subAnnots = (Annotation[]) params[1];
+						final Object[] subAnnots = (Object[]) params[1];
 						for (int i = subAnnots.length - 1; i >= 0; i--) {
-							if (subAnnots[i].getValue() != null) {
-								mTodo.addLast(subAnnots[i].getValue());
-								mTodo.addLast(" ");
-							}
-							mTodo.addLast(" " + subAnnots[i].getKey());
+							mTodo.addLast(subAnnots[i]);
+							mTodo.addLast(" ");
 						}
 						mTodo.addLast(subterm);
 						mTodo.add("(" + DELANNOT + " (! ");

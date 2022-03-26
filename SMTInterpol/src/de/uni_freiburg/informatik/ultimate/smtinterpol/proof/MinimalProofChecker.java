@@ -550,7 +550,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Object[] params = (Object[]) annots[0].getValue();
 			assert params.length == 2;
 			final Term subterm = (Term) params[0];
-			final Annotation[] subAnnots = (Annotation[]) params[1];
+			final Annotation[] subAnnots = ProofRules.convertSExprToAnnotation((Object[]) params[1]);
 			final Term annotTerm = theory.annotatedTerm(subAnnots, subterm);
 
 			// (= (! t :...) t)
