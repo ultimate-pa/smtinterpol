@@ -1501,13 +1501,13 @@ public class ProofSimplifier extends TermTransformer {
 		assert isApplication("=", lhs);
 		int trueFalseIdx = -1;
 		final Term[] params = ((ApplicationTerm) lhs).getParameters();
-		final LinkedHashSet<Integer> args = new LinkedHashSet<>();
+		final LinkedHashMap<Term, Integer> args = new LinkedHashMap<>();
 		for (int i = 0; i < params.length; i++) {
 			final Term t = params[i];
 			if (isApplication(trueCase ? "true" : "false", t)) {
 				trueFalseIdx = i;
-			} else {
-				args.add(i);
+			} else if (!args.containsKey(t)) {
+				args.put(t, i);
 			}
 		}
 		assert trueFalseIdx >= 0;
@@ -1515,9 +1515,10 @@ public class ProofSimplifier extends TermTransformer {
 
 		final Term rewrite = theo.term(SMTLIBConstants.EQUALS, lhs, rhs);
 		Term proofRhs = null;
-		final Term rhsAtom = ((ApplicationTerm) rhs).getParameters()[0];
+		Term rhsAtom = null;
 		if (args.size() > 1 || !trueCase) {
 			assert isApplication(SMTLIBConstants.NOT, rhs);
+			rhsAtom = ((ApplicationTerm) rhs).getParameters()[0];
 			proofRhs = mProofRules.notIntro(rhs);
 			if (args.size() > 1) {
 				assert isApplication(SMTLIBConstants.OR, rhsAtom);
@@ -1534,7 +1535,7 @@ public class ProofSimplifier extends TermTransformer {
 		// proofLhs: ~true/false, ~? l1,...,~? ln, lhs.
 		// introduce all distinct arguments
 		int orPos = 0;
-		for (final int pos : args) {
+		for (final int pos : args.values()) {
 			final Term arg = params[pos];
 			final Term notArg = theo.term(SMTLIBConstants.NOT, arg);
 			final Term orArg = trueCase ? notArg : arg;

@@ -486,6 +486,46 @@ public class ProofSimplifierTest {
 		}
 	}
 
+	@Test
+	public void testEqTrueFalse() {
+		final Sort boolSort = mSmtInterpol.sort(SMTLIBConstants.BOOL);
+		final Term[] terms = generateDummyTerms("b", 3, boolSort);
+
+		for (int numTerms = 1; numTerms < 3; numTerms++) {
+			for (int flags = 0; flags < (1 << (numTerms + 1)); flags++) {
+				final boolean isFalse = (flags & (1 << numTerms)) != 0;
+				final Annotation rule = isFalse ? ProofConstants.RW_EQ_FALSE : ProofConstants.RW_EQ_TRUE;
+				for (int pos = 0; pos < numTerms + 1; pos++) {
+					for (int dups = 0; dups < 2; dups++) {
+						final Term[] nterms = new Term[numTerms];
+						final Term[] input = new Term[numTerms + 1 + dups];
+						final Term[] output = new Term[numTerms];
+						for (int i = 0; i < numTerms; i++) {
+							final boolean isNeg = (flags & (1 << i)) != 0;
+							nterms[i] = isNeg ? mTheory.term(SMTLIBConstants.NOT, terms[i]) : terms[i];
+							input[i < pos ? i : i + 1] = nterms[i];
+							output[i] = isFalse ? nterms[i] : mTheory.term(SMTLIBConstants.NOT, nterms[i]);
+						}
+						input[pos] = isFalse ? mTheory.mFalse : mTheory.mTrue;
+						for (int i = 0; i < dups; i++) {
+							input[numTerms+1+i] = input[i];
+						}
+						final Term lhs = mTheory.term(SMTLIBConstants.EQUALS, input);
+						final Term rhs;
+						if (numTerms == 1) {
+							rhs = isFalse ? mTheory.term(SMTLIBConstants.NOT, nterms[0]) : nterms[0];
+						} else {
+							rhs = mTheory.term(SMTLIBConstants.NOT, mTheory.term(SMTLIBConstants.OR, output));
+						}
+						final Term eq = mTheory.term(SMTLIBConstants.EQUALS, lhs, rhs);
+						final Term rewrite = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(eq, rule));
+						checkLemmaOrRewrite(rewrite, new Term[] { eq });
+					}
+				}
+			}
+		}
+	}
+
 	public void checkIteTermBound(final Term iteTerm, final Term baseTerm, final Rational min, final Rational max) {
 		final Annotation rule = ProofConstants.AUX_TERM_ITE_BOUND;
 		final SMTAffineTerm sumMin = new SMTAffineTerm(baseTerm);
