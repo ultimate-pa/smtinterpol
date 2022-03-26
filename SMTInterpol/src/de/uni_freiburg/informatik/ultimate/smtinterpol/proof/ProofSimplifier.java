@@ -1904,7 +1904,8 @@ public class ProofSimplifier extends TermTransformer {
 		Term proofLhs = null;
 		if (isApplication("false", rhs)) {
 			proofLhs = mProofRules.falseElim();
-		} else if (isApplication("or", rhs)) {
+		} else if (args.size() > 1) {
+			assert isApplication("or", rhs);
 			final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
 			for (int i = 0; i < rhsParams.length; i++) {
 				proofRhs = mProofRules.resolutionRule(rhsParams[i], proofRhs, mProofRules.orIntro(i, rhs));
