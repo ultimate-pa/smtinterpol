@@ -521,7 +521,7 @@ public class QuantifierTheory implements ITheory {
 					if (smd.getSort().getName() == "Real") {
 						newLhs = smd;
 						linAdded.add(fac.negate(), smd);
-						linAdded.mul(fac.negate());
+						linAdded.div(fac.negate());
 						newRhs = linAdded.toTerm(compiler, lhs.getSort());
 						break;
 					} else {
