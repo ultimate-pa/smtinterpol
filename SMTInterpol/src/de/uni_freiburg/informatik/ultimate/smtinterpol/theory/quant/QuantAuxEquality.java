@@ -50,7 +50,7 @@ public class QuantAuxEquality extends QuantEquality {
 	public Term getSMTFormula(final Theory theory, final boolean quoted) {
 		// Aux literals are annotated with the defining term
 		return quoted
-				? theory.annotatedTerm(new Annotation[] { new Annotation(":quotedQuant", mDefinition) }, getTerm())
+				? theory.annotatedTerm(new Annotation[] { new Annotation(":quotedQuant", null) }, getTerm())
 				: getTerm();
 	}
 }

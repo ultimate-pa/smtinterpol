@@ -41,6 +41,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
+import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
@@ -467,23 +468,73 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Convert the tautology that introduces a forall.
+	 * Convert the tautology that introduces a forall or eliminates an exists. These
+	 * are the rules that introduce Skolem variables.
 	 *
 	 * @param clause     the clause to check
-	 * @param skolemFuns the Skolemization used in the tautology.
+	 * @param skolemFuns the Skolemization used in the tautology. These are
+	 *                   functions whose expansion is the correct choose term for
+	 *                   the quantifier.
 	 * @return the proof of the tautology.
 	 */
-	private Term convertTautForallIntro(final Term[] clause, final Term[] skolemFuns) {
+	private Term convertTautQuantSkolemize(final Term[] clause, final Term[] skolemFuns, final boolean isForall) {
+		// isForall case:
 		// clause[0]: (forall ((x...)) F)
 		// clause[1]: (not (let ((x skolem...)) F))
+		// !isForall case:
+		// clause[0]: not (exists ((x...)) F
+		// clause[1]: (let ((x skolem...)) F)
 		assert clause.length == 2;
-		final QuantifiedFormula qf = (QuantifiedFormula) clause[0];
-		assert qf.getQuantifier() == QuantifiedFormula.FORALL;
-		final TermVariable[] universalVars = qf.getVariables();
-		final Term[] subst = mProofRules.getSkolemVars(universalVars, qf.getSubformula(), true);
+		final QuantifiedFormula qf;
+		if (isForall) {
+			qf = (QuantifiedFormula) clause[0];
+			assert qf.getQuantifier() == QuantifiedFormula.FORALL;
+		} else {
+			final ApplicationTerm notTerm = (ApplicationTerm) clause[0];
+			assert isApplication(SMTLIBConstants.NOT, notTerm);
+			qf = (QuantifiedFormula) notTerm.getParameters()[0];
+			assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
+		}
+		final Theory theory = qf.getTheory();
+		final TermVariable[] vars = qf.getVariables();
+		final Sort[] varSorts = new Sort[vars.length];
+		for (int i = 0; i < vars.length; i++) {
+			varSorts[i] = vars[i].getSort();
+		}
+		theory.push();
+		final FunctionSymbol qFunc = theory.declareInternalFunction("@quantbody", varSorts, qf.getFreeVars(),
+				qf.getSubformula(), FunctionSymbol.UNINTERPRETEDINTERNAL);
+		final Term[] chooseTerms = mProofRules.getSkolemVars(vars, qf.getSubformula(), isForall);
 		final FormulaUnLet unletter = new FormulaUnLet();
-		final Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
-		return removeNot(mProofRules.forallIntro(qf), result, false);
+		final Term subChoose = unletter.unlet(mSkript.let(vars, chooseTerms, qf.getSubformula()));
+		final Term quantChoose = theory.term(qFunc, chooseTerms);
+		final Term quantSkolem = theory.term(qFunc, skolemFuns);
+		final Term subSkolem = unletter.unlet(mSkript.let(vars, skolemFuns, qf.getSubformula()));
+		Term transProof = res(
+				theory.term(SMTLIBConstants.EQUALS, quantSkolem, subSkolem),
+				mProofRules.expand(quantSkolem),
+				res(theory.term(SMTLIBConstants.EQUALS, subSkolem, quantSkolem),
+						mProofRules.symm(subSkolem, quantSkolem),
+						res(theory.term(SMTLIBConstants.EQUALS, quantSkolem, quantChoose),
+								mProofRules.cong(qFunc, skolemFuns, chooseTerms),
+								res(theory.term(SMTLIBConstants.EQUALS, quantChoose, subChoose),
+										mProofRules.expand(quantChoose),
+										mProofRules.trans(subSkolem, quantSkolem, quantChoose, subChoose)))));
+		for (int i = 0; i < chooseTerms.length; i++) {
+			transProof = res(theory.term(SMTLIBConstants.EQUALS, skolemFuns[i], chooseTerms[i]),
+					mProofRules.expand(skolemFuns[i]), transProof);
+		}
+		final Term skolemEquivalence = theory.term(SMTLIBConstants.EQUALS, subSkolem, subChoose);
+		Term proof;
+		if (isForall) {
+			proof = res(subChoose, mProofRules.iffElim2(skolemEquivalence), mProofRules.forallIntro(qf));
+		} else {
+			proof = res(subChoose, mProofRules.existsElim(qf), mProofRules.iffElim1(skolemEquivalence));
+		}
+		proof = res(skolemEquivalence, transProof, proof);
+		proof = mProofRules.defineFun(qFunc, theory.lambda(vars, qf.getSubformula()), proof);
+		theory.pop();
+		return removeNot(proof, subSkolem, !isForall);
 	}
 
 	/**
@@ -539,23 +590,6 @@ public class ProofSimplifier extends TermTransformer {
 		final Term result = unletter.unlet(mSkript.let(universalVars, subst, qf.getSubformula()));
 		proof = removeNot(proof, result, false);
 		return proof;
-	}
-
-	/**
-	 * Convert the tautology that eliminates an exists.
-	 *
-	 * @param clause     the clause to check
-	 * @param skolemFuns the Skolemization used in the tautology.
-	 * @return the proof of the tautology.
-	 */
-	private Term convertTautExistsElim(final Term[] clause, final Term[] skolemFuns) {
-		// clause[0]: not (exists ((x...)) F
-		// clause[1]: (let ((x skolem...)) F)
-		assert clause.length == 2 && isApplication("not", clause[0]);
-		final Term existsAtom = ((ApplicationTerm) clause[0]).getParameters()[0];
-		final QuantifiedFormula qf = (QuantifiedFormula) existsAtom;
-		assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
-		return removeNot(mProofRules.existsElim(qf), clause[1], true);
 	}
 
 	private Term convertTautIte1Helper(final Term iteAtom, final Term iteTrueCase, final boolean polarity) {
@@ -1132,8 +1166,9 @@ public class ProofSimplifier extends TermTransformer {
 			proof = convertTautIte(ruleName, clauseLits);
 			break;
 		}
-		case ":exists-": {
-			proof = convertTautExistsElim(clauseLits, (Term[]) annot.getValue());
+		case ":exists-":
+		case ":forall+": {
+			proof = convertTautQuantSkolemize(clauseLits, (Term[]) annot.getValue(), ruleName.equals(":forall+"));
 			break;
 		}
 		case ":exists+": {
@@ -1142,10 +1177,6 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		case ":forall-": {
 			proof = convertTautForallElim(clauseLits, (Term[]) annot.getValue());
-			break;
-		}
-		case ":forall+": {
-			proof = convertTautForallIntro(clauseLits, (Term[]) annot.getValue());
 			break;
 		}
 		case ":termITE": {
@@ -4864,7 +4895,6 @@ public class ProofSimplifier extends TermTransformer {
 		final CollectSkolemAux collector = new CollectSkolemAux();
 		collector.transform(proof);
 		mAuxDefs = collector.getAuxDef();
-		proof = new RewriteSkolem(collector.getSkolems()).transform(proof);
 		proof = super.transform(proof);
 		final TermVariable[] freeVars = proof.getFreeVars();
 		if (freeVars.length > 0) {
@@ -4875,19 +4905,19 @@ public class ProofSimplifier extends TermTransformer {
 			}
 			proof = new FormulaUnLet().unlet(theory.let(freeVars, values, proof));
 		}
-		for (final Map.Entry<FunctionSymbol, LambdaTerm> definition : mAuxDefs.entrySet()) {
-			proof = mProofRules.defineFun(definition.getKey(), definition.getValue(), proof);
+		// add function symbols in reverse order
+		final ArrayDeque<FunctionSymbol> reversedOrder = new ArrayDeque<>();
+		for (final FunctionSymbol function : mAuxDefs.keySet()) {
+			reversedOrder.addFirst(function);
+		}
+		for (final FunctionSymbol function : reversedOrder) {
+			proof = mProofRules.defineFun(function, mAuxDefs.get(function), proof);
 		}
 		return proof;
 	}
 
 	class CollectSkolemAux extends TermTransformer {
-		private final HashMap<Term, Term> mSkolemFunctions = new HashMap<>();
-		private final HashMap<FunctionSymbol, LambdaTerm> mQuantDefinedTerms = new HashMap<>();
-
-		public HashMap<Term, Term> getSkolems() {
-			return mSkolemFunctions;
-		}
+		private final HashMap<FunctionSymbol, LambdaTerm> mQuantDefinedTerms = new LinkedHashMap<>();
 
 		public HashMap<FunctionSymbol, LambdaTerm> getAuxDef() {
 			return mQuantDefinedTerms;
@@ -4895,187 +4925,23 @@ public class ProofSimplifier extends TermTransformer {
 
 		@Override
 		public void convert(final Term term) {
-			if (term.getSort().getName() != ProofConstants.SORT_PROOF) {
-				setResult(term);
-				return;
-			}
 			if (term instanceof ApplicationTerm) {
 				final ApplicationTerm appTerm = (ApplicationTerm) term;
-				if (appTerm.getFunction().getName().equals(ProofConstants.FN_REWRITE)) {
-					final AnnotatedTerm annotTerm = (AnnotatedTerm) appTerm.getParameters()[0];
-					switch (annotTerm.getAnnotations()[0].getKey()) {
-					case ":intern":
-						collectAuxFromIntern(annotTerm);
-						break;
-					}
-					setResult(term);
-					return;
-				} else if (appTerm.getFunction().getName().equals(ProofConstants.FN_TAUTOLOGY)) {
-					final AnnotatedTerm annotTerm = (AnnotatedTerm) appTerm.getParameters()[0];
-					switch (annotTerm.getAnnotations()[0].getKey()) {
-					case ":exists-":
-						collectExistsElim(annotTerm);
-						break;
-					case ":forall+":
-						collectForallIntro(annotTerm);
-						break;
-					case ":or+":
-					case ":or-":
-					case ":and+":
-					case ":and-":
-					case ":=>+":
-					case ":=>-":
-					case ":excludedMiddle1":
-					case ":excludedMiddle2": {
-						assert isApplication(SMTLIBConstants.OR, annotTerm.getSubterm());
-						Term firstLit = ((ApplicationTerm) annotTerm.getSubterm()).getParameters()[0];
-						if (isApplication(SMTLIBConstants.NOT, firstLit)) {
-							firstLit = ((ApplicationTerm) firstLit).getParameters()[0];
+				final FunctionSymbol func = appTerm.getFunction();
+				if (func.isIntern() && (func.getName().startsWith("@AUX") || func.getName().startsWith("@skolem"))
+						&& !mQuantDefinedTerms.containsKey(func)) {
+					// recursively convert function definition, pop it from the result stack
+					// afterwards, and only then add the function definition to make sure it's
+					// dependent functions are defined first.
+					enqueueWalker((final NonRecursive engine) -> {
+						((CollectSkolemAux) engine).getConverted();
+						if (!mQuantDefinedTerms.containsKey(func)) {
+							mQuantDefinedTerms.put(func, (LambdaTerm) func.getTheory().lambda(func.getDefinitionVars(),
+									func.getDefinition()));
 						}
-						if (firstLit instanceof AnnotatedTerm) {
-							final AnnotatedTerm quotedTerm = (AnnotatedTerm) firstLit;
-							if (quotedTerm.getAnnotations()[0].getKey().equals(":quotedQuant")
-									&& quotedTerm.getAnnotations()[0].getValue() != null) {
-								collectAuxTerm(quotedTerm);
-							}
-						}
-						break;
-					}
-					}
-					setResult(term);
-					return;
+					});
+					super.convert(func.getDefinition());
 				}
-			}
-			super.convert(term);
-		}
-
-		private void collectAuxFromIntern(final AnnotatedTerm annTerm) {
-			final Term rewrite = annTerm.getSubterm();
-			assert isApplication(SMTLIBConstants.EQUALS, rewrite);
-			final Term rhs = ((ApplicationTerm) rewrite).getParameters()[1];
-			if (rhs instanceof AnnotatedTerm) {
-				collectAuxTerm((AnnotatedTerm) rhs);
-			}
-		}
-
-		private void collectAuxTerm(final AnnotatedTerm annTerm) {
-			final Annotation[] annots = annTerm.getAnnotations();
-			if (annots.length == 1) {
-				final String annot = annots[0].getKey();
-				// Check for Quant AUX literals
-				if (annot == ":quotedQuant" && annots[0].getValue() instanceof Term) {
-					final Term subterm = annTerm.getSubterm();
-					if (isApplication("=", subterm)) {
-						final ApplicationTerm auxApp = (ApplicationTerm) subterm;
-						if (isApplication("true", auxApp.getParameters()[1])) {
-							final Term lhs = auxApp.getParameters()[0];
-							if (lhs instanceof ApplicationTerm
-									&& ((ApplicationTerm) lhs).getFunction().getName().startsWith("@AUX")) {
-								// the definition of the quantAuxLit can be found in the annotation
-								validateAuxDef(lhs, (Term) annots[0].getValue());
-								return;
-							}
-						}
-					}
-					throw new AssertionError("Malformed quantified AUX literal");
-				}
-			}
-		}
-
-		private void collectForallIntro(final AnnotatedTerm annotTerm) {
-			final Term[] clause = ((ApplicationTerm) annotTerm.getSubterm()).getParameters();
-			final Term[] skolemFuns = (Term[]) annotTerm.getAnnotations()[0].getValue();
-			// clause[0]: (forall ((x...)) F)
-			// clause[1]: (not (let ((x skolem...)) F))
-			assert clause.length == 2 && isApplication("not", clause[1]);
-			final QuantifiedFormula qf = (QuantifiedFormula) clause[0];
-			assert qf.getQuantifier() == QuantifiedFormula.FORALL;
-
-			final TermVariable[] quantVars = qf.getVariables();
-			assert quantVars.length == skolemFuns.length;
-			final Term[] skolemTerms = mProofRules.getSkolemVars(quantVars, qf.getSubformula(), true);
-
-			for (int i = 0; i < quantVars.length; i++) {
-				validateSkolemDef(skolemFuns[i], skolemTerms[i]);
-			}
-		}
-
-		private void collectExistsElim(final AnnotatedTerm annotTerm) {
-			final Term[] clause = ((ApplicationTerm) annotTerm.getSubterm()).getParameters();
-			final Term[] skolemFuns = (Term[]) annotTerm.getAnnotations()[0].getValue();
-			// clause[0]: not (exists ((x...)) F
-			// clause[1]: (let ((x skolem...)) F)
-			assert clause.length == 2 && isApplication("not", clause[0]);
-			final Term existsAtom = ((ApplicationTerm) clause[0]).getParameters()[0];
-			final QuantifiedFormula qf = (QuantifiedFormula) existsAtom;
-			assert qf.getQuantifier() == QuantifiedFormula.EXISTS;
-
-			final TermVariable[] quantVars = qf.getVariables();
-			assert quantVars.length == skolemFuns.length;
-			final Term[] skolemTerms = mProofRules.getSkolemVars(quantVars, qf.getSubformula(), false);
-
-			for (int i = 0; i < quantVars.length; i++) {
-				validateSkolemDef(skolemFuns[i], skolemTerms[i]);
-			}
-		}
-
-		/**
-		 * Check that an existentially quantified variable has a unique Skolem function.
-		 *
-		 * @param skolemApp    the application term {@code (skolem_xyz vars)}. The
-		 *                     function symbol should be unique and the parameters
-		 *                     should equal the free variables of the existentially
-		 *                     quantified formula.
-		 * @param var          the variable for which the skolemApp was introduced.
-		 * @param quantformula the existentially quantified formula.
-		 * @return true iff this usage of skolemApp matches the previous uses (is only
-		 *         used for this quantformula with this variable) and that the arguments
-		 *         are the free variables of quantformula.
-		 */
-		private void validateSkolemDef(final Term skolemApp, final Term skolemTerm) {
-			final Term previous = mSkolemFunctions.put(skolemApp, new FormulaUnLet().unlet(skolemTerm));
-			assert previous == null || previous == skolemTerm;
-		}
-
-		/**
-		 * Check that an {@literal @}AUX term has the same definition as previously seen.
-		 */
-		private void validateAuxDef(final Term auxTerm, final Term defTerm) {
-			assert auxTerm instanceof ApplicationTerm
-					&& ((ApplicationTerm) auxTerm).getFunction().getName().startsWith("@AUX");
-			final ApplicationTerm auxApp = (ApplicationTerm) auxTerm;
-			final Term[] params = auxApp.getParameters();
-			final TermVariable[] vars = new TermVariable[params.length];
-			for (int i = 0; i < params.length; i++) {
-				vars[i] = (TermVariable) params[i];
-			}
-			final LambdaTerm lambdaTerm = (LambdaTerm) defTerm.getTheory().lambda(vars, defTerm);
-			final Term old = mQuantDefinedTerms.put(auxApp.getFunction(), lambdaTerm);
-			assert old == null || old == lambdaTerm;
-		}
-
-	}
-
-	static Annotation[] ANNOT_QUANT = new Annotation[] { new Annotation(":quotedQuant", null) };
-
-	static class RewriteSkolem extends TermTransformer {
-		private final HashMap<Term, Term> mSkolems;
-
-		public RewriteSkolem(final HashMap<Term, Term> skolems) {
-			mSkolems = skolems;
-		}
-
-		@Override
-		public void convert(Term term) {
-			final Term skolemDef = mSkolems.get(term);
-			if (skolemDef != null) {
-				term = skolemDef;
-			}
-			if (term instanceof AnnotatedTerm
-					&& ((AnnotatedTerm) term).getAnnotations()[0].getKey().equals(":quotedQuant")
-					&& ((AnnotatedTerm) term).getAnnotations()[0].getValue() instanceof Term) {
-				term = ((AnnotatedTerm) term).getSubterm();
-				term = term.getTheory().annotatedTerm(ANNOT_QUANT, term);
 			}
 			super.convert(term);
 		}

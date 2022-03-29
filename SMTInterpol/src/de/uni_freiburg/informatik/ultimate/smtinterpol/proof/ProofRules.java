@@ -28,6 +28,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
@@ -228,6 +229,7 @@ public class ProofRules {
 
 	public Term[] getSkolemVars(final TermVariable[] termVars, final Term subterm, final boolean isForall) {
 		final Term[] skolemTerms = new Term[termVars.length];
+		final FormulaUnLet unletter = new FormulaUnLet();
 		for (int i = 0; i < skolemTerms.length; i++) {
 			Term subform = subterm;
 			if (i + 1 < skolemTerms.length) {
@@ -243,7 +245,7 @@ public class ProofRules {
 				final Term[] precedingSkolems = new Term[i];
 				System.arraycopy(termVars, 0, precedingVars, 0, i);
 				System.arraycopy(skolemTerms, 0, precedingSkolems, 0, i);
-				subform = mTheory.let(precedingVars, precedingSkolems, subform);
+				subform = unletter.unlet(mTheory.let(precedingVars, precedingSkolems, subform));
 			}
 			skolemTerms[i] = choose(termVars[i], subform);
 		}
@@ -1094,13 +1096,18 @@ public class ProofRules {
 						final FunctionSymbol func = (FunctionSymbol) expandParams[0];
 						final Term[] params = (Term[]) expandParams[1];
 						mTodo.add(")");
-						mTodo.add(")");
-						for (int i = params.length - 1; i >= 0; i--) {
-							mTodo.add(params[i]);
-							mTodo.add(" ");
+						if (params.length > 0) {
+							mTodo.add(")");
+							for (int i = params.length - 1; i >= 0; i--) {
+								mTodo.add(params[i]);
+								mTodo.add(" ");
+							}
+							mTodo.add(func.getApplicationString());
+							mTodo.add("(");
+						} else {
+							mTodo.add(func.getApplicationString());
 						}
-						mTodo.add(func.getApplicationString());
-						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
+						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
 					}
 					case ":" + FORALLE:
