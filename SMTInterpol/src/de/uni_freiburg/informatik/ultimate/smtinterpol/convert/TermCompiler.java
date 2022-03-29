@@ -201,7 +201,8 @@ public class TermCompiler extends TermTransformer {
 
 		final Term[] params = ((ApplicationTerm) mTracker.getProvedTerm(convertedApp)).getParameters();
 
-		if (fsym.getDefinition() != null) {
+		if (fsym.getDefinition() != null && !fsym.getName().startsWith("@skolem.")
+				&& !fsym.getName().startsWith("@AUX")) {
 			final HashMap<TermVariable, Term> substs = new HashMap<>();
 			for (int i = 0; i < params.length; i++) {
 				substs.put(fsym.getDefinitionVars()[i], params[i]);

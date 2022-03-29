@@ -173,7 +173,7 @@ public class MinimalProofChecker extends NonRecursive {
 			for (final Map.Entry<FunctionSymbol, LambdaTerm> funcDef : funcDefs.entrySet()) {
 				final FunctionSymbol func = funcDef.getKey();
 				final LambdaTerm def = funcDef.getValue();
-				if (func.getDefinition() != null && (func.getDefinition() != def.getSubterm()
+				if (!func.isIntern() && func.getDefinition() != null && (func.getDefinition() != def.getSubterm()
 						|| !Arrays.equals(func.getDefinitionVars(), def.getVariables()))) {
 					throw new AssertionError("Inconsistent function definition.");
 				}
@@ -616,7 +616,11 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) expandArgs[1];
 			final Term app = theory.term(func, params);
 			Term rhs;
-			if (func.getDefinition() != null) {
+			if (mFunctionDefinitions.containsKey(func)) {
+				final LambdaTerm lambda = mFunctionDefinitions.get(func);
+				rhs = theory.let(lambda.getVariables(), params, lambda.getSubterm());
+				rhs = new FormulaUnLet().unlet(rhs);
+			} else if (func.getDefinition() != null) {
 				rhs = theory.let(func.getDefinitionVars(), params, func.getDefinition());
 				rhs = new FormulaUnLet().unlet(rhs);
 			} else if (func.isLeftAssoc() && params.length > 2) {
@@ -635,10 +639,6 @@ public class MinimalProofChecker extends NonRecursive {
 					chain[i] = theory.term(func, params[i], params[i + 1]);
 				}
 				rhs = theory.term("and", chain);
-			} else if (mFunctionDefinitions.containsKey(func)) {
-				final LambdaTerm lambda = mFunctionDefinitions.get(func);
-				rhs = theory.let(lambda.getVariables(), params, lambda.getSubterm());
-				rhs = new FormulaUnLet().unlet(rhs);
 			} else {
 				throw new AssertionError();
 			}
@@ -1267,7 +1267,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Object[] annotValues = (Object[]) mProof.getAnnotations()[0].getValue();
 			final FunctionSymbol func = (FunctionSymbol) annotValues[0];
 			final LambdaTerm def = (LambdaTerm) annotValues[1];
-			if (func.getDefinition() != null
+			if (!func.isIntern() && func.getDefinition() != null
 					&& (func.getDefinition() != def.getSubterm()
 							|| !Arrays.equals(func.getDefinitionVars(), def.getVariables()))) {
 				throw new AssertionError("Inconsistent function definition.");

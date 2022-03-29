@@ -126,7 +126,6 @@ public class Theory {
 
 	private int mTvarCtr = 0;
 
-	private int mSkolemCounter = 0;
 	private int mAuxCounter = 0;
 
 	private boolean mGlobalDecls;
@@ -1787,20 +1786,6 @@ public class Theory {
 			mDeclaredFuns.endScope();
 			mDeclaredSorts.endScope();
 		}
-	}
-
-	/******************** QUANTIFIER SUPPORT ***************************/
-	public Term skolemize(final TermVariable tv, final QuantifiedFormula qf) {
-		final TermVariable[] freeVars = qf.getFreeVars();
-		final Term[] args = new Term[freeVars.length];
-		final Sort[] freeVarSorts = new Sort[freeVars.length];
-		for (int i = 0; i < freeVars.length; i++) {
-			args[i] = freeVars[i];
-			freeVarSorts[i] = freeVars[i].getSort();
-		}
-		final FunctionSymbol fsym = declareInternalFunction("@" + tv.getName() + "_skolem_" + mSkolemCounter++,
-				freeVarSorts, tv.getSort(), FunctionSymbol.UNINTERPRETEDINTERNAL); // TODO Change flag?
-		return term(fsym, args);
 	}
 
 	/**

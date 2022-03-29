@@ -65,6 +65,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
@@ -1181,7 +1182,7 @@ public class Clausifier {
 			if (fs.getName().startsWith("@AUX")) {
 				return true;
 			}
-			if (fs.getName().matches("@.*skolem.*")) {
+			if (fs.getName().startsWith("@skolem.")) {
 				return true;
 			}
 			switch (fs.getName()) {
@@ -1225,8 +1226,20 @@ public class Clausifier {
 			 *
 			 * skolemize everything inside, then go on as usual
 			 */
+			final TermVariable[] freeVars = qf.getFreeVars();
+			final Term[] args = new Term[freeVars.length];
+			final Sort[] freeVarSorts = new Sort[freeVars.length];
+			for (int i = 0; i < freeVars.length; i++) {
+				args[i] = freeVars[i];
+				freeVarSorts[i] = freeVars[i].getSort();
+			}
+			final Term[] skolemTerms = new ProofRules(mTheory).getSkolemVars(vars, qf.getSubformula(),
+					qf.getQuantifier() == QuantifiedFormula.FORALL);
 			for (int i = 0; i < vars.length; ++i) {
-				substTerms[i] = mTheory.skolemize(vars[i], qf);
+				final String skolemName = "@skolem." + vars[i].getName() + "." + mSkolemCounter++;
+				final FunctionSymbol fsym = mTheory.declareInternalFunction(
+						skolemName, freeVarSorts, freeVars, skolemTerms[i], FunctionSymbol.UNINTERPRETEDINTERNAL);
+				substTerms[i] = mTheory.term(fsym, args);
 			}
 
 			if (mEprTheory != null) {
@@ -1241,7 +1254,6 @@ public class Clausifier {
 			 * treatment of universally quantified subformulas: <li> alpha-rename quantified variables uniquely <li>
 			 * drop the quantifier (remaining free TermVariables are implicitly universally quantified)
 			 */
-
 			for (int i = 0; i < vars.length; ++i) {
 				substTerms[i] = mTheory.createFreshTermVariable(vars[i].getName(), vars[i].getSort());
 			}
@@ -1337,6 +1349,8 @@ public class Clausifier {
 	 * Did we emit a warning on a failed push?
 	 */
 	private boolean mWarnedInconsistent = false;
+
+	private int mSkolemCounter = 0;
 
 	private final LogProxy mLogger;
 	/**
