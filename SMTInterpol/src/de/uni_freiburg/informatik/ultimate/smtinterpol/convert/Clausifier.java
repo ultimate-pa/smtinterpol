@@ -635,6 +635,56 @@ public class Clausifier {
 			addLiteral(lit);
 		}
 
+		/**
+		 * For a quantified clause build the proof for the quantified formula from the
+		 * proof of the clause with free variables.
+		 *
+		 * @param lits      the ground literals in the quantified formula.
+		 * @param quantLits the literals containing quantified variables in the
+		 *                  quantified formula
+		 * @param proof     the proof of the clause with free variabless.
+		 * @return the proof for the unit clause containing the forall formula.
+		 */
+		private Term buildQuantifierProof(final Literal[] lits, final QuantLiteral[] quantLits, Term proof) {
+			final Theory theory = mTheory;
+			Term rewriteProof;
+			if (lits.length + quantLits.length > 1) {
+				final Term[] literals = new Term[lits.length + quantLits.length];
+				int i = 0;
+				for (final Literal l : lits) {
+					literals[i++] = l.getSMTFormula(theory, true);
+				}
+				for (final QuantLiteral ql : quantLits) {
+					literals[i++] = ql.getSMTFormula(theory, true);
+				}
+				final Term clause = theory.term("or", literals);
+				if (mTracker instanceof ProofTracker) {
+					final Term[] antecedents = new Term[literals.length + 1];
+					antecedents[0] = proof;
+					for (i = 0; i < literals.length; i++) {
+						antecedents[i + 1] = theory
+								.annotatedTerm(new Annotation[] { new Annotation(":pivot", theory.not(literals[i])) },
+										mTracker.getClauseProof(mTracker.tautology(
+												theory.term("or", clause, theory.term("not", literals[i])),
+												ProofConstants.AUX_OR_POS)));
+					}
+					proof = theory.term(ProofConstants.FN_RES, antecedents);
+					rewriteProof = theory.annotatedTerm(new Annotation[] { new Annotation(":proof", proof) }, clause);
+				} else {
+					rewriteProof = clause;
+				}
+			} else {
+				assert lits.length == 0 : "quantLits must not be empty";
+				rewriteProof = quantLits[0].getSMTFormula(theory, true);
+				if (mTracker instanceof ProofTracker) {
+					rewriteProof = theory.annotatedTerm(new Annotation[] { new Annotation(":proof", proof) },
+							rewriteProof);
+				}
+			}
+			rewriteProof = mTracker.allIntro(rewriteProof, mTracker.getProvedTerm(rewriteProof).getFreeVars());
+			return rewriteProof;
+		}
+
 		@Override
 		/**
 		 * This performs the action of this clause collector after all literals have
@@ -684,73 +734,39 @@ public class Clausifier {
 					addClause(groundLiteralsAfterDER, null, getProofNewSource(proof, mSource)); // TODO needs DER proof
 				}
 			} else {
-				Term rewriteProof;
-				if (lits.length + quantLits.length > 1) {
-					final Term[] literals = new Term[lits.length + quantLits.length];
-					int i = 0;
-					for (final Literal l : lits) {
-						literals[i++] = l.getSMTFormula(theory, true);
-					}
-					for (final QuantLiteral ql : quantLits) {
-						literals[i++] = ql.getSMTFormula(theory, true);
-					}
-					final Term clause = theory.term("or", literals);
-					if (mTracker instanceof ProofTracker) {
-						final Term[] antecedents = new Term[literals.length + 1];
-						antecedents[0] = proof;
-						for (i = 0; i < literals.length; i++) {
-							antecedents[i + 1] = theory.annotatedTerm(
-									new Annotation[] { new Annotation(":pivot", theory.not(literals[i])) },
-									mTracker.getClauseProof(
-											mTracker.tautology(
-													theory.term("or", clause, theory.term("not", literals[i])),
-													ProofConstants.AUX_OR_POS)));
-						}
-						proof = theory.term(ProofConstants.FN_RES, antecedents);
-						rewriteProof = theory.annotatedTerm(new Annotation[] { new Annotation(":proof", proof) },
-								clause);
-					} else {
-						rewriteProof = clause;
-					}
-				} else {
-					rewriteProof = quantLits[0].getSMTFormula(theory, true);
-					if (mTracker instanceof ProofTracker) {
-						rewriteProof = theory.annotatedTerm(new Annotation[] { new Annotation(":proof", proof) }, rewriteProof);
-					}
-				}
+				final Term quantifierWithProof = buildQuantifierProof(lits, quantLits, proof);
+				TermVariable[] quantVars = ((QuantifiedFormula) mTracker.getProvedTerm(quantifierWithProof))
+						.getVariables();
 				final DERResult resultFromDER =
-						mQuantTheory.performDestructiveEqualityReasoning(rewriteProof, lits, quantLits, mSource);
+						mQuantTheory.performDestructiveEqualityReasoning(quantifierWithProof, quantVars, lits,
+								quantLits, mSource);
 				if (resultFromDER == null) {
-					mQuantTheory.addQuantClause(lits, quantLits, mSource, rewriteProof);
+					mQuantTheory.addQuantClause(quantVars, lits, quantLits, mSource, quantifierWithProof);
 				} else if (!resultFromDER.isTriviallyTrue()) { // Clauses that become trivially true can be dropped.
-					isDpllClause = resultFromDER.isGround();
 					// Build rewrite proof from all-intro, split-subst and derProof
-					final TermVariable[] vars = mTracker.getProvedTerm(rewriteProof).getFreeVars();
-					rewriteProof = mTracker.allIntro(rewriteProof, vars);
 					final Annotation splitAnnot = ProofConstants.getTautForallNeg(resultFromDER.getSubs());
 					final Term substituted = resultFromDER.getSubstituted();
-					final Term forallTerm = mTracker.getProvedTerm(rewriteProof);
+					final Term forallTerm = mTracker.getProvedTerm(quantifierWithProof);
 					final Term forallNeg = mTracker
 							.tautology(theory.term("or", theory.term("not", forallTerm), substituted), splitAnnot);
-					final Term splitProof = mTracker.resolution(rewriteProof, forallNeg);
+					final Term splitProof = mTracker.resolution(quantifierWithProof, forallNeg);
 					final Term derProof = resultFromDER.getSimplified();
 					Term rewriteProofAfterDER = mTracker.modusPonens(splitProof, derProof);
-
-					if (isDpllClause) {
-						final Literal[] derLits = resultFromDER.getGroundLits();
-						if (derLits.length > 1) {
-							final Term[] orElimParam = new Term[derLits.length + 1];
+					final Term provedAfterDER = mTracker.getProvedTerm(rewriteProofAfterDER);
+					if (provedAfterDER instanceof ApplicationTerm) {
+						final ApplicationTerm appTerm = (ApplicationTerm) provedAfterDER;
+						if (appTerm.getFunction().getName().equals("or")) {
+							final Term[] litsAfterDER = ((ApplicationTerm) provedAfterDER).getParameters();
+							final Term[] orElimParam = new Term[litsAfterDER.length + 1];
 							orElimParam[0] = theory.term("not", mTracker.getProvedTerm(rewriteProofAfterDER));
-							for (int i = 0; i < derLits.length; i++) {
-								orElimParam[i + 1] = derLits[i].getSMTFormula(theory, true);
+							for (int i = 0; i < litsAfterDER.length; i++) {
+								orElimParam[i + 1] = litsAfterDER[i];
 							}
 							final Term orElim = mTracker.tautology(theory.term("or", orElimParam),
 									ProofConstants.AUX_OR_NEG);
 							rewriteProofAfterDER = mTracker.resolution(rewriteProofAfterDER, orElim);
-						} else if (mTracker instanceof ProofTracker && derLits.length == 0) {
-							final Term falseTerm = mTracker.getProvedTerm(rewriteProofAfterDER);
-							assert ((ApplicationTerm) falseTerm).getFunction().getName() == "false";
-							final Term pivot = theory.term("not", falseTerm);
+						} else if (appTerm.getFunction().getName().equals("false")) {
+							final Term pivot = theory.term("not", appTerm);
 							final Term falseElim = mTracker.tautology(pivot, ProofConstants.AUX_FALSE_NEG);
 							final Term moreProof = theory.term(ProofConstants.FN_RES,
 									mTracker.getClauseProof(rewriteProofAfterDER),
@@ -758,13 +774,20 @@ public class Clausifier {
 											mTracker.getClauseProof(falseElim)));
 							rewriteProofAfterDER =
 									theory.annotatedTerm(new Annotation[] { new Annotation(":proof", moreProof) },
-											falseTerm);
+											appTerm);
 						}
-						addClause(derLits, null,
+					}
+					final Literal[] derGroundLits = resultFromDER.getGroundLits();
+					final QuantLiteral[] derQuantLits = resultFromDER.getQuantLits();
+					if (derQuantLits.length == 0) {
+						addClause(derGroundLits, null,
 								getProofNewSource(mTracker.getClauseProof(rewriteProofAfterDER), mSource));
 					} else {
-						mQuantTheory.addQuantClause(resultFromDER.getGroundLits(), resultFromDER.getQuantLits(),
-								mSource, rewriteProofAfterDER);
+						rewriteProofAfterDER = buildQuantifierProof(derGroundLits, derQuantLits,
+								mTracker.getClauseProof(rewriteProofAfterDER));
+						quantVars = ((QuantifiedFormula) mTracker.getProvedTerm(rewriteProofAfterDER)).getVariables();
+						mQuantTheory.addQuantClause(quantVars, derGroundLits, derQuantLits, mSource,
+								rewriteProofAfterDER);
 					}
 				}
 			}

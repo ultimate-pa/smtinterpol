@@ -90,7 +90,8 @@ public class QuantClause {
 	 *            the clause term, potentially annotated with its proof.
 	 */
 	@SuppressWarnings("unchecked")
-	QuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits, final QuantifierTheory quantTheory,
+	QuantClause(final TermVariable[] vars, final Literal[] groundLits, final QuantLiteral[] quantLits,
+			final QuantifierTheory quantTheory,
 			final SourceAnnotation source, final Term clauseWithProof) {
 		assert quantLits.length != 0;
 		mQuantTheory = quantTheory;
@@ -101,7 +102,7 @@ public class QuantClause {
 		mQuantSource = new SourceAnnotation(source, true);
 		mClauseWithProof = clauseWithProof;
 
-		mVars = computeVars();
+		mVars = vars;
 		mVarInfos = new VarInfo[mVars.length];
 		for (int i = 0; i < mVars.length; i++) {
 			mVarInfos[i] = new VarInfo();
@@ -154,7 +155,7 @@ public class QuantClause {
 	/**
 	 * Get the source annotation of this QuantClause. This should only be used when dealing with ground terms existing
 	 * in the QuantClause.
-	 * 
+	 *
 	 * @return the (ground) source annotation.
 	 */
 	public SourceAnnotation getSource() {
@@ -163,7 +164,7 @@ public class QuantClause {
 
 	/**
 	 * Get the source annotation of this QuantClause containing the information that it comes from the QuantifierTheory.
-	 * 
+	 *
 	 * @return the (quant) source annotation.
 	 */
 	public SourceAnnotation getQuantSource() {
@@ -280,7 +281,7 @@ public class QuantClause {
 			final QuantLiteral atom = lit.getAtom();
 			if (atom instanceof QuantBoundConstraint) {
 				if (lit.isArithmetical()) {
-					Term[] termLtTerm =
+					final Term[] termLtTerm =
 							QuantUtil.getArithmeticalTermLtTerm(lit, mQuantTheory.getClausifier().getTermCompiler());
 					if (termLtTerm[0] instanceof TermVariable) {
 						final TermVariable lowerVar = (TermVariable) termLtTerm[0];
