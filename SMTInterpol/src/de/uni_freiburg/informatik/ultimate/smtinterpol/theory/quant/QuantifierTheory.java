@@ -707,20 +707,18 @@ public class QuantifierTheory implements ITheory {
 	/**
 	 * Perform destructive equality reasoning.
 	 *
-	 * @param clause
-	 *            The quantified clause term, annotated with its proof if proof production is enabled.
-	 * @param groundLits
-	 *            The ground literals of the clause.
-	 * @param quantLits
-	 *            The quantified literals of the clause.
-	 * @param source
-	 *            The source of the clause.
+	 * @param clause     The quantified formula, annotated with its proof if proof
+	 *                   production is enabled.
+	 * @param vars       The quantified variables.
+	 * @param groundLits The ground literals of the clause.
+	 * @param quantLits  The quantified literals of the clause.
+	 * @param source     The source of the clause.
 	 * @return the result from performing DER if something has changed, null else.
 	 */
-	public DERResult performDestructiveEqualityReasoning(final Term clause, final Literal[] groundLits,
-			final QuantLiteral[] quantLits, final SourceAnnotation source) {
+	public DERResult performDestructiveEqualityReasoning(final Term clause, final TermVariable[] vars,
+			final Literal[] groundLits, final QuantLiteral[] quantLits, final SourceAnnotation source) {
 		final DestructiveEqualityReasoning der =
-				new DestructiveEqualityReasoning(this, groundLits, quantLits, source, clause);
+				new DestructiveEqualityReasoning(this, vars, groundLits, quantLits, source, clause);
 		if (der.applyDestructiveEqualityReasoning()) {
 			final DERResult result = der.getResult();
 			if (result.isGround() && !result.isTriviallyTrue()) {
@@ -738,16 +736,13 @@ public class QuantifierTheory implements ITheory {
 	 *
 	 * Call this only after performing DER.
 	 *
-	 * @param groundLits
-	 *            the ground literals of the clause to add.
-	 * @param quantLits
-	 *            the quantified literals of the clause to add.
-	 * @param source
-	 *            the source of the clause
-	 * @param clauseWithProof
-	 *            the clause term, possibly annotated with its proof
+	 * @param vars            the variables of the quantified formula
+	 * @param groundLits      the ground literals of the clause to add.
+	 * @param quantLits       the quantified literals of the clause to add.
+	 * @param source          the source of the clause
+	 * @param clauseWithProof the clause term, possibly annotated with its proof
 	 */
-	public void addQuantClause(final Literal[] groundLits, final QuantLiteral[] quantLits,
+	public void addQuantClause(final TermVariable[] vars, final Literal[] groundLits, final QuantLiteral[] quantLits,
 			final SourceAnnotation source, final Term clauseWithProof) {
 		for (final QuantLiteral l : quantLits) {
 			if (!l.isAlmostUninterpreted()) {
@@ -760,7 +755,7 @@ public class QuantifierTheory implements ITheory {
 			throw new IllegalArgumentException("Cannot add clause to QuantifierTheory: No quantified literal!");
 		}
 
-		final QuantClause clause = new QuantClause(groundLits, quantLits, this, source, clauseWithProof);
+		final QuantClause clause = new QuantClause(vars, groundLits, quantLits, this, source, clauseWithProof);
 		mQuantClauses.add(clause);
 
 		mEMatching.addClause(clause);
