@@ -609,33 +609,52 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertTautIte(final String tautKind, final Term[] clause) {
 		assert clause.length == 3;
 		final boolean negated = isApplication("not", clause[0]);
-		final Term iteAtom = negated ? negate(clause[0]) : clause[0];
+		final Term quotedAtom = negated ? negate(clause[0]) : clause[0];
+		final boolean isQuotedQuant = quotedAtom instanceof AnnotatedTerm;
+		final Term iteAtom = isQuotedQuant ? unquoteExpand(quotedAtom) : quotedAtom;
 		assert isApplication("ite", iteAtom);
 		final Term[] iteParams = ((ApplicationTerm) iteAtom).getParameters();
+		Term proof;
 		switch (tautKind) {
 		case ":ite+1":
 			// iteAtom, ~cond, ~then
-			return removeNot(convertTautIte1Helper(iteAtom, iteParams[1], true), iteParams[0], false);
+			proof = removeNot(convertTautIte1Helper(iteAtom, iteParams[1], true), iteParams[0], false);
+			break;
 		case ":ite+2":
 			// iteAtom, cond, ~else
-			return removeNot(convertTautIte2Helper(iteAtom, iteParams[2], true), iteParams[0], true);
+			proof = removeNot(convertTautIte2Helper(iteAtom, iteParams[2], true), iteParams[0], true);
+			break;
 		case ":ite+red":
 			// iteAtom, ~then, ~else
-			return mProofRules.resolutionRule(iteParams[0],
+			proof = mProofRules.resolutionRule(iteParams[0],
 					convertTautIte2Helper(iteAtom, iteParams[2], true), convertTautIte1Helper(iteAtom, iteParams[1], true));
+			break;
 		case ":ite-1":
 			// ~iteAtom, ~cond, then
-			return removeNot(convertTautIte1Helper(iteAtom, iteParams[1], false), iteParams[0], false);
+			proof = removeNot(convertTautIte1Helper(iteAtom, iteParams[1], false), iteParams[0], false);
+			break;
 		case ":ite-2":
 			// ~iteAtom, cond, else
-			return removeNot(convertTautIte2Helper(iteAtom, iteParams[2], false), iteParams[0], true);
-		case ":ite-red": {
+			proof = removeNot(convertTautIte2Helper(iteAtom, iteParams[2], false), iteParams[0], true);
+			break;
+		case ":ite-red":
 			// ~iteAtom, then, else
-			return mProofRules.resolutionRule(iteParams[0],
+			proof = mProofRules.resolutionRule(iteParams[0],
 					convertTautIte2Helper(iteAtom, iteParams[2], false), convertTautIte1Helper(iteAtom, iteParams[1], false));
+			break;
+		default:
+			throw new AssertionError();
 		}
+		if (isQuotedQuant) {
+			final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, iteAtom);
+			if (negated) {
+				proof = mProofRules.resolutionRule(iteAtom, mProofRules.iffElim2(expandEq), proof);
+			} else {
+				proof = mProofRules.resolutionRule(iteAtom, proof, mProofRules.iffElim1(expandEq));
+			}
+			proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedAtom, iteAtom), proof);
 		}
-		throw new AssertionError();
+		return proof;
 	}
 
 	private Term convertTautExcludedMiddle(final String name, final Term[] clause) {
