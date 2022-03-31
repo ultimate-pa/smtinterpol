@@ -4240,27 +4240,33 @@ public class ProofSimplifier extends TermTransformer {
 
 		final Term subProof = annotatedTerm.getSubterm();
 		/* Check that subproof is an equality */
+		Term proof = subproof((AnnotatedTerm) subProof);
 		final ApplicationTerm subEquality = (ApplicationTerm) provedTerm((AnnotatedTerm) subProof);
 		assert isApplication("=", subEquality);
+		final FormulaUnLet unletter = new FormulaUnLet();
 
-		Term proof = subproof((AnnotatedTerm) subProof);
+		/* first show that subProof holds for all values of the variables */
+		final Term[] skolem = mProofRules.getSkolemVars(vars, subEquality, true);
+		final Term letEquality = unletter.unlet(theory.let(vars, skolem, subEquality));
+		final Term letProof = unletter.unlet(theory.let(vars, skolem, proof));
+		final QuantifiedFormula forallSubEquality = (QuantifiedFormula) theory.forall(vars, subEquality);
+		final Term forallProof = res(letEquality, letProof, mProofRules.forallIntro(forallSubEquality));
 
 		/* compute the proven equality (= (exists (...) lhs) (exists (...) rhs)) */
-		final FormulaUnLet unletter = new FormulaUnLet();
 		final Term lhs = subEquality.getParameters()[0];
 		final Term rhs = subEquality.getParameters()[1];
 
 		final Term[] skolem1 = mProofRules.getSkolemVars(vars, isForall ? lhs : rhs, isForall);
-		final Term let1Eq = unletter.unlet(theory.let(vars, skolem1, subEquality));
 		final Term let1Rhs = unletter.unlet(theory.let(vars, skolem1, rhs));
 		final Term let1Lhs = unletter.unlet(theory.let(vars, skolem1, lhs));
-		final Term let1Proof = unletter.unlet(theory.let(vars, skolem1, proof));
+		final Term let1Eq = theory.term(SMTLIBConstants.EQUALS, let1Lhs, let1Rhs);
+		final Term let1Proof = mProofRules.forallElim(skolem1, forallSubEquality);
 
 		final Term[] skolem2 = mProofRules.getSkolemVars(vars, isForall ? rhs : lhs, isForall);
-		final Term let2Eq = unletter.unlet(theory.let(vars, skolem2, subEquality));
 		final Term let2Lhs = unletter.unlet(theory.let(vars, skolem2, lhs));
 		final Term let2Rhs = unletter.unlet(theory.let(vars, skolem2, rhs));
-		final Term let2Proof = unletter.unlet(theory.let(vars, skolem2, proof));
+		final Term let2Eq = theory.term(SMTLIBConstants.EQUALS, let2Lhs, let2Rhs);
+		final Term let2Proof = mProofRules.forallElim(skolem2, forallSubEquality);
 		final QuantifiedFormula quLhs = (QuantifiedFormula) (isForall ? theory.forall(vars, lhs)
 				: theory.exists(vars, lhs));
 		final QuantifiedFormula quRhs = (QuantifiedFormula) (isForall ? theory.forall(vars, rhs)
@@ -4278,6 +4284,7 @@ public class ProofSimplifier extends TermTransformer {
 						mProofRules.resolutionRule(let2Eq, let2Proof, mProofRules.iffElim2(let2Eq)),
 						isForall ? mProofRules.forallIntro(quRhs) : mProofRules.existsIntro(skolem2, quRhs)));
 		proof = proveIff(newEquality, proof2, proof1);
+		proof = res(forallSubEquality, forallProof, proof);
 		return annotateProved(newEquality, proof);
 	}
 
@@ -4828,7 +4835,7 @@ public class ProofSimplifier extends TermTransformer {
 				proveEqWithMultiplier(rhsParams, lhsParams, multiplier));
 	}
 
-	private Term proveRewriteWithLeq(final Term lhs, final Term rhs, final boolean normalizeGCD) {
+	private Term proveRewriteWithLeq(final Term lhs, final Term rhs, final boolean allowFactor) {
 		final Theory theory = lhs.getTheory();
 
 		final boolean isGreater = isApplication(">", lhs) || isApplication(">=", lhs);
@@ -4847,16 +4854,20 @@ public class ProofSimplifier extends TermTransformer {
 		final Term posLhs = theory.term(isStrictLhs ? "<" : "<=", lhsParam[0], lhsParam[1]);
 		final Term negLhs = theory.term(isStrictLhs ? "<=" : "<", lhsParam[1], lhsParam[0]);
 
-		Rational gcd = Rational.ONE;
+		Rational factor = Rational.ONE;
 		boolean needsIntReasoning = false;
-		if (normalizeGCD) {
+		if (allowFactor) {
 			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParam[0]);
 			lhsAffine.add(Rational.MONE, lhsParam[1]);
-			gcd = lhsAffine.getGcd();
+			final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsAtomParam[0]);
+			rhsAffine.add(Rational.MONE, rhsAtomParam[1]);
+			assert !lhsAffine.isConstant() && !rhsAffine.isConstant();
+			final Term someTerm = lhsAffine.getSummands().keySet().iterator().next();
+			factor = lhsAffine.getSummands().get(someTerm).div(rhsAffine.getSummands().get(someTerm)).abs();
 
 			// Round constant up for integers: (<= (x + 1.25) 0) --> (<= (x + 2) 0)
 			if (lhsParam[0].getSort().getName().equals(SMTLIBConstants.INT)) {
-				needsIntReasoning = !lhsAffine.getConstant().div(gcd).isIntegral() || rhsIsNegated;
+				needsIntReasoning = !lhsAffine.getConstant().div(factor).isIntegral() || rhsIsNegated;
 			}
 		}
 
@@ -4874,10 +4885,10 @@ public class ProofSimplifier extends TermTransformer {
 					rhsAtomParam[isStrictRhsAtom ? 0 : 1]);
 		}
 		Term proofToRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? negLhs : posLhs, negRhsAtom },
-				new BigInteger[] { gcd.denominator(), gcd.numerator() } );
+				new BigInteger[] { factor.denominator(), factor.numerator() });
 		proofToRhsAtom = mProofRules.resolutionRule(negRhsAtom, rhsTotality, proofToRhsAtom);
 		Term proofFromRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? posLhs : negLhs, rhsAtom },
-				new BigInteger[] { gcd.denominator(), gcd.numerator() } );
+				new BigInteger[] { factor.denominator(), factor.numerator() });
 		Term unquoteEq = null;
 		if (rhsIsQuoted) {
 			unquoteEq = theory.term(SMTLIBConstants.EQUALS, quotedRhsAtom, rhsAtom);
