@@ -32,11 +32,13 @@ import org.junit.runners.JUnit4;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
@@ -142,7 +144,7 @@ public class ProofSimplifierTest {
 		return lemma;
 	}
 
-	void checkLemmaOrRewrite(final Term lemma, final Term[] lits) {
+	void checkProof(final Term proofTerm, final Term[] lits) {
 		final HashSet<ProofLiteral> expected = new HashSet<>();
 		for (int i = 0; i < lits.length; i++) {
 			Term atom = lits[i];
@@ -154,10 +156,13 @@ public class ProofSimplifierTest {
 			}
 			expected.add(new ProofLiteral(atom, polarity));
 		}
-		final Term simpleLemma = mSimplifier.transform(lemma);
-		final ProofLiteral[] provedLits = mProofChecker.getProvedClause(simpleLemma);
+		final ProofLiteral[] provedLits = mProofChecker.getProvedClause(proofTerm);
 		final HashSet<ProofLiteral> actual = new HashSet<>(Arrays.asList(provedLits));
 		Assert.assertEquals(expected, actual);
+	}
+
+	void checkLemmaOrRewrite(final Term lemma, final Term[] lits) {
+		checkProof(mSimplifier.transform(lemma), lits);
 	}
 
 	@Test
@@ -598,5 +603,34 @@ public class ProofSimplifierTest {
 		for (final Term base : baseTerms) {
 			checkSomeIteTermBound(boolTerms, base);
 		}
+	}
+
+	@Test
+	public void testQuant() {
+		mTheory.push();
+		final Sort boolSort = mTheory.getBooleanSort();
+		final Sort intSort = mTheory.getSort("Int");
+		final TermVariable[] tvs = new TermVariable[20];
+		final Term[] tvsAsTerms = new Term[tvs.length];
+		final Sort[] sorts = new Sort[tvs.length];
+		for (int i = 0; i < tvs.length; i++) {
+			sorts[i] = intSort;
+			tvs[i] = mTheory.createTermVariable("x" + i, sorts[i]);
+			tvsAsTerms[i] = tvs[i];
+		}
+		final FunctionSymbol p = mTheory.declareFunction("p", sorts, boolSort);
+		final Term px = mTheory.term(p, tvsAsTerms);
+		final Term refl = mSmtInterpol.term(ProofConstants.FN_REFL, px);
+		Term proof = refl;
+		Term quant = px;
+		for (int i = tvs.length - 1; i >= 0; i--) {
+			final TermVariable[] quantVar = new TermVariable[] { tvs[i] };
+			final String quantType = (i % 4 == 0) ? ":forall" : ":exists";
+			quant = (i % 4 == 0) ? mTheory.forall(quantVar, quant) : mTheory.exists(quantVar, quant);
+			final Annotation[] annot = new Annotation[] { new Annotation(quantType, quantVar) };
+			proof = mSmtInterpol.term(ProofConstants.FN_QUANT, mTheory.annotatedTerm(annot, proof));
+		}
+		checkLemmaOrRewrite(proof, new Term[] { mTheory.term(SMTLIBConstants.EQUALS, quant, quant) });
+		mTheory.pop();
 	}
 }

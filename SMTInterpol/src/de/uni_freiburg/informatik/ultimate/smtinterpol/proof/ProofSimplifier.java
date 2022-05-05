@@ -4285,6 +4285,7 @@ public class ProofSimplifier extends TermTransformer {
 						isForall ? mProofRules.forallIntro(quRhs) : mProofRules.existsIntro(skolem2, quRhs)));
 		proof = proveIff(newEquality, proof2, proof1);
 		proof = res(forallSubEquality, forallProof, proof);
+		assert checkProof(proof, termToProofLiterals(newEquality));
 		return annotateProved(newEquality, proof);
 	}
 

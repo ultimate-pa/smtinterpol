@@ -32,33 +32,72 @@ import java.util.List;
  *
  * @author Jochen Hoenicke
  */
-public class ComputeFreeVariables extends TermTransformer {
+public class ComputeFreeVariables extends NonRecursive {
 	static final TermVariable[] NOFREEVARS = new TermVariable[0];
 
 	public ComputeFreeVariables() {
 	}
 
-	@Override
-	public void convert(final Term term) {
+	public void transform(final Term term) {
+		enqueueTerm(term);
+		run();
+	}
+
+	public void enqueueTerm(final Term term) {
+		enqueueWalker((final NonRecursive engine) -> walkTerm(term));
+	}
+
+	public void walkTerm(final Term term) {
 		if (term.mFreeVars != null) {
-			setResult(term);
 			return;
 		}
+
 		if (term instanceof ConstantTerm) {
 			term.mFreeVars = NOFREEVARS;
 		} else if (term instanceof TermVariable) {
 			term.mFreeVars = new TermVariable[] { (TermVariable) term };
+		} else if (term instanceof ApplicationTerm) {
+			walkApplicationTerm((ApplicationTerm) term);
+		} else if (term instanceof LetTerm) {
+			walkLetTerm((LetTerm) term);
+		} else if (term instanceof AnnotatedTerm) {
+			walkAnnotatedTerm((AnnotatedTerm) term);
+		} else if (term instanceof LambdaTerm) {
+			walkLambdaTerm((LambdaTerm) term);
+		} else if (term instanceof QuantifiedFormula) {
+			walkQuantifiedFormula((QuantifiedFormula) term);
+		} else if (term instanceof MatchTerm) {
+			walkMatchTerm((MatchTerm) term);
+		} else {
+			throw new AssertionError("Unknown Term");
 		}
-		super.convert(term);
 	}
 
-	@Override
-	public void convertApplicationTerm(final ApplicationTerm oldApp, final Term[] params) {
+	public void walkApplicationTerm(final ApplicationTerm appTerm) {
+		boolean enqueuedAgain = false;
+		for (final Term param : appTerm.getParameters()) {
+			if (param.mFreeVars == null) {
+				if (!enqueuedAgain) {
+					enqueueTerm(appTerm);
+					enqueuedAgain = true;
+				}
+				enqueueTerm(param);
+			}
+		}
+
+		if (enqueuedAgain) {
+			// we need to first compute free vars of child and have enqueued ourselves again
+			// afterwards.
+			return;
+		}
+
+		// Here we compute the free variables of the application term.
+		final Term[] params = appTerm.getParameters();
 		if (params.length <= 1) {
 			if (params.length == 1) {
-				oldApp.mFreeVars = params[0].mFreeVars;
+				appTerm.mFreeVars = params[0].mFreeVars;
 			} else {
-				oldApp.mFreeVars = ComputeFreeVariables.NOFREEVARS;
+				appTerm.mFreeVars = ComputeFreeVariables.NOFREEVARS;
 			}
 		} else {
 			int biggestlen = 0;
@@ -72,7 +111,7 @@ public class ComputeFreeVariables extends TermTransformer {
 			}
 			/* return if term is closed */
 			if (biggestidx < 0) {
-				oldApp.mFreeVars = ComputeFreeVariables.NOFREEVARS;
+				appTerm.mFreeVars = ComputeFreeVariables.NOFREEVARS;
 			} else {
 				List<TermVariable> result = null;
 				final List<TermVariable> biggestAsList = Arrays.asList(params[biggestidx].mFreeVars);
@@ -94,20 +133,43 @@ public class ComputeFreeVariables extends TermTransformer {
 					}
 				}
 				if (result == null) {
-					oldApp.mFreeVars = params[biggestidx].mFreeVars;
+					appTerm.mFreeVars = params[biggestidx].mFreeVars;
 				} else {
-					oldApp.mFreeVars = result.toArray(new TermVariable[result.size()]);
+					appTerm.mFreeVars = result.toArray(new TermVariable[result.size()]);
 				}
 			}
 		}
-		setResult(oldApp);
 	}
 
-	@Override
-	public void postConvertLet(final LetTerm letTerm, final Term[] vals, final Term newBody) {
+	public void walkLetTerm(final LetTerm letTerm) {
+		boolean enqueuedAgain = false;
+		final Term[] vals = letTerm.getValues();
+		for (final Term value : vals) {
+			if (value.mFreeVars == null) {
+				if (!enqueuedAgain) {
+					enqueueTerm(letTerm);
+					enqueuedAgain = true;
+				}
+				enqueueTerm(value);
+			}
+		}
+		final Term body = letTerm.getSubTerm();
+		if (body.mFreeVars == null) {
+			if (!enqueuedAgain) {
+				enqueueTerm(letTerm);
+				enqueuedAgain = true;
+			}
+			enqueueTerm(body);
+		}
+
+		if (enqueuedAgain) {
+			// we need to first compute free vars of child and have enqueued ourselves again
+			// afterwards.
+			return;
+		}
 		final TermVariable[] vars = letTerm.getVariables();
 		final HashSet<TermVariable> free = new LinkedHashSet<>();
-		free.addAll(Arrays.asList(newBody.mFreeVars));
+		free.addAll(Arrays.asList(body.mFreeVars));
 		free.removeAll(Arrays.asList(vars));
 		for (final Term v : vals) {
 			free.addAll(Arrays.asList(v.mFreeVars));
@@ -117,41 +179,64 @@ public class ComputeFreeVariables extends TermTransformer {
 		} else {
 			letTerm.mFreeVars = free.toArray(new TermVariable[free.size()]);
 		}
-		setResult(letTerm);
 	}
 
-	@Override
-	public void postConvertLambda(final LambdaTerm lambda, final Term newBody) {
-		final HashSet<TermVariable> free = new LinkedHashSet<>();
-		free.addAll(Arrays.asList(newBody.mFreeVars));
-		free.removeAll(Arrays.asList(lambda.getVariables()));
-		if (free.isEmpty()) {
-			lambda.mFreeVars = NOFREEVARS;
-		} else {
-			lambda.mFreeVars = free.toArray(new TermVariable[free.size()]);
+	public void walkLambdaTerm(final LambdaTerm lambdaTerm) {
+		final Term body = lambdaTerm.getSubterm();
+		if (body.mFreeVars == null) {
+			// we need to first compute free vars of child and enqueue ourselves again
+			// afterwards.
+			enqueueTerm(lambdaTerm);
+			enqueueTerm(body);
+			return;
 		}
-		setResult(lambda);
+
+		final HashSet<TermVariable> free = new LinkedHashSet<>();
+		free.addAll(Arrays.asList(body.mFreeVars));
+		free.removeAll(Arrays.asList(lambdaTerm.getVariables()));
+		if (free.isEmpty()) {
+			lambdaTerm.mFreeVars = NOFREEVARS;
+		} else {
+			lambdaTerm.mFreeVars = free.toArray(new TermVariable[free.size()]);
+		}
 	}
 
-	@Override
-	public void postConvertQuantifier(final QuantifiedFormula quant, final Term newBody) {
+	public void walkQuantifiedFormula(final QuantifiedFormula quant) {
+		final Term body = quant.getSubformula();
+		if (body.mFreeVars == null) {
+			// we need to first compute free vars of child and enqueue ourselves again
+			// afterwards.
+			enqueueTerm(quant);
+			enqueueTerm(body);
+			return;
+		}
+
 		final HashSet<TermVariable> free = new LinkedHashSet<>();
-		free.addAll(Arrays.asList(newBody.mFreeVars));
+		free.addAll(Arrays.asList(body.mFreeVars));
 		free.removeAll(Arrays.asList(quant.getVariables()));
 		if (free.isEmpty()) {
 			quant.mFreeVars = NOFREEVARS;
 		} else {
 			quant.mFreeVars = free.toArray(new TermVariable[free.size()]);
 		}
-		setResult(quant);
 	}
 
-	@Override
-	public void postConvertAnnotation(final AnnotatedTerm annotTerm, final Annotation[] newAnnots, final Term newBody) {
+	public void walkAnnotatedTerm(final AnnotatedTerm annotTerm) {
+		boolean enqueuedAgain = false;
 		final HashSet<TermVariable> free = new LinkedHashSet<>();
-		free.addAll(Arrays.asList(newBody.mFreeVars));
+		final Term body = annotTerm.getSubterm();
+		if (body.mFreeVars == null) {
+			if (!enqueuedAgain) {
+				enqueueTerm(annotTerm);
+				enqueuedAgain = true;
+			}
+			enqueueTerm(body);
+		} else {
+			free.addAll(Arrays.asList(body.mFreeVars));
+		}
+
 		final ArrayDeque<Object> todo = new ArrayDeque<>();
-		for (final Annotation annot : newAnnots) {
+		for (final Annotation annot : annotTerm.getAnnotations()) {
 			if (annot.getValue() != null) {
 				todo.add(annot.getValue());
 			}
@@ -159,40 +244,73 @@ public class ComputeFreeVariables extends TermTransformer {
 		while (!todo.isEmpty()) {
 			final Object value = todo.removeLast();
 			if (value instanceof Term) {
-				free.addAll(Arrays.asList(((Term) value).mFreeVars));
+				final Term subTerm = (Term) value;
+				if (subTerm.mFreeVars == null) {
+					if (!enqueuedAgain) {
+						enqueueTerm(annotTerm);
+						enqueuedAgain = true;
+					}
+					enqueueTerm(subTerm);
+				} else if (!enqueuedAgain) {
+					free.addAll(Arrays.asList(((Term) value).mFreeVars));
+				}
 			} else if (value instanceof Object[]) {
 				for (final Object elem : (Object[]) value) {
 					todo.add(elem);
 				}
 			}
 		}
-		if (free.isEmpty()) {
-			annotTerm.mFreeVars = NOFREEVARS;
-		} else if (free.size() == newBody.mFreeVars.length) {
-			annotTerm.mFreeVars = newBody.mFreeVars;
-		} else {
-			annotTerm.mFreeVars = free.toArray(new TermVariable[free.size()]);
+		if (!enqueuedAgain) {
+			if (free.isEmpty()) {
+				annotTerm.mFreeVars = NOFREEVARS;
+			} else if (free.size() == body.mFreeVars.length) {
+				annotTerm.mFreeVars = body.mFreeVars;
+			} else {
+				annotTerm.mFreeVars = free.toArray(new TermVariable[free.size()]);
+			}
 		}
-		setResult(annotTerm);
 	}
 
-	@Override
-	public void postConvertMatch(final MatchTerm match, final Term newDataTerm, final Term[] newCases) {
+	public void walkMatchTerm(final MatchTerm match) {
+		boolean enqueuedAgain = false;
+		final Term[] cases = match.getCases();
+		for (final Term subCase : cases) {
+			if (subCase.mFreeVars == null) {
+				if (!enqueuedAgain) {
+					enqueueTerm(match);
+					enqueuedAgain = true;
+				}
+				enqueueTerm(subCase);
+			}
+		}
+		final Term dataTerm = match.getDataTerm();
+		if (dataTerm.mFreeVars == null) {
+			if (!enqueuedAgain) {
+				enqueueTerm(match);
+				enqueuedAgain = true;
+			}
+			enqueueTerm(dataTerm);
+		}
+
+		if (enqueuedAgain) {
+			// we need to first compute free vars of child and have enqueued ourselves again
+			// afterwards.
+			return;
+		}
 		final HashSet<TermVariable> free = new LinkedHashSet<>();
-		for (int i = 0; i < newCases.length; i++) {
+		for (int i = 0; i < cases.length; i++) {
 			final HashSet<TermVariable> freeCase = new LinkedHashSet<>();
-			freeCase.addAll(Arrays.asList(newCases[i].mFreeVars));
+			freeCase.addAll(Arrays.asList(cases[i].mFreeVars));
 			freeCase.removeAll(Arrays.asList(match.getVariables()[i]));
 			free.addAll(freeCase);
 		}
-		free.addAll(Arrays.asList(newDataTerm.mFreeVars));
+		free.addAll(Arrays.asList(dataTerm.mFreeVars));
 		if (free.isEmpty()) {
 			match.mFreeVars = NOFREEVARS;
-		} else if (free.size() == newDataTerm.mFreeVars.length) {
-			match.mFreeVars = newDataTerm.mFreeVars;
+		} else if (free.size() == dataTerm.mFreeVars.length) {
+			match.mFreeVars = dataTerm.mFreeVars;
 		} else {
 			match.mFreeVars = free.toArray(new TermVariable[free.size()]);
 		}
-		setResult(match);
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2012 University of Freiburg
+ * Copyright (C) 2009-2021 University of Freiburg
  *
  * This file is part of SMTInterpol.
  *
@@ -19,8 +19,10 @@
 package de.uni_freiburg.informatik.ultimate.logic;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 
 /**
  * This is the base class for transforming formulas. It does nothing by itself but you can use it to create arbitrary
@@ -43,8 +45,8 @@ public class TermTransformer extends NonRecursive {
 	/**
 	 * The term cache.
 	 */
-	private final ArrayDeque<HashMap<Term, Term>> mCache =
-		new ArrayDeque<>();
+	private final ArrayList<HashMap<Term, Term>> mCache = new ArrayList<>();
+	private final ArrayList<HashSet<TermVariable>> mScopes = new ArrayList<>();
 
 	/**
 	 * The converted terms.  This is used for example to store the
@@ -106,6 +108,20 @@ public class TermTransformer extends NonRecursive {
 		mConverted.addLast(term);
 	}
 
+	private int findScope(final TermVariable[] tvs) {
+		if (tvs.length == 0) {
+			return 0;
+		}
+		for (int scopeNr = mScopes.size() - 1; scopeNr > 0; scopeNr--) {
+			for (final TermVariable tv : tvs) {
+				if (mScopes.get(scopeNr).contains(tv)) {
+					return scopeNr;
+				}
+			}
+		}
+		return 0;
+	}
+
 	private static class AddCache implements Walker {
 		Term mOldTerm;
 		public AddCache(final Term term) {
@@ -114,7 +130,8 @@ public class TermTransformer extends NonRecursive {
 		@Override
 		public void walk(final NonRecursive engine) {
 			final TermTransformer transformer = (TermTransformer) engine;
-			transformer.mCache.getLast().put(
+			final int scopeNr = transformer.findScope(mOldTerm.getFreeVars());
+			transformer.mCache.get(scopeNr).put(
 					mOldTerm, transformer.mConverted.getLast());
 		}
 
@@ -125,7 +142,8 @@ public class TermTransformer extends NonRecursive {
 	}
 
 	private void cacheConvert(final Term term) {
-		final Term result = mCache.getLast().get(term);
+		final int scopeNr = findScope(term.getFreeVars());
+		final Term result = mCache.get(scopeNr).get(term);
 		if (result == null) {
 			enqueueWalker(new AddCache(term));
 			convert(term);
@@ -134,12 +152,17 @@ public class TermTransformer extends NonRecursive {
 		}
 	}
 
-	protected void beginScope() {
-		mCache.addLast(new HashMap<Term, Term>());
+	protected void beginScope(final TermVariable[] vars) {
+		final HashSet<TermVariable> varset = new HashSet<>();
+		varset.addAll(Arrays.asList(vars));
+		mCache.add(new HashMap<Term, Term>());
+		mScopes.add(varset);
 	}
 
 	protected void endScope() {
-		mCache.removeLast();
+		final int scopeNr = mScopes.size() - 1;
+		mCache.remove(scopeNr);
+		mScopes.remove(scopeNr);
 	}
 
 	/**
@@ -165,13 +188,15 @@ public class TermTransformer extends NonRecursive {
 			enqueueWalker(new StartLetTerm((LetTerm) term));
 			pushTerms(((LetTerm) term).getValues());
 		} else if (term instanceof QuantifiedFormula) {
-			enqueueWalker(new BuildQuantifier((QuantifiedFormula) term));
-			pushTerm(((QuantifiedFormula) term).getSubformula());
-			beginScope();
+			final QuantifiedFormula qf = (QuantifiedFormula) term;
+			enqueueWalker(new BuildQuantifier(qf));
+			pushTerm(qf.getSubformula());
+			beginScope(qf.getVariables());
 		} else if (term instanceof LambdaTerm) {
-			enqueueWalker(new BuildLambda((LambdaTerm) term));
-			pushTerm(((LambdaTerm) term).getSubterm());
-			beginScope();
+			final LambdaTerm lambda = (LambdaTerm) term;
+			enqueueWalker(new BuildLambda(lambda));
+			pushTerm(lambda.getSubterm());
+			beginScope(lambda.getVariables());
 		} else if (term instanceof AnnotatedTerm) {
 			final AnnotatedTerm annterm = (AnnotatedTerm) term;
 			enqueueWalker(new BuildAnnotation(annterm));
@@ -214,7 +239,7 @@ public class TermTransformer extends NonRecursive {
 	}
 
 	public void preConvertLet(final LetTerm oldLet, final Term[] newValues) {
-		beginScope();
+		beginScope(oldLet.getVariables());
 		enqueueWalker(new BuildLetTerm(oldLet, newValues));
 		pushTerm(oldLet.getSubTerm());
 	}
@@ -261,7 +286,7 @@ public class TermTransformer extends NonRecursive {
 	}
 
 	public void preConvertMatchCase(final MatchTerm oldMatch, final int caseNr) {
-		beginScope();
+		beginScope(oldMatch.getVariables()[caseNr]);
 		pushTerm(oldMatch.getCases()[caseNr]);
 	}
 
@@ -281,7 +306,7 @@ public class TermTransformer extends NonRecursive {
 	 * @return the resulting transformed term.
 	 */
 	public final Term transform(final Term term) {
-		beginScope();
+		beginScope(new TermVariable[0]);
 		run(new Convert(term));
 		endScope();
 		return mConverted.removeLast();
@@ -597,5 +622,6 @@ public class TermTransformer extends NonRecursive {
 		super.reset();
 		mConverted.clear();
 		mCache.clear();
+		mScopes.clear();
 	}
 }
