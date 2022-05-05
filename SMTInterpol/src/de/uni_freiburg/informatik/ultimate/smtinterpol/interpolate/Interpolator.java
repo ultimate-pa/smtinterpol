@@ -1209,7 +1209,7 @@ public class Interpolator extends NonRecursive {
 						 * We are inside I1. Remember the lainfo and push I2 on the convert stack. Also enqueue a walker
 						 * that will remove m_LA1 once we are finished with I2.
 						 */
-						beginScope();
+						beginScope(new TermVariable[] { mMixedVar });
 						mLA1 = laTerm;
 						enqueueWalker(new Walker() {
 							@Override

@@ -1373,7 +1373,7 @@ public class Clausifier {
 	 */
 	private boolean mWarnedInconsistent = false;
 
-	private int mSkolemCounter = 0;
+	private static int mSkolemCounter = 0;
 
 	private final LogProxy mLogger;
 	/**
