@@ -555,7 +555,12 @@ public class FormulaLet extends NonRecursive {
 					TermInfo ancestor = info.mParent;
 					TermInfo letPos = ancestor;
 					while (ancestor != null && ancestor.mSubst == null) {
-						if (ancestor.mCount > 1 && !bindsVariable(ancestor.mTerm, child)) {
+						if (ancestor.mParent != null && bindsVariable(ancestor.mParent.mTerm, child)) {
+							// the ancestors' parent binds some of the variables in child, so letPos must
+							// stay below ancestors' parent.
+							break;
+						}
+						if (ancestor.mCount > 1) {
 							// ancestor occurs several times.
 							// let position is the common parent of this ancestor.
 							letPos = ancestor.mParent;
