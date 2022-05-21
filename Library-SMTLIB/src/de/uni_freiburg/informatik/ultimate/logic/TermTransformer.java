@@ -122,8 +122,8 @@ public class TermTransformer extends NonRecursive {
 	private int findScope(final TermVariable[] tvs) {
 		int maxScopeNr = 0;
 		for (final TermVariable tv : tvs) {
-			final int scopeNr = mScopeMap.get(tv);
-			if (scopeNr > maxScopeNr) {
+			final Integer scopeNr = mScopeMap.get(tv);
+			if (scopeNr != null && scopeNr > maxScopeNr) {
 				maxScopeNr = scopeNr;
 			}
 		}
