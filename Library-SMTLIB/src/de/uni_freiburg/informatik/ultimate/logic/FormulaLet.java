@@ -154,6 +154,11 @@ public class FormulaLet extends NonRecursive {
 		 * The sub scopes in case this is a quantifier, lambda term or match term.
 		 */
 		Map<Term, TermInfo>[] mScopes;
+		/**
+		 * The result of letting the term. Only used if the term cannot be assigned to a
+		 * term variable but occurs multiple times
+		 */
+		Term mResult;
 
 		public TermInfo(final Term term) {
 			mTerm = term;
@@ -538,19 +543,32 @@ public class FormulaLet extends NonRecursive {
 					info.mSubst = t.getTheory().createTermVariable(".cse" + let.mCseNum++, t.getSort());
 				}
 			}
-			if (mIsCounted && ++info.mSeen == info.mCount) {
-				// merge parents, to find out where the let should be put into.
-				info.mergeParent(mParent);
-				// this is the last time we visit this term. Now it is time to find our true parent that will let us.
-				if (info.mSubst == null) {
-					// we don't let this term, so just transform it (counted).
+			if (mIsCounted) {
+				info.mSeen++;
+			}
+			if (info.mSubst == null) {
+				// we don't let this term, so just transform it.
+				if (info.mResult == null) {
+					// cache the result of the transformation.
+					let.enqueueWalker((e) -> {
+						info.mResult = ((FormulaLet) e).mResultStack.getLast();
+					});
 					let.enqueueWalker(new Transformer(info, true));
 				} else {
-					// We let this term. So the result is just the term variable.
-					let.mResultStack.addLast(info.mSubst);
+					let.mResultStack.addLast(info.mResult);
+				}
+			} else {
+				// We let this term. So the result is just the term variable.
+				let.mResultStack.addLast(info.mSubst);
+				if (mIsCounted && info.mSeen == info.mCount) {
+					// merge parents, to find out where the let should be put into.
+					info.mergeParent(mParent);
+					// this is the last time we visit this term. Now it is time to find our true
+					// parent that will let us.
 
 					// Usually the let position is the common parent,
-					// but if some ancestor occurs several times without being letted, we need to move it to its
+					// but if some ancestor occurs several times without being letted, we need to
+					// move it to its
 					// ancestor to avoid creating the let multiple times.
 					TermInfo ancestor = info.mParent;
 					TermInfo letPos = ancestor;
@@ -569,15 +587,6 @@ public class FormulaLet extends NonRecursive {
 					}
 					// Tell our ancestor, that he needs to let us
 					letPos.mLettedTerms.add(info);
-				}
-			} else {
-				if (info.mSubst == null) {
-					// we will not let the term, but it occurs several times. So we must not count
-					// this visit.
-					let.enqueueWalker(new Transformer(info, false));
-				} else {
-					// we will let the term, so this term is created to its term variable
-					let.mResultStack.addLast(info.mSubst);
 				}
 			}
 		}
@@ -617,8 +626,8 @@ public class FormulaLet extends NonRecursive {
 	}
 
 	/**
-	 * Add a let term around the term on the result stack using the let values also from the result stack and put the
-	 * let term back onto the result stack.
+	 * Add a let term around the term on the result stack using the let values also
+	 * from the result stack and put the let term back onto the result stack.
 	 */
 	static class BuildLetTerm implements Walker {
 		final TermVariable[] mVars;
