@@ -235,6 +235,7 @@ public class ScopedHashMap<K, V> extends AbstractMap<K, V> {
 	public void clear() {
 		mMap.clear();
 		mHistory = new HashMap[ScopeUtils.NUM_INITIAL_SCOPES];
+		mCurScope = 0;
 	}
 
 	@Override
