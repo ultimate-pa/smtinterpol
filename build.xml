@@ -233,16 +233,27 @@ stage:             Upload new version to Maven Central (owner only)
         <mkdir dir="${tmpdir}/bin"/>
         <echo file="${tmpdir}/bin/starexec_run_default" append="false">#!/bin/bash
 # Run script for SMTInterpol for the STAREXEC cluster
-if [ "$#" -gt 1 ]; then
-# ignore bogus parameters given by starexec
-set -- "$1"
-fi
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=false -o proof-check-mode "$$1" 2&gt;"$$2"/error.log
+</echo>
+        <echo file="${tmpdir}/bin/smtcomp_run_incremental" append="false">#!/bin/bash
 java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=false -o proof-check-mode "$$@" 2&gt;/dev/null
 </echo>
+        <echo file="${tmpdir}/bin/smtcomp_solver" append="false">#!/bin/bash
+
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -q -o continue-on-error=false "$$@"
+</echo>
+        <echo file="${tmpdir}/bin/smtcomp_checker" append="false">#!/bin/bash
+
+java -Xms1536m -Xmx50g -da -dsa -cp smtinterpol.jar de.uni_freiburg.informatik.ultimate.smtinterpol.proof.checker.Main "$$@"
+</echo>
         <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx"/>
+        <chmod file="${tmpdir}/bin/smtcomp_run_incremental" perm="a+rx"/>
+        <chmod file="${tmpdir}/bin/smtcomp_solver" perm="a+rx"/>
+        <chmod file="${tmpdir}/bin/smtcomp_checker" perm="a+rx"/>
         <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
         <!-- stupid starexec does not like - characters in description -->
         <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
+	<untar src="libs/smtcomp-wrappers.tar.gz" compression="gzip" dest="${tmpdir}/bin" />
         <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/bin/smtinterpol.jar"/>
         <zip destfile="${jar.outdir}/smtinterpol-${version}.zip" basedir="${tmpdir}"/>
         <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
