@@ -238,19 +238,26 @@ public class MinimalProofChecker extends NonRecursive {
 		 */
 		final HashSet<ProofLiteral> allDisjuncts = new HashSet<>();
 
-		/* Now get the disjuncts of the first argument. */
-		allDisjuncts.addAll(Arrays.asList(posClause));
-
 		final Term pivot = resApp.getParameters()[0];
 		final ProofLiteral posPivot = new ProofLiteral(pivot, true);
 		final ProofLiteral negPivot = new ProofLiteral(pivot, false);
 
+		/* Add non-pivot disjuncts of the first clause. */
+		boolean pivotFound = false;
+		for (final ProofLiteral lit : posClause) {
+			if (lit.equals(posPivot)) {
+				pivotFound = true;
+			} else {
+				allDisjuncts.add(lit);
+			}
+		}
+
 		/* Remove the pivot from allDisjuncts */
-		if (!allDisjuncts.remove(posPivot)) {
+		if (!pivotFound) {
 			reportWarning("Could not find pivot " + posPivot + " in " + Arrays.asList(posClause));
 		}
 
-		boolean pivotFound = false;
+		pivotFound = false;
 		for (final ProofLiteral lit : negClause) {
 			if (lit.equals(negPivot)) {
 				pivotFound = true;
