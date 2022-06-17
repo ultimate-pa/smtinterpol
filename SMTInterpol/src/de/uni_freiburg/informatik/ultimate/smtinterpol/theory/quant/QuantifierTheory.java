@@ -99,11 +99,11 @@ public class QuantifierTheory implements ITheory {
 	private final Map<Literal, Set<InstClause>> mPendingInstances;
 	private int mDecideLevelOfLastCheckpoint;
 
-	private List<CCEquality> mAllSetNonbooleanCCDiseqs;
+	private final List<CCEquality> mAllSetNonbooleanCCDiseqs;
 
 	// Statistics
 	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedConfl, mNumInstancesProducedEM,
-			mNumInstancesProducedEnum, mNumInstancesProducedMB;
+	mNumInstancesProducedEnum, mNumInstancesProducedMB;
 	private long mNumCheckpoints, mNumCheckpointsWithNewEval, mNumConflicts, mNumProps, mNumFinalcheck;
 	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime, mBuildModelTime;
 	int[] mNumInstancesOfAge, mNumInstancesOfAgeFC;
@@ -394,7 +394,7 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public Clause getUnitClause(final Literal literal) {
 		assert false : "Should never be called.";
-		return null;
+	return null;
 	}
 
 	@Override
@@ -494,22 +494,22 @@ public class QuantifierTheory implements ITheory {
 	public Object[] getStatistics() {
 		return new Object[] { ":Quant",
 				new Object[][] { { "DER ground results", mNumInstancesDER },
-						{ "Instances produced", mNumInstancesProduced },
-						{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
-						{ "and by E-matching", mNumInstancesProducedEM },
-						{ "and by enumeration", mNumInstancesProducedEnum },
-						{ "and by model-based instantiation", mNumInstancesProducedMB },
-						{ "Subs of age 0, 1, 2-3, 4-7, ...", Arrays.toString(mNumInstancesOfAge) },
-						{ "thereof for final check", Arrays.toString(mNumInstancesOfAgeFC) },
-						{ "Conflicts", mNumConflicts }, { "Propagations", mNumProps },
-						{ "Checkpoints", mNumCheckpoints },
-						{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
-						{ "Final Checks", mNumFinalcheck },
-						{ "Times",
-								new Object[][] { { "Checkpoint", mCheckpointTime },
-										{ "Find E-matching", mFindEmatchingTime }, { "E-Matching", mEMatchingTime },
-										{ "Dawg", mDawgTime }, { "Build Model", mBuildModelTime },
-										{ "Final Check", mFinalCheckTime } } } } };
+			{ "Instances produced", mNumInstancesProduced },
+			{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
+			{ "and by E-matching", mNumInstancesProducedEM },
+			{ "and by enumeration", mNumInstancesProducedEnum },
+			{ "and by model-based instantiation", mNumInstancesProducedMB },
+			{ "Subs of age 0, 1, 2-3, 4-7, ...", Arrays.toString(mNumInstancesOfAge) },
+			{ "thereof for final check", Arrays.toString(mNumInstancesOfAgeFC) },
+			{ "Conflicts", mNumConflicts }, { "Propagations", mNumProps },
+			{ "Checkpoints", mNumCheckpoints },
+			{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
+			{ "Final Checks", mNumFinalcheck },
+			{ "Times",
+				new Object[][] { { "Checkpoint", mCheckpointTime },
+				{ "Find E-matching", mFindEmatchingTime }, { "E-Matching", mEMatchingTime },
+				{ "Dawg", mDawgTime }, { "Build Model", mBuildModelTime },
+				{ "Final Check", mFinalCheckTime } } } } };
 	}
 
 	/**
@@ -842,7 +842,7 @@ public class QuantifierTheory implements ITheory {
 		return mAllSetNonbooleanCCDiseqs;
 	}
 
-	protected Term getLambda(final Sort sort) {
+	protected Term getLambdaOrDefaultTerm(final Sort sort) {
 		if (mLambdas.containsKey(sort)) {
 			return mLambdas.get(sort);
 		}
@@ -856,6 +856,10 @@ public class QuantifierTheory implements ITheory {
 		mClausifier.createCCTerm(lambda, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		mLambdas.put(sort, lambda);
 		return lambda;
+	}
+
+	public boolean isLambdaOrDefaultTerm(final Term term) {
+		return term == mLambdas.get(term.getSort());
 	}
 
 	/**
@@ -944,7 +948,7 @@ public class QuantifierTheory implements ITheory {
 			final Term subTerm = todo.pop();
 			if (subTerm instanceof ApplicationTerm && seen.add(subTerm)) {
 				if (subTerm.getFreeVars().length == 0) {
-					CCTerm ccTerm = mClausifier.getCCTerm(subTerm);
+					final CCTerm ccTerm = mClausifier.getCCTerm(subTerm);
 					if (ccTerm == null && (Clausifier.needCCTerm(subTerm) || subTerm.getSort().isArraySort())) {
 						mClausifier.createCCTerm(subTerm, source);
 					} else if (subTerm.getSort().isNumericSort()) {

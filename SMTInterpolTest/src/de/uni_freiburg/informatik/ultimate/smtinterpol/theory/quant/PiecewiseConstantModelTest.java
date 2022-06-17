@@ -75,7 +75,7 @@ public class PiecewiseConstantModelTest {
 	private void createterms() {
 		final Sort[] paramSort = { mInt, mInt };
 		
-		mLambda = mClausifier.getQuantifierTheory().getLambda(mInt);
+		mLambda = mClausifier.getQuantifierTheory().getLambdaOrDefaultTerm(mInt);
 		mClausifier.createCCTerm(mLambda, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 
 		mATerms = new Term[8];

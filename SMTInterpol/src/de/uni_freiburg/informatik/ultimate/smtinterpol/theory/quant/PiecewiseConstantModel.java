@@ -48,21 +48,21 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.Instantiatio
  * A piecewise constant model for a function {@code f(x1,...,xn)} assigns constant values to areas of the function's
  * domain. These areas are defined by their "corners", i.e., by the tuples {@code (c1,...,cn)} for which application
  * terms {@code f(c1,...,cn)} exist in the E-graph.
- * 
+ *
  * <p>
  * If all {@code ai} are numeric, a tuple {@code (a1,...,an)} is assigned a value {@code f(c1,...,cn)} if
  * {@code (c1,...,cn)} is the greatest tuple according to the lexicographic order such that {@code f(c1,...,cn)} is in
  * the E-graph and {@code ai>=ci} for all i. The term {@code lambda} is smaller than any other term. If no such tuple
  * exists, the tuple is assigned the value {@code lambda}.
- * 
+ *
  * For uninterpreted sorts, instead of {@code ai>=ci} we require that {@code ai} and {@code ci} are in the same
  * congruence class or {@code ci} is {@code lambda}.
  * </p>
- * 
+ *
  * <p>
  * All ground theories must have finished their final check before building the piecewise constant model.
  * </p>
- * 
+ *
  * @author Tanja Schindler
  *
  */
@@ -76,7 +76,7 @@ public class PiecewiseConstantModel {
 
 	/**
 	 * Build a new piecewise constant model. The ground theories must have finished their final check before.
-	 * 
+	 *
 	 * @param quantTheory
 	 *            the quantifier theory solver
 	 */
@@ -127,9 +127,9 @@ public class PiecewiseConstantModel {
 	/**
 	 * Evaluate a literal for a given substitution in the final check. The result can only be true or false; in the
 	 * final check, everything can be evaluated.
-	 * 
+	 *
 	 * TODO: Should we first check if it is an E-matching literal as we have the equivalent terms then?
-	 * 
+	 *
 	 * @param quantLit
 	 * @param substitution
 	 * @return
@@ -191,7 +191,7 @@ public class PiecewiseConstantModel {
 	/**
 	 * For a given (possibly quantified) term, get the CC class that this term evaluates to in the current model under
 	 * the given substitution.
-	 * 
+	 *
 	 * @param term
 	 *            the term to be evaluated (may contain variables)
 	 * @param vars
@@ -248,19 +248,19 @@ public class PiecewiseConstantModel {
 						if (!mArrayModels.containsKey(weakRep)) {
 							buildArrayModelWeakRep(weakRep);
 						}
-						PartialFunction arrayModel = mArrayModels.get(weakRep);
+						final PartialFunction arrayModel = mArrayModels.get(weakRep);
 						final CCTerm model = findModel(arrayModel, 0, indexModel, new Sort[] { indexSort });
-						ccModel = model != null ? model : mClausifier.getCCTerm(mQuantTheory.getLambda(term.getSort()));
+						ccModel = model != null ? model : mClausifier.getCCTerm(mQuantTheory.getLambdaOrDefaultTerm(term.getSort()));
 					} else { // else take arbitrary value
 						// TODO Use fresh value if value domain is infinite, to avoid extensionality
-						ccModel = mClausifier.getCCTerm(mQuantTheory.getLambda(appTerm.getSort()));
+						ccModel = mClausifier.getCCTerm(mQuantTheory.getLambdaOrDefaultTerm(appTerm.getSort()));
 					}
 				}
 			} else {
 				if (!mFuncModels.containsKey(fsym)) {
 					buildUninterpretedFunctionModel(fsym);
 				}
-				PartialFunction funcModel = mFuncModels.get(fsym);
+				final PartialFunction funcModel = mFuncModels.get(fsym);
 				assert funcModel != null;
 				if (funcModel.isComplete()) { // default value
 					assert funcModel.mNumArgs == fsym.getParameterSorts().length;
@@ -279,7 +279,7 @@ public class PiecewiseConstantModel {
 						}
 					}
 					final CCTerm model = findModel(funcModel, 0, argModels, argSorts);
-					ccModel = model != null ? model : mClausifier.getCCTerm(mQuantTheory.getLambda(term.getSort()));
+					ccModel = model != null ? model : mClausifier.getCCTerm(mQuantTheory.getLambdaOrDefaultTerm(term.getSort()));
 				}
 			}
 		} else {
@@ -292,7 +292,7 @@ public class PiecewiseConstantModel {
 	/**
 	 * For a given (possibly quantified) term, get the Rational value that this term evaluates to in the current model
 	 * under the given substitution.
-	 * 
+	 *
 	 * @param term
 	 *            the term to be evaluated (may contain variables)
 	 * @param vars
@@ -309,7 +309,7 @@ public class PiecewiseConstantModel {
 	/**
 	 * For a given (possibly quantified) affine term, get the Rational value that this term evaluates to in the current
 	 * model under the given substitution.
-	 * 
+	 *
 	 * @param affTerm
 	 *            the affine term to be evaluated (may contain variables)
 	 * @param vars
@@ -325,7 +325,7 @@ public class PiecewiseConstantModel {
 		Rational lambdaCoeff = Rational.ZERO;
 		for (final Entry<Term, Rational> smd : affTerm.getSummands().entrySet()) {
 			final Term term = smd.getKey();
-			final Term lambda = mQuantTheory.getLambda(term.getSort());
+			final Term lambda = mQuantTheory.getLambdaOrDefaultTerm(term.getSort());
 			final Rational termValue;
 			final Rational coeff = smd.getValue();
 			if (term.getFreeVars().length == 0) {
@@ -373,7 +373,7 @@ public class PiecewiseConstantModel {
 		final List<CCTerm> allTotalApps = mQuantTheory.getCClosure().getAllFuncApps(fsym);
 		if (allTotalApps.isEmpty()) { // Set to default value lambda
 			mFuncModels.put(fsym,
-					new PartialFunction(nArgs, mClausifier.getCCTerm(mQuantTheory.getLambda(fsym.getReturnSort()))));
+					new PartialFunction(nArgs, mClausifier.getCCTerm(mQuantTheory.getLambdaOrDefaultTerm(fsym.getReturnSort()))));
 		} else {
 			final Sort firstArgSort = fsym.getParameterSorts()[0];
 			final PartialFunction funcModel = new PartialFunction(nArgs, firstArgSort);
@@ -404,7 +404,7 @@ public class PiecewiseConstantModel {
 					}
 					if (i == nArgs - 1) {
 						assert partialFunc.isComplete()
-								&& partialFunc.mModelValue.getRepresentative() == app.getRepresentative();
+						&& partialFunc.mModelValue.getRepresentative() == app.getRepresentative();
 					}
 				}
 			}
@@ -425,7 +425,7 @@ public class PiecewiseConstantModel {
 		final Map<CCTerm, CCAppTerm> weakRepSelects = mClausifier.getArrayTheory().getWeakRepSelects(arrayWeakRep);
 		if (weakRepSelects.isEmpty()) {
 			mArrayModels.put(arrayWeakRep,
-					new PartialFunction(1, mClausifier.getCCTerm(mQuantTheory.getLambda(valueSort))));
+					new PartialFunction(1, mClausifier.getCCTerm(mQuantTheory.getLambdaOrDefaultTerm(valueSort))));
 			// TODO Use unique value to avoid extensionality if value domain is infinite
 		} else {
 			final Sort indexSort = arraySort.getArguments()[0];
@@ -442,7 +442,7 @@ public class PiecewiseConstantModel {
 						arrayModel.mNumericArgFunctions.put(indexVal, constSelectCCFunction);
 					} else {
 						assert arrayModel.mNumericArgFunctions.get(indexVal).mModelValue
-								.getRepresentative() == selectVal.getRepresentative();
+						.getRepresentative() == selectVal.getRepresentative();
 					}
 				} else {
 					final CCTerm indexRep = selectIndex.getRepresentative();
@@ -450,7 +450,7 @@ public class PiecewiseConstantModel {
 						arrayModel.mUninterpretedArgFunctions.put(indexRep, constSelectCCFunction);
 					} else {
 						assert arrayModel.mUninterpretedArgFunctions.get(indexRep).mModelValue
-								.getRepresentative() == selectVal.getRepresentative();
+						.getRepresentative() == selectVal.getRepresentative();
 					}
 				}
 			}
@@ -460,7 +460,7 @@ public class PiecewiseConstantModel {
 
 	// TODO Non-recursive
 	private CCTerm findModel(final PartialFunction funcModel, final int argNum, final Object[] argModels,
-			Sort[] argSorts) {
+			final Sort[] argSorts) {
 		assert funcModel.mNumArgs == argModels.length - argNum;
 		if (argNum == argModels.length) {
 			assert funcModel.isComplete();
@@ -489,7 +489,7 @@ public class PiecewiseConstantModel {
 			}
 			if (model == null) {
 				final CCTerm lambdaRep =
-						mClausifier.getCCTerm(mQuantTheory.getLambda(argSorts[argNum])).getRepresentative();
+						mClausifier.getCCTerm(mQuantTheory.getLambdaOrDefaultTerm(argSorts[argNum])).getRepresentative();
 				final PartialFunction lambdaArgFunction = funcModel.mUninterpretedArgFunctions.get(lambdaRep);
 				if (lambdaArgFunction != null) {
 					model = findModel(lambdaArgFunction, argNum + 1, argModels, argSorts);

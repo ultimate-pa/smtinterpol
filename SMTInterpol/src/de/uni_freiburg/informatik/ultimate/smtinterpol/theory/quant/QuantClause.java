@@ -418,7 +418,7 @@ public class QuantClause {
 			mInterestingTermsForVars[varPos].put(sharedTrue, sharedTrue);
 			mInterestingTermsForVars[varPos].put(sharedFalse, sharedFalse);
 		} else {
-			final Term lambda = mQuantTheory.getLambda(mVars[varPos].getSort());
+			final Term lambda = mQuantTheory.getLambdaOrDefaultTerm(mVars[varPos].getSort());
 			mInterestingTermsForVars[varPos].put(lambda, lambda);
 		}
 	}

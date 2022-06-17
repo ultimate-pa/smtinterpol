@@ -53,7 +53,7 @@ public class IterativeModelBasedInstantiation {
 		mQuantTheory = quantTheory;
 		mModel = model;
 		mComparator = new Comparator<Term>() {
-			private SharedTermEvaluator mStEval = new SharedTermEvaluator(mQuantTheory.getClausifier());
+			private final SharedTermEvaluator mStEval = new SharedTermEvaluator(mQuantTheory.getClausifier());
 
 			/**
 			 * Compare two terms. Numeric terms are compared by their Rational model value. Non-numeric terms are
@@ -66,8 +66,8 @@ public class IterativeModelBasedInstantiation {
 					return 0;
 				}
 				assert t1.getSort() == t2.getSort();
-				final boolean isLambda1 = QuantUtil.isLambda(t1);
-				final boolean isLambda2 = QuantUtil.isLambda(t2);
+				final boolean isLambda1 = mQuantTheory.isLambdaOrDefaultTerm(t1);
+				final boolean isLambda2 = mQuantTheory.isLambdaOrDefaultTerm(t2);
 				if (isLambda1) {
 					return isLambda2 ? 0 : -1;
 				} else if (isLambda2) {
@@ -144,9 +144,9 @@ public class IterativeModelBasedInstantiation {
 	/**
 	 * Check if there exists a literal that is satisfied under the given substitution and return its position in the
 	 * clause.
-	 * 
+	 *
 	 * Do not use this method for clauses where a ground literal is currently satisfied.
-	 * 
+	 *
 	 * @param subs
 	 *            a substitution for the clause variables
 	 * @param dropLits
@@ -171,20 +171,23 @@ public class IterativeModelBasedInstantiation {
 		for (int i = 0; i < mClause.getQuantLits().length; i++) {
 			if (!dropLits.get(i)) {
 				final QuantLiteral lit = mClause.getQuantLits()[i];
-				final List<Term> subsForVarLits = new ArrayList<>();
-				for (final TermVariable v : lit.getTerm().getFreeVars()) {
-					subsForVarLits.add(subs[mClause.getVarIndex(v)]);
-				}
-				final ILiteral inst = mQuantTheory.getInstantiationManager().getLitInstances(lit).get(subsForVarLits);
-				if (inst != null) {
-					numExistingInstances++;
-				}
-				if (inst == InstantiationManager.mTRUE) {
-					return i;
-				} else if (inst instanceof Literal) {
-					final Literal instLit = (Literal) inst;
-					if (instLit.getAtom().getDecideStatus() == instLit) {
+				if (!mQuantTheory.getInstantiationManager().getLitInstances(lit).isEmpty()) {
+					final List<Term> subsForVarLits = new ArrayList<>();
+					for (final TermVariable v : lit.getTerm().getFreeVars()) {
+						subsForVarLits.add(subs[mClause.getVarIndex(v)]);
+					}
+					final ILiteral inst =
+							mQuantTheory.getInstantiationManager().getLitInstances(lit).get(subsForVarLits);
+					if (inst != null) {
+						numExistingInstances++;
+					}
+					if (inst == InstantiationManager.mTRUE) {
 						return i;
+					} else if (inst instanceof Literal) {
+						final Literal instLit = (Literal) inst;
+						if (instLit.getAtom().getDecideStatus() == instLit) {
+							return i;
+						}
 					}
 				}
 			}
@@ -194,7 +197,7 @@ public class IterativeModelBasedInstantiation {
 					"QUANT: detected conflicting clause for which all literal instances exist but not clause instance.");
 			return -1;
 		}
-		
+
 		// Evaluate literals in the model
 		final List<Term> subsList = Arrays.asList(subs);
 		// Start with arithmetical literals if existing, they are evaluated easily in the final check.
@@ -262,12 +265,12 @@ public class IterativeModelBasedInstantiation {
 					final InstanceValue val =
 							lit.isArithmetical() ? mModel.evaluateArithmeticalLiteral(lit, Arrays.asList(newSubs))
 									: mModel.evaluateLiteral(lit, Arrays.asList(newSubs));
-					if (val == InstanceValue.FALSE) {
-						nonSatSubs.add(newSubs);
-						break;
-					} else {
-						minimalSubs.add(newSubs);
-					}
+							if (val == InstanceValue.FALSE) {
+								nonSatSubs.add(newSubs);
+								break;
+							} else {
+								minimalSubs.add(newSubs);
+							}
 				}
 			}
 		}
@@ -284,7 +287,7 @@ public class IterativeModelBasedInstantiation {
 	private Term[] buildLambdaSubs() {
 		final Term[] lambdaSubs = new Term[mClause.getVars().length];
 		for (int i = 0; i < mClause.getVars().length; i++) {
-			lambdaSubs[i] = mQuantTheory.getLambda(mClause.getVars()[i].getSort());
+			lambdaSubs[i] = mQuantTheory.getLambdaOrDefaultTerm(mClause.getVars()[i].getSort());
 		}
 		return lambdaSubs;
 	}
