@@ -584,8 +584,9 @@ public class DataTypeTheory implements ITheory {
 				reason = new SymmetricPair[0];
 			}
 			if (((ApplicationTerm) checkTerm.mFlatTerm).getFunction().isSelector()) {
-				final String selName = ((ApplicationTerm) checkTerm.mFlatTerm).getFunction().getName();
-				final Constructor c = mSelectorMap.get(selName);
+				final FunctionSymbol selector = ((ApplicationTerm) checkTerm.mFlatTerm).getFunction();
+				final String selName = selector.getName();
+				final Constructor c = getConstructor(selector);
 				assert c.getName().equals(constructor.getFunction().getName());
 				for (int i = 0; i < c.getSelectors().length; i++) {
 					if (selName.equals(c.getSelectors()[i])) {
