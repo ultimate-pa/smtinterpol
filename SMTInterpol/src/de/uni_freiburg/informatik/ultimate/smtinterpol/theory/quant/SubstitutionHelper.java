@@ -29,6 +29,7 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -223,7 +224,7 @@ public class SubstitutionHelper {
 	private Term normalizeAndSimplifyLitTerm(final Term litTerm) {
 		final Theory theory = mQuantTheory.getTheory();
 
-		final boolean isNegated = (litTerm instanceof ApplicationTerm)
+		final boolean isNegated = litTerm instanceof ApplicationTerm
 				&& ((ApplicationTerm) litTerm).getFunction().getName() == "not";
 		final Term quotedAtomTerm = isNegated ? ((ApplicationTerm) litTerm).getParameters()[0] : litTerm;
 		assert quotedAtomTerm instanceof AnnotatedTerm
@@ -246,7 +247,14 @@ public class SubstitutionHelper {
 		final Term rhs = atomTerm.getParameters()[1];
 		Term normalizedAtom;
 		if (QuantUtil.isAuxApplication(lhs)) {
-			normalizedAtom = atomRewrite;
+			final FunctionSymbol aux = ((ApplicationTerm) lhs).getFunction();
+			final Term[] params = ((ApplicationTerm) lhs).getParameters();
+			final Term[] normalizedParams = new Term[params.length];
+			for (int i = 0; i < normalizedParams.length; i++) {
+				normalizedParams[i] = compiler.transform(params[i]);
+			}
+			final Term normalizedAux = mTracker.congruence(mTracker.reflexivity(lhs), normalizedParams);
+			normalizedAtom = mTracker.congruence(atomRewrite, new Term[] { normalizedAux, mTracker.reflexivity(rhs) });
 		} else {
 			// Normalize lhs and rhs separately
 			final Term normalizedLhs = compiler.transform(lhs);
