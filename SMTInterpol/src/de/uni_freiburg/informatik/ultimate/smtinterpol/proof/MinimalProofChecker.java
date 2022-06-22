@@ -111,6 +111,8 @@ public class MinimalProofChecker extends NonRecursive {
 	 */
 	Stack<ProofLiteral[]> mStackResults = new Stack<>();
 
+	int mNumOracles, mNumAxioms, mNumResolutions;
+
 	/**
 	 * Create a proof checker.
 	 *
@@ -137,6 +139,7 @@ public class MinimalProofChecker extends NonRecursive {
 	 * @return true, if no errors were found.
 	 */
 	public boolean check(final Term proof) {
+		mNumOracles = mNumResolutions = mNumAxioms = 0;
 		final FormulaUnLet unletter = new FormulaUnLet();
 		final ProofLiteral[] result = getProvedClause(unletter.unlet(proof));
 		if (result != null && result.length > 0) {
@@ -144,6 +147,18 @@ public class MinimalProofChecker extends NonRecursive {
 			return false;
 		}
 		return true;
+	}
+
+	public int getNumberOfHoles() {
+		return mNumOracles;
+	}
+
+	public int getNumberOfResolutions() {
+		return mNumResolutions;
+	}
+
+	public int getNumberOfAxioms() {
+		return mNumAxioms;
 	}
 
 	/**
@@ -233,6 +248,8 @@ public class MinimalProofChecker extends NonRecursive {
 	 */
 	ProofLiteral[] walkResolution(final ApplicationTerm resApp, final ProofLiteral[] posClause,
 			final ProofLiteral[] negClause) {
+		mNumResolutions++;
+
 		/*
 		 * allDisjuncts is the currently computed resolution result.
 		 */
@@ -284,6 +301,7 @@ public class MinimalProofChecker extends NonRecursive {
 	}
 
 	public ProofLiteral[] computeAxiom(final Term axiom) {
+		mNumAxioms++;
 		final Theory theory = axiom.getTheory();
 		assert ProofRules.isAxiom(axiom);
 		final Annotation[] annots = ((AnnotatedTerm) axiom).getAnnotations();
@@ -293,6 +311,8 @@ public class MinimalProofChecker extends NonRecursive {
 			assert values.length == 2;
 			final Term[] atoms = (Term[]) values[0];
 			final BitSet polarities = (BitSet) values[1];
+			mNumOracles++;
+			mNumAxioms--;
 			final StringBuilder sb = new StringBuilder("Used oracle: ");
 			ProofRules.printProof(sb, new FormulaLet().let(axiom));
 			reportWarning(sb.toString());
