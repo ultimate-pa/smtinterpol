@@ -456,22 +456,17 @@ public class QuantifierTheory implements ITheory {
 
 	@Override
 	public Object[] getStatistics() {
-		return new Object[] { ":Quant",
-				new Object[][] { { "DER ground results", mNumInstancesDER },
-						{ "Instances produced", mNumInstancesProduced },
-						{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
-						{ "and by E-matching", mNumInstancesProducedEM },
-						{ "and by enumeration", mNumInstancesProducedEnum },
-						{ "Subs of age 0, 1, 2-3, 4-7, ...", Arrays.toString(mNumInstancesOfAge) },
-						{ "thereof for enumeration", Arrays.toString(mNumInstancesOfAgeEnum) },
-						{ "Conflicts", mNumConflicts }, { "Propagations", mNumProps },
-						{ "Checkpoints", mNumCheckpoints },
-						{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval },
-						{ "Final Checks", mNumFinalcheck },
-						{ "Times",
-								new Object[][] { { "Checkpoint", mCheckpointTime },
-										{ "Find E-matching", mFindEmatchingTime }, { "E-Matching", mEMatchingTime },
-										{ "Final Check", mFinalCheckTime } } } } };
+		return new Object[] { ":Quant", new Object[][] { { "DER ground results", mNumInstancesDER },
+			{ "Instances produced", mNumInstancesProduced },
+			{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
+			{ "and by E-matching", mNumInstancesProducedEM }, { "and by enumeration", mNumInstancesProducedEnum },
+			{ "Subs of age 0, 1, 2-3, 4-7, ...", Arrays.toString(mNumInstancesOfAge) },
+			{ "thereof for enumeration", Arrays.toString(mNumInstancesOfAgeEnum) }, { "Conflicts", mNumConflicts },
+			{ "Propagations", mNumProps }, { "Checkpoints", mNumCheckpoints },
+			{ "Checkpoints with new evaluation", mNumCheckpointsWithNewEval }, { "Final Checks", mNumFinalcheck },
+			{ "Times",
+				new Object[][] { { "Checkpoint", mCheckpointTime }, { "Find E-matching", mFindEmatchingTime },
+				{ "E-Matching", mEMatchingTime }, { "Final Check", mFinalCheckTime } } } } };
 	}
 
 	public ILiteral createAuxLiteral(final Term auxTerm, final TermVariable[] freeVars, final Term definingTerm,
@@ -632,12 +627,12 @@ public class QuantifierTheory implements ITheory {
 
 		final TermCompiler compiler = mClausifier.getTermCompiler();
 		final Term newLhs = linTerm.toTerm(compiler, lhs.getSort());
-		final Term newTerm = mTheory.term("<=", newLhs, Rational.ZERO.toTerm(lhs.getSort()));
-		QuantLiteral literal = (QuantLiteral) mClausifier.getILiteral(newTerm);
-		if (literal != null) {
-			return literal;
+		final Term newAtomTerm = mTheory.term("<=", newLhs, Rational.ZERO.toTerm(lhs.getSort()));
+		QuantLiteral atom = (QuantLiteral) mClausifier.getILiteral(newAtomTerm);
+		if (atom != null) {
+			return rewrite ? atom.negate() : atom;
 		}
-		final QuantLiteral atom = new QuantBoundConstraint(newTerm, linTerm);
+		atom = new QuantBoundConstraint(newAtomTerm, linTerm);
 		addGroundCCTerms(newLhs, source);
 
 		// Check if the atom is almost uninterpreted.
@@ -661,9 +656,8 @@ public class QuantifierTheory implements ITheory {
 				atom.negate().mIsArithmetical = true;
 			}
 		}
-		literal = rewrite ? atom.negate() : atom;
-		mClausifier.setLiteral(newTerm, literal);
-		return literal;
+		mClausifier.setLiteral(newAtomTerm, atom);
+		return rewrite ? atom.negate() : atom;
 	}
 
 	/**
