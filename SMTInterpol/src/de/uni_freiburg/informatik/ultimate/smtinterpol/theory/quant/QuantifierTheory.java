@@ -562,6 +562,8 @@ public class QuantifierTheory implements ITheory {
 		} else { // (var = var) is not almost uninterpreted, but the negated form can be used for DER
 			atom.negate().mIsDERUsable = true;
 		}
+		mClausifier.setTermFlags(newTerm,
+				mClausifier.getTermFlags(newTerm) | Clausifier.POS_AUX_AXIOMS_ADDED | Clausifier.NEG_AUX_AXIOMS_ADDED);
 		mClausifier.setLiteral(newTerm, atom);
 		return atom;
 	}
@@ -656,6 +658,8 @@ public class QuantifierTheory implements ITheory {
 				atom.negate().mIsArithmetical = true;
 			}
 		}
+		mClausifier.setTermFlags(newAtomTerm, mClausifier.getTermFlags(newAtomTerm) | Clausifier.POS_AUX_AXIOMS_ADDED
+				| Clausifier.NEG_AUX_AXIOMS_ADDED);
 		mClausifier.setLiteral(newAtomTerm, atom);
 		return rewrite ? atom.negate() : atom;
 	}
