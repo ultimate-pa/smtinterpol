@@ -48,6 +48,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
@@ -3641,8 +3642,7 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final ApplicationTerm at = (ApplicationTerm) lhs;
-		if (!at.getFunction().isInterpreted() || at.getFunction().getName() == "select"
-				|| at.getFunction().getName() == "is") {
+		if (!at.getFunction().isInterpreted() || Clausifier.needCCTerm(at)) {
 			/* boolean literals are not quoted */
 			if (at.getParameters().length == 0) {
 				return false;

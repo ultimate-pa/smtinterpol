@@ -466,7 +466,7 @@ public class Clausifier {
 					} else {
 						lit = createLeq0(at, mCollector.getSource());
 					}
-				} else if (!at.getFunction().isInterpreted() || at.getFunction().getName().equals("select") || at.getFunction().getName().equals("is")) {
+				} else if (!at.getFunction().isInterpreted() || Clausifier.needCCTerm(at)) {
 					lit = createBooleanLit(at, mCollector.getSource());
 				} else {
 					lit = createAnonLiteral(idx, mCollector.getSource());
