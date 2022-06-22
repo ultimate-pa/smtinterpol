@@ -592,7 +592,7 @@ public class DataTypeTheory implements ITheory {
 					if (selName.equals(c.getSelectors()[i])) {
 						final CCTerm arg = mClausifier.getCCTerm(constructor.getParameters()[i]);
 						if (arg.mRepStar != checkTerm.mRepStar) {
-							final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(arg, checkTerm);
+							final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm, arg);
 							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, provedEq, reason,
 									consTerm);
 							addPendingLemma(lemma);
