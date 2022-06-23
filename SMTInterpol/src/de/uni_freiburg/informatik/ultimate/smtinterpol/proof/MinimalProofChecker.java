@@ -111,7 +111,7 @@ public class MinimalProofChecker extends NonRecursive {
 	 */
 	Stack<ProofLiteral[]> mStackResults = new Stack<>();
 
-	int mNumOracles, mNumAxioms, mNumResolutions;
+	int mNumOracles, mNumAxioms, mNumResolutions, mNumAssertions, mNumDefineFun;
 
 	/**
 	 * Create a proof checker.
@@ -139,7 +139,7 @@ public class MinimalProofChecker extends NonRecursive {
 	 * @return true, if no errors were found.
 	 */
 	public boolean check(final Term proof) {
-		mNumOracles = mNumResolutions = mNumAxioms = 0;
+		mNumOracles = mNumResolutions = mNumAxioms = mNumAssertions = mNumDefineFun = 0;
 		final FormulaUnLet unletter = new FormulaUnLet();
 		final ProofLiteral[] result = getProvedClause(unletter.unlet(proof));
 		if (result != null && result.length > 0) {
@@ -159,6 +159,14 @@ public class MinimalProofChecker extends NonRecursive {
 
 	public int getNumberOfAxioms() {
 		return mNumAxioms;
+	}
+
+	public int getNumberOfAssertions() {
+		return mNumAssertions;
+	}
+
+	public int getNumberOfDefineFun() {
+		return mNumDefineFun;
 	}
 
 	/**
@@ -1251,6 +1259,7 @@ public class MinimalProofChecker extends NonRecursive {
 	}
 
 	public ProofLiteral[] checkAssert(final Term axiom) {
+		mNumAssertions++;
 		final ApplicationTerm appTerm = (ApplicationTerm) axiom;
 		final Term[] params = appTerm.getParameters();
 		assert appTerm.getFunction().getName() == ProofRules.PREFIX + ProofRules.ASSUME;
@@ -1291,6 +1300,7 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 
 		public void enqueue(final MinimalProofChecker engine) {
+			engine.mNumDefineFun++;
 			final Object[] annotValues = (Object[]) mProof.getAnnotations()[0].getValue();
 			final FunctionSymbol func = (FunctionSymbol) annotValues[0];
 			final LambdaTerm def = (LambdaTerm) annotValues[1];

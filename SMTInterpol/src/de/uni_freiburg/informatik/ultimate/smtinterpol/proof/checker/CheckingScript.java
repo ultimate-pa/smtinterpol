@@ -196,8 +196,10 @@ public class CheckingScript extends NoopScript {
 				final int numberOfHoles = checker.getNumberOfHoles();
 				printResult(numberOfHoles > 0 ? "holey" : "valid");
 				printResult("holes=" + numberOfHoles);
-				printResult("resolutions=" + checker.getNumberOfResolutions());
+				printResult("assertions=" + checker.getNumberOfAssertions());
+				printResult("definefuns=" + checker.getNumberOfDefineFun());
 				printResult("axioms=" + checker.getNumberOfAxioms());
+				printResult("resolutions=" + checker.getNumberOfResolutions());
 			} else {
 				printResult("invalid");
 			}
