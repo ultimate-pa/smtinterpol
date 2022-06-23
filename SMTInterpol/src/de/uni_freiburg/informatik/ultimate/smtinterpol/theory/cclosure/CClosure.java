@@ -326,7 +326,7 @@ public class CClosure implements ITheory {
 				final CCParentInfo argInfo = appArg.mCCPars.getInfo(parentpos);
 				if (argInfo != null) {
 					for (final ReverseTrigger trigger : argInfo.mReverseTriggers) {
-						trigger.activate(term);
+						trigger.activate(term, true);
 					}
 				}
 				partialApp = app.getFunc();
@@ -336,7 +336,7 @@ public class CClosure implements ITheory {
 				final CCParentInfo funcInfo = partialApp.mCCPars.getInfo(0);
 				if (funcInfo != null) {
 					for (final ReverseTrigger trigger : funcInfo.mReverseTriggers) {
-						trigger.activate(term);
+						trigger.activate(term, true);
 					}
 				}
 			}

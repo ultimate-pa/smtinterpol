@@ -34,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.SortSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -87,7 +88,7 @@ public class DataTypeTheory implements ITheory {
 	/**
 	 * Collect all created terms to check after a backtrack if their equalities are still valid.
 	 */
-	private ArrayQueue<CCTerm> mRecheckOnBacktrack = new ArrayQueue<>();
+	private ArrayQueue<CCAppTerm> mRecheckOnBacktrack = new ArrayQueue<>();
 	/**
 	 * This a cache for {@link #isInfinite(Sort, LinkedHashSet)}
 	 */
@@ -552,6 +553,10 @@ public class DataTypeTheory implements ITheory {
 	public void decreasedDecideLevel(final int currentDecideLevel) {
 	}
 
+	public void addRecheckOnBacktrack(final CCAppTerm newAppTerm) {
+		mRecheckOnBacktrack.add(newAppTerm);
+	}
+
 	@SuppressWarnings("unchecked")
 	@Override
 	public Clause backtrackComplete() {
@@ -560,14 +565,18 @@ public class DataTypeTheory implements ITheory {
 		mPendingConflict = null;
 		mPendingLemmas.clear();
 		mPendingEqualities.clear();
-		final ArrayQueue<CCTerm> newRecheckOnBacktrack = new ArrayQueue<>();
+		final ArrayQueue<CCAppTerm> newRecheckOnBacktrack = new ArrayQueue<>();
 		while (!mRecheckOnBacktrack.isEmpty()) {
-			CCTerm consTerm = null;
+			CCTerm constructorCCTerm = null;
 			ApplicationTerm constructor = null;
-			final CCTerm checkTerm = mRecheckOnBacktrack.poll();
-			for (final CCTerm ct : ((CCAppTerm) checkTerm).mArg.mRepStar.mMembers) {
+			final CCAppTerm checkTerm = mRecheckOnBacktrack.poll();
+			final ApplicationTerm selectOrIsTerm = (ApplicationTerm) checkTerm.mFlatTerm;
+			final FunctionSymbol selectorOrTester = selectOrIsTerm.getFunction();
+			final CCTerm selectOrIsArg = checkTerm.getArg();
+			assert selectorOrTester.isSelector() || selectorOrTester.getName().equals(SMTLIBConstants.IS);
+			for (final CCTerm ct : selectOrIsArg.getRepresentative().mMembers) {
 				if (ct.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm) ct.mFlatTerm).getFunction().isConstructor()) {
-					consTerm = ct;
+					constructorCCTerm = ct;
 					constructor = (ApplicationTerm) ct.mFlatTerm;
 					break;
 				}
@@ -575,38 +584,37 @@ public class DataTypeTheory implements ITheory {
 			if (constructor == null) {
 				continue;
 			}
-			final SymmetricPair<CCTerm> reasonPair =
-					new SymmetricPair<>(((CCAppTerm) checkTerm).getArg(), mClausifier.getCCTerm(constructor));
 			SymmetricPair<CCTerm>[] reason;
-			if (reasonPair.getFirst() != reasonPair.getSecond()) {
-				reason = new SymmetricPair[] { reasonPair };
+			if (selectOrIsArg != constructorCCTerm) {
+				reason = new SymmetricPair[] { new SymmetricPair<>(selectOrIsArg, constructorCCTerm) };
 			} else {
 				reason = new SymmetricPair[0];
 			}
-			if (((ApplicationTerm) checkTerm.mFlatTerm).getFunction().isSelector()) {
-				final FunctionSymbol selector = ((ApplicationTerm) checkTerm.mFlatTerm).getFunction();
-				final String selName = selector.getName();
-				final Constructor c = getConstructor(selector);
-				assert c.getName().equals(constructor.getFunction().getName());
-				for (int i = 0; i < c.getSelectors().length; i++) {
-					if (selName.equals(c.getSelectors()[i])) {
-						final CCTerm arg = mClausifier.getCCTerm(constructor.getParameters()[i]);
-						if (arg.mRepStar != checkTerm.mRepStar) {
-							final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm, arg);
-							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, provedEq, reason,
-									consTerm);
-							addPendingLemma(lemma);
+			if (selectorOrTester.isSelector()) {
+				final String selName = selectorOrTester.getName();
+				final Constructor c = getConstructor(selectorOrTester);
+				if (c.getName().equals(constructor.getFunction().getName())) {
+					for (int i = 0; i < c.getSelectors().length; i++) {
+						if (selName.equals(c.getSelectors()[i])) {
+							final CCTerm arg = mClausifier.getCCTerm(constructor.getParameters()[i]);
+							if (arg.mRepStar != checkTerm.mRepStar) {
+								final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm, arg);
+								final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, provedEq, reason,
+										constructorCCTerm);
+								addPendingLemma(lemma);
+							}
+							newRecheckOnBacktrack.add(checkTerm);
 						}
-						newRecheckOnBacktrack.add(checkTerm);
 					}
 				}
 			} else {
-				if (constructor.getFunction().getName().equals(((ApplicationTerm) checkTerm.mFlatTerm).getFunction().getIndices()[0])) {
+				if (constructor.getFunction().getName().equals(selectorOrTester.getIndices()[0])) {
 					final CCTerm ccTrue = mClausifier.getCCTerm(mTheory.mTrue);
 					if (ccTrue.mRepStar != checkTerm.mRepStar) {
 						final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm,
 								mClausifier.getCCTerm(mTheory.mTrue));
-						final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, provedEq, reason, consTerm);
+						final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, provedEq, reason,
+								constructorCCTerm);
 						addPendingLemma(lemma);
 					}
 					newRecheckOnBacktrack.add(checkTerm);
@@ -725,7 +733,7 @@ public class DataTypeTheory implements ITheory {
 	 * @param ccterm a term with DataType sort.
 	 */
 	private void Rule4(final CCTerm ccterm) {
-		final LinkedHashSet<String> exisitingSelectors = findAllSelectorApplications(ccterm);
+		final LinkedHashSet<String> existingSelectors = findAllSelectorApplications(ccterm);
 
 		final SortSymbol sym = ccterm.mFlatTerm.getSort().getSortSymbol();
 		for (final Constructor c : ((DataType) sym).getConstructors()) {
@@ -733,7 +741,7 @@ public class DataTypeTheory implements ITheory {
 			boolean noInfSel = true;
 			final LinkedHashSet<String> neededSelectors = new LinkedHashSet<>();
 			for (int i = 0; i < c.getSelectors().length; i++) {
-				if (!exisitingSelectors.contains(c.getSelectors()[i])) {
+				if (!existingSelectors.contains(c.getSelectors()[i])) {
 					if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || isInfinite(c.getArgumentSorts()[i])) {
 						noInfSel = false;
 						break;
@@ -745,7 +753,8 @@ public class DataTypeTheory implements ITheory {
 			if (noInfSel) {
 				// build selectors
 				for (final String sel : neededSelectors) {
-					mRecheckOnBacktrack.add(mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()), SourceAnnotation.EMPTY_SOURCE_ANNOT));
+					mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()),
+							SourceAnnotation.EMPTY_SOURCE_ANNOT);
 				}
 			}
 		}
@@ -773,7 +782,7 @@ public class DataTypeTheory implements ITheory {
 				final FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, new Sort[] {ccterm.getFlatTerm().getSort()});
 				final Term isTerm = mTheory.term(isFs, ccterm.mFlatTerm);
 				if (mClausifier.getCCTerm(isTerm) == null) {
-					mRecheckOnBacktrack.add(mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT));
+					mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 				}
 			}
 		}

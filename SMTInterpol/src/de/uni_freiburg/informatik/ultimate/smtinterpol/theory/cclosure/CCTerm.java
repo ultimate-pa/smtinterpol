@@ -107,7 +107,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	Term mFlatTerm;
 
 	int mHashCode;
-	
+
 	final int mAge;
 
 	static class TermPairMergeInfo {
@@ -576,7 +576,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 							}
 							for (final CCTerm appTerm : appTerms) {
 								for (final ReverseTrigger trigger : srcParentInfo.mReverseTriggers) {
-									trigger.activate((CCAppTerm) appTerm);
+									trigger.activate((CCAppTerm) appTerm, false);
 								}
 							}
 						}
@@ -592,7 +592,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 							}
 							for (final CCTerm appTerm : appTerms) {
 								for (final ReverseTrigger trigger : destParentInfo.mReverseTriggers) {
-									trigger.activate((CCAppTerm) appTerm);
+									trigger.activate((CCAppTerm) appTerm, false);
 								}
 							}
 						}
