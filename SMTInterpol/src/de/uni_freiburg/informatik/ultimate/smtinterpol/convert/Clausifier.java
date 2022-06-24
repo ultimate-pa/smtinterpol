@@ -1523,8 +1523,6 @@ public class Clausifier {
 	 *            The input clause from which this axiom was created.
 	 */
 	public void addAuxAxiomsQuant(final Term term, final SourceAnnotation source) {
-		assert term == toPositive(term);
-
 		final int oldFlags = getTermFlags(term);
 		final int auxflag = Clausifier.POS_AUX_AXIOMS_ADDED | Clausifier.NEG_AUX_AXIOMS_ADDED;
 		if ((oldFlags & auxflag) == auxflag ) {
