@@ -31,9 +31,13 @@ import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
+import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -534,7 +538,8 @@ public class QuantifierTheory implements ITheory {
 				}
 			}
 		}
-
+		newLhs = replaceBooleanSubterms(newLhs, source);
+		newRhs = replaceBooleanSubterms(newRhs, source);
 		final Term newTerm = mTheory.term("=", newLhs, newRhs);
 		QuantLiteral atom = (QuantLiteral) mClausifier.getILiteral(newTerm);
 		if (atom != null) {
@@ -628,7 +633,8 @@ public class QuantifierTheory implements ITheory {
 		}
 
 		final TermCompiler compiler = mClausifier.getTermCompiler();
-		final Term newLhs = linTerm.toTerm(compiler, lhs.getSort());
+		Term newLhs = linTerm.toTerm(compiler, lhs.getSort());
+		newLhs = replaceBooleanSubterms(newLhs, source);
 		final Term newAtomTerm = mTheory.term("<=", newLhs, Rational.ZERO.toTerm(lhs.getSort()));
 		QuantLiteral atom = (QuantLiteral) mClausifier.getILiteral(newAtomTerm);
 		if (atom != null) {
@@ -923,6 +929,37 @@ public class QuantifierTheory implements ITheory {
 					}
 				}
 			}
+		}
+	}
+
+	private Term replaceBooleanSubterms(final Term term, final SourceAnnotation source) {
+		return new BooleanSubtermReplacer(source).transform(term);
+	}
+
+	class BooleanSubtermReplacer extends TermTransformer {
+
+		private final SourceAnnotation mSource;
+
+		public BooleanSubtermReplacer(final SourceAnnotation source) {
+			mSource = source;
+		}
+
+		@Override
+		public void convert(final Term term) {
+			if (term.getSort().getName() == SMTLIBConstants.BOOL && shouldReplaceTerm(term)) {
+				final QuantAuxEquality auxEq = (QuantAuxEquality) mClausifier.createAnonLiteral(term, mSource);
+				mClausifier.addAuxAxiomsQuant(term, mSource);
+				final Term auxTerm = auxEq.getLhs();
+				setResult(auxTerm);
+				return;
+			}
+			super.convert(term);
+		}
+
+		boolean shouldReplaceTerm(final Term term) {
+			return term.getFreeVars().length != 0
+					&& !(term instanceof TermVariable)
+					&& (!Clausifier.needCCTerm(term) || term instanceof QuantifiedFormula || term instanceof MatchTerm);
 		}
 	}
 

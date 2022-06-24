@@ -162,6 +162,17 @@ public class ProofSimplifier extends TermTransformer {
 		return annotTerm.getSubterm();
 	}
 
+	/**
+	 * Extend a proof to eliminate not terms from the given candidateTerm
+	 *
+	 * @param proof
+	 *            the current proof
+	 * @param candidateTerm
+	 *            the literal occurring in the proved clause
+	 * @param positive
+	 *            true iff the literal is expected to occur positive in the clause
+	 * @return the extended proof where the literal is no longer double negated.
+	 */
 	private Term removeNot(Term proof, Term candidateTerm, boolean positive) {
 		while (isApplication("not", candidateTerm)) {
 			proof = mProofRules.resolutionRule(candidateTerm, positive ? proof : mProofRules.notIntro(candidateTerm),
@@ -606,57 +617,6 @@ public class ProofSimplifier extends TermTransformer {
 		return removeNot(proof, iteFalseCase, !polarity);
 	}
 
-	private Term convertTautIte(final String tautKind, final Term[] clause) {
-		assert clause.length == 3;
-		final boolean negated = isApplication("not", clause[0]);
-		final Term quotedAtom = negated ? negate(clause[0]) : clause[0];
-		final boolean isQuotedQuant = quotedAtom instanceof AnnotatedTerm;
-		final Term iteAtom = isQuotedQuant ? unquoteExpand(quotedAtom) : quotedAtom;
-		assert isApplication("ite", iteAtom);
-		final Term[] iteParams = ((ApplicationTerm) iteAtom).getParameters();
-		Term proof;
-		switch (tautKind) {
-		case ":ite+1":
-			// iteAtom, ~cond, ~then
-			proof = removeNot(convertTautIte1Helper(iteAtom, iteParams[1], true), iteParams[0], false);
-			break;
-		case ":ite+2":
-			// iteAtom, cond, ~else
-			proof = removeNot(convertTautIte2Helper(iteAtom, iteParams[2], true), iteParams[0], true);
-			break;
-		case ":ite+red":
-			// iteAtom, ~then, ~else
-			proof = mProofRules.resolutionRule(iteParams[0],
-					convertTautIte2Helper(iteAtom, iteParams[2], true), convertTautIte1Helper(iteAtom, iteParams[1], true));
-			break;
-		case ":ite-1":
-			// ~iteAtom, ~cond, then
-			proof = removeNot(convertTautIte1Helper(iteAtom, iteParams[1], false), iteParams[0], false);
-			break;
-		case ":ite-2":
-			// ~iteAtom, cond, else
-			proof = removeNot(convertTautIte2Helper(iteAtom, iteParams[2], false), iteParams[0], true);
-			break;
-		case ":ite-red":
-			// ~iteAtom, then, else
-			proof = mProofRules.resolutionRule(iteParams[0],
-					convertTautIte2Helper(iteAtom, iteParams[2], false), convertTautIte1Helper(iteAtom, iteParams[1], false));
-			break;
-		default:
-			throw new AssertionError();
-		}
-		if (isQuotedQuant) {
-			final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, iteAtom);
-			if (negated) {
-				proof = mProofRules.resolutionRule(iteAtom, mProofRules.iffElim2(expandEq), proof);
-			} else {
-				proof = mProofRules.resolutionRule(iteAtom, proof, mProofRules.iffElim1(expandEq));
-			}
-			proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedAtom, iteAtom), proof);
-		}
-		return proof;
-	}
-
 	private Term convertTautExcludedMiddle(final String name, final Term[] clause) {
 		assert clause.length == 2;
 		final boolean isEqTrue = name == ":excludedMiddle1";
@@ -687,82 +647,140 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
+	private int findArgPosition(final Term searchTerm, final Term[] mainParams) {
+		for (int i = 0; i < mainParams.length; i++) {
+			if (searchTerm == mainParams[i]) {
+				return i;
+			}
+		}
+		throw new AssertionError();
+	}
+
 	private Term convertTautElimIntro(final String ruleName, final Term[] clauseLits) {
-		final String func = ruleName.substring(1, ruleName.length() - 1);
-		final boolean isElim = ruleName.endsWith("-");
+		final boolean isElim = ruleName.contains("-");
 
 		Term mainAtom = clauseLits[0];
-		if (isElim) {
-			assert isApplication(SMTLIBConstants.NOT, clauseLits[0]);
-			mainAtom = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
-		}
 		final Term quotedAtom = mainAtom;
 		final boolean isQuotedQuant = mainAtom instanceof AnnotatedTerm;
 		if (isQuotedQuant) {
 			mainAtom = unquoteExpand(mainAtom);
+		} else if (isElim) {
+			assert isApplication(SMTLIBConstants.NOT, mainAtom);
+			mainAtom = ((ApplicationTerm) mainAtom).getParameters()[0];
 		}
-		assert isApplication(func, mainAtom);
+		assert ruleName.startsWith(":" + ((ApplicationTerm) mainAtom).getFunction().getName());
 		final Term[] mainParams = ((ApplicationTerm) mainAtom).getParameters();
 
-		int pos = -1;
-		if (func.equals(SMTLIBConstants.AND) ? isElim : !isElim) {
-			// An and-, or+, =>+ rule have only one additional lit
-			assert clauseLits.length == 2;
-			for (int i = 0; i < mainParams.length; i++) {
-				final boolean negated = func.equals(SMTLIBConstants.OR)
-						|| (func.equals(SMTLIBConstants.IMPLIES) && i == mainParams.length - 1);
-				if (clauseLits[1] == (negated ? mSkript.term(SMTLIBConstants.NOT, mainParams[i]) : mainParams[i])) {
-					pos = i;
-					break;
-				}
-			}
-			assert pos != -1;
-		}
 		Term proof;
 		switch (ruleName) {
-		case ":or+":
+		case ":or+": {
+			assert clauseLits.length == 2;
+			assert isApplication(SMTLIBConstants.NOT, clauseLits[1]);
+			final Term argTerm = ((ApplicationTerm) clauseLits[1]).getParameters()[0];
+			final int pos = findArgPosition(argTerm, mainParams);
 			proof = mProofRules.orIntro(pos, mainAtom);
+			proof = removeNot(proof, mainParams[pos], false);
 			break;
-		case ":or-":
+		}
+		case ":or-": {
 			proof = mProofRules.orElim(mainAtom);
+			for (int i = 0; i < mainParams.length; i++) {
+				proof = removeNot(proof, mainParams[i], true);
+			}
 			break;
+		}
 		case ":and+":
 			proof = mProofRules.andIntro(mainAtom);
+			for (int i = 0; i < mainParams.length; i++) {
+				proof = removeNot(proof, mainParams[i], false);
+			}
 			break;
-		case ":and-":
+		case ":and-": {
+			assert clauseLits.length == 2;
+			final Term argTerm = clauseLits[1];
+			final int pos = findArgPosition(argTerm, mainParams);
 			proof = mProofRules.andElim(pos, mainAtom);
+			proof = removeNot(proof, mainParams[pos], true);
 			break;
-		case ":=>+":
+		}
+		case ":=>+": {
+			assert clauseLits.length == 2;
+			final Term argTerm = clauseLits[1];
+			final int lastPos = mainParams.length - 1;
+			final int pos = argTerm == argTerm.getTheory().term(SMTLIBConstants.NOT, mainParams[lastPos]) ? lastPos
+					: findArgPosition(argTerm, mainParams);
 			proof = mProofRules.impIntro(pos, mainAtom);
+			proof = removeNot(proof, mainParams[pos], pos != lastPos);
 			break;
-		case ":=>-":
+		}
+		case ":=>-": {
 			proof = mProofRules.impElim(mainAtom);
+			for (int i = 0; i < mainParams.length; i++) {
+				proof = removeNot(proof, mainParams[i], i == mainParams.length - 1);
+			}
+			break;
+		}
+		case ":xor+1": {
+			proof = mProofRules.xorIntro(mainParams, new Term[] { mainParams[0] }, new Term[] { mainParams[1] });
+			proof = removeNot(proof, mainParams[0], true);
+			proof = removeNot(proof, mainParams[1], false);
+			break;
+		}
+		case ":xor+2": {
+			proof = mProofRules.xorIntro(mainParams, new Term[] { mainParams[1] }, new Term[] { mainParams[0] });
+			proof = removeNot(proof, mainParams[0], false);
+			proof = removeNot(proof, mainParams[1], true);
+			break;
+		}
+		case ":xor-1": {
+			proof = mProofRules.xorIntro(new Term[] { mainParams[0] }, new Term[] { mainParams[1] }, mainParams);
+			proof = removeNot(proof, mainParams[0], true);
+			proof = removeNot(proof, mainParams[1], true);
+			break;
+		}
+		case ":xor-2": {
+			proof = mProofRules.xorElim(mainParams, new Term[] { mainParams[0] }, new Term[] { mainParams[1] });
+			proof = removeNot(proof, mainParams[0], false);
+			proof = removeNot(proof, mainParams[1], false);
+			break;
+		}
+		case ":ite+1":
+			// iteAtom, ~cond, ~then
+			proof = removeNot(convertTautIte1Helper(mainAtom, mainParams[1], true), mainParams[0], false);
+			break;
+		case ":ite+2":
+			// iteAtom, cond, ~else
+			proof = removeNot(convertTautIte2Helper(mainAtom, mainParams[2], true), mainParams[0], true);
+			break;
+		case ":ite+red":
+			// iteAtom, ~then, ~else
+			proof = mProofRules.resolutionRule(mainParams[0], convertTautIte2Helper(mainAtom, mainParams[2], true),
+					convertTautIte1Helper(mainAtom, mainParams[1], true));
+			break;
+		case ":ite-1":
+			// ~iteAtom, ~cond, then
+			proof = removeNot(convertTautIte1Helper(mainAtom, mainParams[1], false), mainParams[0], false);
+			break;
+		case ":ite-2":
+			// ~iteAtom, cond, else
+			proof = removeNot(convertTautIte2Helper(mainAtom, mainParams[2], false), mainParams[0], true);
+			break;
+		case ":ite-red":
+			// ~iteAtom, then, else
+			proof = mProofRules.resolutionRule(mainParams[0], convertTautIte2Helper(mainAtom, mainParams[2], false),
+					convertTautIte1Helper(mainAtom, mainParams[1], false));
 			break;
 		default:
 			throw new AssertionError();
 		}
-		// remove double negations
-		if (func.equals(SMTLIBConstants.AND) ? isElim : !isElim) {
-			// An and-, or+, =>+ rule have only one additional lit
-			assert clauseLits.length == 2;
-			final boolean negated = func.equals(SMTLIBConstants.OR)
-					|| (func.equals(SMTLIBConstants.IMPLIES) && pos == mainParams.length - 1);
-			proof = removeNot(proof, mainParams[pos], !negated);
-		} else {
-			for (int i = 0; i < mainParams.length; i++) {
-				final boolean negated = func.equals(SMTLIBConstants.AND)
-						|| (func.equals(SMTLIBConstants.IMPLIES) && i < mainParams.length - 1);
-				proof = removeNot(proof, mainParams[i], !negated);
-			}
-		}
 		if (isQuotedQuant) {
 			final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, mainAtom);
 			if (isElim) {
-				proof = mProofRules.resolutionRule(mainAtom, mProofRules.iffElim2(expandEq), proof);
+				proof = mProofRules.resolutionRule(mainAtom, proveAuxElim(quotedAtom, mainAtom), proof);
 			} else {
 				proof = mProofRules.resolutionRule(mainAtom, proof, mProofRules.iffElim1(expandEq));
+				proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedAtom, mainAtom), proof);
 			}
-			proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedAtom, mainAtom), proof);
 		}
 		return proof;
 	}
@@ -1044,7 +1062,17 @@ public class ProofSimplifier extends TermTransformer {
 		case ":and+":
 		case ":and-":
 		case ":=>+":
-		case ":=>-": {
+		case ":=>-":
+		case ":xor+1":
+		case ":xor+2":
+		case ":xor-1":
+		case ":xor-2":
+		case ":ite+1":
+		case ":ite+2":
+		case ":ite+red":
+		case ":ite-1":
+		case ":ite-2":
+		case ":ite-red": {
 			proof = convertTautElimIntro(ruleName, clauseLits);
 			break;
 		}
@@ -1104,85 +1132,6 @@ public class ProofSimplifier extends TermTransformer {
 			proof = removeNot(proof, eqParams[0], false);
 			assert eqParams[1] == clauseLits[2];
 			proof = removeNot(proof, eqParams[1], true);
-			break;
-		}
-		case ":xor+1": {
-			assert isApplication("or", clause);
-			final Term quotedTerm = clauseLits[0];
-			final boolean isQuotedQuant = quotedTerm instanceof AnnotatedTerm;
-			final Term xorTerm = isQuotedQuant ? unquoteExpand(quotedTerm) : quotedTerm;
-			assert isApplication("xor", xorTerm);
-			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			proof = mProofRules.xorIntro(xorParams, new Term[] { xorParams[0] }, new Term[] { xorParams[1] });
-			proof = removeNot(proof, xorParams[0], true);
-			proof = removeNot(proof, xorParams[1], false);
-			if (isQuotedQuant) {
-				final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedTerm, xorTerm);
-				proof = mProofRules.resolutionRule(xorTerm, proof, mProofRules.iffElim1(expandEq));
-				proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedTerm, xorTerm), proof);
-			}
-			break;
-		}
-		case ":xor+2": {
-			assert isApplication("or", clause);
-			final Term quotedTerm = clauseLits[0];
-			final boolean isQuotedQuant = quotedTerm instanceof AnnotatedTerm;
-			final Term xorTerm = isQuotedQuant ? unquoteExpand(quotedTerm) : quotedTerm;
-			assert isApplication("xor", xorTerm);
-			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			proof = mProofRules.xorIntro(xorParams, new Term[] { xorParams[1] }, new Term[] { xorParams[0] });
-			proof = removeNot(proof, xorParams[0], false);
-			proof = removeNot(proof, xorParams[1], true);
-			if (isQuotedQuant) {
-				final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedTerm, xorTerm);
-				proof = mProofRules.resolutionRule(xorTerm, proof, mProofRules.iffElim1(expandEq));
-				proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedTerm, xorTerm), proof);
-			}
-			break;
-		}
-		case ":xor-1": {
-			assert isApplication("or", clause);
-			assert isApplication("not", clauseLits[0]);
-			final Term quotedTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
-			final boolean isQuotedQuant = quotedTerm instanceof AnnotatedTerm;
-			final Term xorTerm = isQuotedQuant ? unquoteExpand(quotedTerm) : quotedTerm;
-			assert isApplication("xor", xorTerm);
-			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			proof = mProofRules.xorIntro(new Term[] { xorParams[0] }, new Term[] { xorParams[1] }, xorParams);
-			proof = removeNot(proof, xorParams[0], true);
-			proof = removeNot(proof, xorParams[1], true);
-			if (isQuotedQuant) {
-				final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedTerm, xorTerm);
-				proof = mProofRules.resolutionRule(xorTerm, mProofRules.iffElim2(expandEq), proof);
-				proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedTerm, xorTerm), proof);
-			}
-			break;
-		}
-		case ":xor-2": {
-			assert isApplication("or", clause);
-			assert isApplication("not", clauseLits[0]);
-			final Term quotedTerm = ((ApplicationTerm) clauseLits[0]).getParameters()[0];
-			final boolean isQuotedQuant = quotedTerm instanceof AnnotatedTerm;
-			final Term xorTerm = isQuotedQuant ? unquoteExpand(quotedTerm) : quotedTerm;
-			assert isApplication("xor", xorTerm);
-			final Term[] xorParams = ((ApplicationTerm) xorTerm).getParameters();
-			proof = mProofRules.xorElim(xorParams, new Term[] { xorParams[0] }, new Term[] { xorParams[1] });
-			proof = removeNot(proof, xorParams[0], false);
-			proof = removeNot(proof, xorParams[1], false);
-			if (isQuotedQuant) {
-				final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedTerm, xorTerm);
-				proof = mProofRules.resolutionRule(xorTerm, mProofRules.iffElim2(expandEq), proof);
-				proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedTerm, xorTerm), proof);
-			}
-			break;
-		}
-		case ":ite+1":
-		case ":ite+2":
-		case ":ite+red":
-		case ":ite-1":
-		case ":ite-2":
-		case ":ite-red": {
-			proof = convertTautIte(ruleName, clauseLits);
 			break;
 		}
 		case ":exists-":
@@ -4762,6 +4711,42 @@ public class ProofSimplifier extends TermTransformer {
 				: proofNeg == null ? proofPos : mProofRules.resolutionRule(pivot, proofPos, proofNeg);
 	}
 
+	/**
+	 * Proves the clause { (! (= auxTerm false) :quotedQuant)), expanded }.
+	 *
+	 * @param quotedAtom
+	 *            the (! (= auxTerm true) :quotedQuant) term
+	 * @param expanded
+	 *            the expanded definition of auxTerm
+	 * @return the proof
+	 */
+	private Term proveAuxElim(final Term quotedAtom, final Term expanded) {
+		// prove the equality (= quotedAtom mainAtom)
+		// where quotedAtom is (! (= auxTerm false) :quotedQuant)
+		// and mainAtom is the expanded form of auxTerm.
+		final ApplicationTerm auxTerm = (ApplicationTerm) ((ApplicationTerm) unquote(quotedAtom)).getParameters()[0];
+		final Term unquotedAtom = ((AnnotatedTerm) quotedAtom).getSubterm();
+		final Term falseTerm = mSkript.term(SMTLIBConstants.FALSE);
+		final Term auxFalseEq = mSkript.term(SMTLIBConstants.EQUALS, auxTerm, falseTerm);
+		final Term unquoteEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, unquotedAtom);
+		final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, auxTerm, expanded);
+
+		return res(unquoteEq, mProofRules.delAnnot(quotedAtom),
+				res(auxFalseEq,
+						res(auxTerm, res(falseTerm, mProofRules.iffIntro1(auxFalseEq), mProofRules.falseElim()),
+								res(expandEq, mProofRules.expand(auxTerm), mProofRules.iffElim2(expandEq))),
+						mProofRules.iffElim1(unquoteEq)));
+	}
+
+	/**
+	 * Proves the equality (= (! (= auxTerm true) :quotedQuant) expanded)
+	 *
+	 * @param quotedAtom
+	 *            the (! (= auxTerm true) :quotedQuant) term
+	 * @param expanded
+	 *            the expanded definition of auxTerm
+	 * @return the proof
+	 */
 	private Term proveAuxExpand(final Term quotedAtom, final Term expanded) {
 		// prove the equality (= quotedAtom mainAtom)
 		// where quotedAtom is (! (= auxTerm true) :quotedQuant)

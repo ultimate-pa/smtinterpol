@@ -552,6 +552,9 @@ public class TermCompiler extends TermTransformer {
 				if (fsym.isConstructor() || fsym.isSelector()) {
 					break;
 				}
+				if (fsym.getName().startsWith("@AUX")) {
+					break;
+				}
 				throw new UnsupportedOperationException("Unsupported internal function " + fsym.getName());
 			}
 		}
