@@ -625,13 +625,14 @@ public class ProofSimplifier extends TermTransformer {
 		// or (+ (! (= p false) :quoted) + p) :excludedMiddle2
 		final Term quotedAtom = clause[0];
 		final boolean isQuotedQuant = ((AnnotatedTerm) quotedAtom).getAnnotations()[0].getKey().equals(":quotedQuant");
-		final Term equality = isQuotedQuant ? unquoteExpand(quotedAtom) : unquote(quotedAtom);
+		final Term equality = unquote(quotedAtom);
 		assert isApplication("=", equality);
 		final Term[] eqArgs = ((ApplicationTerm) equality).getParameters();
+		final Term atomTerm = isQuotedQuant ? expandAux((ApplicationTerm) eqArgs[0]) : eqArgs[0];
 		final Term lit = clause[1];
 		assert isApplication("not", lit) == isEqTrue;
 		final Term atom = isEqTrue ? negate(lit) : lit;
-		assert eqArgs.length == 2 && eqArgs[0] == atom && isApplication(isEqTrue ? "true" : "false", eqArgs[1]);
+		assert eqArgs.length == 2 && atomTerm == atom && isApplication(isEqTrue ? "true" : "false", eqArgs[1]);
 
 		// now proof equality, lit
 		Term proof = isEqTrue
@@ -639,10 +640,18 @@ public class ProofSimplifier extends TermTransformer {
 				: mProofRules.resolutionRule(eqArgs[1], mProofRules.iffIntro1(equality), mProofRules.falseElim());
 
 		final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, equality);
-		final Term expandProof = isQuotedQuant ? proveAuxExpand(quotedAtom, equality)
-				: mProofRules.delAnnot(quotedAtom);
+		final Term expandProof = mProofRules.delAnnot(quotedAtom);
 		proof = mProofRules.resolutionRule(equality, proof, mProofRules.iffElim1(expandEq));
 		proof = mProofRules.resolutionRule(expandEq, expandProof, proof);
+		if (isQuotedQuant) {
+			final Term expandAuxEq = mSkript.term(SMTLIBConstants.EQUALS, eqArgs[0], atomTerm);
+			final Term expandAuxProof = mProofRules.expand(eqArgs[0]);
+			if (isEqTrue) {
+				proof = res(eqArgs[0], res(expandAuxEq, expandAuxProof, mProofRules.iffElim1(expandAuxEq)), proof);
+			} else {
+				proof = res(eqArgs[0], proof, res(expandAuxEq, expandAuxProof, mProofRules.iffElim2(expandAuxEq)));
+			}
+		}
 		proof = removeNot(proof, atom, !isEqTrue);
 		return proof;
 	}
@@ -4357,11 +4366,15 @@ public class ProofSimplifier extends TermTransformer {
 		throw new AssertionError("Expected quoted literal, but got " + quotedTerm);
 	}
 
-	private Term unquoteExpand(final Term quotedTerm) {
-		final ApplicationTerm auxTerm = (ApplicationTerm) ((ApplicationTerm) unquote(quotedTerm)).getParameters()[0];
+	private Term expandAux(final ApplicationTerm auxTerm) {
 		final LambdaTerm lambda = mAuxDefs.get(auxTerm.getFunction());
 		return new FormulaUnLet()
 				.unlet(mSkript.let(lambda.getVariables(), auxTerm.getParameters(), lambda.getSubterm()));
+	}
+
+	private Term unquoteExpand(final Term quotedTerm) {
+		final ApplicationTerm auxTerm = (ApplicationTerm) ((ApplicationTerm) unquote(quotedTerm)).getParameters()[0];
+		return expandAux(auxTerm);
 	}
 
 	/**
