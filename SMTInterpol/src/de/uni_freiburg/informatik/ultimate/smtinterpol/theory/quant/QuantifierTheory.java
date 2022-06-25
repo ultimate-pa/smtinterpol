@@ -473,10 +473,17 @@ public class QuantifierTheory implements ITheory {
 				{ "E-Matching", mEMatchingTime }, { "Final Check", mFinalCheckTime } } } } };
 	}
 
-	public ILiteral createAuxLiteral(final Term auxTerm, final TermVariable[] freeVars, final Term definingTerm,
-			final SourceAnnotation source) {
-		final Term newTerm = mTheory.term("=", auxTerm, mTheory.mTrue);
-		final QuantLiteral atom = new QuantAuxEquality(newTerm, auxTerm, mTheory.mTrue, definingTerm);
+	public ILiteral createAuxLiteral(final Term auxTerm, final Term definingTerm, final SourceAnnotation source) {
+		final QuantLiteral atom = new QuantAuxEquality(auxTerm, mTheory.mTrue, definingTerm);
+
+		// The atom is almost uninterpreted.
+		atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
+		return atom;
+	}
+
+	public ILiteral createAuxFalseLiteral(final QuantAuxEquality auxTrueLit, final SourceAnnotation source) {
+		final Term auxTerm = auxTrueLit.getLhs();
+		final QuantLiteral atom = new QuantAuxEquality(auxTerm, mTheory.mFalse, auxTrueLit.getDefinition());
 
 		// The atom is almost uninterpreted.
 		atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
@@ -547,7 +554,7 @@ public class QuantifierTheory implements ITheory {
 		}
 		addGroundCCTerms(newLhs, source);
 		addGroundCCTerms(newRhs, source);
-		atom = new QuantEquality(newTerm, newLhs, newRhs);
+		atom = new QuantEquality(newLhs, newRhs);
 
 		// Check if the atom is almost uninterpreted or can be used for DER.
 		if (!(newLhs instanceof TermVariable)) { // (euEUTerm = euTerm) is essentially and almost uninterpreted
@@ -688,11 +695,9 @@ public class QuantifierTheory implements ITheory {
 				clauseAtom = new QuantBoundConstraint(atom.getTerm(), ((QuantBoundConstraint) atom).getAffineTerm());
 			} else if (atom instanceof QuantAuxEquality) {
 				final QuantAuxEquality auxAtom = (QuantAuxEquality) atom;
-				clauseAtom = new QuantAuxEquality(auxAtom.getTerm(), auxAtom.getLhs(), auxAtom.getRhs(),
-						auxAtom.getDefinition());
+				clauseAtom = new QuantAuxEquality(auxAtom.getLhs(), auxAtom.getRhs(), auxAtom.getDefinition());
 			} else {
-				clauseAtom = new QuantEquality(atom.getTerm(), ((QuantEquality) atom).getLhs(),
-						((QuantEquality) atom).getRhs());
+				clauseAtom = new QuantEquality(((QuantEquality) atom).getLhs(), ((QuantEquality) atom).getRhs());
 			}
 			clauseAtom.mClause = clause;
 			clauseAtom.mIsEssentiallyUninterpreted = atom.mIsEssentiallyUninterpreted;

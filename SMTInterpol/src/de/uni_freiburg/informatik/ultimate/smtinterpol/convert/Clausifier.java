@@ -505,10 +505,14 @@ public class Clausifier {
 				mCollector.addLiteral(lit.negate(), idx, rewrite, positive);
 			} else if (idx instanceof MatchTerm) {
 				final ILiteral lit = createAnonLiteral(idx, mCollector.getSource());
-				if (positive) {
-					addAuxAxioms(idx, true, mCollector.getSource());
+				if (idx.getFreeVars().length == 0) {
+					if (positive) {
+						addAuxAxioms(idx, true, mCollector.getSource());
+					} else {
+						addAuxAxioms(idx, false, mCollector.getSource());
+					}
 				} else {
-					addAuxAxioms(idx, false, mCollector.getSource());
+					addAuxAxiomsQuant(idx, mCollector.getSource());
 				}
 				final Term rewrite = mTracker.intern(idx, lit.getSMTFormula(theory, true));
 				mCollector.addLiteral(positive ? lit : lit.negate(), idx, rewrite, positive);
@@ -1532,11 +1536,9 @@ public class Clausifier {
 		}
 		setTermFlags(term, oldFlags | auxflag);
 
-		final ILiteral auxTrueLit = getILiteral(term);
-		assert auxTrueLit instanceof QuantAuxEquality;
+		final QuantAuxEquality auxTrueLit = (QuantAuxEquality) getILiteral(term);
 		final Theory t = term.getTheory();
-		final ILiteral auxFalseLit = mQuantTheory.getQuantEquality(((QuantAuxEquality) auxTrueLit).getLhs(),
-				t.mFalse, source);
+		final ILiteral auxFalseLit = mQuantTheory.createAuxFalseLiteral(auxTrueLit, source);
 
 		createDefiningClausesForLiteral(auxFalseLit, term, true, source);
 		createDefiningClausesForLiteral(auxTrueLit, term, false, source);
@@ -2029,7 +2031,7 @@ public class Clausifier {
 					// for instantiation terms - should it be done earlier?)
 					// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal
 					// instances.
-					lit = mQuantTheory.createAuxLiteral(auxTerm, freeVars, term, source);
+					lit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
 				}
 			} else {
 				lit = new NamedAtom(term, mStackLevel);

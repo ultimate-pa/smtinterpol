@@ -32,8 +32,8 @@ public class QuantAuxEquality extends QuantEquality {
 
 	private final Term mDefinition;
 
-	public QuantAuxEquality(final Term term, final Term lhs, final Term rhs, final Term definition) {
-		super(term, lhs, rhs);
+	public QuantAuxEquality(final Term lhs, final Term rhs, final Term definition) {
+		super(lhs, rhs);
 		mDefinition = definition;
 	}
 
