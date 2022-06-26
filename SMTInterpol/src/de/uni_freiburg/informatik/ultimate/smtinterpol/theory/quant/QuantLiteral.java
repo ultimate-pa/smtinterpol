@@ -18,10 +18,10 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
-import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 
 /**
  * Represents a quantified literal.
@@ -34,8 +34,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
  *
  */
 public abstract class QuantLiteral implements ILiteral {
-	public final static Annotation[] QUOTED_QUANT = new Annotation[] { new Annotation(":quotedQuant", null) };
-
 	/**
 	 * The term that this literal represents.
 	 */
@@ -122,7 +120,7 @@ public abstract class QuantLiteral implements ILiteral {
 
 	@Override
 	public Term getSMTFormula(final Theory theory, final boolean quoted) {
-		return quoted ? theory.annotatedTerm(QUOTED_QUANT, mTerm) : mTerm;
+		return quoted ? theory.annotatedTerm(ProofConstants.ANNOT_QUOTED_QUANT, mTerm) : mTerm;
 	}
 
 	/**

@@ -4938,7 +4938,7 @@ public class ProofSimplifier extends TermTransformer {
 
 	public Term transformProof(Term proof) {
 		final CollectSkolemAux collector = new CollectSkolemAux();
-		collector.transform(proof);
+		proof = collector.transform(proof);
 		mAuxDefs = collector.getAuxDef();
 		proof = super.transform(proof);
 		final TermVariable[] freeVars = proof.getFreeVars();
@@ -4969,7 +4969,7 @@ public class ProofSimplifier extends TermTransformer {
 		}
 
 		@Override
-		public void convert(final Term term) {
+		public void convert(Term term) {
 			if (term instanceof ApplicationTerm) {
 				final ApplicationTerm appTerm = (ApplicationTerm) term;
 				final FunctionSymbol func = appTerm.getFunction();
@@ -4986,6 +4986,15 @@ public class ProofSimplifier extends TermTransformer {
 						}
 					});
 					super.convert(func.getDefinition());
+				}
+			}
+			// strip term argument from quotedQuant annotations, as we do not need them
+			if (term instanceof AnnotatedTerm) {
+				final AnnotatedTerm annTerm = (AnnotatedTerm) term;
+				if (annTerm.getAnnotations().length == 1
+						&& annTerm.getAnnotations()[0].getKey().equals(":quotedQuant")
+						&& annTerm.getAnnotations()[0].getValue() != null) {
+					term = mSkript.annotate(annTerm.getSubterm(), ProofConstants.ANNOT_QUOTED_QUANT);
 				}
 			}
 			super.convert(term);

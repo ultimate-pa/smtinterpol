@@ -42,7 +42,6 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 
 @RunWith(JUnit4.class)
 public class ProofSimplifierTest {
@@ -101,7 +100,7 @@ public class ProofSimplifierTest {
 				: mTheory.term("=", terms[len - 1], terms[0]);
 		final Term[] quotedEqs = new Term[len];
 		for (int i = 0; i < len; i++) {
-			quotedEqs[i] = mSmtInterpol.annotate(eqs[i], CCEquality.QUOTED_CC);
+			quotedEqs[i] = mSmtInterpol.annotate(eqs[i], ProofConstants.ANNOT_QUOTED_CC);
 		}
 		final Term[] orParams = new Term[len - 1];
 		for (int i = 0; i < len - 1; i++) {
@@ -126,7 +125,7 @@ public class ProofSimplifierTest {
 		eqs[len - 1] = (swapFlags & (1<< (len-1))) != 0 ? mTheory.term("=", terms[0],terms[len-1]) : mTheory.term("=", terms[len-1],terms[0]);
 		final Term[] quotedEqs   = new Term[len];
 		for (int i = 0; i < len; i++) {
-			quotedEqs[i] = mSmtInterpol.annotate(eqs[i], CCEquality.QUOTED_CC);
+			quotedEqs[i] = mSmtInterpol.annotate(eqs[i], ProofConstants.ANNOT_QUOTED_CC);
 		}
 		final Term[] orParams = new Term[len];
 		for (int i = 0; i < len; i++) {

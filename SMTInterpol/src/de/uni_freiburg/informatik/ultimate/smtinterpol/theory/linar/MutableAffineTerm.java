@@ -29,6 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 
 /**
  * Represents a modifiable affin term, i.e. SUM_i c_i * x_i + c, where the x_i are initially nonbasic variable.
@@ -261,6 +262,6 @@ public class MutableAffineTerm {
 		final String comp = mConstant.mEps == 0 ? "<=" : "<";
 		final Term zero = Rational.ZERO.toTerm(sort);
 		final Term res = smtTheory.term(comp, toSMTLib(smtTheory, isInt, quoted), zero);
-		return quoted ? smtTheory.annotatedTerm(LAEquality.QUOTED_LA, res) : res;
+		return quoted ? smtTheory.annotatedTerm(ProofConstants.ANNOT_QUOTED_LA, res) : res;
 	}
 }
