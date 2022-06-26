@@ -99,6 +99,7 @@ public interface ProofConstants {
 	public final static Annotation RW_STORE_OVER_STORE  = new Annotation(":storeOverStore", null);
 	public final static Annotation RW_SELECT_OVER_STORE = new Annotation(":selectOverStore", null);
 	public final static Annotation RW_STORE_REWRITE     = new Annotation(":storeRewrite", null);
+	public final static Annotation RW_AUX_INTRO         = new Annotation(":auxIntro", null);
 	public final static Annotation RW_INTERN            = new Annotation(":intern", null);
 
 	//// ==== Tautologies ====

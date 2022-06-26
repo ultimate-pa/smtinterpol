@@ -2790,6 +2790,9 @@ public class ProofChecker extends NonRecursive {
 		case ":storeRewrite":
 			okay = checkRewriteStore(stmtParams[0], stmtParams[1]);
 			break;
+		case ":auxIntro":
+			okay = checkRewriteAuxIntro(stmtParams[0], stmtParams[1]);
+			break;
 		case ":intern":
 			okay = checkRewriteIntern(stmtParams[0], stmtParams[1]);
 			break;
@@ -3611,6 +3614,13 @@ public class ProofChecker extends NonRecursive {
 		default:
 			return false;
 		}
+	}
+
+	boolean checkRewriteAuxIntro(final Term lhs, final Term rhs) {
+		if (!(rhs instanceof ApplicationTerm) || !((ApplicationTerm) rhs).getFunction().getName().startsWith("@AUX")) {
+			return false;
+		}
+		return compareAuxDef(rhs, lhs);
 	}
 
 	boolean checkRewriteIntern(final Term lhs, Term rhs) {

@@ -2193,6 +2193,19 @@ public class ProofSimplifier extends TermTransformer {
 		}
 	}
 
+	/**
+	 * Explain an auxIntro rewrite rules of the form {@code (= def (@AUX x y))},
+	 * where def is the definition of the {@code @AUX} application.
+	 *
+	 * @param lhs the definition.
+	 * @param rhs the AUX application.
+	 * @return the low-level proof for that statement.
+	 */
+	private Term convertRewriteAuxIntro(final Term rewrite, final Term lhs, final Term rhs) {
+		final Term symmEq = mSkript.term(SMTLIBConstants.EQUALS, rhs, lhs);
+		return res(symmEq, mProofRules.expand(rhs), mProofRules.symm(lhs, rhs));
+	}
+
 	private Term convertRewriteStore(final Term rewrite, final Term lhs, final Term rhs) {
 		// lhs: (= (store a i v) a) (or symmetric)
 		// rhs: (= (select a i) v)
@@ -2773,6 +2786,9 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":storeRewrite":
 			subProof = convertRewriteStore(rewriteStmt, stmtParams[0], stmtParams[1]);
+			break;
+		case ":auxIntro":
+			subProof = convertRewriteAuxIntro(rewriteStmt, stmtParams[0], stmtParams[1]);
 			break;
 		default:
 			// throw new AssertionError("Unknown Rewrite Rule: " + annotTerm);

@@ -47,6 +47,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -425,7 +426,7 @@ public class Clausifier {
 				if (idx.getFreeVars().length > 0) {
 					quantified = true;
 				}
-
+				Term rewrite = mTracker.reflexivity(at);
 				// TODO build a method for this, this part is used in several methods
 				if (at.getFunction().getName().equals("true")) {
 					lit = mTRUE;
@@ -444,7 +445,11 @@ public class Clausifier {
 						} else if (trivialEq == mTheory.mFalse) {
 							lit = mFALSE;
 						} else {
-							lit = mQuantTheory.getQuantEquality(lhs, rhs, mCollector.getSource());
+							final Term newLhs = rewriteBooleanSubterms(lhs, mCollector.getSource());
+							final Term newRhs = rewriteBooleanSubterms(rhs, mCollector.getSource());
+							rewrite = mTracker.congruence(rewrite, new Term[] { newLhs, newRhs });
+							lit = mQuantTheory.getQuantEquality(mTracker.getProvedTerm(newLhs),
+									mTracker.getProvedTerm(newRhs), mCollector.getSource());
 						}
 					} else {
 						final EqualityProxy eq = createEqualityProxy(lhs, rhs, mCollector.getSource());
@@ -464,12 +469,19 @@ public class Clausifier {
 					// (<= SMTAffineTerm 0)
 					if (quantified) {
 						final Term linTerm = at.getParameters()[0];
-						lit = mQuantTheory.getQuantInequality(positive, linTerm, mCollector.getSource());
+						final Term zero = at.getParameters()[1];
+						final Term newLinTerm = rewriteBooleanSubterms(linTerm, mCollector.getSource());
+						rewrite = mTracker.congruence(rewrite, new Term[] { newLinTerm, mTracker.reflexivity(zero) });
+						lit = mQuantTheory.getQuantInequality(positive, mTracker.getProvedTerm(newLinTerm),
+								mCollector.getSource());
 					} else {
 						lit = createLeq0(at, mCollector.getSource());
 					}
 				} else if (!at.getFunction().isInterpreted() || Clausifier.needCCTerm(at)) {
-					lit = createBooleanLit(at, mCollector.getSource());
+					if (quantified) {
+						rewrite = rewriteBooleanSubterms(at, mCollector.getSource());
+					}
+					lit = createBooleanLit((ApplicationTerm) mTracker.getProvedTerm(rewrite), mCollector.getSource());
 				} else {
 					lit = createAnonLiteral(idx, mCollector.getSource());
 					if (idx.getFreeVars().length == 0) {
@@ -483,8 +495,8 @@ public class Clausifier {
 					}
 				}
 				// TODO end
-
-				final Term rewrite = mTracker.intern(at, lit.getSMTFormula(theory, true));
+				rewrite = mTracker.transitivity(rewrite,
+						mTracker.intern(mTracker.getProvedTerm(rewrite), lit.getSMTFormula(theory, true)));
 				mCollector.addLiteral(positive ? lit : lit.negate(), at, rewrite, positive);
 			} else if (idx instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) idx;
@@ -990,6 +1002,46 @@ public class Clausifier {
 			pushOperation(new CheckBounds(mTermITE));
 		}
 
+	}
+
+	class BooleanSubtermReplacer extends TermTransformer {
+
+		private final SourceAnnotation mSource;
+
+		public BooleanSubtermReplacer(final SourceAnnotation source) {
+			mSource = source;
+		}
+
+		@Override
+		public void convert(final Term term) {
+			if (term.getSort().getName() == SMTLIBConstants.BOOL && shouldReplaceTerm(term)) {
+				final QuantAuxEquality auxEq = (QuantAuxEquality) createAnonLiteral(term, mSource);
+				addAuxAxiomsQuant(term, mSource);
+				final Term auxTerm = auxEq.getLhs();
+				setResult(mTracker.buildRewrite(term, auxTerm, ProofConstants.RW_AUX_INTRO));
+				return;
+			}
+			if (term instanceof ApplicationTerm) {
+				super.convert(term);
+			} else {
+				setResult(mTracker.reflexivity(term));
+				return;
+			}
+		}
+
+		@Override
+		public void convertApplicationTerm(final ApplicationTerm appTerm, final Term[] newArgs) {
+			setResult(mTracker.congruence(mTracker.reflexivity(appTerm), newArgs));
+		}
+
+		boolean shouldReplaceTerm(final Term term) {
+			return term.getFreeVars().length != 0 && !(term instanceof TermVariable)
+					&& (!Clausifier.needCCTerm(term) || term instanceof QuantifiedFormula || term instanceof MatchTerm);
+		}
+	}
+
+	private Term rewriteBooleanSubterms(final Term term, final SourceAnnotation source) {
+		return new BooleanSubtermReplacer(source).transform(term);
 	}
 
 	/**
