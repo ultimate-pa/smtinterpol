@@ -103,14 +103,14 @@ This renaming is done in a deterministic way to ensure that terms that are ident
 For printing terms, another term transformer is used to reintroduce \smtlib{let} terms for binding shared subterms to variables.
 This term transformer is not part of the trusted code, though, since the proof checker will never use it.
 
-The main proof checker will run over the expanded proof term and inductively compute for each proof sub-term the clause proved by the sub-proof.
+The main proof checker will run over the expanded proof term and inductively compute for each proof subterm the clause proved by the subproof.
 It uses a hash table to avoid computing the clause twice for the same proof term (this will happen due to let expansion).
 The clauses themselves are represented by hash sets of literals, which are either positive or negated terms.
 Implementing the resolution rule is straightforward.
 The resolution rule will warn if the pivot literal does not appear with the expected polarity, but will still compute the resulting clause (which is sound).
 This helps to debug faulty proofs without rejecting a correct proof that accidentally applied the same resolution too often.
 
-Another procedure computes for each axiom and assume statement the produced sub-clause.
+Another procedure computes for each axiom and assume statement the corresponding clause.
 This procedure needs to check the side condition for the axioms and compute the literals in the proved clause.
 Unsoundness when computing the literals will likely be detected during testing, since a clause with wrong literals will usually make a correct proof fail during testing.
 However, a wrong side condition may not cause a correct proof to fail.
@@ -148,3 +148,9 @@ Magic Number: 945345692
 \bibliography{sysdec}
 \bibliographystyle{alpha}
 \end{document}
+
+%%  LocalWords:  parsers SMT LGPL datatypes unsatisfiable DIMACS DPLL
+%%  LocalWords:  interpolants AIGER CDCL CNF infeasibility backend SV
+%%  LocalWords:  enumerative Automizer CPAchecker logics unsat Bool
+%%  LocalWords:  unsatisfiability subproof subproofs arity AST farkas
+%%  LocalWords:  subterms typecheck Webpage
