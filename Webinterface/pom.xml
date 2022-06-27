@@ -23,7 +23,7 @@
 
 	<properties>
 		<java.version>1.8</java.version>
-		<teavm.version>0.7.0-dev-1196</teavm.version>
+		<teavm.version>0.7.0</teavm.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 
@@ -160,7 +160,7 @@
 							<sourceFilesCopied>true</sourceFilesCopied>
 
 							<!-- Optimization level. Valid values are: SIMPLE, ADVANCED, FULL -->
-							<optimizationLevel>SIMPLE</optimizationLevel>
+							<optimizationLevel>FULL</optimizationLevel>
 						</configuration>
 					</execution>
 				</executions>
