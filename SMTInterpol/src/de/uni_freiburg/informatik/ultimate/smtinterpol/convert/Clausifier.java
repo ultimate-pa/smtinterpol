@@ -484,14 +484,13 @@ public class Clausifier {
 					lit = createBooleanLit((ApplicationTerm) mTracker.getProvedTerm(rewrite), mCollector.getSource());
 				} else {
 					lit = createAnonLiteral(idx, mCollector.getSource());
+					// aux axioms will always automatically created for quantified formulas
 					if (idx.getFreeVars().length == 0) {
 						if (positive) {
 							addAuxAxioms(idx, true, mCollector.getSource());
 						} else {
 							addAuxAxioms(idx, false, mCollector.getSource());
 						}
-					} else {
-						addAuxAxiomsQuant(idx, mCollector.getSource());
 					}
 				}
 				// TODO end
@@ -517,14 +516,13 @@ public class Clausifier {
 				mCollector.addLiteral(lit.negate(), idx, rewrite, positive);
 			} else if (idx instanceof MatchTerm) {
 				final ILiteral lit = createAnonLiteral(idx, mCollector.getSource());
+				// aux axioms will always automatically created for quantified formulas
 				if (idx.getFreeVars().length == 0) {
 					if (positive) {
 						addAuxAxioms(idx, true, mCollector.getSource());
 					} else {
 						addAuxAxioms(idx, false, mCollector.getSource());
 					}
-				} else {
-					addAuxAxiomsQuant(idx, mCollector.getSource());
 				}
 				final Term rewrite = mTracker.intern(idx, lit.getSMTFormula(theory, true));
 				mCollector.addLiteral(positive ? lit : lit.negate(), idx, rewrite, positive);
@@ -1015,9 +1013,7 @@ public class Clausifier {
 		@Override
 		public void convert(final Term term) {
 			if (term.getSort().getName() == SMTLIBConstants.BOOL && shouldReplaceTerm(term)) {
-				final QuantAuxEquality auxEq = (QuantAuxEquality) createAnonLiteral(term, mSource);
-				addAuxAxiomsQuant(term, mSource);
-				final Term auxTerm = auxEq.getLhs();
+				final Term auxTerm = createQuantAuxTerm(term, mSource);
 				setResult(mTracker.buildRewrite(term, auxTerm, ProofConstants.RW_AUX_INTRO));
 				return;
 			}
@@ -1397,6 +1393,10 @@ public class Clausifier {
 	private boolean mPropagateUnknownAux;
 
 	/**
+	 * Mapping from quantified subterms to their aux function application.
+	 */
+	private final ScopedHashMap<Term, Term> mAnonAuxTerms = new ScopedHashMap<>();
+	/**
 	 * Mapping from subformulas to their literal, if there was any created.
 	 */
 	private final ScopedHashMap<Term, ILiteral> mLiterals = new ScopedHashMap<>();
@@ -1578,7 +1578,7 @@ public class Clausifier {
 	 * @param source
 	 *            The input clause from which this axiom was created.
 	 */
-	public void addAuxAxiomsQuant(final Term term, final SourceAnnotation source) {
+	public void addAuxAxiomsQuant(final Term term, final Term auxTerm, final SourceAnnotation source) {
 		final int oldFlags = getTermFlags(term);
 		final int auxflag = Clausifier.POS_AUX_AXIOMS_ADDED | Clausifier.NEG_AUX_AXIOMS_ADDED;
 		if ((oldFlags & auxflag) == auxflag ) {
@@ -1588,10 +1588,9 @@ public class Clausifier {
 		}
 		setTermFlags(term, oldFlags | auxflag);
 
-		final QuantAuxEquality auxTrueLit = (QuantAuxEquality) getILiteral(term);
 		final Theory t = term.getTheory();
+		final QuantAuxEquality auxTrueLit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
 		final ILiteral auxFalseLit = mQuantTheory.createAuxFalseLiteral(auxTrueLit, source);
-
 		createDefiningClausesForLiteral(auxFalseLit, term, true, source);
 		createDefiningClausesForLiteral(auxTrueLit, term, false, source);
 	}
@@ -2059,6 +2058,24 @@ public class Clausifier {
 		return null;
 	}
 
+	public Term createQuantAuxTerm(final Term term, final SourceAnnotation source) {
+		Term auxTerm = mAnonAuxTerms.get(term);
+		if (auxTerm == null) {
+			assert mTheory.getLogic().isQuantified() : "quantified variables in quantifier-free theory";
+			final TermVariable[] freeVars = new TermVariable[term.getFreeVars().length];
+			final Term[] freeVarsAsTerm = new Term[freeVars.length];
+			for (int i = 0; i < freeVars.length; i++) {
+				freeVars[i] = term.getFreeVars()[i];
+				freeVarsAsTerm[i] = freeVars[i];
+			}
+			final FunctionSymbol fs = mTheory.createFreshAuxFunction(freeVars, term);
+			auxTerm = mTheory.term(fs, freeVarsAsTerm);
+			addAuxAxiomsQuant(term, auxTerm, source);
+			mAnonAuxTerms.put(term, auxTerm);
+		}
+		return auxTerm;
+	}
+
 	public ILiteral createAnonLiteral(final Term term, final SourceAnnotation source) {
 		ILiteral lit = getILiteral(term);
 		if (lit == null) {
@@ -2067,24 +2084,8 @@ public class Clausifier {
 			 * currently active quantifiers
 			 */
 			if (term.getFreeVars().length > 0) {
-				assert mTheory.getLogic().isQuantified() : "quantified variables in quantifier-free theory";
-				final TermVariable[] freeVars = new TermVariable[term.getFreeVars().length];
-				final Term[] freeVarsAsTerm = new Term[freeVars.length];
-				for (int i = 0; i < freeVars.length; i++) {
-					freeVars[i] = term.getFreeVars()[i];
-					freeVarsAsTerm[i] = freeVars[i];
-				}
-				final FunctionSymbol fs = mTheory.createFreshAuxFunction(freeVars, term);
-				final Term auxTerm = mTheory.term(fs, freeVarsAsTerm);
-				if (mIsEprEnabled) {
-					lit = mEprTheory.getEprAtom((ApplicationTerm) auxTerm, 0, mStackLevel, SourceAnnotation.EMPTY_SOURCE_ANNOT);
-				} else {
-					// TODO Create CCBaseTerm for the aux func or pred (edit: this is done automatically when looking
-					// for instantiation terms - should it be done earlier?)
-					// We use an equality "f(x,y,...)=true", not a NamedAtom, as CClosure must treat the literal
-					// instances.
-					lit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
-				}
+				final Term auxTerm = createQuantAuxTerm(term, source);
+				lit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
 			} else {
 				lit = new NamedAtom(term, mStackLevel);
 				mEngine.addAtom((NamedAtom) lit);
@@ -2099,11 +2100,10 @@ public class Clausifier {
 		final Term idx = toPositive(t);
 		final boolean pos = t == idx;
 		final ILiteral lit = createAnonLiteral(idx, source);
+		// aux axioms will always automatically created for quantified formulas
 		if (idx.getFreeVars().length == 0) {
 			addAuxAxioms(idx, true, source);
 			addAuxAxioms(idx, false, source);
-		} else {
-			addAuxAxiomsQuant(idx, source);
 		}
 		return pos ? lit : lit.negate();
 	}
@@ -2368,6 +2368,7 @@ public class Clausifier {
 			mEqualities.beginScope();
 			mTermDataFlags.beginScope();
 			mLiterals.beginScope();
+			mAnonAuxTerms.beginScope();
 			mLATerms.beginScope();
 			mCCTerms.beginScope();
 		}
@@ -2393,6 +2394,7 @@ public class Clausifier {
 			}
 			mLATerms.endScope();
 			mLiterals.endScope();
+			mAnonAuxTerms.endScope();
 			mTermDataFlags.endScope();
 			mEqualities.endScope();
 		}

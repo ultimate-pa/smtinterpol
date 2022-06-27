@@ -469,8 +469,9 @@ public class QuantifierTheory implements ITheory {
 				{ "E-Matching", mEMatchingTime }, { "Final Check", mFinalCheckTime } } } } };
 	}
 
-	public ILiteral createAuxLiteral(final Term auxTerm, final Term definingTerm, final SourceAnnotation source) {
-		final QuantLiteral atom = new QuantAuxEquality(auxTerm, mTheory.mTrue, definingTerm);
+	public QuantAuxEquality createAuxLiteral(final Term auxTerm, final Term definingTerm,
+			final SourceAnnotation source) {
+		final QuantAuxEquality atom = new QuantAuxEquality(auxTerm, mTheory.mTrue, definingTerm);
 
 		// The atom is almost uninterpreted.
 		atom.mIsEssentiallyUninterpreted = atom.negate().mIsEssentiallyUninterpreted = true;
