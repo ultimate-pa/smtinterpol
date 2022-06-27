@@ -11,16 +11,16 @@
 \newcommand{\version}{\splice{git describe}}
 \newcommand{\TODO}[1]{\textcolor{red}{#1}}
 
-\title{\SI with resolution proofs\\{\large Versions\version}}
+\title{\SI with resolution proofs\\{\large Version \version}}
 
-\author{Jochen Hoenicke \and Tanja Schindler}  % Moritz Mohr  und BV?
+\author{Jochen Hoenicke \and Tanja Schindler}
 \institute{
   University of Freiburg\\
   \email{\{hoenicke,schindle\}@informatik.uni-freiburg.de}\\[1ex]
   \today
 }
 \titlerunning{\SI with resolution proofs \version}
-\authorrunning{Hoenicke, and Schindler}
+\authorrunning{Hoenicke and Schindler}
 
 \begin{document}
 \maketitle
@@ -36,23 +36,23 @@ It uses variants of standard algorithms for CNF conversion~\cite{DBLP:journals/j
 The solver for linear arithmetic is based on Simplex~\cite{DBLP:conf/cav/DutertreM06}, the sum-of-infeasibility algorithm~\cite{DBLP:conf/fmcad/KingBD13}, and branch-and-cut for integer arithmetic~\cite{DBLP:conf/cav/ChristH15,DBLP:conf/cav/DilligDA09}.
 The array decision procedure is based on weak equivalences~\cite{DBLP:conf/frocos/ChristH15} and includes an extension for constant arrays~\cite{DBLP:conf/vmcai/HoenickeS19}.
 The decision procedure for data types is based on the rules presented in~\cite{DBLP:journals/jsat/BarrettST07}.
-The extension allows for choosing a best unsatisfiable core according to several heuristics.
 The solver for quantified formulas performs an incremental search for conflicting and unit-propagating instances of quantified formulas~\cite{DBLP:conf/vmcai/HoenickeS21} which is complemented with a version of enumerative instantiation~\cite{DBLP:conf/tacas/ReynoldsBF18} to ensure completeness for the finite almost uninterpreted fragment~\cite{DBLP:conf/cav/GeM09}.
 Theory combination is performed based on partial models produced by the theory solvers~\cite{DBLP:journals/entcs/MouraB08}.
 
 The main focus of \SI is the incremental track.
 This track simulates the typical application of \SI where a user asks multiple queries.
-As an extension \SI supports quantifier-free interpolation for all supported theories except for datatypes~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19}.
+As an extension, \SI supports quantifier-free interpolation for all supported theories except for datatypes~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19}.
 This makes it useful as a backend for software verification tools.
-In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2021, use \SI.
+In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2021, used \SI.
 
-This year \SI comes with a new proof production that is based on resolution using a minimal set of axioms.  This is described in more details below.
+This year, \SI comes with a new proof production that is based on resolution using a minimal set of axioms.  This is described in more detail below.
 
-\section*{Competition Versions}
-The version of \SI submitted to the SMT-COMP 2021 contains the new solver for datatypes.
-A peculiarity in this year's versions is that the proof check mode is enabled, which means that proofs of unsatisfiability are tracked and checked by the internal proof checker (an exception are lemmas of the theory of datatypes).
-
-\SIrem is a variant of \SI that uses an enumeration algorithm in order to find smaller unsatisfiable cores if possible.
+\section*{Competition Version}
+The version of \SI submitted to the SMT-COMP 2022 contains the new proof production module.
+\SI can produce complete proofs for all supported logics.
+The proof checker is implemented as an external procedure.
+\SI runs with proof check mode enabled such that all proofs of unsatisfiability are tracked and checked.
+Only if the check succeeds, \SI returns \texttt{unsatisfiable}.
 
 \section*{Proof Format}
 
@@ -63,7 +63,7 @@ The only one proof rule is the resolution rule and there are several axioms prov
 
 The concrete syntax for an input formula is \smtlib{(assume $p$)} where $p$ is equal to an asserted term in the SMT-LIB benchmark, which proves the unit-clause $\{ p \}$.
 An example for an axiom is not-introduction with the concrete syntax \smtlib{(not+ $p$)} where $p$ is an SMT-LIB formula.
-It proves the clause $\{ \smtlib{(not $p$)}, p \}$ and states that either of the two terms in the clause must be true.
+It proves the clause $\{ \smtlib{(not $p$)}, p \}$ and states that one of the two terms in the clause must be true.
 Similarly, there is not-elimination with the concrete syntax \smtlib{(not- $p$)}, which proves the clause $\{ \lnot \smtlib{(not $p$)}, \lnot \smtlib{$p$}\}$.
 The concrete syntax of the resolution rule is \smtlib{(res $p$ $\prf_1$ $\prf_2$)} where $p$ is an SMT-LIB formula, $\prf_1$ a subproof of a clause $C_1$, and $\prf_2$ a subproof of a clause $C_2$.
 The term \smtlib{(res $p$ $\prf_1$ $\prf_2$)} is then a proof of the clause $(C_1\setminus\{p\}) \cup (C_2\setminus\{\lnot p\})$.
@@ -83,39 +83,39 @@ the data structures to represent SMT-LIB terms,
 the type checker for SMT-LIB terms and the transformation of let terms into their expanded form as a DAG.
 Finally the underlying hardware, the operating system, the compiler, and the programming language environment need also be trusted.
 
-In \SI the parser of SMT-LIB benchmarks, the term datastructures and the DAG transformation is shared between the solver and the proof checker.
+In \SI, the parser of SMT-LIB benchmarks, the term data structures and the DAG transformation are shared between the solver and the proof checker.
 Therefore, these parts pose the biggest risk of introducing undetected unsoundness.
-We minimize the problems by keeping the parser and data structure simple.
+We minimize the problems by keeping the parser and data structures simple.
 In particular, the data structure for terms is a simple abstract syntax tree of the concrete SMT-LIB syntax and no simplifications of the formula are done inside the parser.
-Each terms is represented by a Java object, e.g. an application term is represented by an object that contains a reference to the head function symbol (another Java object) and references to the argument terms.
-Most SMT-LIB terms are represented as application terms; only for quantified formulas, \smtlib{choose}, let binders, match terms (for datatypes), numerical constants, and term variables a different subclass of the term class is used.
+Each term is represented by a Java object, e.g. an application term is represented by an object that contains a reference to the head function symbol (another Java object) and references to the argument terms.
+Most SMT-LIB terms are represented as application terms; only for quantified formulas, \smtlib{choose}, let binders, match terms (for datatypes), numerical constants, and term variables, a different subclass of the term class is used.
 
 There is a simple term factory that keeps a hash set of already produced terms and that ensures that each term is only created once.
-For overloaded functions like \smtlib{-} and parametric functions like \smtlib{=} a function symbol factory takes the input sorts, determines the result sort, creates a plain function symbol with the correct arity if it does not already exists, and finally returns this function symbol.
-Thus the type-checker, which is built into the term factory, does not need to handle overloaded symbols because the function symbol is already an instance with the correct arity.
-Since the type-checker is part of the term factory, all created terms are always well-typed and there is no danger of accidentally skipping a type checking step.
+For overloaded functions like \smtlib{-} and parametric functions like \smtlib{=}, a function symbol factory takes the input sorts, determines the result sort, creates a plain function symbol with the correct arity if it does not already exists, and finally returns this function symbol.
+Thus the type checker, which is built into the term factory, does not need to handle overloaded symbols because the function symbol is already an instance with the correct arity.
+Since the type checker is part of the term factory, all created terms are always well-typed and there is no danger of accidentally skipping a type checking step.
 
 We support \smtlib{let} terms directly in our term AST structure.
-However when working with terms the \smtlib{let} binders are usually removed before.
-This is achieved by a term transformers that removes all applications of \smtlib{let} and replaces the term variables bound by a let with the terms that they are bound to.
+However, when working with terms, the \smtlib{let} binders are usually removed before.
+This is achieved by a term transformer that removes all applications of \smtlib{let} and replaces the term variables bound by a let with the terms that they are bound to.
 This term transformer will also handle safe bounded renaming to ensure that inserting a term containing term variables will not accidentally bind the term variables to the wrong quantifier.
 This renaming is done in a deterministic way to ensure that terms that are identical up to let expansion will expand into identical terms.
 For printing terms, another term transformer is used to reintroduce \smtlib{let} terms for binding shared subterms to variables.
-This term transformer is not part of the trusted code, though, since the proof-checker will never use it.
+This term transformer is not part of the trusted code, though, since the proof checker will never use it.
 
-The main proof-checker will run over the expanded proof term and inductively compute for each proof sub-term the clause proved by the sub-proof.
+The main proof checker will run over the expanded proof term and inductively compute for each proof sub-term the clause proved by the sub-proof.
 It uses a hash table to avoid computing the clause twice for the same proof term (this will happen due to let expansion).
 The clauses themselves are represented by hash sets of literals, which are either positive or negated terms.
-Implementing the resolution rule is straight-forward.
+Implementing the resolution rule is straightforward.
 The resolution rule will warn if the pivot literal does not appear with the expected polarity, but will still compute the resulting clause (which is sound).
 This helps to debug faulty proofs without rejecting a correct proof that accidentally applied the same resolution too often.
 
 Another procedure computes for each axiom and assume statement the produced sub-clause.
-This procedure needs to checks the side-condition for the axiom and compute the literals in the proved clause.
+This procedure needs to check the side condition for the axioms and compute the literals in the proved clause.
 The first part is most likely to cause undetected unsoundness, since for the second part a wrongly computed clause will usually make a correct proof fail during testing.
-We keep the necessary side-condition of the rules simple to avoid errors of the first kind.
-Moreover side-conditions like the one for \smtlib{farkas} that check the equality of two terms are done by checking whether the difference of the terms is zero.
-Since a bug is very unlikely to cancel all terms, they are more likely to mark valid proofs as invalid than the other way round.
+We keep the necessary side condition of the rules simple to avoid errors of the first kind.
+Moreover, side conditions like the one for \smtlib{farkas} that check the equality of two terms are handled by checking whether the difference of the terms is zero.
+Since a bug is very unlikely to cancel all terms, this method is more likely to mark valid proofs as invalid than the other way round.
 Note that since our term generator only produces well-typed terms, we do not need to typecheck the terms when checking an axiom.
 
 
