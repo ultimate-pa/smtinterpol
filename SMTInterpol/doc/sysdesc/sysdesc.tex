@@ -59,7 +59,7 @@ For the proof exhibition track an external proof checker was implemented.
 The proof format of \SI is an S-expression with a syntax very similar to SMT-LIB terms~\cite{DBLP:conf/smt/HoenickeS22}.
 The format is based on resolution and each clause is a set of SMT-LIB formulas $p$ or negated formulas $\lnot p$ where $p$ is an SMT-LIB formula (an SMT-LIB term of type \smtlib{Bool}).
 The meaning of SMT-LIB functions is given by axioms and even logical operators like \smtlib{or} and \smtlib{not} have no built-in meaning.
-The only proof rule is the resolution rule and several axioms providing the meaning of the theory functions and logical operators (currently around sixty).
+The only proof rule is the resolution rule and several axioms provide the meaning of the theory functions and logical operators (currently around sixty).
 
 The concrete syntax for an input formula is \smtlib{(assume $p$)} where $p$ is equal to an asserted term in the SMT-LIB benchmark, which proves the unit-clause $\{ p \}$.
 An example for an axiom is not-introduction with the concrete syntax \smtlib{(not+ $p$)} where $p$ is an SMT-LIB formula.
