@@ -45,21 +45,21 @@ As an extension, \SI supports quantifier-free interpolation for all supported th
 This makes it useful as a backend for software verification tools.
 In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2021, used \SI.
 
-This year, \SI comes with a new proof production that is based on resolution using a minimal set of axioms.  This is described in more detail below.
+This year, \SI comes with a new proof production~\cite{DBLP:conf/smt/HoenickeS22} that is based on resolution using a minimal set of axioms.  This is described in more detail below.
 
 \section*{Competition Version}
 The version of \SI submitted to the SMT-COMP 2022 contains the new proof production module.
 \SI can produce complete proofs for all supported logics.
-The proof checker is implemented as an external procedure.
-\SI runs with proof check mode enabled such that all proofs of unsatisfiability are tracked and checked.
+In the single query, incremental, and unsat core track \SI runs with its internal proof checker enabled such that all proofs of unsatisfiability are checked before an unsat result is output.
 Only if the check succeeds, \SI returns \texttt{unsatisfiable}.
+For the proof exhibition track an external proof checker was implemented.
 
 \section*{Proof Format}
 
-The proof format of \SI is an S-expression with a syntax very similar to SMT-LIB terms.
+The proof format of \SI is an S-expression with a syntax very similar to SMT-LIB terms~\cite{DBLP:conf/smt/HoenickeS22}.
 The format is based on resolution and each clause is a set of SMT-LIB formulas $p$ or negated formulas $\lnot p$ where $p$ is an SMT-LIB formula (an SMT-LIB term of type \smtlib{Bool}).
 The meaning of SMT-LIB functions is given by axioms and even logical operators like \smtlib{or} and \smtlib{not} have no built-in meaning.
-The only one proof rule is the resolution rule and there are several axioms providing the meaning of the SMT-LIB functions and logical operators (currently around sixty).
+The only proof rule is the resolution rule and several axioms providing the meaning of the theory functions and logical operators (currently around sixty).
 
 The concrete syntax for an input formula is \smtlib{(assume $p$)} where $p$ is equal to an asserted term in the SMT-LIB benchmark, which proves the unit-clause $\{ p \}$.
 An example for an axiom is not-introduction with the concrete syntax \smtlib{(not+ $p$)} where $p$ is an SMT-LIB formula.
@@ -112,8 +112,9 @@ This helps to debug faulty proofs without rejecting a correct proof that acciden
 
 Another procedure computes for each axiom and assume statement the produced sub-clause.
 This procedure needs to check the side condition for the axioms and compute the literals in the proved clause.
-The first part is most likely to cause undetected unsoundness, since for the second part a wrongly computed clause will usually make a correct proof fail during testing.
-We keep the necessary side condition of the rules simple to avoid errors of the first kind.
+Unsoundness when computing the literals will likely be detected during testing, since a clause with wrong literals will usually make a correct proof fail during testing.
+However, a wrong side condition may not cause a correct proof to fail.
+We keep the necessary side condition of the rules simple to avoid unsoundness errors in our proof checker.
 Moreover, side conditions like the one for \smtlib{farkas} that check the equality of two terms are handled by checking whether the difference of the terms is zero.
 Since a bug is very unlikely to cancel all terms, this method is more likely to mark valid proofs as invalid than the other way round.
 Note that since our term generator only produces well-typed terms, we do not need to typecheck the terms when checking an axiom.
@@ -130,17 +131,16 @@ The sources are available via GitHub
   \url{https://github.com/ultimate-pa/smtinterpol}
 \end{center}
 
-\section*{Authors}
+\section*{Authors, Logics, Tracks and Magic Number}
 The code was written by J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
 
-\section*{Logics, Tracks and Magic Number}
-
-\SI participates in the single query track, the incremental track, the unsat core track, and the model validation track.
+\SI participates in the single query track, the incremental track, the unsat core track, the model validation track, and the proof exhibition track.
 It supports all combinations of uninterpreted functions, linear arithmetic, arrays, and datatypes, and participates in the logics matched by the regex
-\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|L(IR)*A)!.
+\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL](IR)*A)!\footnote{\SI does not support non-linear arithmetic, but it supports modulo and division by constants.  Since several of these benchmarks are marked as non-linear, we also participate in these logics}
 The model generator currently does not support quantifiers and datatypes, i.e.,
-\verb!(QF_)(AX?)?(UF)?([IR]DL|L(IR)*A)! is the regex describing the
-logics for the model validation track.
+the regex describing the logics for the model validation track is
+\verb!(QF_)(AX?)?(UF)?([IR]DL|[NL](IR)*A)!.
+
 
 Magic Number: 945345692
 
