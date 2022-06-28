@@ -231,13 +231,16 @@ public class DataTypeTheory implements ITheory {
 					final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
 					final Term[] testers = new Term[dt.getConstructors().length];
 					int i = 0;
+					CCTerm firstArg = null;
 					for (final Constructor consName : dt.getConstructors()) {
 						final CCTerm isFun = isIndices.get(consName.getName());
 						testers[i++] = isFun.mFlatTerm;
 						final CCTerm arg = ((CCAppTerm)isFun).mArg;
 						reason.add(new SymmetricPair<>(isFun, falseCC));
-						if (arg != cct) {
-							reason.add(new SymmetricPair<>(arg, cct));
+						if (firstArg == null) {
+							firstArg = arg;
+						} else if (firstArg != arg) {
+							reason.add(new SymmetricPair<>(firstArg, arg));
 						}
 					}
 					@SuppressWarnings("unchecked")
