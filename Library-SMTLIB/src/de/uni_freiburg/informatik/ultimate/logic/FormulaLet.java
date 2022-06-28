@@ -944,22 +944,6 @@ public class FormulaLet extends NonRecursive {
 					// recursively walk the annotation and push the contained terms.
 					let.addTransformScope(quant.getVariables(), mTermInfo.mScopes[0]);
 					let.enqueueWalker(new AddParent(mTermInfo, at.getSubterm()));
-					final ArrayDeque<Object> todo = new ArrayDeque<>();
-					for (final Annotation annot : at.getAnnotations()) {
-						if (annot.getValue() != null) {
-							todo.add(annot.getValue());
-						}
-					}
-					while (!todo.isEmpty()) {
-						final Object value = todo.removeFirst();
-						if (value instanceof Term) {
-							let.mResultStack.addLast((Term) value);
-						} else if (value instanceof Object[]) {
-							for (final Object elem : (Object[]) value) {
-								todo.add(elem);
-							}
-						}
-					}
 				} else {
 					// enqueue a new letter for the sub formula.
 					let.addTransformScope(quant.getVariables(), mTermInfo.mScopes[0]);
