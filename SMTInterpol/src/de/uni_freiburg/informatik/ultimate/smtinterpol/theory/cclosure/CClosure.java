@@ -323,7 +323,7 @@ public class CClosure implements ITheory {
 				final CCTerm appArg = app.getArg();
 				/* E-Matching: activate reverse trigger */
 				final int parentpos = app.getFunc().mParentPosition;
-				final CCParentInfo argInfo = appArg.mCCPars.getInfo(parentpos);
+				final CCParentInfo argInfo = appArg.getRepresentative().mCCPars.getInfo(parentpos);
 				if (argInfo != null) {
 					for (final ReverseTrigger trigger : argInfo.mReverseTriggers) {
 						trigger.activate(term, true);
