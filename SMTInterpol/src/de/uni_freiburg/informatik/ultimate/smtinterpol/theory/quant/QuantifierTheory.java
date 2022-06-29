@@ -749,9 +749,9 @@ public class QuantifierTheory implements ITheory {
 			final SourceAnnotation source, final Term clauseWithProof) {
 		for (final QuantLiteral l : quantLits) {
 			if (!l.isAlmostUninterpreted()) {
-				mLogger.warn("Quant: Clause contains literal that is not almost uninterpreted: " + l);
+				mLogger.info("Quant: Clause contains literal that is not almost uninterpreted: %s", l);
 			} else if (l.mIsDERUsable) {
-				mLogger.warn("Quant: Clause contains disequality on variable not eliminated by DER: " + l);
+				mLogger.warn("Quant: Clause contains disequality on variable not eliminated by DER: %s", l);
 			}
 		}
 		if (quantLits.length == 0) {

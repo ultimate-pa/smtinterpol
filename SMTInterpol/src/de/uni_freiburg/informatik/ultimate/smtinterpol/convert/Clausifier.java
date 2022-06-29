@@ -2311,7 +2311,7 @@ public class Clausifier {
 	public void addFormula(final Term f) {
 		assert mTodoStack.isEmpty();
 		if (mEngine.inconsistent() && !mWarnedInconsistent) {
-			mLogger.warn("Already inconsistent.");
+			mLogger.info("Already inconsistent.");
 			mWarnedInconsistent = true;
 			return;
 		}

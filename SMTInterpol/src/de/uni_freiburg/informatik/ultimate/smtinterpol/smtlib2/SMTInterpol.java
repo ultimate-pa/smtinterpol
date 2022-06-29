@@ -564,9 +564,8 @@ public class SMTInterpol extends NoopScript {
 			}
 		}
 		mStatus = result;
-		if (Config.CHECK_STATUS_SET && isStatusSet() && mReasonUnknown != ReasonUnknown.MEMOUT
-				&& !mStatus.equals(mStatusInfo)) {
-			mLogger.warn("Status differs: User said %s but we got %s", mStatusInfo, mStatus);
+		if (Config.CHECK_STATUS_SET && isStatusSet() && result != LBool.UNKNOWN && !result.equals(mStatusInfo)) {
+			mLogger.warn("Status differs: User said %s but we got %s", mStatusInfo, result);
 			if (mErrorCallback != null) {
 				mErrorCallback.notifyError(ErrorReason.CHECKSAT_STATUS_DIFFERS);
 			}

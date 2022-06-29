@@ -444,7 +444,7 @@ public class ProofChecker extends NonRecursive {
 		assert (mStackResults.size() == 1);
 		final Term result[] = stackPop();
 		if (result != null && result.length > 0) {
-			reportError("The proof did not yield a contradiction but " + Arrays.toString(result));
+			reportError("The proof did not yield a contradiction but %s", Arrays.asList(result));
 		}
 		// clear state
 		mAssertions = null;
@@ -452,7 +452,7 @@ public class ProofChecker extends NonRecursive {
 
 		// TODO Handle this in a better way (e.g. as part of statistics)
 		if (proof.getTheory().getLogic().isQuantified()) {
-			mLogger.warn(
+			mLogger.info(
 					"Proof: Instances of quantified clauses used: %d (DER: %d Conflict/unit search: %d E-matching: %d Enumeration: %d)",
 					mNumInstancesUsed, mNumInstancesFromDER, mNumInstancesFromConflictUnitSearch,
 					mNumInstancesFromEMatching, mNumInstancesFromEnumeration);
@@ -460,13 +460,13 @@ public class ProofChecker extends NonRecursive {
 		return mError == 0;
 	}
 
-	private void reportError(final String msg) {
-		mLogger.error(msg);
+	private void reportError(final String msg, final Object... params) {
+		mLogger.error(msg, params);
 		mError++;
 	}
 
-	private void reportWarning(final String msg) {
-		mLogger.warn(msg);
+	private void reportWarning(final String msg, final Object... params) {
+		mLogger.warn(msg, params);
 	}
 
 	/**
@@ -543,7 +543,7 @@ public class ProofChecker extends NonRecursive {
 			break;
 
 		default:
-			reportError("Unknown proof rule " + rulename + ".");
+			reportError("Unknown proof rule %s.", rulename);
 			stackPush(null, proofTerm);
 			break;
 		}
@@ -568,7 +568,7 @@ public class ProofChecker extends NonRecursive {
 		 * :path (a b c))))
 		 */
 		if (!(lemmaApp.getParameters()[0] instanceof AnnotatedTerm)) {
-			reportError("Malformed lemma " + lemmaApp);
+			reportError("Malformed lemma %s", lemmaApp);
 			return null;
 		}
 		final AnnotatedTerm annTerm = (AnnotatedTerm) lemmaApp.getParameters()[0];
@@ -607,7 +607,7 @@ public class ProofChecker extends NonRecursive {
 			}
 			checkInstLemma(clause, subannots);
 		} else {
-			reportError("Cannot deal with lemma " + lemmaType);
+			reportError("Cannot deal with lemma %s", lemmaType);
 			mLogger.error(annTerm);
 		}
 
@@ -694,7 +694,7 @@ public class ProofChecker extends NonRecursive {
 		}
 		if (!new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1])
 				.equals(new SymmetricPair<>(sides[0], sides[1]))) {
-			reportError("Did not explain main equality " + goalEquality);
+			reportError("Did not explain main equality %s", goalEquality);
 		}
 
 		if (mainPath.length == 2) {
@@ -887,7 +887,7 @@ public class ProofChecker extends NonRecursive {
 				break;
 			}
 			default:
-				reportError("Unknown rule " + type);
+				reportError("Unknown rule %s", type);
 				return;
 			}
 		}
@@ -954,7 +954,7 @@ public class ProofChecker extends NonRecursive {
 					continue;
 				}
 			}
-			reportError("unexplained equality " + path[i] + " == " + path[i + 1]);
+			reportError("unexplained equality %s == %s", path[i], path[i + 1]);
 		}
 	}
 
@@ -1214,7 +1214,7 @@ public class ProofChecker extends NonRecursive {
 			assert ccAnnotation.length > 0;
 			for (int i = 0; i < ccAnnotation.length; i++) {
 				if (!(ccAnnotation[i] instanceof Term) || !isApplication(SMTLIBConstants.IS, (Term) ccAnnotation[i])) {
-					reportError("malformed dt-cases annotation: " + Arrays.toString(ccAnnotation));
+					reportError("malformed dt-cases annotation: %s", Arrays.asList(ccAnnotation));
 				}
 			}
 			final ApplicationTerm firstTester = (ApplicationTerm) ccAnnotation[0];
@@ -1222,7 +1222,7 @@ public class ProofChecker extends NonRecursive {
 			final DataType dataType = (DataType) firstData.getSort().getSortSymbol();
 			final Constructor constrs[] = dataType.getConstructors();
 			if (constrs.length != ccAnnotation.length) {
-				reportError("dt-cases annotation of wrong length: " + Arrays.toString(ccAnnotation));
+				reportError("dt-cases annotation of wrong length: %s", Arrays.asList(ccAnnotation));
 			}
 			final Term falseTerm = mSkript.term(SMTLIBConstants.FALSE);
 
@@ -1230,7 +1230,7 @@ public class ProofChecker extends NonRecursive {
 				final ApplicationTerm tester = (ApplicationTerm) ccAnnotation[i];
 				assert isApplication(SMTLIBConstants.IS, tester);
 				if (!constrs[i].getName().equals(tester.getFunction().getIndices()[0])) {
-					reportError("dt-cases with wrong tester order: " + Arrays.toString(ccAnnotation));
+					reportError("dt-cases with wrong tester order: %s", Arrays.asList(ccAnnotation));
 				}
 				if (!allEqualities.contains(new SymmetricPair<>(tester, falseTerm))) {
 					reportError("missing test equality in clause in dt-cases");
@@ -1246,12 +1246,12 @@ public class ProofChecker extends NonRecursive {
 		}
 		case ":dt-unique": {
 			if (ccAnnotation.length != 2) {
-				reportError("dt-unique annotation of wrong length: " + Arrays.toString(ccAnnotation));
+				reportError("dt-unique annotation of wrong length: %s", Arrays.asList(ccAnnotation));
 			}
 			assert ccAnnotation.length > 0;
 			for (int i = 0; i < ccAnnotation.length; i++) {
 				if (!(ccAnnotation[i] instanceof Term) || !isApplication(SMTLIBConstants.IS, (Term) ccAnnotation[i])) {
-					reportError("malformed dt-unique annotation: " + Arrays.toString(ccAnnotation));
+					reportError("malformed dt-unique annotation: %s", Arrays.asList(ccAnnotation));
 				}
 			}
 			final ApplicationTerm firstTester = (ApplicationTerm) ccAnnotation[0];
@@ -1362,7 +1362,7 @@ public class ProofChecker extends NonRecursive {
 				final Term consTerm = cycle[i+1];
 				if (!checkConsArg(consTerm, selectTerm)
 						&& !checkSelect(selectTerm, consTerm, allEqualities)) {
-					reportError("child check failed: " + consTerm + " and " + selectTerm);
+					reportError("child check failed: %s and %s", consTerm, selectTerm);
 				}
 				if (!allEqualities.contains(new SymmetricPair<>(cycle[i], consTerm))
 						&& !checkTrivialEquality(cycle[i], consTerm)) {
@@ -1372,7 +1372,7 @@ public class ProofChecker extends NonRecursive {
 			break;
 		}
 		default:
-			reportError("Unchecked datatype lemma " + type);
+			reportError("Unchecked datatype lemma %s", type);
 		}
 		return;
 	}
@@ -1513,7 +1513,7 @@ public class ProofChecker extends NonRecursive {
 						reportError("Negative coefficient for <");
 					}
 				} else {
-					reportError("Unknown atom in LA lemma: " + literal);
+					reportError("Unknown atom in LA lemma: %s", literal);
 					continue;
 				}
 			} else {
@@ -1528,7 +1528,7 @@ public class ProofChecker extends NonRecursive {
 						reportError("Positive coefficient for negated <");
 					}
 				} else {
-					reportError("Unknown atom in LA lemma: " + literal);
+					reportError("Unknown atom in LA lemma: %s", literal);
 					continue;
 				}
 			}
@@ -1561,7 +1561,7 @@ public class ProofChecker extends NonRecursive {
 				return;
 			}
 		}
-		reportError("LA lemma sums up to " + sum + (sumHasStrict ? " < 0" : " <= 0"));
+		reportError("LA lemma sums up to %s %s 0", sum, (sumHasStrict ? "<" : "<="));
 	}
 
 	/**
@@ -1572,7 +1572,7 @@ public class ProofChecker extends NonRecursive {
 	 */
 	private void checkTrichotomy(final Term[] clause) {
 		if (clause.length != 3) { // NOCHECKSTYLE
-			reportError("Malformed Trichotomy clause: " + Arrays.toString(clause));
+			reportError("Malformed Trichotomy clause: %s", Arrays.asList(clause));
 			return;
 		}
 
@@ -1630,7 +1630,7 @@ public class ProofChecker extends NonRecursive {
 					foundlits |= LEQ;
 				}
 			} else {
-				reportError("Unknown literal in trichotomy " + lit);
+				reportError("Unknown literal in trichotomy %s", lit);
 				return;
 			}
 			final Term[] params = ((ApplicationTerm) lit).getParameters();
@@ -1747,7 +1747,7 @@ public class ProofChecker extends NonRecursive {
 		final Annotation annot = getSingleAnnotation(tautologyApp.getParameters()[0]);
 		final String tautologyName = annot.getKey();
 		if (tautologyName == null) {
-			reportError("Malformed tautology rule " + tautologyApp);
+			reportError("Malformed tautology rule %s", tautologyApp);
 			return null;
 		}
 		final Term tautology = ((AnnotatedTerm) tautologyApp.getParameters()[0]).getSubterm();
@@ -1828,7 +1828,7 @@ public class ProofChecker extends NonRecursive {
 		case ":matchCase":
 		case ":matchDefault":
 			result = true;
-			reportWarning("Unchecked datatype tautology rule " + tautologyApp);
+			reportWarning("Unchecked datatype tautology rule %s", tautologyApp);
 			break;
 		case ":forall+":
 			result = checkTautForallIntro(clause, (Term[]) annot.getValue());
@@ -1848,7 +1848,7 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		if (!result) {
-			reportError("Malformed/unknown tautology rule " + tautologyApp);
+			reportError("Malformed/unknown tautology rule %s", tautologyApp);
 		}
 
 		return createClause(tautology);
@@ -2527,7 +2527,7 @@ public class ProofChecker extends NonRecursive {
 	Term[] walkAsserted(final ApplicationTerm assertedApp) {
 		final Term assertedTerm = assertedApp.getParameters()[0];
 		if (!mAssertions.contains(assertedTerm)) {
-			reportError("Could not find asserted term " + assertedTerm);
+			reportError("Could not find asserted term %s", assertedTerm);
 		}
 		/* Just return the part without @asserted */
 		return createUnitClause(assertedTerm);
@@ -2561,7 +2561,7 @@ public class ProofChecker extends NonRecursive {
 			if (implications[i].length != 1
 					|| (!isApplication("=", implications[i][0]) && !isApplication("=>", implications[i][0]))
 					|| ((ApplicationTerm) implications[i][0]).getParameters().length != 2) {
-				reportError("@trans on a proof of a non-equality or -implication: " + Arrays.toString(implications[i]));
+				reportError("@trans on a proof of a non-equality or -implication: %s", Arrays.asList(implications[i]));
 				return null;
 			}
 			final Term impl = implications[i][0];
@@ -2573,7 +2573,7 @@ public class ProofChecker extends NonRecursive {
 			if (i == 0) {
 				firstTerm = impParams[0];
 			} else if (impParams[0] != lastTerm) {
-				reportError("@trans doesn't chain: " + lastTerm + " and " + impParams[0]);
+				reportError("@trans doesn't chain: %s and %s", lastTerm, impParams[0]);
 			}
 			lastTerm = impParams[1];
 		}
@@ -2591,14 +2591,14 @@ public class ProofChecker extends NonRecursive {
 			}
 			if (subProofs[i].length != 1 || !isApplication("=", subProofs[i][0])
 					|| ((ApplicationTerm) subProofs[i][0]).getParameters().length != 2) {
-				reportError("@cong on a proof of a non-equality: " + Arrays.toString(subProofs[i]));
+				reportError("@cong on a proof of a non-equality: %s", Arrays.asList(subProofs[i]));
 				return null;
 			}
 		}
 		/* assume that the first equality is of the form (= x (f p1 ... pn)) */
 		final Term funcTerm = ((ApplicationTerm) subProofs[0][0]).getParameters()[1];
 		if (!(funcTerm instanceof ApplicationTerm)) {
-			reportError("@cong applied on a non-function term " + funcTerm);
+			reportError("@cong applied on a non-function term %s", funcTerm);
 			return null;
 		}
 		final Term[] funcParams = ((ApplicationTerm) funcTerm).getParameters();
@@ -2612,7 +2612,7 @@ public class ProofChecker extends NonRecursive {
 				offset++;
 			}
 			if (offset == funcParams.length) {
-				reportError("cannot find rewritten parameter in @cong: " + subProofs[i] + " in " + funcTerm);
+				reportError("cannot find rewritten parameter in @cong: %s in %s", subProofs[i], funcTerm);
 				offset = 0;
 			} else {
 				newFuncParams[offset] = argRewrite[1];
@@ -2634,7 +2634,7 @@ public class ProofChecker extends NonRecursive {
 				|| ((ApplicationTerm) subProof[0]).getParameters().length != 2) {
 			// don't report errors if sub proof already failed
 			if (subProof != null) {
-				reportError("@quant on a proof of a non-equality: " + Arrays.toString(subProof));
+				reportError("@quant on a proof of a non-equality: %s", Arrays.asList(subProof));
 			}
 			return null;
 		}
@@ -2644,7 +2644,7 @@ public class ProofChecker extends NonRecursive {
 		if (annotatedTerm.getAnnotations().length != 1
 				|| (!quantAnnot.getKey().equals(":forall") && !quantAnnot.getKey().equals(":exists"))
 				|| !(quantAnnot.getValue() instanceof TermVariable[])) {
-			reportError("@quant with malformed annotation: " + quantApp);
+			reportError("@quant with malformed annotation: %s", quantApp);
 		}
 		final boolean isForall = quantAnnot.getKey().equals(":forall");
 		final TermVariable[] vars = (TermVariable[]) quantAnnot.getValue();
@@ -2670,17 +2670,17 @@ public class ProofChecker extends NonRecursive {
 		final Annotation annot = getSingleAnnotation(rewriteApp.getParameters()[0]);
 		final String rewriteRule = annot.getKey();
 		if (rewriteRule == null) {
-			reportError("Malformed rewrite rule " + rewriteApp);
+			reportError("Malformed rewrite rule %s", rewriteApp);
 			return null;
 		}
 		final Term rewriteStmt = ((AnnotatedTerm) rewriteApp.getParameters()[0]).getSubterm();
 		if (!isApplication("=", rewriteStmt)) {
-			reportError("Equality rewrite rule is not a binary equality: " + rewriteApp);
+			reportError("Equality rewrite rule is not a binary equality: %s", rewriteApp);
 			return null;
 		}
 		final Term[] stmtParams = ((ApplicationTerm) rewriteStmt).getParameters();
 		if (stmtParams.length != 2) {
-			reportError("Rewrite rule is not a binary equality or implication: " + rewriteApp);
+			reportError("Rewrite rule is not a binary equality or implication: %s", rewriteApp);
 			return null;
 		}
 
@@ -2802,7 +2802,7 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		if (!okay) {
-			reportError("Malformed/unknown @rewrite rule " + rewriteApp);
+			reportError("Malformed/unknown @rewrite rule %s", rewriteApp);
 		}
 
 		/*
@@ -3853,7 +3853,7 @@ public class ProofChecker extends NonRecursive {
 			/* Check if it is a pivot-annotation */
 			if (pivotPlusProof.getAnnotations().length != 1
 					|| pivotPlusProof.getAnnotations()[0].getKey() != ":pivot") {
-				reportError("Unexpected Annotation in resolution parameter: " + pivotPlusProof);
+				reportError("Unexpected Annotation in resolution parameter: %s", pivotPlusProof);
 				return null;
 			}
 
@@ -3912,8 +3912,7 @@ public class ProofChecker extends NonRecursive {
 			}
 		}
 		if (!okay && rewrite != null && origFormula != null) {
-			reportError(
-					"Malformed @mp application: " + Arrays.toString(origFormula) + " and " + Arrays.toString(rewrite));
+			reportError("Malformed @mp application: %s and %s", Arrays.asList(origFormula), Arrays.asList(rewrite));
 		}
 		return result;
 	}
@@ -3928,13 +3927,13 @@ public class ProofChecker extends NonRecursive {
 		if (annots.length != 2
 				|| !annots[0].getKey().equals(ProofConstants.ANNOTKEY_PROVES)
 				|| !annots[1].getKey().equals(ProofConstants.ANNOTKEY_INPUT)) {
-			reportError("Clause has unexpected annotation: " + clauseApp);
+			reportError("Clause has unexpected annotation: %s", clauseApp);
 		}
 		final Term[] expectedLits = (Term[]) annots[0].getValue();
 
 		if (provedLits.length != expectedLits.length) {
-			reportError("Clause has different number of literals: " + Arrays.toString(provedLits) + " versus "
-					+ Arrays.toString(expectedLits));
+			reportError("Clause has different number of literals: %s versus %s", Arrays.asList(provedLits),
+					Arrays.asList(expectedLits));
 		} else {
 			final HashSet<Term> param1Disjuncts = new HashSet<>(Arrays.asList(provedLits));
 			final HashSet<Term> param2Disjuncts = new HashSet<>(Arrays.asList(expectedLits));
@@ -3957,14 +3956,14 @@ public class ProofChecker extends NonRecursive {
 		final Annotation bodyAnnot = annotatedTerm.getAnnotations()[0];
 		if (annotatedTerm.getAnnotations().length != 1 || bodyAnnot.getKey() != ":body"
 				|| !(bodyAnnot.getValue() instanceof Term)) {
-			reportError("@allIntro with malformed annotation: " + allApp);
+			reportError("@allIntro with malformed annotation: %s", allApp);
 		}
 		final Term bodyTerm = (Term) bodyAnnot.getValue();
 		if (origClause == null) {
 			return null;
 		}
 		if (origClause.length != 1 || origClause[0] != bodyTerm) {
-			reportError("@allIntro with wrong sub proof: " + allApp);
+			reportError("@allIntro with wrong sub proof: %s", allApp);
 		}
 		/* compute the resulting quantified term (forall (...) origTerm) */
 		final Theory theory = bodyTerm.getTheory();
@@ -4032,7 +4031,7 @@ public class ProofChecker extends NonRecursive {
 				}
 			}
 		}
-		reportError("Expected quoted literal, but got " + quotedTerm);
+		reportError("Expected quoted literal, but got %s", quotedTerm);
 		return quotedTerm;
 	}
 

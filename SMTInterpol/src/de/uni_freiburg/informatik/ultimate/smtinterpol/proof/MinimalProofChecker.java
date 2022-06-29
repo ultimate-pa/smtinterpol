@@ -143,7 +143,7 @@ public class MinimalProofChecker extends NonRecursive {
 		final FormulaUnLet unletter = new FormulaUnLet();
 		final ProofLiteral[] result = getProvedClause(unletter.unlet(proof));
 		if (result != null && result.length > 0) {
-			reportError("The proof did not yield a contradiction but " + Arrays.toString(result));
+			reportError("The proof did not yield a contradiction but %s", Arrays.asList(result));
 			return false;
 		}
 		return true;
@@ -211,12 +211,12 @@ public class MinimalProofChecker extends NonRecursive {
 		return stackPop();
 	}
 
-	private void reportError(final String msg) {
-		mLogger.error(msg);
+	private void reportError(final String msg, final Object... params) {
+		mLogger.error(msg, params);
 	}
 
-	private void reportWarning(final String msg) {
-		mLogger.warn(msg);
+	private void reportWarning(final String msg, final Object... params) {
+		mLogger.warn(msg, params);
 	}
 
 	/**
@@ -279,7 +279,7 @@ public class MinimalProofChecker extends NonRecursive {
 
 		/* Remove the pivot from allDisjuncts */
 		if (!pivotFound) {
-			reportWarning("Could not find pivot " + posPivot + " in " + Arrays.asList(posClause));
+			reportWarning("Could not find pivot %s in %s", posPivot, Arrays.asList(posClause));
 		}
 
 		pivotFound = false;
@@ -292,7 +292,7 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 
 		if (!pivotFound) {
-			reportWarning("Could not find pivot " + negPivot + " in " + Arrays.asList(negClause));
+			reportWarning("Could not find pivot %s in %s", negPivot, Arrays.asList(negClause));
 		}
 		return allDisjuncts.toArray(new ProofLiteral[allDisjuncts.size()]);
 	}
@@ -1194,7 +1194,8 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
 		default:
-			throw new AssertionError("Unknown axiom " + axiom);
+			reportError("Unknown axiom %s", axiom);
+			return getTrueClause(axiom.getTheory());
 		}
 	}
 
@@ -1265,7 +1266,7 @@ public class MinimalProofChecker extends NonRecursive {
 		assert appTerm.getFunction().getName() == ProofRules.PREFIX + ProofRules.ASSUME;
 		assert params.length == 1;
 		if (!mAssertions.contains(params[0])) {
-			reportError("Unknown assumption: " + params[0]);
+			reportError("Unknown assumption: %s", params[0]);
 			return getTrueClause(axiom.getTheory());
 		}
 		return new ProofLiteral[] { new ProofLiteral(params[0], true) };
