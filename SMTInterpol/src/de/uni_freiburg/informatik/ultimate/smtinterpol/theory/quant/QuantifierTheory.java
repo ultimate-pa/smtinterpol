@@ -415,12 +415,16 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	@Override
+	public void backtrackStart() {
+		mPendingInstances.clear();
+	}
+
+	@Override
 	public Clause backtrackComplete() {
 		final int decisionLevel = mClausifier.getEngine().getDecideLevel();
 		mEMatching.undo(decisionLevel);
 		mInstantiationManager.resetInterestingTerms();
 		mInstantiationManager.resetSubsAgeForFinalCheck();
-		mPendingInstances.clear();
 		return null;
 	}
 

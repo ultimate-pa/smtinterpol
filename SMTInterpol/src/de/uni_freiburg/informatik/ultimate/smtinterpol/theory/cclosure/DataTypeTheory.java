@@ -647,13 +647,17 @@ public class DataTypeTheory implements ITheory {
 		mRecheckOnBacktrack.add(newAppTerm);
 	}
 
+	@Override
+	public void backtrackStart() {
+		mPendingLemmas.clear();
+		mPendingEqualities.clear();
+	}
+
 	@SuppressWarnings("unchecked")
 	@Override
 	public Clause backtrackComplete() {
 		// if we constructed new terms, their equalities have been removed in the backtracking process,
 		// so we need to check if they are still valid.
-		mPendingLemmas.clear();
-		mPendingEqualities.clear();
 		final ArrayQueue<CCAppTerm> newRecheckOnBacktrack = new ArrayQueue<>();
 		while (!mRecheckOnBacktrack.isEmpty()) {
 			CCTerm constructorCCTerm = null;

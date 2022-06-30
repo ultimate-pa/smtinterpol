@@ -833,8 +833,12 @@ public class ArrayTheory implements ITheory {
 	}
 
 	@Override
-	public Clause backtrackComplete() {
+	public void backtrackStart() {
 		mPropClauses.clear();
+	}
+
+	@Override
+	public Clause backtrackComplete() {
 		return null;
 	}
 
@@ -1102,7 +1106,7 @@ public class ArrayTheory implements ITheory {
 
 	private static CCTerm getSecondToLastArgument(final CCTerm term) {
 		assert term instanceof CCAppTerm;
-		CCTerm func = ((CCAppTerm) term).getFunc();
+		final CCTerm func = ((CCAppTerm) term).getFunc();
 		assert func instanceof CCAppTerm;
 		return ((CCAppTerm) func).getArg();
 	}

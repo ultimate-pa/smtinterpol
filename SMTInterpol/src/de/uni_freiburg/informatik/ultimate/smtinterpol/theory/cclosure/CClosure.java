@@ -1130,8 +1130,13 @@ public class CClosure implements ITheory {
 	}
 
 	@Override
-	public Clause backtrackComplete() {
+	public void backtrackStart() {
 		mPendingLits.clear();
+		mPendingCongruences.clear();
+	}
+
+	@Override
+	public Clause backtrackComplete() {
 		/*
 		 * If a literal was propagated when it was created it may not be on the right decision level. After backtracking
 		 * we may need to propagate these literals again, if they are still implied by the CC graph. Here we go through
@@ -1179,7 +1184,6 @@ public class CClosure implements ITheory {
 		/*
 		 * Recheck congruences and propagate them.
 		 */
-		mPendingCongruences.clear();
 		final ArrayQueue<SymmetricPair<CCAppTerm>> newRecheckOnBacktrackCongs = new ArrayQueue<>();
 		for (final SymmetricPair<CCAppTerm> cong : mRecheckOnBacktrackCongs) {
 			final CCAppTerm lhs = cong.getFirst();

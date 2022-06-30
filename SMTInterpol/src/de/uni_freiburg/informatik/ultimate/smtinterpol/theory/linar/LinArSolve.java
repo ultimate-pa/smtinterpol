@@ -501,10 +501,13 @@ public class LinArSolve implements ITheory {
 	}
 
 	@Override
-	public Clause backtrackComplete() {
+	public void backtrackStart() {
 		mProplist.clear();
 		mSuggestions.clear();
+	}
 
+	@Override
+	public Clause backtrackComplete() {
 		Clause conflict = checkPendingConflict();
 		if (conflict != null) {
 			return conflict;
