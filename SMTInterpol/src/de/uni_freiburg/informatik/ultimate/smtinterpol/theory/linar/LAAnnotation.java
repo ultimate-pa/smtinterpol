@@ -31,36 +31,36 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 /**
- * Annotation for a linear arithmetic conflict.  This roughly stores the
- * proof in form of Farkas coefficients for the base literals and
- * sub-annotations.  The sub-annotations can be seen as auxiliary clauses
- * that handle extended branches, e.g., for Gomery cuts.
+ * Annotation for a linear arithmetic conflict. This roughly stores the proof in
+ * form of Farkas coefficients for the base literals and sub-annotations. The
+ * sub-annotations can be seen as auxiliary clauses that handle extended
+ * branches, e.g., for integer cuts.
  *
- * If m_linvar is null, this is a base annotation, which corresponds to a
- * proof of unsatisfiability of the current conflict.  Otherwise it is a
- * sub-annotation corresponding to a proof for some bound on a variable,
- * which is given by m_linvar, m_bound, and m_isUpper.
+ * If m_linvar is null, this is a base annotation, which corresponds to a proof
+ * of unsatisfiability of the current conflict. Otherwise it is a sub-annotation
+ * corresponding to a proof for some bound on a variable, which is given by
+ * m_linvar, m_bound, and m_isUpper.
  *
- * An annotation is basically a sum of inequalities with Farkas coefficients.
- * An inequality can either be a literal in the current conflict, i.e., the
- * negation of a literal in the conflict clause, or it can be a LAReason that
- * is explained by some different sub-annotation.  The maps m_coefficients
- * and m_auxAnnotations map these inequalities to their respective Farkas
- * coefficient.  The literals in the coefficient map appear negated, i.e., in
- * the same polarity that they have in the conflict clause.  The sum of the
+ * An annotation is basically a sum of inequalities with Farkas coefficients. An
+ * inequality can either be a literal in the current conflict, i.e., the
+ * negation of a literal in the conflict clause, or it can be a LAReason that is
+ * explained by some different sub-annotation. The maps m_coefficients and
+ * m_auxAnnotations map these inequalities to their respective Farkas
+ * coefficient. The literals in the coefficient map appear negated, i.e., in the
+ * same polarity that they have in the conflict clause. The sum of the
  * inequalities must yield the explained LAReason for a sub-annotation (in the
- * integer case some rounding may be involved), or an inconsistency (e.g.,
- * 1 <= 0) for the parent annotation.
+ * integer case some rounding may be involved), or an inconsistency (e.g., 1 <=
+ * 0) for the parent annotation.
  *
- * Instead of an inequality literals and sub-annotations, an annotation may
- * also add equalities (which can be seen as a strengthened inequality).
+ * Instead of an inequality literals and sub-annotations, an annotation may also
+ * add equalities (which can be seen as a strengthened inequality).
  *
  * There is a special type of annotations, a trichotomy, that involves a
- * disequality and two inequalities, namely, term !=0, term <= 0, term >= 0.
- * If it is a base annotation, it will contain these three literals in its
- * coefficient and auxAnnotation maps.  If it is a sub-annotation it must
- * either explain term < 0 or term >0 from the literals term != 0 and term >=0
- * resp. term <=0.
+ * disequality and two inequalities, namely, term !=0, term <= 0, term >= 0. If
+ * it is a base annotation, it will contain these three literals in its
+ * coefficient and auxAnnotation maps. If it is a sub-annotation it must either
+ * explain term < 0 or term >0 from the literals term != 0 and term >=0 resp.
+ * term <=0.
  *
  *
  * @author Juergen Christ, Jochen Hoenicke
@@ -103,8 +103,8 @@ public class LAAnnotation implements IAnnotation {
 	private boolean mIsUpper;
 
 	public LAAnnotation() {
-		mCoefficients   = new HashMap<Literal, Rational>();
-		mAuxAnnotations = new HashMap<LAAnnotation, Rational>();
+		mCoefficients   = new HashMap<>();
+		mAuxAnnotations = new HashMap<>();
 	}
 
 	public LAAnnotation(LAReason reason) {
@@ -220,7 +220,7 @@ public class LAAnnotation implements IAnnotation {
 	}
 
 	public Literal[] collectLiterals() {
-		final HashSet<Literal> lits = new HashSet<Literal>();
+		final HashSet<Literal> lits = new HashSet<>();
 		collect(lits, new HashSet<LAAnnotation>());
 		return lits.toArray(new Literal[lits.size()]);
 	}

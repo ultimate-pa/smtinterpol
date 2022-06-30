@@ -130,7 +130,7 @@ public class AnnotationToProofTerm {
 		assert (parent.getLinVar() == null);
 		final HashMap<LAAnnotation, AnnotationInfo> infos = new HashMap<>();
 
-		// Count the occurences of each annotation (and compute literals).
+		// Count the occurrences of each annotation (and compute literals).
 		final ArrayDeque<LAAnnotation> todo = new ArrayDeque<>();
 		todo.add(parent);
 		while (!todo.isEmpty()) {
