@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.logic;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
@@ -131,6 +132,44 @@ public class FormulaUnLet extends TermTransformer {
 		return transform(term);
 	}
 
+	private boolean isRenamedVar(String name) {
+		// Renamed variables are of the form .[1-9][0-9]*.originalname.
+		return name.charAt(0) == '.' && name.charAt(1) >= '1' && name.charAt(1) <= '9';
+	}
+
+	private void noteUsage(Map<String, Integer> usageMap, TermVariable usedTv) {
+		/*
+		 * we do bounded renaming on variables. For each variables x, we use the
+		 * internal variables x, .1.x, .2.x, ... The generation is 0 for the original
+		 * variable, otherwise it is the number after the r. We remember the maximum
+		 * generation in usageMap, so that we rename every variable to the next
+		 * generation after it.
+		 */
+		String name = usedTv.getName();
+		int generation = 0;
+		if (isRenamedVar(name)) {
+			final int dotPos = name.indexOf('.', 2);
+			generation = Integer.valueOf(name.substring(1, dotPos));
+			name = name.substring(dotPos + 1);
+		}
+		final Integer oldGen = usageMap.put(name, generation);
+		if (oldGen != null && oldGen > generation) {
+			usageMap.put(name, oldGen);
+		}
+	}
+
+	private String boundedRename(Map<String, Integer> usageMap, String name) {
+		if (isRenamedVar(name)) {
+			name = name.substring(name.indexOf('.', 2) + 1);
+		}
+		final Integer usedOutside = usageMap.get(name);
+		if (usedOutside == null) {
+			return name;
+		} else {
+			return "." + (usedOutside + 1) + "." + name;
+		}
+	}
+
 	/**
 	 * This is called for each quantifier, lambda term, or match term that
 	 * introduces new bound variables. It determines if there is a name clash and
@@ -144,7 +183,7 @@ public class FormulaUnLet extends TermTransformer {
 	 */
 	public void startVarScope(final Term body, final TermVariable[] vars) {
 		/* compute all variables that are indirectly used inside the body */
-		final HashSet<String> usedOutside = new HashSet<>();
+		final HashMap<String, Integer> usedOutside = new HashMap<>();
 		final HashSet<TermVariable> bodyVars = new HashSet<>();
 		bodyVars.addAll(Arrays.asList(body.getFreeVars()));
 		for (final TermVariable tv : vars) {
@@ -152,41 +191,27 @@ public class FormulaUnLet extends TermTransformer {
 		}
 		for (final TermVariable tv : bodyVars) {
 			final Term refTerm = mLetMap.get(tv);
-			if (refTerm != null) {
+			if (refTerm == null) {
+				noteUsage(usedOutside, tv);
+			} else {
 				for (final TermVariable usedTv : refTerm.getFreeVars()) {
-					String name = usedTv.getName();
-					usedOutside.add(name);
-					// Also add the base names in case the variable was already protected by
-					// previous unlet. The reason for this is a term like
-
-					// (let ((z x)) (exists ((x Int)) (and (= x z) (let ((y x)) (exists ((x Int)) (= x y))))))
-
-					// If the inner term is renamed first, the inner x must be renamed, because
-					// of the clash with y. If the whole term is renamed, the outer "exists"
-					// (i.e. variable y) is already renamed to ".x" and doesn't directly clash with
-					// the inner quantifiers name. By adding this code here we ensure that the inner
-					// x is also renamed, even though it doesn't clash with .x and also not with the
-					// free x (variable z), which is not visible inside the inner-most quantifier.
-					while (name.charAt(0) == '.') {
-						name = name.substring(1);
-						usedOutside.add(name);
-					}
+					noteUsage(usedOutside, usedTv);
 				}
 			}
 		}
 
 		mLetMap.beginScope();
 		for (int i = 0; i < vars.length; i++) {
-			if (usedOutside.contains(vars[i].getName())) {
-				String newName = "." + vars[i].getName();
-				while (usedOutside.contains(newName)) {
-					newName = "." + newName;
-				}
-				mLetMap.put(vars[i], vars[i].getTheory().createTermVariable(newName, vars[i].getSort()));
-			} else {
+			final String name = vars[i].getName();
+			final String newName = boundedRename(usedOutside, name);
+			if (newName.equals(name)) {
+				// remove the name from mLetMap so that it is kept.
 				if (mLetMap.containsKey(vars[i])) {
 					mLetMap.remove(vars[i]);
 				}
+			} else {
+				// do bounded renaming.
+				mLetMap.put(vars[i], vars[i].getTheory().createTermVariable(newName, vars[i].getSort()));
 			}
 		}
 	}

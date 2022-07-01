@@ -101,12 +101,12 @@ public class UnfletTest {
 
 		letTerm = mTheory.let(mY, mX, mTheory.exists(arr(mX), mTheory.equals(mX, mY)));
 		Assert.assertEquals("(let ((y x)) (exists ((x Int)) (= x y)))", letTerm.toStringDirect());
-		Assert.assertEquals("(exists ((.x Int)) (= .x x))", mUnletter.unlet(letTerm).toStringDirect());
+		Assert.assertEquals("(exists ((.1.x Int)) (= .1.x x))", mUnletter.unlet(letTerm).toStringDirect());
 
 		letTerm = mTheory.let(arr(mX, mY), arr(mY, mZ), mTheory.exists(arr(mY), mTheory.equals(mX, mY)));
 		Assert.assertEquals("(let ((x y) (y z)) (exists ((y Int)) (= x y)))", letTerm.toStringDirect());
 		final Term unlet = mUnletter.unlet(letTerm);
-		Assert.assertEquals("(exists ((.y Int)) (= y .y))", unlet.toStringDirect());
+		Assert.assertEquals("(exists ((.1.y Int)) (= y .1.y))", unlet.toStringDirect());
 	}
 
 	private void declareListType() {
@@ -140,7 +140,7 @@ public class UnfletTest {
 
 		Assert.assertEquals("(let ((y x) (w z)) (match x (((cons z x) (and (= z w) (= x (cons v y)))) (x (= x y)))))",
 				term1.toStringDirect());
-		Assert.assertEquals("(match x (((cons .z .x) (and (= .z z) (= .x (cons v x)))) (.x (= .x x))))",
+		Assert.assertEquals("(match x (((cons .1.z .1.x) (and (= .1.z z) (= .1.x (cons v x)))) (.1.x (= .1.x x))))",
 				mUnletter.unlet(term1).toStringDirect());
 
 		final Term term2a = mTheory.let(new TermVariable[] { uList, vInt }, new Term[] { xList, mZ },
@@ -149,7 +149,7 @@ public class UnfletTest {
 				mTheory.exists(new TermVariable[] { mZ, xList }, mUnletter.unlet(term1)));
 
 		Assert.assertEquals(
-				"(exists ((.z Int) (x List)) (match x (((cons ..z .x) (and (= ..z .z) (= .x (cons z x)))) (.x (= .x x)))))",
+				"(exists ((.1.z Int) (x List)) (match x (((cons .2.z .1.x) (and (= .2.z .1.z) (= .1.x (cons z x)))) (.1.x (= .1.x x)))))",
 				mUnletter.unlet(term2a).toStringDirect());
 		Assert.assertEquals(mUnletter.unlet(term2a), mUnletter.unlet(term2b));
 
@@ -159,10 +159,10 @@ public class UnfletTest {
 				mTheory.exists(new TermVariable[] { mZ, xList }, mUnletter.unlet(term1)));
 
 		Assert.assertEquals(
-				"(exists ((z Int) (.x List)) (match .x (((cons .z ..x) (and (= .z z) (= ..x (cons x .x)))) (..x (= ..x .x)))))",
+				"(exists ((z Int) (.1.x List)) (match .1.x (((cons .1.z .2.x) (and (= .1.z z) (= .2.x (cons x .1.x)))) (.2.x (= .2.x .1.x)))))",
 				mUnletter.unlet(term3a).toStringDirect());
 		Assert.assertEquals(
-				"(exists ((z Int) (.x List)) (match .x (((cons .z ..x) (and (= .z z) (= ..x (cons x .x)))) (..x (= ..x .x)))))",
+				"(exists ((z Int) (.1.x List)) (match .1.x (((cons .1.z .2.x) (and (= .1.z z) (= .2.x (cons x .1.x)))) (.2.x (= .2.x .1.x)))))",
 				mUnletter.unlet(term3b).toStringDirect());
 		Assert.assertEquals(mUnletter.unlet(term3a), mUnletter.unlet(term3b));
 	}
