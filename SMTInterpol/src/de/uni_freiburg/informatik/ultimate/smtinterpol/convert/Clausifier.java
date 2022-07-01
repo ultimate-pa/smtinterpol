@@ -507,7 +507,7 @@ public class Clausifier {
 				mCollector.addResolution(tautology, pivotLit);
 				Term substituted = converted.getFirst();
 				if (!positive) {
-					assert ((ApplicationTerm) substituted).getFunction().equals(SMTLIBConstants.NOT);
+					assert ((ApplicationTerm) substituted).getFunction().getName().equals(SMTLIBConstants.NOT);
 					substituted = ((ApplicationTerm) substituted).getParameters()[0];
 				}
 				final Term substitutedCanonic = mCompiler.transform(substituted);
