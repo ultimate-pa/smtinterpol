@@ -639,14 +639,9 @@ public class TermCompiler extends TermTransformer {
 	 */
 	public ApplicationTerm unifySummation(final ApplicationTerm sumTerm) {
 		assert sumTerm.getFunction().getName() == "+";
-		final HashSet<Term> summands = new HashSet<>();
-		int hash = 0;
-		for (final Term p : sumTerm.getParameters()) {
-			final boolean fresh = summands.add(p);
-			assert fresh;
-			hash += p.hashCode();
-		}
-		hash = summands.hashCode();
+		final HashSet<Term> summands = new HashSet<>(Arrays.asList(sumTerm.getParameters()));
+		assert summands.size() == sumTerm.getParameters().length;
+		final int hash = summands.hashCode();
 		for (final ApplicationTerm canonic : mCanonicalSums.iterateHashCode(hash)) {
 			if (canonic.getParameters().length == summands.size()
 					&& summands.containsAll(Arrays.asList(canonic.getParameters()))) {

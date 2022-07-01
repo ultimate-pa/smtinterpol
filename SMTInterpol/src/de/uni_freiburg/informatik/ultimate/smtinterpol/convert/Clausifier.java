@@ -349,9 +349,11 @@ public class Clausifier {
 				}
 			} else if (term instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) term;
-				final Pair<Term, Term> converted = convertQuantifiedSubformula(positive, qf);
-				final Term tautology = converted.getSecond();
-				pushOperation(new AddAsAxiom(mTracker.resolution(mAxiom, tautology), mSource));
+				final Pair<Term, Term> convertQuantInfo = convertQuantifiedSubformula(positive, qf);
+				final Term tautology = convertQuantInfo.getSecond();
+				final Term substitutedCanonic = mCompiler.transform(convertQuantInfo.getFirst());
+				final Term newAxiom = mTracker.modusPonens(mTracker.resolution(mAxiom, tautology), substitutedCanonic);
+				pushOperation(new AddAsAxiom(newAxiom, mSource));
 				return;
 			}
 			buildClause(mAxiom, mSource);
@@ -501,9 +503,20 @@ public class Clausifier {
 				final QuantifiedFormula qf = (QuantifiedFormula) idx;
 				final Pair<Term, Term> converted = convertQuantifiedSubformula(positive, qf);
 				final Term tautology = converted.getSecond();
-				final Term pivotLit = positive ? theory.term("not", idx) : idx;
+				final Term pivotLit = positive ? theory.term(SMTLIBConstants.NOT, idx) : idx;
 				mCollector.addResolution(tautology, pivotLit);
-				pushOperation(new CollectLiteral(converted.getFirst(), mCollector));
+				Term substituted = converted.getFirst();
+				if (!positive) {
+					assert ((ApplicationTerm) substituted).getFunction().equals(SMTLIBConstants.NOT);
+					substituted = ((ApplicationTerm) substituted).getParameters()[0];
+				}
+				final Term substitutedCanonic = mCompiler.transform(substituted);
+				mCollector.addModusPonens(substituted, substitutedCanonic, positive);
+				Term newLiteral = mTracker.getProvedTerm(substitutedCanonic);
+				if (!positive) {
+					newLiteral = theory.term(SMTLIBConstants.NOT, newLiteral);
+				}
+				pushOperation(new CollectLiteral(newLiteral, mCollector));
 				return;
 			} else if (idx instanceof TermVariable) {
 				assert idx.getSort().equals(theory.getBooleanSort());
@@ -623,29 +636,42 @@ public class Clausifier {
 		}
 
 		/**
+		 * Add a resolution to the clause proof that explains a rewrite step via modus
+		 * ponens.
+		 *
+		 * @param pivotLit      the pivot literal as contained in the other antecedent
+		 * @param rewrittenTerm the term after the rewrite (that will be added to the
+		 *                      clause later) annotated with its rewrite proof. The lhs
+		 *                      of the rewrite proof should be pivotLit.
+		 */
+		public void addModusPonens(final Term pivotLit, final Term rewrittenTerm, boolean positive) {
+			final Term destTerm = mTracker.getProvedTerm(rewrittenTerm);
+			if (mTracker instanceof ProofTracker && pivotLit != destTerm) {
+				final Theory theory = pivotLit.getTheory();
+				final Term equality = theory.term(SMTLIBConstants.EQUALS, pivotLit, destTerm);
+				final Term negEquality = theory.term(SMTLIBConstants.NOT, equality);
+				final Term negOrig = positive ? theory.term(SMTLIBConstants.NOT, pivotLit) : pivotLit;
+				final Term negDest = positive ? destTerm : theory.term(SMTLIBConstants.NOT, destTerm);
+				final Term eqrule = mTracker.tautology(theory.term(SMTLIBConstants.OR, negEquality, negOrig, negDest),
+						positive ? ProofConstants.AUX_IFF_NEG_2 : ProofConstants.AUX_IFF_NEG_1);
+				addResolution(eqrule, negOrig);
+				addResolution(rewrittenTerm, equality);
+			}
+		}
+
+		/**
 		 * Add a literal and its rewrite proof. This is called whenever we create a new
 		 * literal. It is expected that every term rewrites to exactly one literal.
 		 *
-		 * @param lit        The collected literal.
-		 * @param rewrite    the rewrite proof from the original argument to the
-		 *                   literal.
-		 * @param positive True, if the literal occured positive in the original
-		 *                   clause.
+		 * @param lit      The collected literal.
+		 * @param rewrite  the rewrite proof from the original argument to the literal.
+		 * @param positive True, if the literal occured positive in the original clause.
 		 */
 		public void addLiteral(final ILiteral lit, final Term origAtom, final Term rewriteAtom,
 				final boolean positive) {
 			final Theory theory = origAtom.getTheory();
 			final Term destAtom = mTracker.getProvedTerm(rewriteAtom);
-			if (mTracker instanceof ProofTracker && origAtom != destAtom) {
-				final Term equality = theory.term(SMTLIBConstants.EQUALS, origAtom, destAtom);
-				final Term negEquality = theory.term(SMTLIBConstants.NOT, equality);
-				final Term negOrig = positive ? theory.term(SMTLIBConstants.NOT, origAtom) : origAtom;
-				final Term negDest = positive ? destAtom : theory.term(SMTLIBConstants.NOT, destAtom);
-				final Term eqrule = mTracker.tautology(theory.term(SMTLIBConstants.OR, negEquality, negOrig, negDest),
-						positive ? ProofConstants.AUX_IFF_NEG_2 : ProofConstants.AUX_IFF_NEG_1);
-				addResolution(eqrule, negOrig);
-				addResolution(rewriteAtom, equality);
-			}
+			addModusPonens(origAtom, rewriteAtom, positive);
 			if (mTracker instanceof ProofTracker && lit == mFALSE) {
 				/* remove literal */
 				final Term negNegDest = positive ? theory.term(SMTLIBConstants.NOT, destAtom) : destAtom;
