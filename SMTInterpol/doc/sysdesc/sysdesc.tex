@@ -120,8 +120,8 @@ Since a bug is very unlikely to cancel all terms, this method is more likely to 
 Note that since our term generator only produces well-typed terms, we do not need to typecheck the terms when checking an axiom.
 
 
-
-\section*{Webpage and Sources}
+\section*{Authors, Logics, Tracks and Magic Number}
+The code was written by J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
 Further information about \SI can be found at
 \begin{center}
   \url{https://ultimate.informatik.uni-freiburg.de/smtinterpol/}
@@ -131,15 +131,17 @@ The sources are available via GitHub
   \url{https://github.com/ultimate-pa/smtinterpol}
 \end{center}
 
-\section*{Authors, Logics, Tracks and Magic Number}
-The code was written by J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
-
 \SI participates in the single query track, the incremental track, the unsat core track, the model validation track, and the proof exhibition track.
-It supports all combinations of uninterpreted functions, linear arithmetic, arrays, and datatypes, and participates in the logics matched by the regex
-\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL](IR)*A)!\footnote{\SI does not support non-linear arithmetic, but it supports modulo and division by constants.  Since several of these benchmarks are marked as non-linear, we also participate in these logics}
-The model generator currently does not support quantifiers and datatypes, i.e.,
-the regex describing the logics for the model validation track is
-\verb!(QF_)(AX?)?(UF)?([IR]DL|[NL](IR)*A)!.
+It supports all combinations of uninterpreted functions, linear arithmetic, arrays, datatypes, and quantified formulas.
+However, the model generator currently supports neither quantifiers nor datatypes.
+
+\newpage
+In the single query track, the unsat core track, and the proof track \SI participates in the logics matched by
+\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)|QF_(A|UF)+N[IR]*A!\footnote{\SI does not support non-linear arithmetic, but it supports modulo and division by constants.  Since several of these benchmarks are marked as non-linear, we also participate in these logics}, 
+in the incremental track in the logics
+\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL][IR]*A)!,
+and in the model validation track in the logics matched by
+\verb!(QF_)(AX?)?(UF)?([IR]DL|L[IR]*A)!.
 
 
 Magic Number: 945345692
