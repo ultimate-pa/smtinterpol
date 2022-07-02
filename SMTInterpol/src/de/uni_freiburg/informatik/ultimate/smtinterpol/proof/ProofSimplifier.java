@@ -630,7 +630,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Term[] eqArgs = ((ApplicationTerm) equality).getParameters();
 		final Term atomTerm = isQuotedQuant ? expandAux((ApplicationTerm) eqArgs[0]) : eqArgs[0];
 		final Term lit = clause[1];
-		assert isApplication("not", lit) == isEqTrue;
+		assert !isEqTrue || isApplication("not", lit);
 		final Term atom = isEqTrue ? negate(lit) : lit;
 		assert eqArgs.length == 2 && atomTerm == atom && isApplication(isEqTrue ? "true" : "false", eqArgs[1]);
 
