@@ -405,7 +405,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			if (dest.mSharedTerm == null) {
 				dest.mSharedTerm = src.mSharedTerm;
 			} else {
-				final CCEquality cceq = engine.createEquality(src.mSharedTerm, dest.mSharedTerm, true);
+				final boolean createInLA = dest.mSharedTerm.mFlatTerm.getSort().isNumericSort();
+				final CCEquality cceq = engine.createEquality(src.mSharedTerm, dest.mSharedTerm, createInLA);
 				/* If cceq cannot be created this is a conflict like merging x+1 and x */
 				sharedTermConflict = (cceq == null);
 				/*

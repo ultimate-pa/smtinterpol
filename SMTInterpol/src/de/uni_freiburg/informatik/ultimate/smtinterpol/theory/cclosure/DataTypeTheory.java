@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -116,6 +117,10 @@ public class DataTypeTheory implements ITheory {
 	private Clause processPendingLemmas() {
 		for (final DataTypeLemma lemma : mPendingLemmas) {
 			final SymmetricPair<CCTerm> eq = lemma.getMainEquality();
+			if (eq == null) {
+				// this is a conflict lemma, not a lemma that proves an equality.
+				return computeClause(null, lemma);
+			}
 			if (eq.getFirst().mRepStar != eq.getSecond().mRepStar) {
 				final CCEquality eqAtom = mCClosure.createEquality(eq.getFirst(), eq.getSecond(), false);
 				if (eqAtom == null) {
@@ -146,7 +151,49 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Clause setLiteral(final Literal literal) {
+		if (literal instanceof CCEquality) {
+			final CCEquality cceq = (CCEquality) literal;
+
+			computeInjectiveDisjointLemmas(cceq.getLhs(), cceq.getRhs());
+		}
 		return processPendingLemmas();
+	}
+
+	/**
+	 * Check if lhs and rhs are constructor applications and compute corresponding
+	 * disjoint and injectivity lemmas. This is called when lhs and rhs are equal.
+	 * If they are different constructors applications, a disjoint conflict should
+	 * be created, stating that lhs and rhs cannot be equal. If they are the same
+	 * constructor, an injectivity lemma is created for each argument to ensure that
+	 * the arguments are equal.
+	 *
+	 * The lemmas are added to pending lemmas and should be processed afterwards.
+	 *
+	 * @param lhs The first CCTerm.
+	 * @param rhs The second CCTerm.
+	 */
+	private void computeInjectiveDisjointLemmas(CCTerm lhs, CCTerm rhs) {
+		if (isConstructorApp(lhs.mFlatTerm) && isConstructorApp(rhs.mFlatTerm)) {
+			final ApplicationTerm lhsApp = (ApplicationTerm) lhs.getFlatTerm();
+			final ApplicationTerm rhsApp = (ApplicationTerm) rhs.getFlatTerm();
+			@SuppressWarnings("unchecked")
+			final SymmetricPair<CCTerm>[] reason = new SymmetricPair[] { new SymmetricPair<>(lhs, rhs) };
+			if (lhsApp.getFunction() == rhsApp.getFunction()) {
+				for (int i = 0; i < lhsApp.getParameters().length; i++) {
+					final CCTerm lhsArg = mClausifier.getCCTerm(lhsApp.getParameters()[i]);
+					final CCTerm rhsArg = mClausifier.getCCTerm(rhsApp.getParameters()[i]);
+					if (rhsArg.mRepStar != lhsArg.mRepStar) {
+						final SymmetricPair<CCTerm> eqPair = new SymmetricPair<>(lhsArg, rhsArg);
+						// dt_injective: cons(args1) != cons(args2) or args1[i] == args2[i]
+						addPendingLemma(new DataTypeLemma(RuleKind.DT_INJECTIVE, eqPair, reason, lhs, rhs));
+					}
+				}
+			} else {
+				// dt_disjoint: cons1(args1) != cons2(args2)
+				addPendingLemma(new DataTypeLemma(RuleKind.DT_DISJOINT, reason, lhs, rhs));
+			}
+		}
+
 	}
 
 	@Override
@@ -160,7 +207,8 @@ public class DataTypeTheory implements ITheory {
 			return conflict;
 		}
 
-		//Visit all ((_ is CONS) u) terms that are true and try to apply rule 3 or 9 on them
+		// Visit all ((_ is CONS) u) terms that are true and try to apply rule 3 or 9 on
+		// them
 		final CCTerm trueCC = mClausifier.getCCTerm(mTheory.mTrue);
 		final LinkedHashMap<CCTerm, CCAppTerm> visited = new LinkedHashMap<>();
 		for (final CCTerm t : trueCC.getRepresentative().mMembers) {
@@ -247,28 +295,10 @@ public class DataTypeTheory implements ITheory {
 			}
 		}
 
-		final LinkedHashSet<CCTerm> DTReps = new LinkedHashSet<>();
-		for (final CCTerm ct : mCClosure.mAllTerms) {
-			if (ct == ct.mRep && ct.mFlatTerm != null && ct.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
-				DTReps.add(ct);
-			}
-		}
-
-		for (final CCTerm ct : DTReps) {
-			Rule4(ct);
-			Rule5(ct);
-
-			final Clause cl = Rule8(ct);
-			if (cl != null) {
-				mClausifier.getLogger().debug("Conflict: Rule 8");
-				return cl;
-			}
-		}
 		return processPendingLemmas();
 	}
 
-	@Override
-	public Clause computeConflictClause() {
+	private Clause checkDTCycles() {
 		// check for cycles (Rule7)
 		/*
 		 * Rule 7:
@@ -329,33 +359,51 @@ public class DataTypeTheory implements ITheory {
 				}
 			}
 		}
+		return null;
+	}
+
+	@Override
+	public Clause computeConflictClause() {
+
+		// Get list of all data types. This prevents a concurrent modification error.
+		final List<CCTerm> dataTypeTerms = new ArrayList<>();
+		for (final CCTerm ct : mCClosure.mAllTerms) {
+			if (ct == ct.mRep && ct.mFlatTerm != null && ct.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
+				dataTypeTerms.add(ct);
+			}
+		}
+		for (final CCTerm ct : dataTypeTerms) {
+			Rule4(ct);
+			Rule5(ct);
+		}
+
+		final Clause conflict = checkDTCycles();
+		if (conflict != null) {
+			return conflict;
+		}
+
+		if (!mPendingLemmas.isEmpty()) {
+			return processPendingLemmas();
+		}
 
 		// paranoid checks to see if all select-over-cons and test-over-cons terms were detected by
 		// reverse trigger.
-		// first we collect one cons-terms for each ongruence class:
-		final HashMap<CCTerm, CCTerm> constructorTerms = new HashMap<>();
+		// first we collect one cons-terms for each congruence class:
 		for (final CCTerm rep : mCClosure.mAllTerms) {
 			if (rep.getRepresentative() != rep) {
 				continue;
 			}
-			CCTerm consTerm = null;
-			ApplicationTerm consAt = null;
 			for (final CCTerm member : rep.mMembers) {
-				if (member.mFlatTerm instanceof ApplicationTerm &&
-						((ApplicationTerm)member.mFlatTerm).getFunction().isConstructor()) {
+				if (isConstructorApp(member.mFlatTerm)) {
 					final ApplicationTerm memberAt = (ApplicationTerm) member.mFlatTerm;
-					if (consTerm == null) {
-						consTerm = member;
-						consAt = memberAt;
-						constructorTerms.put(rep, consTerm);
-					} else {
+					assert rep.getSharedTerm() != null;
+					if (member != rep.getSharedTerm()) {
+						final CCTerm consTerm = rep.getSharedTerm();
+						final ApplicationTerm consAt = (ApplicationTerm) consTerm.mFlatTerm;
 						if (((ApplicationTerm)member.mFlatTerm).getFunction()
 								!= ((ApplicationTerm)consTerm.mFlatTerm).getFunction()) {
 							mCClosure.getLogger().error("Unpropagated equality on different conses");
-							@SuppressWarnings("unchecked")
-							final SymmetricPair<CCTerm>[] reason = new SymmetricPair[] { new SymmetricPair<>(consTerm, member) };
-							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_DISJOINT, reason, consTerm, member);
-							return computeClause(null, lemma);
+							computeInjectiveDisjointLemmas(consTerm, member);
 						} else {
 							// check we propagated all equalities between constructor arguments.
 							for (int i = 0; i < memberAt.getParameters().length; i++) {
@@ -363,12 +411,7 @@ public class DataTypeTheory implements ITheory {
 								final CCTerm memArg = mClausifier.getCCTerm(memberAt.getParameters()[i]);
 								if (memArg.mRepStar != consArg.mRepStar) {
 									mCClosure.getLogger().error("Unpropagated constructor argument equality");
-									@SuppressWarnings("unchecked")
-									final SymmetricPair<CCTerm>[] reason = new SymmetricPair[] { new SymmetricPair<>(consTerm, member) };
-									final SymmetricPair<CCTerm> eqPair = new SymmetricPair<>(consArg, memArg);
-									final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_INJECTIVE, eqPair, reason,
-											consTerm, member);
-									addPendingLemma(lemma);
+									computeInjectiveDisjointLemmas(consTerm, member);
 								}
 							}
 						}
@@ -384,7 +427,7 @@ public class DataTypeTheory implements ITheory {
 			final FunctionSymbol fs = appTerm.getFunction();
 			if (appTerm.getFunction().isSelector() || appTerm.getFunction().getName().equals("is")) {
 				final CCTerm argTerm = ((CCAppTerm) ccTerm).getArg();
-				final CCTerm consTerm = constructorTerms.get(argTerm.getRepresentative());
+				final CCTerm consTerm = argTerm.getRepresentative().getSharedTerm();
 				if (consTerm != null) {
 					final ApplicationTerm consApp = (ApplicationTerm) consTerm.getFlatTerm();
 					final DataType datatype = (DataType) consApp.getSort().getSortSymbol();
@@ -859,11 +902,10 @@ public class DataTypeTheory implements ITheory {
 		final LinkedHashSet<String> selApps = findAllSelectorApplications(ccterm);
 		final SortSymbol sym = ccterm.mFlatTerm.getSort().getSortSymbol();
 
-		// check if there is already a constructor
-		for (final CCTerm mem : ccterm.mMembers) {
-			if (mem.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm)mem.mFlatTerm).getFunction().isConstructor()) {
-				return;
-			}
+		// check if there is already a constructor.
+		// in that case no "is" term is creataed.
+		if (ccterm.getSharedTerm() != null) {
+			return;
 		}
 
 		for (final Constructor c : ((DataType) sym).getConstructors()) {
@@ -875,46 +917,6 @@ public class DataTypeTheory implements ITheory {
 				}
 			}
 		}
-	}
-
-	/**
-	 * Rule 8 checks for a given term if its equality class contains more than one constructor.
-	 * If the constructor functions are equal, we need to propagate the equalities of their arguments,
-	 * else we found a conflict.
-	 * @param ccterm the term to check.
-	 * @return The conflict clause if a conflict is found, else null.
-	 */
-	private Clause Rule8(final CCTerm ccterm) {
-		ApplicationTerm consAt = null;
-		CCTerm consCCTerm = null;
-		for (final CCTerm mem : ccterm.mMembers) {
-			if (mem.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm) mem.mFlatTerm).getFunction().isConstructor()) {
-				final ApplicationTerm memAt = (ApplicationTerm) mem.getFlatTerm();
-				if (consAt == null) {
-					consAt = memAt;
-					consCCTerm = mem;
-					continue;
-				}
-				@SuppressWarnings("unchecked")
-				final SymmetricPair<CCTerm>[] reason = new SymmetricPair[] { new SymmetricPair<>(consCCTerm, mem) };
-				if (memAt.getFunction() == consAt.getFunction()) {
-					for (int i = 0; i < memAt.getParameters().length; i++) {
-						final CCTerm consArg = mClausifier.getCCTerm(consAt.getParameters()[i]);
-						final CCTerm memArg = mClausifier.getCCTerm(memAt.getParameters()[i]);
-						if (memArg.mRepStar != consArg.mRepStar) {
-							final SymmetricPair<CCTerm> eqPair = new SymmetricPair<>(consArg, memArg);
-							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_INJECTIVE, eqPair, reason,
-									consCCTerm, mem);
-							addPendingLemma(lemma);
-						}
-					}
-				} else {
-					final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_DISJOINT, reason, consCCTerm, mem);
-					return computeClause(null, lemma);
-				}
-			}
-		}
-		return processPendingLemmas();
 	}
 
 	/**
@@ -1018,5 +1020,9 @@ public class DataTypeTheory implements ITheory {
 		}
 
 		throw new AssertionError("No constructor for selector " + selector);
+	}
+
+	private static boolean isConstructorApp(Term term) {
+		return term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().isConstructor();
 	}
 }

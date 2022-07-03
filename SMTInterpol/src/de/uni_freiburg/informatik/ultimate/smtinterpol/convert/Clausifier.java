@@ -1157,6 +1157,7 @@ public class Clausifier {
 				if (fs.isConstructor()) {
 					final DataType returnSort = (DataType) fs.getReturnSort().getSortSymbol();
 					final Constructor c = returnSort.getConstructor(fs.getName());
+					mCClosure.addSharedTerm(ccTerm);
 
 					for (final String sel : c.getSelectors()) {
 						final FunctionSymbol selFs = mTheory.getFunction(sel, fs.getReturnSort());
@@ -2231,16 +2232,22 @@ public class Clausifier {
 	}
 
 	public void setLogic(final Logics logic) {
+		// Set up the theories.
+		// Note that order is important: the easier theories should be first,
+		// undecidable theories like quantifier theory should be last.
 		if (logic.isUF() || logic.isArray() || logic.isArithmetic() || logic.isQuantified() || logic.isDatatype()) {
 			// also need UF for div/mod
 			// and for quantifiers for AUX functions
 			setupCClosure();
 		}
-		if (logic.isArithmetic()) {
-			setupLinArithmetic();
-		}
 		if (logic.isArray()) {
 			setupArrayTheory();
+		}
+		if (logic.isDatatype()) {
+			setupDataTypeTheory();
+		}
+		if (logic.isArithmetic()) {
+			setupLinArithmetic();
 		}
 		if (logic.isQuantified()) {
 			// TODO How can we combine the two? For now, we keep EPR separately.
@@ -2249,9 +2256,6 @@ public class Clausifier {
 			} else {
 				setupQuantifiers();
 			}
-		}
-		if (logic.isDatatype()) {
-			setupDataTypeTheory();
 		}
 	}
 
