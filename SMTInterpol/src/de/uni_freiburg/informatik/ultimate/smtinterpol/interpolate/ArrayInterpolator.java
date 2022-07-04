@@ -1267,7 +1267,6 @@ public class ArrayInterpolator {
 		 * @return the select equality if it exists, else null.
 		 */
 		private MatchingSelectEquality findSelectEquality(final Term leftArray, final Term rightArray) {
-			final SymmetricPair<Term> arrayPair = new SymmetricPair<>(leftArray, rightArray);
 			for (final SymmetricPair<Term> testEq : mEqualities.keySet()) {
 				// Find some select equality.
 				final Term eqLeft = testEq.getFirst();
