@@ -1007,76 +1007,46 @@ public class ArrayInterpolator {
 		}
 
 		private boolean checkAndAddSelectEdgeStep(Term left, Term right) {
-			final AnnotatedTerm selectEq = findSelectEquality(left, right);
-			if (selectEq == null) {
+			final MatchingSelectEquality match = findSelectEquality(left, right);
+			if (match == null) {
 				return false;
 			}
+			final AnnotatedTerm selectEq = match.mEqualityLit;
 			final InterpolatorAtomInfo termInfo = mInterpolator.getAtomTermInfo(selectEq);
 			final LitInfo stepInfo = mInterpolator.getAtomOccurenceInfo(selectEq);
 			final ApplicationTerm selectEqApp = termInfo.getEquality();
-			final Term leftTerm = selectEqApp.getParameters()[0];
-			final Term rightTerm = selectEqApp.getParameters()[1];
-
-			Term leftSelect = null;
-			Term rightSelect = null;
-			if (isSelectTerm(leftTerm)) {
-				if (getArrayFromSelect(leftTerm).equals(left)) {
-					leftSelect = leftTerm;
-				} else {
-					assert getArrayFromSelect(leftTerm).equals(right);
-					rightSelect = leftTerm;
-				}
-			}
-			if (isSelectTerm(rightTerm)) {
-				if (getArrayFromSelect(rightTerm).equals(left)) {
-					assert leftSelect == null;
-					leftSelect = rightTerm;
-				} else {
-					assert getArrayFromSelect(rightTerm).equals(right) && rightSelect == null;
-					rightSelect = rightTerm;
-				}
-			}
+			final Term leftSelectOrValue = selectEqApp.getParameters()[match.mIsSwapped ? 1 : 0];
+			final Term rightSelectOrValue = selectEqApp.getParameters()[match.mIsSwapped ? 0 : 1];
 
 			Term boundaryTerm = left;
 			mTail.closeAPath(mHead, boundaryTerm, stepInfo);
 			mTail.openAPath(mHead, boundaryTerm, stepInfo);
 			final TermVariable mixedVar = stepInfo.getMixedVar();
 			if (mixedVar != null) {
-				final Occurrence leftOcc;
-				if (leftSelect != null) {
-					leftOcc = mInterpolator.getOccurrence(leftSelect);
-				} else {
-					assert isConstArray(left) && getValueFromConst(left).equals(leftTerm);
-					leftOcc = mInterpolator.getOccurrence(leftTerm);
-				}
+				final Occurrence leftOcc = mInterpolator.getOccurrence(leftSelectOrValue);
 				// The left select can be A-local although we were on a B-path (and vice versa)
 				mTail.closeAPath(mHead, boundaryTerm, leftOcc);
 				mTail.openAPath(mHead, boundaryTerm, leftOcc);
 			}
 			// Add the index equality for the first select term (if it is a select)
-			if (leftSelect != null) {
-				mTail.addSelectIndexEquality(mHead, leftSelect);
+			if (!match.mIsConstLeft) {
+				mTail.addSelectIndexEquality(mHead, leftSelectOrValue);
 			}
 			if (mixedVar != null) {
-				final Occurrence rightOcc;
-				if (rightSelect != null) {
-					rightOcc = mInterpolator.getOccurrence(rightSelect);
-				} else {
-					assert isConstArray(right) && getValueFromConst(right).equals(rightTerm);
-					rightOcc = mInterpolator.getOccurrence(rightTerm);
-				}
-				if (leftSelect != null && rightSelect != null) {
-					boundaryTerm = selectEq;
-				} else { // It is a const select equality - we close the path with const(mixedVar)
+				final Occurrence rightOcc = mInterpolator.getOccurrence(rightSelectOrValue);
+				if (match.mIsConstLeft || match.mIsConstRight) {
+					// It is a const select equality - we close the path with const(mixedVar)
 					boundaryTerm = buildConst(mixedVar, left.getSort());
+				} else {
+					boundaryTerm = selectEq;
 				}
 				mTail.closeAPath(mHead, boundaryTerm, rightOcc);
 				mTail.openAPath(mHead, boundaryTerm, rightOcc);
 			}
 			// The other index equality is added after opening/closing (if the rightTerm is
 			// a select)
-			if (rightSelect != null) {
-				mTail.addSelectIndexEquality(mHead, rightSelect);
+			if (!match.mIsConstRight) {
+				mTail.addSelectIndexEquality(mHead, rightSelectOrValue);
 			}
 			return true;
 		}
@@ -1273,6 +1243,21 @@ public class ArrayInterpolator {
 			return mPathInterpolants;
 		}
 
+		class MatchingSelectEquality {
+			AnnotatedTerm mEqualityLit;
+			boolean mIsSwapped;
+			boolean mIsConstLeft;
+			boolean mIsConstRight;
+
+			public MatchingSelectEquality(AnnotatedTerm equalityLit,
+					boolean isSwapped, boolean isConstLeft, boolean isConstRight) {
+				mEqualityLit = equalityLit;
+				mIsSwapped = isSwapped;
+				mIsConstLeft = isConstLeft;
+				mIsConstRight = isConstRight;
+			}
+		}
+
 		/**
 		 * For a step in an index path of a weakeq-ext lemma that is not an array equality, check if we can find a
 		 * select equality between the arrays and corresponding index equalities.
@@ -1281,66 +1266,65 @@ public class ArrayInterpolator {
 		 *
 		 * @return the select equality if it exists, else null.
 		 */
-		private AnnotatedTerm findSelectEquality(final Term leftArray, final Term rightArray) {
+		private MatchingSelectEquality findSelectEquality(final Term leftArray, final Term rightArray) {
 			final SymmetricPair<Term> arrayPair = new SymmetricPair<>(leftArray, rightArray);
 			for (final SymmetricPair<Term> testEq : mEqualities.keySet()) {
 				// Find some select equality.
-				final Term testLeft = testEq.getFirst();
-				final Term testRight = testEq.getSecond();
-				final Term leftSelect = isSelectTerm(testLeft) ? testLeft : null;
-				final Term rightSelect = isSelectTerm(testRight) ? testRight : null;
-				if (leftSelect != null && rightSelect != null) { // Check equalities of the form "arr1[j1] = arr2[j2]".
+				final Term eqLeft = testEq.getFirst();
+				final Term eqRight = testEq.getSecond();
+				final boolean isLeftSelect = isSelectTerm(eqLeft);
+				final boolean isRightSelect = isSelectTerm(eqRight);
+				if (isLeftSelect && isRightSelect) {
+					// Check equalities of the form "arr1[j1] = arr2[j2]".
 					// Check if the arrays of the select terms match the term pair.
-					final Term testLeftArray = getArrayFromSelect(leftSelect);
-					final Term testRightArray = getArrayFromSelect(rightSelect);
-					final SymmetricPair<Term> testArrayPair = new SymmetricPair<>(testLeftArray, testRightArray);
-					if (arrayPair.equals(testArrayPair)) {
-						// Check if the select indices equal the weakpath index (trivially or by an equality literal).
-						final Term testLeftIndex = getIndexFromSelect(leftSelect);
-						final Term testRightIndex = getIndexFromSelect(rightSelect);
-						if (testLeftIndex == mPathIndex
-								|| mEqualities.containsKey(new SymmetricPair<>(testLeftIndex, mPathIndex))) {
-							if (testRightIndex == mPathIndex
-									|| mEqualities.containsKey(new SymmetricPair<>(testRightIndex, mPathIndex))) {
-								return mEqualities.get(testEq);
-							}
-						}
+					if (isGoodSelect(eqLeft, leftArray) && isGoodSelect(eqRight, rightArray)) {
+						return new MatchingSelectEquality(mEqualities.get(testEq), false, false, false);
 					}
-				} else { // Check equalities of the form "arr[j] = v".
-					Term singleSelect = null;
-					Term value = null;
-					if (leftSelect != null) {
-						singleSelect = leftSelect;
-						value = testRight;
-					} else if (rightSelect != null) {
-						singleSelect = rightSelect;
-						value = testLeft;
+					if (isGoodSelect(eqRight, leftArray) && isGoodSelect(eqLeft, rightArray)) {
+						return new MatchingSelectEquality(mEqualities.get(testEq), true, false, false);
 					}
-					if (singleSelect != null) {
-						final Term testArray = getArrayFromSelect(singleSelect);
-						Term constArray = null;
-						if (testArray.equals(leftArray) && isConstArray(rightArray)) {
-							constArray = rightArray;
-						} else if (testArray.equals(rightArray) && isConstArray(leftArray)) {
-							constArray = leftArray;
-						}
-						if (constArray != null) { // The select array matches, the other array is a constant array.
-							// Check that the constant array matches the value "v" of "arr[j] = v".
-							if (getValueFromConst(constArray).equals(value)) {
-								// Check that index "j" is equal to the path index.
-								final Term testIndex = getIndexFromSelect(singleSelect);
-								if (testIndex == mPathIndex
-										|| mEqualities.containsKey(new SymmetricPair<>(testIndex, mPathIndex))) {
-									return mEqualities.get(testEq);
-								}
-							}
-						}
+				}
+				if (isConstArray(leftArray)) {
+					// Check equalities of the form "arr[j] = v".
+					final Term value = getValueFromConst(leftArray);
+					if (eqLeft == value && isRightSelect && isGoodSelect(eqRight, rightArray)) {
+						return new MatchingSelectEquality(mEqualities.get(testEq), false, true, false);
 					}
-
+					if (eqRight == value && isLeftSelect && isGoodSelect(eqLeft, rightArray)) {
+						return new MatchingSelectEquality(mEqualities.get(testEq), true, true, false);
+					}
+				}
+				if (isConstArray(rightArray)) {
+					// Check equalities of the form "arr[j] = v".
+					final Term value = getValueFromConst(rightArray);
+					if (eqLeft == value && isRightSelect && isGoodSelect(eqRight, leftArray)) {
+						return new MatchingSelectEquality(mEqualities.get(testEq), true, false, true);
+					}
+					if (eqRight == value && isLeftSelect && isGoodSelect(eqLeft, leftArray)) {
+						return new MatchingSelectEquality(mEqualities.get(testEq), false, false, true);
+					}
 				}
 			}
 			// No select equality could be found.
 			return null;
+		}
+
+		/**
+		 * Check if the selectTerm is a select on the array term with an index matching
+		 * mPathIndex.
+		 *
+		 * @param selectTerm The select term. Caller must ensure it is a select.
+		 * @param arrayTerm  The array term on which the select term must match.
+		 * @return true if the array term match and the index either equals mPathIndex
+		 *         or a corresponding equality exists.
+		 */
+		private boolean isGoodSelect(Term selectTerm, Term arrayTerm) {
+			if (getArrayFromSelect(selectTerm) == arrayTerm) {
+				final Term selectIndex = getIndexFromSelect(selectTerm);
+				return selectIndex == mPathIndex
+						|| mEqualities.containsKey(new SymmetricPair<>(selectIndex, mPathIndex));
+			}
+			return false;
 		}
 
 		/**
