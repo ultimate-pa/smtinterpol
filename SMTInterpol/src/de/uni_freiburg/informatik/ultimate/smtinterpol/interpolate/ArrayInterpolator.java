@@ -941,111 +941,10 @@ public class ArrayInterpolator {
 				// or, in weakeq-ext lemmas only, a select equality.
 				// In the second and third case, there is no equality literal for the arrays in the lemma.
 				if (lit == null) {
-					if (mLemmaInfo.getLemmaType().equals(":weakeq-ext")) {
-						// Check if the step is a select equality
-						final AnnotatedTerm selectEq = findSelectEquality(left, right);
-						if (selectEq != null) {
-							final InterpolatorAtomInfo termInfo = mInterpolator.getAtomTermInfo(selectEq);
-							final LitInfo stepInfo = mInterpolator.getAtomOccurenceInfo(selectEq);
-							final ApplicationTerm selectEqApp = termInfo.getEquality();
-							final Term leftTerm = selectEqApp.getParameters()[0];
-							final Term rightTerm = selectEqApp.getParameters()[1];
-
-							Term leftSelect = null;
-							Term rightSelect = null;
-							if (isSelectTerm(leftTerm)) {
-								if (getArrayFromSelect(leftTerm).equals(left)) {
-									leftSelect = leftTerm;
-								} else {
-									assert getArrayFromSelect(leftTerm).equals(right);
-									rightSelect = leftTerm;
-								}
-							}
-							if (isSelectTerm(rightTerm)) {
-								if (getArrayFromSelect(rightTerm).equals(left)) {
-									assert leftSelect == null;
-									leftSelect = rightTerm;
-								} else {
-									assert getArrayFromSelect(rightTerm).equals(right) && rightSelect == null;
-									rightSelect = rightTerm;
-								}
-							}
-
-							mTail.closeAPath(mHead, boundaryTerm, stepInfo);
-							mTail.openAPath(mHead, boundaryTerm, stepInfo);
-							final TermVariable mixedVar = stepInfo.getMixedVar();
-							if (mixedVar != null) {
-								final Occurrence leftOcc;
-								if (leftSelect != null) {
-									leftOcc = mInterpolator.getOccurrence(leftSelect);
-								} else {
-									assert isConstArray(left) && getValueFromConst(left).equals(leftTerm);
-									leftOcc = mInterpolator.getOccurrence(leftTerm);
-								}
-								// The left select can be A-local although we were on a B-path (and vice versa)
-								mTail.closeAPath(mHead, boundaryTerm, leftOcc);
-								mTail.openAPath(mHead, boundaryTerm, leftOcc);
-							}
-							// Add the index equality for the first select term (if it is a select)
-							if (leftSelect != null) {
-								mTail.addSelectIndexEquality(mHead, leftSelect);
-							}
-							if (mixedVar != null) {
-								final Occurrence rightOcc;
-								if (rightSelect != null) {
-									rightOcc = mInterpolator.getOccurrence(rightSelect);
-								} else {
-									assert isConstArray(right) && getValueFromConst(right).equals(rightTerm);
-									rightOcc = mInterpolator.getOccurrence(rightTerm);
-								}
-								if (leftSelect != null && rightSelect != null) {
-									boundaryTerm = selectEq;
-								} else { // It is a const select equality - we close the path with const(mixedVar)
-									boundaryTerm = buildConst(mixedVar, left.getSort());
-								}
-								mTail.closeAPath(mHead, boundaryTerm, rightOcc);
-								mTail.openAPath(mHead, boundaryTerm, rightOcc);
-							}
-							// The other index equality is added after opening/closing (if the rightTerm is a select)
-							if (rightSelect != null) {
-								mTail.addSelectIndexEquality(mHead, rightSelect);
-							}
-							continue;
-						}
+					if (!mLemmaInfo.getLemmaType().equals(":weakeq-ext") || !checkAndAddSelectEdgeStep(left, right)) {
+						addStoreEdgeStep(left, right);
 					}
-
-					// Else, it is a store step. We store the index disequality "storeindex != weakpathindex" for the
-					// interpolant if it is mixed, or if it is A-local on a B-path or vice versa.
-					final Term storeTerm, arrayTerm;
-					if (isStoreTerm(left) && getArrayFromStore(left).equals(right)) {
-						storeTerm = left;
-						arrayTerm = right;
-					} else {
-						storeTerm = right;
-						arrayTerm = left;
-					}
-					assert getArrayFromStore(storeTerm).equals(arrayTerm);
-					final Occurrence stepOcc = mInterpolator.getOccurrence(storeTerm);
-					final Term storeIndex = getIndexFromStore(storeTerm);
-					final AnnotatedTerm indexDiseq =
-							mDisequalities.get(new SymmetricPair<>(storeIndex, mPathIndex));
-					if (indexDiseq != null) {
-						final Occurrence indexDiseqOcc = mInterpolator.getAtomOccurenceInfo(indexDiseq);
-						final Occurrence intersectOcc = stepOcc.intersect(indexDiseqOcc);
-
-						mTail.closeAPath(mHead, boundaryTerm, stepOcc);
-						mTail.closeAPath(mHead, boundaryTerm, intersectOcc);
-						mTail.openAPath(mHead, boundaryTerm, intersectOcc);
-						mTail.openAPath(mHead, boundaryTerm, stepOcc);
-						mTail.addIndexDisequality(mHead, indexDiseq);
-
-					} else {
-						// Otherwise indexDiseq is a trivial disequality like x = x + 1.
-						// Treat it as a shared disequality.
-						mTail.closeAPath(mHead, boundaryTerm, stepOcc);
-						mTail.openAPath(mHead, boundaryTerm, stepOcc);
-					}
-				} else { // In equality steps, we just close or open A paths.
+				} else { // For equality steps, we just close or open A paths.
 					final LitInfo stepInfo = mInterpolator.getAtomOccurenceInfo(lit);
 					mTail.closeAPath(mHead, boundaryTerm, stepInfo);
 					mTail.openAPath(mHead, boundaryTerm, stepInfo);
@@ -1070,6 +969,116 @@ public class ArrayInterpolator {
 				closeWeakPath();
 			}
 			return mPathInterpolants;
+		}
+
+		private void addStoreEdgeStep(Term left, Term right) {
+			// Else, it is a store step. We store the index disequality "storeindex !=
+			// weakpathindex" for the
+			// interpolant if it is mixed, or if it is A-local on a B-path or vice versa.
+			final Term storeTerm, arrayTerm;
+			if (isStoreTerm(left) && getArrayFromStore(left).equals(right)) {
+				storeTerm = left;
+				arrayTerm = right;
+			} else {
+				storeTerm = right;
+				arrayTerm = left;
+			}
+			assert getArrayFromStore(storeTerm).equals(arrayTerm);
+			final Term boundaryTerm = left;
+			final Occurrence stepOcc = mInterpolator.getOccurrence(storeTerm);
+			final Term storeIndex = getIndexFromStore(storeTerm);
+			final AnnotatedTerm indexDiseq = mDisequalities.get(new SymmetricPair<>(storeIndex, mPathIndex));
+			if (indexDiseq != null) {
+				final Occurrence indexDiseqOcc = mInterpolator.getAtomOccurenceInfo(indexDiseq);
+				final Occurrence intersectOcc = stepOcc.intersect(indexDiseqOcc);
+
+				mTail.closeAPath(mHead, boundaryTerm, stepOcc);
+				mTail.closeAPath(mHead, boundaryTerm, intersectOcc);
+				mTail.openAPath(mHead, boundaryTerm, intersectOcc);
+				mTail.openAPath(mHead, boundaryTerm, stepOcc);
+				mTail.addIndexDisequality(mHead, indexDiseq);
+
+			} else {
+				// Otherwise indexDiseq is a trivial disequality like x = x + 1.
+				// Treat it as a shared disequality.
+				mTail.closeAPath(mHead, boundaryTerm, stepOcc);
+				mTail.openAPath(mHead, boundaryTerm, stepOcc);
+			}
+		}
+
+		private boolean checkAndAddSelectEdgeStep(Term left, Term right) {
+			final AnnotatedTerm selectEq = findSelectEquality(left, right);
+			if (selectEq == null) {
+				return false;
+			}
+			final InterpolatorAtomInfo termInfo = mInterpolator.getAtomTermInfo(selectEq);
+			final LitInfo stepInfo = mInterpolator.getAtomOccurenceInfo(selectEq);
+			final ApplicationTerm selectEqApp = termInfo.getEquality();
+			final Term leftTerm = selectEqApp.getParameters()[0];
+			final Term rightTerm = selectEqApp.getParameters()[1];
+
+			Term leftSelect = null;
+			Term rightSelect = null;
+			if (isSelectTerm(leftTerm)) {
+				if (getArrayFromSelect(leftTerm).equals(left)) {
+					leftSelect = leftTerm;
+				} else {
+					assert getArrayFromSelect(leftTerm).equals(right);
+					rightSelect = leftTerm;
+				}
+			}
+			if (isSelectTerm(rightTerm)) {
+				if (getArrayFromSelect(rightTerm).equals(left)) {
+					assert leftSelect == null;
+					leftSelect = rightTerm;
+				} else {
+					assert getArrayFromSelect(rightTerm).equals(right) && rightSelect == null;
+					rightSelect = rightTerm;
+				}
+			}
+
+			Term boundaryTerm = left;
+			mTail.closeAPath(mHead, boundaryTerm, stepInfo);
+			mTail.openAPath(mHead, boundaryTerm, stepInfo);
+			final TermVariable mixedVar = stepInfo.getMixedVar();
+			if (mixedVar != null) {
+				final Occurrence leftOcc;
+				if (leftSelect != null) {
+					leftOcc = mInterpolator.getOccurrence(leftSelect);
+				} else {
+					assert isConstArray(left) && getValueFromConst(left).equals(leftTerm);
+					leftOcc = mInterpolator.getOccurrence(leftTerm);
+				}
+				// The left select can be A-local although we were on a B-path (and vice versa)
+				mTail.closeAPath(mHead, boundaryTerm, leftOcc);
+				mTail.openAPath(mHead, boundaryTerm, leftOcc);
+			}
+			// Add the index equality for the first select term (if it is a select)
+			if (leftSelect != null) {
+				mTail.addSelectIndexEquality(mHead, leftSelect);
+			}
+			if (mixedVar != null) {
+				final Occurrence rightOcc;
+				if (rightSelect != null) {
+					rightOcc = mInterpolator.getOccurrence(rightSelect);
+				} else {
+					assert isConstArray(right) && getValueFromConst(right).equals(rightTerm);
+					rightOcc = mInterpolator.getOccurrence(rightTerm);
+				}
+				if (leftSelect != null && rightSelect != null) {
+					boundaryTerm = selectEq;
+				} else { // It is a const select equality - we close the path with const(mixedVar)
+					boundaryTerm = buildConst(mixedVar, left.getSort());
+				}
+				mTail.closeAPath(mHead, boundaryTerm, rightOcc);
+				mTail.openAPath(mHead, boundaryTerm, rightOcc);
+			}
+			// The other index equality is added after opening/closing (if the rightTerm is
+			// a select)
+			if (rightSelect != null) {
+				mTail.addSelectIndexEquality(mHead, rightSelect);
+			}
+			return true;
 		}
 
 		/**
