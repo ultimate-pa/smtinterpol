@@ -487,6 +487,79 @@ public class ProofSimplifierTest {
 	}
 
 	@Test
+	public void testStoreOverStore() {
+		mSmtInterpol.push(1);
+		final Sort intSort = mSmtInterpol.sort(SMTLIBConstants.INT);
+		final Sort arraySort = mSmtInterpol.sort(SMTLIBConstants.ARRAY, intSort, intSort);
+		final Term arrayTerm = generateDummyTerms("a", 1, arraySort)[0];
+		final Term[] indexTerms = generateDummyTerms("i", 2, intSort);
+		final Term[] valueTerms = generateDummyTerms("v", 2, intSort);
+		for (int i = 0; i < 2; i++) {
+			Term index0Term, index1Term;
+			if (i == 0) {
+				// simple case: indices are equal
+				index0Term = index1Term = indexTerms[0];
+			} else {
+				// indices are equal modulo congruence
+				index0Term = mSmtInterpol.term(SMTLIBConstants.PLUS, indexTerms[0], indexTerms[1]);
+				index1Term = mSmtInterpol.term(SMTLIBConstants.PLUS, indexTerms[1], indexTerms[0]);
+			}
+			final Term innerStore = mSmtInterpol.term(SMTLIBConstants.STORE, arrayTerm, index0Term, valueTerms[0]);
+			final Term outerStore = mSmtInterpol.term(SMTLIBConstants.STORE, innerStore, index1Term, valueTerms[1]);
+			final Term resultStore = mSmtInterpol.term(SMTLIBConstants.STORE, arrayTerm, index1Term, valueTerms[1]);
+			final Term rewriteEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, outerStore, resultStore);
+			checkRewriteRule(rewriteEq, ProofConstants.RW_STORE_OVER_STORE);
+		}
+		mSmtInterpol.pop(1);
+	}
+
+	@Test
+	public void testSelectOverStore() {
+		mSmtInterpol.push(1);
+		final Sort intSort = mSmtInterpol.sort(SMTLIBConstants.INT);
+		final Sort arraySort = mSmtInterpol.sort(SMTLIBConstants.ARRAY, intSort, intSort);
+		final Term arrayTerm = generateDummyTerms("a", 1, arraySort)[0];
+		final Term[] indexTerms = generateDummyTerms("i", 2, intSort);
+		final Term valueTerm = generateDummyTerms("v", 1, intSort)[0];
+		for (int i = 0; i < 5; i++) {
+			Term indexStore, indexSelect, rhs;
+			if (i < 2) {
+				if (i == 0) {
+					// simple case: indices are equal
+					indexStore = indexSelect = indexTerms[0];
+				} else {
+					// indices are equal modulo congruence
+					indexStore = mSmtInterpol.term(SMTLIBConstants.PLUS, indexTerms[0], indexTerms[1]);
+					indexSelect = mSmtInterpol.term(SMTLIBConstants.PLUS, indexTerms[1], indexTerms[0]);
+				}
+				rhs = valueTerm;
+			} else {
+				if (i == 2) {
+					// index differ by constant
+					indexStore = indexTerms[0];
+					indexSelect = mSmtInterpol.term(SMTLIBConstants.PLUS, indexTerms[0], Rational.ONE.toTerm(intSort));
+				} else if (i == 3) {
+					// index differ by constant
+					indexStore = indexTerms[0];
+					indexSelect = mSmtInterpol.term(SMTLIBConstants.PLUS, indexTerms[0], Rational.MONE.toTerm(intSort));
+				} else {
+					// index cannot be equal by modulo.
+					indexStore = mSmtInterpol.term(SMTLIBConstants.MUL, Rational.TWO.toTerm(intSort), indexTerms[0]);
+					indexSelect = mSmtInterpol.term(SMTLIBConstants.PLUS,
+							mSmtInterpol.term(SMTLIBConstants.MUL, Rational.TWO.toTerm(intSort), indexTerms[1]),
+							Rational.ONE.toTerm(intSort));
+				}
+				rhs = mSmtInterpol.term(SMTLIBConstants.SELECT, arrayTerm, indexSelect);
+			}
+			final Term storeTerm = mSmtInterpol.term(SMTLIBConstants.STORE, arrayTerm, indexStore, valueTerm);
+			final Term selectOverStore = mSmtInterpol.term(SMTLIBConstants.SELECT, storeTerm, indexSelect);
+			final Term rewriteEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, selectOverStore, rhs);
+			checkRewriteRule(rewriteEq, ProofConstants.RW_SELECT_OVER_STORE);
+		}
+		mSmtInterpol.pop(1);
+	}
+
+	@Test
 	public void testExcludedMiddle() {
 		final Sort boolSort = mSmtInterpol.sort(SMTLIBConstants.BOOL);
 		final Term[] terms = generateDummyTerms("b", 1, boolSort);
