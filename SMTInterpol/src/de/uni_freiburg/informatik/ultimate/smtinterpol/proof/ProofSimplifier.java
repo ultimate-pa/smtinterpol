@@ -2221,7 +2221,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Term value = storeArgs[2];
 		assert isApplication("store", store) && array == lhsArgs[1 - storeIdx];
 
-		final Term diff = theory.term("@diff", lhsArgs);
+		final Term diff = theory.term("@diff", store, array);
 		final Term selectArrayDiff = theory.term(SMTLIBConstants.SELECT, array, diff);
 		final Term selectStoreDiff = theory.term(SMTLIBConstants.SELECT, store, diff);
 		final Term selectArrayI = theory.term(SMTLIBConstants.SELECT, array, index);
@@ -2256,7 +2256,7 @@ public class ProofSimplifier extends TermTransformer {
 		if (storeIdx == 0) {
 			proofRhs = res(theory.term("=", array, store), mProofRules.symm(array, store), proofRhs);
 		} else {
-			proofLhs = res(theory.term("=", store, array), mProofRules.symm(store, array), proofRhs);
+			proofLhs = res(theory.term("=", store, array), proofLhs, mProofRules.symm(array, store));
 		}
 		Term proof = proveIff(rewrite, proofRhs, proofLhs);
 		proof = res(theory.term("=", selectStoreI, value), mProofRules.selectStore1(array, index, value), proof);

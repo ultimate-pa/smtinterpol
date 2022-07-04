@@ -164,6 +164,12 @@ public class ProofSimplifierTest {
 		checkProof(mSimplifier.transform(lemma), lits);
 	}
 
+	void checkRewriteRule(final Term rewriteEquality, Annotation rewriteRule) {
+		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
+				mSmtInterpol.annotate(rewriteEquality, rewriteRule));
+		checkLemmaOrRewrite(rewriteEqSimp, new Term[] { rewriteEquality });
+	}
+
 	@Test
 	public void testCCLemma() {
 		for (int len = 3; len < 5; len++) {
@@ -200,9 +206,7 @@ public class ProofSimplifierTest {
 					: mSmtInterpol.term("=", rhsTerms);
 
 			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("=", lhsTerms), rhs);
-			final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(equality,
-					rhsTerms.length == 1 ? ProofConstants.RW_EQ_SAME : ProofConstants.RW_EQ_SIMP));
-			checkLemmaOrRewrite(rewriteEqSimp, new Term[] { equality });
+			checkRewriteRule(equality, rhsTerms.length == 1 ? ProofConstants.RW_EQ_SAME : ProofConstants.RW_EQ_SIMP);
 		}
 		mSmtInterpol.pop(1);
 	}
@@ -215,9 +219,7 @@ public class ProofSimplifierTest {
 			final Term[] terms = generateDummyTerms("x", 5, mSmtInterpol.sort("Bool"));
 			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("distinct", terms),
 					mSmtInterpol.term(SMTLIBConstants.FALSE));
-			final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
-					mSmtInterpol.annotate(equality, ProofConstants.RW_DISTINCT_BOOL));
-			checkLemmaOrRewrite(rewriteEqSimp, new Term[] { equality });
+			checkRewriteRule(equality, ProofConstants.RW_DISTINCT_BOOL);
 			mSmtInterpol.pop(1);
 		}
 
@@ -227,9 +229,7 @@ public class ProofSimplifierTest {
 			terms[4] = terms[2];
 			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("distinct", terms),
 					mSmtInterpol.term(SMTLIBConstants.FALSE));
-			final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
-					mSmtInterpol.annotate(equality, ProofConstants.RW_DISTINCT_SAME));
-			checkLemmaOrRewrite(rewriteEqSimp, new Term[] { equality });
+			checkRewriteRule(equality, ProofConstants.RW_DISTINCT_SAME);
 			mSmtInterpol.pop(1);
 		}
 
@@ -246,9 +246,7 @@ public class ProofSimplifierTest {
 			final Term orTerm = orParams.length == 1 ? orParams[0] : mSmtInterpol.term(SMTLIBConstants.OR, orParams);
 			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("distinct", terms),
 					mSmtInterpol.term(SMTLIBConstants.NOT, orTerm));
-			final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
-					mSmtInterpol.annotate(equality, ProofConstants.RW_DISTINCT_BINARY));
-			checkLemmaOrRewrite(rewriteEqSimp, new Term[] { equality });
+			checkRewriteRule(equality, ProofConstants.RW_DISTINCT_BINARY);
 			mSmtInterpol.pop(1);
 		}
 	}
@@ -264,9 +262,7 @@ public class ProofSimplifierTest {
 		final Term eqTerm = mSmtInterpol.term("=", terms);
 		final Term xorTerm = mSmtInterpol.term("xor", terms);
 		final Term equality = mSmtInterpol.term("=", eqTerm, mSmtInterpol.term("not", xorTerm));
-		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
-				mSmtInterpol.annotate(equality, ProofConstants.RW_EQ_TO_XOR));
-		checkLemmaOrRewrite(rewriteEqSimp, new Term[] { equality });
+		checkRewriteRule(equality, ProofConstants.RW_EQ_TO_XOR);
 		mSmtInterpol.pop(1);
 	}
 
@@ -274,9 +270,7 @@ public class ProofSimplifierTest {
 		for (final Term trivialDiseq : new Term[] { mSmtInterpol.term("=", lhs, rhs),
 				mSmtInterpol.term("=", rhs, lhs) }) {
 			final Term equality = mSmtInterpol.term("=", trivialDiseq, mSmtInterpol.term(SMTLIBConstants.FALSE));
-			final Term rewrite = mSmtInterpol.term(ProofConstants.FN_REWRITE,
-					mSmtInterpol.annotate(equality, ProofConstants.RW_INTERN));
-			checkLemmaOrRewrite(rewrite, new Term[] { equality });
+			checkRewriteRule(equality, ProofConstants.RW_INTERN);
 		}
 	}
 
@@ -356,8 +350,7 @@ public class ProofSimplifierTest {
 			final Term rhs) {
 		final Term ite = mSmtInterpol.term("ite", cond, thenCase, elseCase);
 		final Term equality = mSmtInterpol.term("=", ite, rhs);
-		final Term rewrite = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(equality, rule));
-		checkLemmaOrRewrite(rewrite, new Term[] { equality });
+		checkRewriteRule(equality, rule);
 	}
 
 	@Test
@@ -399,8 +392,7 @@ public class ProofSimplifierTest {
 		final Sort sort = dividend.getSort();
 		final Term lhs = mSmtInterpol.term(divOrMod, dividend, divisor.toTerm(sort));
 		final Term equality = mSmtInterpol.term("=", lhs, result);
-		final Term rewrite = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(equality, rule));
-		checkLemmaOrRewrite(rewrite, new Term[] { equality });
+		checkRewriteRule(equality, rule);
 	}
 
 	@Test
@@ -471,6 +463,30 @@ public class ProofSimplifierTest {
 	}
 
 	@Test
+	public void testStoreRewrite() {
+		mSmtInterpol.push(1);
+		final Sort intSort = mSmtInterpol.sort(SMTLIBConstants.INT);
+		final Sort arraySort = mSmtInterpol.sort(SMTLIBConstants.ARRAY, intSort, intSort);
+		final Term arrayTerm = generateDummyTerms("a", 1, arraySort)[0];
+		final Term indexTerm = generateDummyTerms("i", 1, intSort)[0];
+		final Term valueTerm = generateDummyTerms("v", 1, intSort)[0];
+		final Term storeTerm = mSmtInterpol.term(SMTLIBConstants.STORE, arrayTerm, indexTerm, valueTerm);
+		final Term selectTerm = mSmtInterpol.term(SMTLIBConstants.SELECT, arrayTerm, indexTerm);
+		for (int i = 0; i < 2; i++) {
+			Term storeEq;
+			if (i == 0) {
+				storeEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, storeTerm, arrayTerm);
+			} else {
+				storeEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, arrayTerm, storeTerm);
+			}
+			final Term valueEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, selectTerm, valueTerm);
+			final Term rewriteEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, storeEq, valueEq);
+			checkRewriteRule(rewriteEq, ProofConstants.RW_STORE_REWRITE);
+		}
+		mSmtInterpol.pop(1);
+	}
+
+	@Test
 	public void testExcludedMiddle() {
 		final Sort boolSort = mSmtInterpol.sort(SMTLIBConstants.BOOL);
 		final Term[] terms = generateDummyTerms("b", 1, boolSort);
@@ -522,8 +538,7 @@ public class ProofSimplifierTest {
 							rhs = mTheory.term(SMTLIBConstants.NOT, mTheory.term(SMTLIBConstants.OR, output));
 						}
 						final Term eq = mTheory.term(SMTLIBConstants.EQUALS, lhs, rhs);
-						final Term rewrite = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(eq, rule));
-						checkLemmaOrRewrite(rewrite, new Term[] { eq });
+						checkRewriteRule(eq, rule);
 					}
 				}
 			}
