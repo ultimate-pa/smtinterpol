@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,7 +49,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
@@ -219,7 +219,7 @@ public class DataTypeTheory implements ITheory {
 					final CCTerm argRep = trueIsApp.getArg().getRepresentative();
 					if (!visited.containsKey(argRep)) {
 						visited.put(argRep, trueIsApp);
-						Rule3(trueIsApp);
+						addConstructorLemma(trueIsApp);
 					} else {
 						/*
 						 * Rule 9:
@@ -317,7 +317,6 @@ public class DataTypeTheory implements ITheory {
 		// Remember the representatives of all nodes on the current path.
 		final Set<CCTerm> visitedOnPath = new HashSet<>();
 		final Deque<CCTerm> todo = new ArrayDeque<>();
-		final Map<CCTerm, CCTerm> constructors = new HashMap<>();
 		final Map<CCTerm, CCAppTerm> trueTesters = new HashMap<>();
 
 		for (final CCTerm start : mCClosure.mAllTerms) {
@@ -338,19 +337,17 @@ public class DataTypeTheory implements ITheory {
 						continue;
 					}
 
-					final ArrayDeque<CCTerm> children = new ArrayDeque<>();
-					final CCTerm cons = getAllDataTypeChildren(rep, children, trueTesters);
+					final List<CCTerm> children = getAllDataTypeChildren(rep, trueTesters);
 
 					if (!children.isEmpty()) {
 						path.push(ct);
-						constructors.put(ct, cons);
 						visitedOnPath.add(rep);
 						todo.push(ct);
 
 						for (final CCTerm c : children) {
 							if (visitedOnPath.contains(c.getRepresentative())) {
 								// one of the children is already on the path so we found a cycle
-								return buildCycleConflict(c, path, constructors, trueTesters);
+								return buildCycleConflict(c, path, trueTesters);
 							}
 							todo.push(c);
 						}
@@ -373,8 +370,7 @@ public class DataTypeTheory implements ITheory {
 			}
 		}
 		for (final CCTerm ct : dataTypeTerms) {
-			Rule4(ct);
-			Rule5(ct);
+			createIsApplications(ct);
 		}
 
 		final Clause conflict = checkDTCycles();
@@ -486,22 +482,25 @@ public class DataTypeTheory implements ITheory {
 	 *         returns a true "is" function for this equality class, if there is
 	 *         also none, it returns null.
 	 */
-	private CCTerm getAllDataTypeChildren(final CCTerm ccTerm, final ArrayDeque<CCTerm> children,
-			final Map<CCTerm, CCAppTerm> trueTesters) {
+	private List<CCTerm> getAllDataTypeChildren(final CCTerm ccTerm, final Map<CCTerm, CCAppTerm> trueTesters) {
+		final ArrayList<CCTerm> children = new ArrayList<>();
+		final CCTerm rep = ccTerm.getRepresentative();
 		/*
 		 * first check if there is a cons in the equivalence class. If yes, add all
 		 * arguments to children and return the cons.
 		 */
-		final CCTerm rep = ccTerm.getRepresentative();
-		for (final CCTerm mem : rep.mMembers) {
-			if (mem.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm)mem.mFlatTerm).getFunction().isConstructor()) {
-				for (final Term arg : ((ApplicationTerm)mem.mFlatTerm).getParameters()) {
-					if (arg.getSort().getSortSymbol().isDatatype()) {
-						children.add(mClausifier.getCCTerm(arg));
-					}
+		final CCTerm sharedTerm = rep.getSharedTerm();
+		if (sharedTerm != null) {
+			CCTerm func = sharedTerm;
+			while (func instanceof CCAppTerm) {
+				final CCAppTerm appTerm = (CCAppTerm) func;
+				final CCTerm arg = appTerm.getArg();
+				if (arg.getFlatTerm().getSort().getSortSymbol().isDatatype()) {
+					children.add(arg);
 				}
-				return mem;
+				func = appTerm.getFunc();
 			}
+			return children;
 		}
 
 		final DataType datatype = (DataType) rep.mFlatTerm.getSort().getSortSymbol();
@@ -555,7 +554,7 @@ public class DataTypeTheory implements ITheory {
 				}
 			}
 		}
-		return null;
+		return children;
 	}
 
 	/**
@@ -572,37 +571,37 @@ public class DataTypeTheory implements ITheory {
 	 * If for one equality class there is no constructor or "is" term, it returns null.
 	 */
 	private Clause buildCycleConflict(final CCTerm currentTerm, final Deque<CCTerm> path,
-			final Map<CCTerm, CCTerm> constructors, final Map<CCTerm, CCAppTerm> trueTesters) {
+			final Map<CCTerm, CCAppTerm> trueTesters) {
 		final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
 		final ArrayDeque<CCTerm> cycle = new ArrayDeque<>();
 		final CCTerm trueCC = mClausifier.getCCTerm(mTheory.mTrue);
 		final CCTerm currentTermRep = currentTerm.mRepStar;
-		CCTerm lastCt = currentTerm;
+		CCTerm currentAsChild = currentTerm;
 		cycle.addFirst(currentTerm);
 		while (true) {
-			final CCTerm prevChild = path.pop();
-			CCTerm prevStep = constructors.get(prevChild);
+			final CCTerm prevAsChild = path.pop();
+			CCTerm prevAsParent = prevAsChild.getRepresentative().getSharedTerm();
 			// if it is not sure that pathRep is the matching constructor to the selector (lastCT)
 			// build the corresponding is-function
-			if (prevStep == null) {
+			if (prevAsParent == null) {
 				// there is no constructor for the previous step. So lastCt should be a selector
 				// for which the corresponding tester is true or does not exist.
-				final CCTerm trueTester = trueTesters.get(prevChild);
+				final CCTerm trueTester = trueTesters.get(prevAsChild);
 
 				if (trueTester != null) {
 					// trueTester is a is_cons term on prevChild that is true. It is part of the
 					// conflict.
-					final CCAppTerm tester = trueTesters.get(prevChild);
+					final CCAppTerm tester = trueTesters.get(prevAsChild);
 					reason.add(new SymmetricPair<>(tester, trueCC));
 					final CCTerm testerArg = tester.getArg();
-					assert prevChild.getRepresentative() == testerArg.getRepresentative();
-					if (testerArg != prevChild) {
-						reason.add(new SymmetricPair<>(prevChild, testerArg));
+					assert prevAsChild.getRepresentative() == testerArg.getRepresentative();
+					if (testerArg != prevAsChild) {
+						reason.add(new SymmetricPair<>(prevAsChild, testerArg));
 					}
 				} else {
 					// There is no true tester; build the tester corresponding to the current
 					// conflict and try again.
-					final ApplicationTerm selectorApp = (ApplicationTerm) lastCt.mFlatTerm;
+					final ApplicationTerm selectorApp = (ApplicationTerm) currentAsChild.mFlatTerm;
 					final FunctionSymbol selectorFunc = selectorApp.getFunction();
 					final Constructor cons = getConstructor(selectorFunc);
 					final Term isTerm = mTheory.term(mTheory.getFunctionWithResult("is",
@@ -611,26 +610,27 @@ public class DataTypeTheory implements ITheory {
 					mClausifier.createCCTerm(isTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 					return null;
 				}
-				// The previous step is the argument of the selector.
-				prevStep = ((CCAppTerm) lastCt).getArg();
+				// The childTerm must be a selector and the parent is the argument of the
+				// selector.
+				prevAsParent = ((CCAppTerm) currentAsChild).getArg();
 			}
 
-			cycle.addFirst(prevStep);
-			assert prevChild.getRepresentative() == prevStep.getRepresentative();
-			if (prevChild.getRepresentative() == currentTermRep) {
+			cycle.addFirst(prevAsParent);
+			assert prevAsChild.getRepresentative() == prevAsParent.getRepresentative();
+			if (prevAsChild.getRepresentative() == currentTermRep) {
 				// this is the end of the cycle.
 				cycle.addFirst(currentTerm);
-				if (currentTerm != prevStep) {
-					reason.add(new SymmetricPair<>(currentTerm, prevStep));
+				if (currentTerm != prevAsParent) {
+					reason.add(new SymmetricPair<>(currentTerm, prevAsParent));
 				}
 				break;
 			}
 
-			cycle.addFirst(prevChild);
-			if (prevChild != prevStep) {
-				reason.add(new SymmetricPair<>(prevChild, prevStep));
+			cycle.addFirst(prevAsChild);
+			if (prevAsChild != prevAsParent) {
+				reason.add(new SymmetricPair<>(prevAsChild, prevAsParent));
 			}
-			lastCt = prevChild;
+			currentAsChild = prevAsChild;
 		}
 		@SuppressWarnings("unchecked")
 		final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_CYCLE,
@@ -789,107 +789,63 @@ public class DataTypeTheory implements ITheory {
 
 	// TODO: rename
 	/**
-	 * Rule 3 checks if the argument of the isTerm has an application for every
-	 * selector function and if so, builds a constructor term based on these selector functions.
+	 * Rule 3 checks if the argument of a true isTerm has an application for every
+	 * selector function and if so, builds a constructor term based on these
+	 * selector functions. It also builds the lemma stating that the constructor
+	 * term equals the argument.
+	 *
 	 * @param isTerm a "is" function term equal to true.
 	 */
-	private void Rule3(final CCAppTerm isTerm) {
+	private void addConstructorLemma(final CCAppTerm isTerm) {
 		// check if there is already a constructor application equal to the argument
-		final ApplicationTerm at = (ApplicationTerm) isTerm.mFlatTerm;
 		final CCTerm arg = isTerm.mArg;
-		final Term argTerm = at.getParameters()[0];
-
-		final CCTerm argRep = arg.mRepStar;
-		final String consName = at.getFunction().getIndices()[0];
-		if (argRep == null) {
+		if (arg.getRepresentative().getSharedTerm() != null) {
+			// We don't care which constructor it is. If it's the wrong constructor
+			// there should already be a trigger that set the isTerm to false.
 			return;
 		}
-		for (final CCTerm mt : argRep.mMembers) {
-			if (mt.mFlatTerm instanceof ApplicationTerm) {
-				final ApplicationTerm mat = (ApplicationTerm) mt.mFlatTerm;
-				final String matName = mat.getFunction().getName();
-				if (matName.equals(consName)) {
-					return;
-				}
-			}
-		}
+		final ApplicationTerm at = (ApplicationTerm) isTerm.mFlatTerm;
+		final String consName = at.getFunction().getIndices()[0];
 
 		// check if there are all selector applications on the eq class
-		final DataType dt = (DataType) at.getFunction().getParameterSorts()[0].getSortSymbol();
+		final Term dtTerm = arg.mFlatTerm;
+		final DataType dt = (DataType) dtTerm.getSort().getSortSymbol();
 		final Constructor c = dt.getConstructor(consName);
 
-		final LinkedHashMap<String, Term> selectorApps = new LinkedHashMap<>();
-		for (final String s : c.getSelectors()) {
-			selectorApps.put(s, null);
-		}
-
-		if (selectorApps.size() > 0) {
-			CCParentInfo argParInfo = argRep.mCCPars;
-			while (argParInfo != null) {
-				if (argParInfo.mCCParents != null) {
-					for (final Parent p : argParInfo.mCCParents) {
-						final Term parentTerm = p.getData().getFlatTerm();
-						if (parentTerm instanceof ApplicationTerm) {
-							final FunctionSymbol parentFunc = ((ApplicationTerm) parentTerm).getFunction();
-							final String parentFuncName = parentFunc.getName();
-							if (selectorApps.containsKey(parentFuncName)) {
-								selectorApps.put(parentFuncName, mTheory.term(parentFunc, argTerm));
-							}
-						}
-					}
-				}
-				argParInfo = argParInfo.mNext;
-			}
-		}
-
-		if (selectorApps.containsValue(null)) {
+		if (checkMissingInfiniteSelector(arg, c)) {
+			// The constructor has a missing infinite selector.
+			// We don't need to actually instantiate the lemma as we can always
+			// create a fresh cons term.
 			return;
 		}
-
+		final Term[] selectorTerms = new Term[c.getSelectors().length];
+		for (int i = 0; i < selectorTerms.length; i++) {
+			selectorTerms[i] = mTheory.term(c.getSelectors()[i], dtTerm);
+		}
 		// create a new constructor application like C(s1(x), s2(x), ..., sm(x))
-		final Sort consType = c.needsReturnOverload() ? argTerm.getSort() : null;
-		final Term consTerm = mTheory.term(consName, null, consType,
-				selectorApps.values().toArray(new Term[selectorApps.values().size()]));
+		final Sort consType = c.needsReturnOverload() ? dtTerm.getSort() : null;
+		final Term consTerm = mTheory.term(consName, null, consType, selectorTerms);
 		final CCTerm consCCTerm = mClausifier.createCCTerm(consTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		final SymmetricPair<CCTerm> eq = new SymmetricPair<>(arg, consCCTerm);
 		@SuppressWarnings("unchecked")
 		final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_CONSTRUCTOR, eq,
 				new SymmetricPair[] { new SymmetricPair<>(isTerm, mClausifier.getCCTerm(mTheory.mTrue)) });
+		mClausifier.getLogger().info("New DT_CONSTRUCTOR lemma for %s", dtTerm);
 		addPendingLemma(lemma);
 	}
 
-	/**
-	 * Rule 4 checks for a term if all missing selector function applications are of a finite sort
-	 * and if so, builds them.
-	 *
-	 * @param ccterm a term with DataType sort.
-	 */
-	private void Rule4(final CCTerm ccterm) {
-		final LinkedHashSet<String> existingSelectors = findAllSelectorApplications(ccterm);
-
-		final SortSymbol sym = ccterm.mFlatTerm.getSort().getSortSymbol();
-		for (final Constructor c : ((DataType) sym).getConstructors()) {
-			// check if only selectors with finite return sort are missing and build them
-			boolean noInfSel = true;
-			final LinkedHashSet<String> neededSelectors = new LinkedHashSet<>();
-			for (int i = 0; i < c.getSelectors().length; i++) {
-				if (!existingSelectors.contains(c.getSelectors()[i])) {
-					if (!c.getArgumentSorts()[i].getSortSymbol().isDatatype() || isInfinite(c.getArgumentSorts()[i])) {
-						noInfSel = false;
-						break;
-					} else {
-						neededSelectors.add(c.getSelectors()[i]);
-					}
-				}
-			}
-			if (noInfSel) {
-				// build selectors
-				for (final String sel : neededSelectors) {
-					mClausifier.createCCTerm(mTheory.term(mTheory.getFunctionSymbol(sel), ccterm.getFlatTerm()),
-							SourceAnnotation.EMPTY_SOURCE_ANNOT);
+	private boolean checkMissingInfiniteSelector(final CCTerm ccterm, Constructor constr) {
+		// check if only selectors with finite return sort are missing and build them
+		final Sort dataTypeSort = ccterm.mFlatTerm.getSort();
+		for (int i = 0; i < constr.getArgumentSorts().length; i++) {
+			if (isInfinite(constr.getArgumentSorts()[i])) {
+				final FunctionSymbol selector = mTheory.getFunction(constr.getSelectors()[i], dataTypeSort);
+				if (mCClosure.getAllFuncAppsForArg(selector, ccterm, 0).isEmpty()) {
+					return true;
 				}
 			}
 		}
+		return false;
 	}
 
 	/**
@@ -898,18 +854,17 @@ public class DataTypeTheory implements ITheory {
 	 *
 	 * @param ccterm
 	 */
-	private void Rule5(final CCTerm ccterm) {
-		final LinkedHashSet<String> selApps = findAllSelectorApplications(ccterm);
+	private void createIsApplications(final CCTerm ccterm) {
 		final SortSymbol sym = ccterm.mFlatTerm.getSort().getSortSymbol();
 
 		// check if there is already a constructor.
-		// in that case no "is" term is creataed.
+		// in that case no "is" term is created.
 		if (ccterm.getSharedTerm() != null) {
 			return;
 		}
 
 		for (final Constructor c : ((DataType) sym).getConstructors()) {
-			if (selApps.containsAll(Arrays.asList(c.getSelectors()))) {
+			if (!checkMissingInfiniteSelector(ccterm, c)) {
 				final FunctionSymbol isFs = mTheory.getFunctionWithResult("is", new String[] {c.getName()}, null, new Sort[] {ccterm.getFlatTerm().getSort()});
 				final Term isTerm = mTheory.term(isFs, ccterm.mFlatTerm);
 				if (mClausifier.getCCTerm(isTerm) == null) {
@@ -917,28 +872,6 @@ public class DataTypeTheory implements ITheory {
 				}
 			}
 		}
-	}
-
-	/**
-	 * Search the parents of ccterm for selector function applications.
-	 *
-	 * @param ccterm
-	 * @return a map from selector name to the specific selector function application.
-	 */
-	private LinkedHashSet<String> findAllSelectorApplications(final CCTerm ccterm) {
-		final LinkedHashSet<String> selApps = new LinkedHashSet<>();
-		CCParentInfo parInfo = ccterm.mRepStar.mCCPars;
-		while (parInfo != null) {
-			if (parInfo.mCCParents != null && !parInfo.mCCParents.isEmpty()) {
-					final Parent p = parInfo.mCCParents.iterator().next();
-					final ApplicationTerm pAt = (ApplicationTerm) p.getData().getFlatTerm();
-					if (pAt != null && pAt.getFunction().isSelector()) {
-						selApps.add(pAt.getFunction().getName());
-					}
-			}
-			parInfo = parInfo.mNext;
-		}
-		return selApps;
 	}
 
 	/**
@@ -957,37 +890,43 @@ public class DataTypeTheory implements ITheory {
 		todo.push(sort);
 		todo_loop: while (!todo.isEmpty()) {
 			final Sort currSort = todo.pop();
-			final Set<Sort> undecided = new LinkedHashSet<>();
-			if (currSort.getSortSymbol().isDatatype()) {
-				for (final Constructor c : ((DataType)currSort.getSortSymbol()).getConstructors()) {
-					for (final Sort argSort : c.getArgumentSorts()) {
-						final Boolean cv = mInfinityMap.get(argSort);
-						if (cv != null) {
-							if (cv == true) {
-								mInfinityMap.put(currSort, true);
-								dependent.remove(currSort);
-								continue todo_loop;
-							}
-						} else if (dependent.contains(argSort)) {
+			if (currSort.getSortSymbol().isDatatype() || currSort.isArraySort()) {
+				final Set<Sort> subSorts = new LinkedHashSet<>();
+				if (currSort.getSortSymbol().isDatatype()) {
+					for (final Constructor c : ((DataType) currSort.getSortSymbol()).getConstructors()) {
+						subSorts.addAll(Arrays.asList(c.getArgumentSorts()));
+					}
+				} else {
+					subSorts.addAll(Arrays.asList(currSort.getArguments()));
+				}
+				final Iterator<Sort> iterator = subSorts.iterator();
+				while (iterator.hasNext()) {
+					final Sort argSort = iterator.next();
+					final Boolean cv = mInfinityMap.get(argSort);
+					if (cv != null) {
+						iterator.remove();
+						if (cv == true) {
 							mInfinityMap.put(currSort, true);
 							dependent.remove(currSort);
 							continue todo_loop;
-						} else {
-							undecided.add(argSort);
 						}
+					} else if (dependent.contains(argSort)) {
+						mInfinityMap.put(currSort, true);
+						dependent.remove(currSort);
+						continue todo_loop;
 					}
 				}
-				if (!undecided.isEmpty()) {
+				if (!subSorts.isEmpty()) {
 					todo.push(currSort);
 					dependent.add(currSort);
-					for (final Sort s: undecided) {
+					for (final Sort s : subSorts) {
 						todo.push(s);
 					}
 				} else {
 					mInfinityMap.put(currSort, false);
 					dependent.remove(currSort);
 				}
-			} else if (currSort.getSortSymbol().isNumeric()) {
+			} else if (currSort.isNumericSort()) {
 				mInfinityMap.put(currSort, true);
 			} else {
 				mInfinityMap.put(currSort, false);
