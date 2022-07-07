@@ -24,6 +24,7 @@ import java.util.HashSet;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
+import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
@@ -279,8 +280,7 @@ public class ModelEvaluator extends TermTransformer {
 		}
 
 		case SMTLIBConstants.ITE:
-			// ite is handled else-where
-			throw new InternalError("ITE not handled in convert?");
+			return args[0] == theory.mTrue ? args[1] : args[2];
 
 		case SMTLIBConstants.PLUS: {
 			Rational val = rationalValue(args[0]);
@@ -469,6 +469,26 @@ public class ModelEvaluator extends TermTransformer {
 			return lookupFunction(fs, args);
 		}
 		default:
+			if (fs.isConstructor()) {
+				return theory.term(fs, args);
+			} else if (fs.isSelector()) {
+				final ApplicationTerm arg = (ApplicationTerm) args[0];
+				final DataType dataType = (DataType) arg.getSort().getSortSymbol();
+				assert arg.getFunction().isConstructor();
+				final Constructor constr = dataType.getConstructor(arg.getFunction().getName());
+				final String[] selectors = constr.getSelectors();
+				for (int i = 0; i < selectors.length; i++) {
+					if (selectors[i].equals(fs.getName())) {
+						return arg.getParameters()[i];
+					}
+				}
+				// undefined case for selector on wrong constructor. use model.
+				return lookupFunction(fs, args);
+			} else if (fs.getName().equals(SMTLIBConstants.IS)) {
+				final ApplicationTerm arg = (ApplicationTerm) args[0];
+				assert arg.getFunction().isConstructor();
+				return arg.getFunction().getName().equals(fs.getIndices()[0]) ? theory.mTrue : theory.mFalse;
+			}
 			throw new AssertionError("Unknown internal function " + fs.getName());
 		}
 	}

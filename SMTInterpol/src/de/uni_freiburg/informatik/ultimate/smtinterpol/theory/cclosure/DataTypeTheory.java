@@ -469,6 +469,35 @@ public class DataTypeTheory implements ITheory {
 	}
 
 	/**
+	 * Return all select or is applications for a given ccTerm and return them as a
+	 * map. This takes the congruence class into account and returns all function
+	 * applications of any member of the class, but at most one per function symbol.
+	 *
+	 * @param ccTerm The term whose applications should be searched. Must be the
+	 *               representative of its class.
+	 */
+	private Map<FunctionSymbol, CCAppTerm> getSelectorsAndTesters(final CCTerm ccTerm) {
+		assert ccTerm == ccTerm.getRepresentative();
+		final LinkedHashMap<FunctionSymbol, CCAppTerm> map = new LinkedHashMap<>();
+		CCParentInfo pInfo = ccTerm.mCCPars;
+		while (pInfo != null) {
+			if (pInfo.mCCParents != null && !pInfo.mCCParents.isEmpty()) {
+				// only the first parent needs to be checked, as each select/is call is
+				// congruent.
+				final CCAppTerm p = pInfo.mCCParents.iterator().next().getData();
+				if (p.mFlatTerm instanceof ApplicationTerm) {
+					final FunctionSymbol pFun = ((ApplicationTerm) p.mFlatTerm).getFunction();
+					if (pFun.isSelector() || pFun.getName().equals(SMTLIBConstants.IS)) {
+						map.put(pFun, p);
+					}
+				}
+			}
+			pInfo = pInfo.mNext;
+		}
+		return map;
+	}
+
+	/**
 	 * This functions searches all data type children of a given term. This means,
 	 * if there is a constructor term, that it is equal to the given term, it finds
 	 * all of its argument with a data type sort. If there is no such constructor
@@ -508,26 +537,23 @@ public class DataTypeTheory implements ITheory {
 		final Set<CCAppTerm> selectors = new LinkedHashSet<>();
 		FunctionSymbol trueTester = null;
 		final Set<FunctionSymbol> falseTesters = new LinkedHashSet<>();
-		CCParentInfo pInfo = rep.mCCPars;
-		while (pInfo != null) {
-			if (pInfo.mCCParents != null && pInfo.mCCParents.iterator().hasNext()) {
-				final CCAppTerm p = pInfo.mCCParents.iterator().next().getData();
-				if (p.mFlatTerm instanceof ApplicationTerm) {
-					final FunctionSymbol pFun = ((ApplicationTerm) p.mFlatTerm).getFunction();
-					if (pFun.isSelector() && p.mFlatTerm.getSort().getSortSymbol().isDatatype()) {
-						selectors.add(p);
-					} else if (pFun.getName().equals("is")) {
-						if (p.mRepStar == trueRep) {
-							assert trueTester == null;
-							trueTester = pFun;
-							trueTesters.put(rep, p);
-						} else {
-							falseTesters.add(pFun);
-						}
-					}
+		for (final Map.Entry<FunctionSymbol, CCAppTerm> entry : getSelectorsAndTesters(rep).entrySet()) {
+			final FunctionSymbol func = entry.getKey();
+			if (func.isSelector()) {
+				if (func.getReturnSort().getSortSymbol().isDatatype()) {
+					selectors.add(entry.getValue());
+				}
+			} else {
+				// func is a tester
+				final CCAppTerm tester = entry.getValue();
+				if (tester.getRepresentative() == trueRep) {
+					assert trueTester == null;
+					trueTester = func;
+					trueTesters.put(rep, tester);
+				} else {
+					falseTesters.add(func);
 				}
 			}
-			pInfo = pInfo.mNext;
 		}
 
 		if (trueTester != null) {
@@ -787,7 +813,6 @@ public class DataTypeTheory implements ITheory {
 		return new Object[] { ":DT" };
 	}
 
-	// TODO: rename
 	/**
 	 * Rule 3 checks if the argument of a true isTerm has an application for every
 	 * selector function and if so, builds a constructor term based on these
@@ -963,5 +988,126 @@ public class DataTypeTheory implements ITheory {
 
 	private static boolean isConstructorApp(Term term) {
 		return term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().isConstructor();
+	}
+
+	private class ConstrTerm {
+		FunctionSymbol mConstr;
+		CCTerm[] mArguments;
+
+		public ConstrTerm(FunctionSymbol constr, CCTerm[] args) {
+			mConstr = constr;
+			mArguments = args;
+		}
+	}
+
+	private Term createUniqueValue(ModelBuilder modelBuilder, FunctionSymbol constr, Term[] args) {
+		boolean foundInfinite = false;
+		for (int i = 0; i < args.length; i++) {
+			if (args[i] == null) {
+				final Sort sort = constr.getParameterSorts()[i];
+				if (isInfinite(sort) && !foundInfinite) {
+					args[i] = modelBuilder.getModel().extendFresh(sort);
+					foundInfinite = true;
+				} else {
+					args[i] = modelBuilder.getModel().getSomeValue(sort);
+				}
+			}
+		}
+		return mTheory.term(constr, args);
+	}
+
+	public void fillInModel(ModelBuilder modelBuilder, List<Sort> sorts, LinkedHashMap<Sort, List<CCTerm>> repsBySort) {
+		final LinkedHashMap<CCTerm, ConstrTerm> valueMap = new LinkedHashMap<>();
+		for (final Sort sort: sorts) {
+			assert sort.getSortSymbol().isDatatype();
+			final List<CCTerm> ccTerms = repsBySort.get(sort);
+			if (ccTerms == null) {
+				continue;
+			}
+			for (final CCTerm ct : ccTerms) {
+				CCTerm sharedTerm = ct.getSharedTerm();
+				if (sharedTerm != null) {
+					final FunctionSymbol constr = ((ApplicationTerm) sharedTerm.getFlatTerm()).getFunction();
+					final CCTerm[] args = new CCTerm[constr.getParameterSorts().length];
+					for (int i = constr.getParameterSorts().length - 1; i >= 0; i--) {
+						final CCAppTerm app = (CCAppTerm) sharedTerm;
+						args[i] = app.getArg();
+						sharedTerm = app.getFunc();
+					}
+					valueMap.put(ct, new ConstrTerm(constr, args));
+				} else {
+					final Map<FunctionSymbol, CCAppTerm> selectorsAndTester = getSelectorsAndTesters(ct);
+					final Constructor constr = findConstructorFromTester(ct, selectorsAndTester, modelBuilder);
+					// we can use any constructor for which no tester exists. We use the first one.
+					final String[] selectors = constr.getSelectors();
+					final Sort[] argSorts = new Sort[selectors.length];
+					final CCTerm[] args = new CCTerm[selectors.length];
+					for (int i = 0; i < selectors.length; i++) {
+						final FunctionSymbol selector = mTheory.getFunction(selectors[i], sort);
+						argSorts[i] = selector.getReturnSort();
+						args[i] = selectorsAndTester.get(selector);
+					}
+					final Sort consType = constr.needsReturnOverload() ? sort : null;
+					final FunctionSymbol constrFunc = mTheory.getFunctionWithResult(constr.getName(), null, consType,
+							argSorts);
+					valueMap.put(ct, new ConstrTerm(constrFunc, args));
+				}
+			}
+		}
+		final ArrayDeque<CCTerm> todoStack = new ArrayDeque<>(valueMap.keySet());
+		while (!todoStack.isEmpty()) {
+			final CCTerm ct = todoStack.removeLast();
+			if (modelBuilder.getModelValue(ct) != null) {
+				continue;
+			}
+			final ConstrTerm constrTerm = valueMap.get(ct);
+			final Term[] argModels = new Term[constrTerm.mArguments.length];
+			boolean undefined = false;
+			boolean hasHole = false;
+			for (int i = 0; i < argModels.length; i++) {
+				final CCTerm arg = constrTerm.mArguments[i];
+				if (arg != null) {
+					argModels[i] = modelBuilder.getModelValue(arg);
+					if (argModels[i] == null) {
+						assert valueMap.containsKey(arg);
+						if (!undefined) {
+							undefined = true;
+							todoStack.addLast(ct);
+						}
+						todoStack.addLast(arg);
+					}
+				} else {
+					hasHole = true;
+				}
+			}
+			if (!undefined) {
+				final Term modelTerm = hasHole ? createUniqueValue(modelBuilder, constrTerm.mConstr, argModels)
+						: mTheory.term(constrTerm.mConstr, argModels);
+				modelBuilder.setModelValue(ct, modelTerm);
+			}
+		}
+	}
+
+	private Constructor findConstructorFromTester(CCTerm ct, Map<FunctionSymbol, CCAppTerm> selectorsAndTesters, ModelBuilder modelBuilder) {
+		final Sort sort = ct.getFlatTerm().getSort();
+		final DataType datatype = (DataType) sort.getSortSymbol();
+		Constructor suitableConstructor = null;
+		for (final Constructor constr : datatype.getConstructors()) {
+			final FunctionSymbol tester = mTheory.getFunctionWithResult(SMTLIBConstants.IS,
+					new String[] { constr.getName() }, null, sort);
+			final CCAppTerm testerApp = selectorsAndTesters.get(tester);
+			if (testerApp == null) {
+				// pick the first constructor for which there is no tester, if there are no true
+				// testers.
+				if (suitableConstructor == null) {
+					suitableConstructor = constr;
+				}
+			} else if (modelBuilder.getModelValue(testerApp.getRepresentative()) == mTheory.mTrue) {
+				// a true tester is always the right one.
+				return constr;
+			}
+		}
+		assert suitableConstructor != null : "Unpropagated dt_cases lemma";
+		return suitableConstructor;
 	}
 }

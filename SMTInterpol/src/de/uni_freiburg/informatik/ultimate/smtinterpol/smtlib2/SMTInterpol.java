@@ -485,8 +485,7 @@ public class SMTInterpol extends NoopScript {
 				if (mSolverOptions.isModelCheckModeActive()) {
 					try {
 						mModel = new de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model(mClausifier,
-								getTheory(),
-							mSolverOptions.isModelsPartial());
+								getTheory());
 						if (!mModel.checkTypeValues(mLogger)) {
 							if (mErrorCallback != null) {
 								mErrorCallback.notifyError(ErrorReason.INVALID_MODEL);
@@ -1139,8 +1138,7 @@ public class SMTInterpol extends NoopScript {
 			throw new SMTLIBException("Cannot construct model since solving did not complete");
 		}
 		if (mModel == null) {
-			mModel = new de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model(mClausifier, getTheory(),
-					mSolverOptions.isModelsPartial());
+			mModel = new de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model(mClausifier, getTheory());
 		}
 	}
 

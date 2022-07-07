@@ -55,7 +55,7 @@ public class SystemTest {
 		if (!f.getAbsolutePath().contains("epr")) {
 			solver.setOption(":proof-check-mode", true);
 			solver.setOption(":proof-level", ProofMode.LOWLEVEL);
-			if (!f.getAbsolutePath().contains("quant") && !f.getAbsolutePath().contains("datatype")) {
+			if (!f.getAbsolutePath().contains("quant")) {
 				solver.setOption(":model-check-mode", true);
 			}
 			solver.setOption(":interpolant-check-mode", true);
