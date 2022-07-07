@@ -221,12 +221,12 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 				}
 			}
 			final Term tester = mTheory.term(SMTLIBConstants.IS, new String[] { constr.getName() }, null, vars[0]);
-			definition = mTheory.ifthenelse(tester, mTheory.term(fs, vars), definition);
+			definition = mTheory.ifthenelse(tester, mTheory.term(fs, vars[0]), definition);
 		}
 		if (isDivision(fs)) {
 			final Term isZero = mTheory.term(SMTLIBConstants.EQUALS, vars[1], Rational.ZERO.toTerm(vars[1].getSort()));
-			definition = mTheory.ifthenelse(mTheory.term(SMTLIBConstants.NOT, isZero), mTheory.term(fs, vars),
-					definition);
+			definition = mTheory.ifthenelse(mTheory.term(SMTLIBConstants.NOT, isZero),
+					mTheory.term(fs, vars[0], vars[1]), definition);
 		}
 		return definition;
 	}
