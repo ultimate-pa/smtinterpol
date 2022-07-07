@@ -42,7 +42,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.NumericSortInterpretation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ComputeSCC;
 
 public class ModelBuilder {
@@ -239,9 +238,6 @@ public class ModelBuilder {
 		} else if (isDivision(fs)) {
 			// A division by zero is undefined
 			return NumericSortInterpretation.toRational(args.getLast()) == Rational.ZERO;
-		} else if (fs.getName().equals(SMTInterpolConstants.DIFF)) {
-			// Also @diff is not deterministically defined
-			return true;
 		}
 		return false;
 	}

@@ -30,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -188,6 +189,11 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 		return mTheory.and(conj);
 	}
 
+	private static boolean isDivision(final FunctionSymbol fs) {
+		final String name = fs.getName();
+		return fs.isIntern() && (name == "/" || name == "div" || name == "mod");
+	}
+
 	public Term getFunctionDefinition(final FunctionSymbol fs, final TermVariable[] vars) {
 		final FunctionValue value = mFuncVals.get(fs);
 		if (value == null) {
@@ -215,7 +221,12 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 				}
 			}
 			final Term tester = mTheory.term(SMTLIBConstants.IS, new String[] { constr.getName() }, null, vars[0]);
-			definition = mTheory.ifthenelse(tester, mTheory.term(fs, vars[0]), definition);
+			definition = mTheory.ifthenelse(tester, mTheory.term(fs, vars), definition);
+		}
+		if (isDivision(fs)) {
+			final Term isZero = mTheory.term(SMTLIBConstants.EQUALS, vars[1], Rational.ZERO.toTerm(vars[1].getSort()));
+			definition = mTheory.ifthenelse(mTheory.term(SMTLIBConstants.NOT, isZero), mTheory.term(fs, vars),
+					definition);
 		}
 		return definition;
 	}
