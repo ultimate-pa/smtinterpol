@@ -98,16 +98,12 @@ public class ProofSimplifierTest {
 		}
 		eqs[len - 1] = (swapFlags & (1 << (len - 1))) != 0 ? mTheory.term("=", terms[0], terms[len - 1])
 				: mTheory.term("=", terms[len - 1], terms[0]);
-		final Term[] quotedEqs = new Term[len];
-		for (int i = 0; i < len; i++) {
-			quotedEqs[i] = mSmtInterpol.annotate(eqs[i], ProofConstants.ANNOT_QUOTED_CC);
-		}
 		final Term[] orParams = new Term[len - 1];
 		for (int i = 0; i < len - 1; i++) {
-			orParams[i] = mSmtInterpol.term("not", quotedEqs[i]);
+			orParams[i] = mSmtInterpol.term("not", eqs[i]);
 		}
 		final Term clause = mSmtInterpol.term("or", (Term[]) shuffle(orParams));
-		final Object[] subannots = new Object[] { quotedEqs[len - 1], ":subpath", terms };
+		final Object[] subannots = new Object[] { eqs[len - 1], ":subpath", terms };
 		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":CC", subannots) };
 		final Term lemma = mSmtInterpol.term(ProofConstants.FN_LEMMA, mSmtInterpol.annotate(clause, lemmaAnnots));
 		return lemma;
@@ -123,20 +119,12 @@ public class ProofSimplifierTest {
 			}
 		}
 		eqs[len - 1] = (swapFlags & (1<< (len-1))) != 0 ? mTheory.term("=", terms[0],terms[len-1]) : mTheory.term("=", terms[len-1],terms[0]);
-		final Term[] quotedEqs   = new Term[len];
-		for (int i = 0; i < len; i++) {
-			quotedEqs[i] = mSmtInterpol.annotate(eqs[i], ProofConstants.ANNOT_QUOTED_CC);
-		}
 		final Term[] orParams = new Term[len];
 		for (int i = 0; i < len; i++) {
-			orParams[i] = i == len - 1 ? quotedEqs[i] : mSmtInterpol.term("not", quotedEqs[i]);
+			orParams[i] = i == len - 1 ? eqs[i] : mSmtInterpol.term("not", eqs[i]);
 		}
 		final Term clause = mSmtInterpol.term("or", (Term[]) shuffle(orParams));
-		final Object[] subannots = new Object[] {
-			quotedEqs[len-1],
-			":subpath",
-			terms
-		};
+		final Object[] subannots = new Object[] { eqs[len - 1], ":subpath", terms };
 		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":CC", subannots) };
 		final Term lemma = mSmtInterpol.term(ProofConstants.FN_LEMMA,
 				mSmtInterpol.annotate(clause, lemmaAnnots));
@@ -568,8 +556,7 @@ public class ProofSimplifierTest {
 
 		for (int flags = 0; flags < 2; flags++) {
 			final Term p = terms[0];
-			Term equality = mSmtInterpol.term(SMTLIBConstants.EQUALS, p, (flags & 1) != 0 ? falseTerm : trueTerm);
-			equality = mSmtInterpol.annotate(equality, new Annotation[] { new Annotation(":quotedCC", null) });
+			final Term equality = mSmtInterpol.term(SMTLIBConstants.EQUALS, p, (flags & 1) != 0 ? falseTerm : trueTerm);
 			final Term litp = (flags & 1) != 0 ? p : mSmtInterpol.term(SMTLIBConstants.NOT, p);
 			final Term clause = mSmtInterpol.term(SMTLIBConstants.OR, equality, litp);
 			final Annotation rule = (flags & 1) != 0 ? ProofConstants.AUX_EXCLUDED_MIDDLE_2

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -764,12 +765,19 @@ public class CClosure implements ITheory {
 		}
 	}
 
-	public CCEquality createCCEquality(final int stackLevel, final CCTerm t1, final CCTerm t2) {
+	public CCEquality createCCEquality(final int stackLevel, CCTerm t1, CCTerm t2) {
 		assert (t1 != t2);
 		CCEquality eq = null;
 		assert t1.invariant();
 		assert t2.invariant();
 
+		// to make cc equalities different from la equalities, ensure that t2 is not a
+		// constant.
+		if (t2.getFlatTerm().getSort().isNumericSort() && (t2.getFlatTerm() instanceof ConstantTerm)) {
+			final CCTerm tmp = t2;
+			t2 = t1;
+			t1 = tmp;
+		}
 		eq = new CCEquality(stackLevel, t1, t2);
 		insertEqualityEntry(t1, t2, eq.getEntry());
 		getEngine().addAtom(eq);

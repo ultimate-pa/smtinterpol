@@ -26,10 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
-import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -40,7 +38,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 
@@ -98,7 +95,7 @@ public class SubstitutionHelper {
 
 		// Ground literals remain unchanged.
 		for (final Literal gLit : mGroundLits) {
-			final Term groundLitTerm = gLit.getSMTFormula(theory, true);
+			final Term groundLitTerm = gLit.getSMTFormula(theory);
 			substitutedLitTerms.add(groundLitTerm);
 			provedLitTerms.add(mTracker.reflexivity(groundLitTerm));
 			resultingGroundLits.add(gLit);
@@ -108,15 +105,15 @@ public class SubstitutionHelper {
 		for (final QuantLiteral qLit : mQuantLits) {
 			if (Collections.disjoint(Arrays.asList(qLit.getTerm().getFreeVars()), mSigma.keySet())) {
 				// Nothing to substitute.
-				substitutedLitTerms.add(qLit.getSMTFormula(theory, true));
-				provedLitTerms.add(mTracker.reflexivity(qLit.getSMTFormula(theory, true)));
+				substitutedLitTerms.add(qLit.getSMTFormula(theory));
+				provedLitTerms.add(mTracker.reflexivity(qLit.getSMTFormula(theory)));
 				resultingQuantLits.add(qLit);
 			} else { // Build the new literals. Separate ground and quantified literals.
 
 				// Substitute variables.
 				final FormulaUnLet unletter = new FormulaUnLet();
 				unletter.addSubstitutions(mSigma);
-				final Term substituted = unletter.transform(qLit.getSMTFormula(theory, true));
+				final Term substituted = unletter.transform(qLit.getSMTFormula(theory));
 				substitutedLitTerms.add(substituted);
 
 				Term simplified = normalizeAndSimplifyLitTerm(substituted);
@@ -169,7 +166,7 @@ public class SubstitutionHelper {
 					newAtom = eq.getLiteral(mSource);
 				}
 				// As in clausifier
-				final Term atomIntern = mTracker.intern(atomApp, newAtom.getSMTFormula(theory, true));
+				final Term atomIntern = mTracker.intern(atomApp, newAtom.getSMTFormula(theory));
 				if (isPos) {
 					simplified = mTracker.transitivity(simplified, atomIntern);
 				} else {
@@ -226,13 +223,9 @@ public class SubstitutionHelper {
 
 		final boolean isNegated = litTerm instanceof ApplicationTerm
 				&& ((ApplicationTerm) litTerm).getFunction().getName() == "not";
-		final Term quotedAtomTerm = isNegated ? ((ApplicationTerm) litTerm).getParameters()[0] : litTerm;
-		assert quotedAtomTerm instanceof AnnotatedTerm
-				&& ((AnnotatedTerm) quotedAtomTerm).getAnnotations()[0].getKey().equals(":quotedQuant");
-
-		final ApplicationTerm atomTerm = (ApplicationTerm) ((AnnotatedTerm) quotedAtomTerm).getSubterm();
-		final Term atomRewrite = mTracker.buildRewrite(quotedAtomTerm, atomTerm, ProofConstants.RW_STRIP);
-
+		final ApplicationTerm atomTerm = (ApplicationTerm) (isNegated ? ((ApplicationTerm) litTerm).getParameters()[0]
+				: litTerm);
+		final Term atomRewrite = mTracker.reflexivity(atomTerm);
 		assert atomTerm.getFunction().getName() == "<=" || atomTerm.getFunction().getName() == "=";
 		final TermCompiler compiler = mClausifier.getTermCompiler();
 
@@ -247,7 +240,6 @@ public class SubstitutionHelper {
 		final Term rhs = atomTerm.getParameters()[1];
 		Term normalizedAtom;
 		if (QuantUtil.isAuxApplication(lhs)) {
-			final FunctionSymbol aux = ((ApplicationTerm) lhs).getFunction();
 			final Term[] params = ((ApplicationTerm) lhs).getParameters();
 			final Term[] normalizedParams = new Term[params.length];
 			for (int i = 0; i < normalizedParams.length; i++) {

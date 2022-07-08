@@ -497,7 +497,7 @@ public class Clausifier {
 				}
 				// TODO end
 				rewrite = mTracker.transitivity(rewrite,
-						mTracker.intern(mTracker.getProvedTerm(rewrite), lit.getSMTFormula(theory, true)));
+						mTracker.intern(mTracker.getProvedTerm(rewrite), lit.getSMTFormula(theory)));
 				mCollector.addLiteral(positive ? lit : lit.negate(), at, rewrite, positive);
 			} else if (idx instanceof QuantifiedFormula) {
 				final QuantifiedFormula qf = (QuantifiedFormula) idx;
@@ -525,7 +525,7 @@ public class Clausifier {
 				final Term value = positive ? mTheory.mFalse : mTheory.mTrue;
 				final ILiteral lit = mQuantTheory.getQuantEquality(idx, value, mCollector.getSource());
 				final Term rewrite =
-						mTracker.intern(idx, (positive ? lit.negate() : lit).getSMTFormula(theory, true));
+						mTracker.intern(idx, (positive ? lit.negate() : lit).getSMTFormula(theory));
 				mCollector.addLiteral(lit.negate(), idx, rewrite, positive);
 			} else if (idx instanceof MatchTerm) {
 				final ILiteral lit = createAnonLiteral(idx, mCollector.getSource());
@@ -537,7 +537,7 @@ public class Clausifier {
 						addAuxAxioms(idx, false, mCollector.getSource());
 					}
 				}
-				final Term rewrite = mTracker.intern(idx, lit.getSMTFormula(theory, true));
+				final Term rewrite = mTracker.intern(idx, lit.getSMTFormula(theory));
 				mCollector.addLiteral(positive ? lit : lit.negate(), idx, rewrite, positive);
 			} else {
 				throw new SMTLIBException("Cannot handle literal " + mLiteral);
@@ -698,10 +698,10 @@ public class Clausifier {
 				final Term[] literals = new Term[lits.length + quantLits.length];
 				int i = 0;
 				for (final Literal l : lits) {
-					literals[i++] = l.getSMTFormula(theory, true);
+					literals[i++] = l.getSMTFormula(theory);
 				}
 				for (final QuantLiteral ql : quantLits) {
-					literals[i++] = ql.getSMTFormula(theory, true);
+					literals[i++] = ql.getSMTFormula(theory);
 				}
 				final Term clause = theory.term("or", literals);
 				if (mTracker instanceof ProofTracker) {
@@ -721,7 +721,7 @@ public class Clausifier {
 				}
 			} else {
 				assert lits.length == 0 : "quantLits must not be empty";
-				rewriteProof = quantLits[0].getSMTFormula(theory, true);
+				rewriteProof = quantLits[0].getSMTFormula(theory);
 				if (mTracker instanceof ProofTracker) {
 					rewriteProof = theory.annotatedTerm(new Annotation[] { new Annotation(":proof", proof) },
 							rewriteProof);
@@ -1526,7 +1526,7 @@ public class Clausifier {
 	public void buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source) {
 		final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
 		assert orTerm.getFunction().getName() == "or";
-		assert orTerm.getParameters()[0] == auxlit.getSMTFormula(orTerm.getTheory(), true);
+		assert orTerm.getParameters()[0] == auxlit.getSMTFormula(orTerm.getTheory());
 
 		final BuildClause bc = new BuildClause(axiom, source);
 		/* use the usual engine to create the other literals of the axiom. */
@@ -1640,7 +1640,7 @@ public class Clausifier {
 	private void createDefiningClausesForLiteral(final ILiteral lit, final Term term, final boolean negative,
 			final SourceAnnotation source) {
 		final Theory t = term.getTheory();
-		final Term litTerm = lit.getSMTFormula(t, true);
+		final Term litTerm = lit.getSMTFormula(t);
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm at = (ApplicationTerm) term;
 			Term[] params = at.getParameters();
@@ -1939,12 +1939,12 @@ public class Clausifier {
 		final Literal falseLit = falseProxy.getLiteral(source);
 
 		// term => trueLit is trueLit \/ ~term
-		Term axiom = theory.term("or", trueLit.getSMTFormula(theory, true), theory.term("not", term));
+		Term axiom = theory.term("or", trueLit.getSMTFormula(theory), theory.term("not", term));
 		axiom = mTracker.tautology(axiom, ProofConstants.AUX_EXCLUDED_MIDDLE_1);
 		buildAuxClause(trueLit, axiom, source);
 
 		// ~term => falseLit is falseLit \/ term
-		axiom = theory.term("or", falseLit.getSMTFormula(theory, true), term);
+		axiom = theory.term("or", falseLit.getSMTFormula(theory), term);
 		axiom = mTracker.tautology(axiom, ProofConstants.AUX_EXCLUDED_MIDDLE_2);
 		buildAuxClause(falseLit, axiom, source);
 	}
@@ -2174,7 +2174,7 @@ public class Clausifier {
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.tautology(mTheory.not(trueEqFalse), ProofConstants.AUX_TRUE_NOT_FALSE);
 			final BuildClause bc = new BuildClause(axiom, source);
-			final Term rewrite = mTracker.intern(trueEqFalse, atom.getSMTFormula(mTheory, true));
+			final Term rewrite = mTracker.intern(trueEqFalse, atom.getSMTFormula(mTheory));
 			bc.addLiteral(atom.negate(), trueEqFalse, rewrite, false);
 			bc.perform();
 		}
@@ -2637,7 +2637,7 @@ public class Clausifier {
 			return true;
 		}
 		@Override
-		public Term getSMTFormula(final Theory theory, final boolean quoted) {
+		public Term getSMTFormula(final Theory theory) {
 			return theory.mTrue;
 		}
 	}
@@ -2657,7 +2657,7 @@ public class Clausifier {
 			return true;
 		}
 		@Override
-		public Term getSMTFormula(final Theory theory, final boolean quoted) {
+		public Term getSMTFormula(final Theory theory) {
 			return theory.mFalse;
 		}
 	}

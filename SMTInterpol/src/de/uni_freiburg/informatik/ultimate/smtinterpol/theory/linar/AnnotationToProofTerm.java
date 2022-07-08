@@ -107,7 +107,7 @@ public class AnnotationToProofTerm {
 		if (!annot.isUpper()) {
 			at.add(annot.getLinVar().getEpsilon());
 		}
-		final Term posTerm = at.toSMTLibLeq0(theory, true);
+		final Term posTerm = at.toSMTLibLeq0(theory);
 		if (annot.isUpper()) {
 			info.mLiteral = posTerm;
 			info.mNegLiteral = theory.term("not", posTerm);
@@ -181,7 +181,7 @@ public class AnnotationToProofTerm {
 				if (lit instanceof LAEquality) {
 					trichotomy = true;
 				}
-				disjs[i] = me.getKey().getSMTFormula(theory, true);
+				disjs[i] = me.getKey().getSMTFormula(theory);
 				coeffs[i] = me.getValue().div(gcd).toTerm(getSort(theory));
 				++i;
 			}

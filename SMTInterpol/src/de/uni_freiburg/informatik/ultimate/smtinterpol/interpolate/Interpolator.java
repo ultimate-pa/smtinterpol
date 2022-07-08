@@ -354,7 +354,6 @@ public class Interpolator extends NonRecursive {
 	 */
 	private void combine(final Term pivot) {
 		final Term pivotAtom = getAtom(pivot);
-		final InterpolatorAtomInfo pivotTermInfo = getAtomTermInfo(pivotAtom);
 		final LitInfo pivInfo = mAtomOccurenceInfos.get(pivotAtom);
 
 		final Term[] antecedentInterp = collectInterpolated();
@@ -363,14 +362,15 @@ public class Interpolator extends NonRecursive {
 
 		for (int i = 0; i < mNumInterpolants; i++) {
 			mLogger.debug("Pivot %3$s%4$s on interpolants %1$s and %2$s gives...", primInterp[i], antecedentInterp[i],
-					unquote(pivot), pivInfo);
+					pivot, pivInfo);
 			if (pivInfo.isALocal(i)) {
 				interp[i] = mTheory.or(primInterp[i], antecedentInterp[i]);
 			} else if (pivInfo.isBLocal(i)) {
 				interp[i] = mTheory.and(primInterp[i], antecedentInterp[i]);
 			} else if (pivInfo.isAB(i)) {
-				interp[i] = mTheory.ifthenelse(unquote(pivot), primInterp[i], antecedentInterp[i]);
+				interp[i] = mTheory.ifthenelse(pivot, primInterp[i], antecedentInterp[i]);
 			} else {
+				final InterpolatorAtomInfo pivotTermInfo = getAtomTermInfo(pivotAtom);
 				if (pivotTermInfo.isCCEquality() || pivotTermInfo.isLAEquality()) {
 					Term eqIpol, neqIpol;
 					if (pivot == pivotAtom) {
@@ -386,7 +386,7 @@ public class Interpolator extends NonRecursive {
 				} else if (pivotTermInfo.isBoundConstraint()) {
 					interp[i] = mixedPivotLA(antecedentInterp[i], primInterp[i], pivInfo.mMixedVar);
 				} else {
-					throw new UnsupportedOperationException("Cannot handle mixed literal " + unquote(pivot));
+					throw new UnsupportedOperationException("Cannot handle mixed literal " + pivot);
 				}
 			}
 			mLogger.debug(interp[i]);
@@ -768,7 +768,6 @@ public class Interpolator extends NonRecursive {
 					final int partition = mPartitions.containsKey(source) ? mPartitions.get(source) : -1;
 
 					for (int i = 0; i < lits.length; i++) {
-						// Take the quoted literal!
 						final Term atom = getAtom(lits[i]);
 						LitInfo info = mAtomOccurenceInfos.get(atom);
 						if (info == null) {
@@ -777,11 +776,7 @@ public class Interpolator extends NonRecursive {
 						}
 						if (!info.contains(partition)) {
 							info.occursIn(partition);
-							Term unquoted = atom;
-							if (unquoted instanceof AnnotatedTerm) {
-								unquoted = ((AnnotatedTerm) unquoted).getSubterm();
-							}
-							addOccurrence(unquoted, partition);
+							addOccurrence(atom, partition);
 						}
 					}
 				}
@@ -1432,26 +1427,6 @@ public class Interpolator extends NonRecursive {
 		final InterpolatorAtomInfo info = new InterpolatorAtomInfo(term);
 		mLiteralTermInfos.put(term, info);
 		return info;
-	}
-
-	/**
-	 * Get the unquoted literal. The main problem here is that the quote annotation is inside the negation for negated
-	 * literals.
-	 *
-	 * @param literal
-	 * @return the literal without the quoted annotation
-	 */
-	Term unquote(final Term literal) {
-		final Term atom = getAtom(literal);
-		Term unquoted = atom;
-		if (unquoted instanceof AnnotatedTerm) {
-			assert ((AnnotatedTerm) unquoted).getAnnotations()[0].getKey().startsWith(":quoted");
-			unquoted = ((AnnotatedTerm) unquoted).getSubterm();
-		}
-		if (atom != literal) {
-			unquoted = mTheory.term("not", unquoted);
-		}
-		return unquoted;
 	}
 
 	public boolean isNegatedTerm(final Term literal) {

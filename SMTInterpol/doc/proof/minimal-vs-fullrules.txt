@@ -132,7 +132,7 @@ NEW:
   false-)
 
 OLD:
-(@tautology (! (or (! (ite c a b) :quoted) (not a) (not b)) :ite-red))
+(@tautology (! (or (ite c a b) (not a) (not b)) :ite-red))
   # (ite c a b), ~a, ~b
 
 

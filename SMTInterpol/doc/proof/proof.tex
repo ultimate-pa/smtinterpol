@@ -18,7 +18,6 @@
 \newcommand\todo[1]{\textcolor{red}{TODO: #1}}
 \newcommand\seqcomp{\circledwedge}
 \newcommand\choicecomp{\circledvee}
-\newcommand\quoted[1]{\ulcorner #1 \urcorner}
 
 %canonical form
 \newcommand\cf{\mathit{cf}}
@@ -666,29 +665,20 @@ the integer (e.\, g., $2x=1$).  We justify this step by another rewrite rule.
 This axiom also justifies the introduction of a proxy literal as needed by
 Plaisted--Greenbaum- or Tseitin-style CNF encoding. The proxy literal captures
 the truth value of the corresponding sub-formula.  The proxy literal
-\emph{quotes} the sub-formula and is used as a regular literal in the
-remaining proof.  \si highlights quotation of a sub-formula by wrapping it in
-a \texttt{:quoted} annotation, e.\,g., $(!\ (or\ A\ B)\ :quoted)$ is the proxy
-literal for $(or\ A\ B)$.  Note that \si does not produce proxy literals for
+is named directly after the sub-formula and is used as a regular literal in the
+remaining proof.  Note that \si does not produce proxy literals for
 negated formulas but negates the proxy for the positive formula instead.
 
 \paragraph{Building clauses.}
-A literal in \si is represented in the proof by its SMTLIB term.  To
-distinguish between auxiliary literals that stand for a disjunction and
-the clauses themselves, the literals are usually quoted by adding a \verb+:quoted+
-annotation.  We also need to distinguish between equality literals in the
-congruence closure theory and equality literals in LA theory.  We do this
-by quoting the former with \verb+:quotedCC+ and the latter with \verb+:quotedLA+.
+A literal in \si is represented in the proof by its SMTLIB term.
+The literals may be slightly normalized by the rewrite rule (intern).
 
-The literals are introduced by the rewrite rule (intern).  For example for
-complex terms where the head symbol is in $\{ite, xor, or\}$, we introduce
-a quoted auxiliary literal with the same name.
-
-\begin{equation}
-  t = \annot{t}{:quoted}
-  \quad\text{where $func(t)\in\{ite,xor,or\}$}
+\begin{align}
+  (=\ a\ b) &= (=\ b\ a)
+  \tag{intern}\\
+  (=\ a\ b) &= (=\ (+\ b\ (*\ (-\ 1)\ a))\ 0)
   \tag{intern}
-\end{equation}
+\end{align}
 
 When creating equality literals in congruence closure we first check for
 trivial equalities:
@@ -699,12 +689,11 @@ $\sum_{i>0} c_i t_i + c_0$ and the constant $c_0$ does not
 divide the $gcd(c_1,\dots,c_n)$.
 Furthermore the equality literals are normalized, i.e., the sides of the
 equality may be swapped, e.g., if this results in a previously created
-literal. Finally they are quoted.
+literal.
 \begin{equation}
   (=\ t_1\ t_2) = \begin{cases} true & \text{if trivially true}\\
     false & \text{if trivially false}\\
-    \annot{(=\ t_1\ t_2)}{:quotedCC}\\
-    \annot{(=\ t_2\ t_1)}{:quotedCC}
+    (=\ t_2\ t_1) & \text{if that equality was created earlier}
   \end{cases}
   \tag{intern}
 \end{equation}
@@ -720,14 +709,14 @@ integer such that the literal does not change; if it is an equality it is simpli
 to false if $c_0/gcd$ is not an integer.  
 \begin{align}
   (=\ t\ 0) &= \begin{cases} false & \text{if trivially false}\\
-    \annot{(=\ \cf(t/gcd)\ 0)}{:quotedLA} \\
-    \annot{(=\ \cf(-t/gcd)\ 0)}{:quotedLA}
+    (=\ \cf(t/gcd)\ 0) \\
+    (=\ \cf(-t/gcd)\ 0)
   \end{cases}
   \tag{intern}\\
   (<=\ t\ 0) &= \begin{cases} 
-    (!\ (<=\ \cf(t/gcd)\ 0)\ :quotedLA) \\
-    (not\ \annot{(<\ \cf(-t/gcd)\ 0)}{:quotedLA}) &\text{(real case)}\\
-    (not\ \annot{(<=\ \cf(-t/gcd + 1)\ 0)}{:quotedLA})& \text{(integer case)}
+    (<=\ \cf(t/gcd)\ 0) \\
+    (not\ (<\ \cf(-t/gcd)\ 0)) &\text{(real case)}\\
+    (not\ (<=\ \cf(-t/gcd + 1)\ 0))& \text{(integer case)}
   \end{cases}
   \tag{intern}
 \end{align}
@@ -757,9 +746,7 @@ is created during the transformation into CNF.  These tautologies are
 clauses that are annotated with the kind of the tautology.
 
 Table~\ref{tab:tautforms} lists the different kinds of tautologies present
-in \si.  Here, $\quoted{F}$ denotes the proxy
-literal\footnote{These literals appear in proofs with the annotation
-  \texttt{:quoted}.} for formula $F$, $F$ denotes formulas, $t$ denotes terms,
+in \si.  Here $F$ denotes formulas, $t$ denotes terms,
 and $t_F$ denotes the term corresponding to $F$\footnote{In the proof returned
   by \si, $t_F$ and $F$ are equal.  The distinction is only done internally
   since $F$ is a Boolean term handled by the DPLL core and $t_F$ is the term
@@ -783,20 +770,20 @@ constants.
   \begin{tabular}{l|l}
     Kind & Clause\\\hline
     trueNotFalse & $true\neq false$\\
-    or+ & $\neg\quoted{F_1\lor \ldots \lor F_n}\lor F_1\lor \ldots\lor F_n$\\
-    or- & $\quoted{F_1\lor \ldots \lor F_n}\lor \neg F_i$\\
-    ite+1 & $\neg\quoted{ite\ F_1\ F_2\ F_3}\lor\neg F_1\lor F_2$\\
-    ite+2 & $\neg\quoted{ite\ F_1\ F_2\ F_3}\lor F_1\lor F_3$\\
-    ite+Red & $\neg\quoted{ite\ F_1\ F_2\ F_3}\lor F_2\lor F_3$\\
-    ite-1 & $\quoted{ite\ F_1\ F_2\ F_3}\lor\neg F_1\lor\neg F_2$\\
-    ite-2 & $\quoted{ite\ F_1\ F_2\ F_3}\lor F_1\lor\neg F_3$\\
-    ite-Red & $\quoted{ite\ F_1\ F_2\ F_3}\lor\neg F_2\lor\neg F_3$\\
-    xor+1 & $\neg\quoted{xor\ F_1\ F_2}\lor F_1\lor F_2$\\
-    xor+2 & $\neg\quoted{xor\ F_1\ F_2}\lor\neg F_1\lor\neg F_2$\\
-    xor-1 & $\quoted{xor\ F_1\ F_2}\lor F_1\lor\neg F_2$\\
-    xor-2 & $\quoted{xor\ F_1\ F_2}\lor\neg F_1\lor F_2$\\
-    excludedMiddle1 & $\quoted{t_F = true} \lor \neg F$\\
-    excludedMiddle2 & $\quoted{t_F = false} \lor F$\\
+    or+ & $(or\ F_1\ \ldots\ F_n)\lor \neg F_i$\\
+    or- & $\neg(or\ F_1\ \ldots\ F_n)\lor F_1\lor \ldots\lor F_n$\\
+    ite+1 & $(ite\ F_1\ F_2\ F_3)\lor\neg F_1\lor\neg F_2$\\
+    ite+2 & $(ite\ F_1\ F_2\ F_3)\lor F_1\lor\neg F_3$\\
+    ite+Red & $(ite\ F_1\ F_2\ F_3)\lor\neg F_2\lor\neg F_3$\\
+    ite-1 & $\neg(ite\ F_1\ F_2\ F_3)\lor\neg F_1\lor F_2$\\
+    ite-2 & $\neg(ite\ F_1\ F_2\ F_3)\lor F_1\lor F_3$\\
+    ite-Red & $\neg(ite\ F_1\ F_2\ F_3)\lor F_2\lor F_3$\\
+    xor+1 & $(xor\ F_1\ F_2)\lor F_1\lor\neg F_2$\\
+    xor+2 & $(xor\ F_1\ F_2)\lor\neg F_1\lor F_2$\\
+    xor-1 & $\neg(xor\ F_1\ F_2)\lor F_1\lor F_2$\\
+    xor-2 & $\neg(xor\ F_1\ F_2)\lor\neg F_1\lor\neg F_2$\\
+    excludedMiddle1 & $(=\ F\ true) \lor \neg F$\\
+    excludedMiddle2 & $(=\ F\ false) \lor F$\\
     termITE & $(\neg) F_1\lor\ldots\lor(\neg) F_n \lor (ite\ F_1 (ite\ F_2 \cdots (ite\ F_n\ t\ \_)\cdots)) = t$\\
     termITEBounds & $(ite F\ (ite \dots t_1 \dots t_n)) - max(t_i) \leq 0$\\
      & $min(t_i) -(ite\ F (ite \dots t_1 \dots t_n)) \leq 0$\\
@@ -833,9 +820,8 @@ and congruence.  A transitivity proves a lemma of the form ${t_1 = t_2}
 represented by an SMTLIB term as follows:
 
 \begin{verbatim}
-(@lemma (! (or (! (= t1 tn) :quotedCC)
-               (not (! (= t1 t2) :quotedCC)) ...
-               (not (! (= tn-1 tn) :quotedCC)))
+(@lemma (! (or (= t1 tn)
+               (not (= t1 t2)) ... (not (= tn-1 tn)))
   :CC ((= t1 tn) :subpath (t1 t2 ... tn))))
 \end{verbatim}
 
@@ -855,9 +841,8 @@ t_n)\neq f(t'_1,\dots,t'_n) \lor t_1=t_1' \lor \cdots \lor t_n=t_n'$.
 It is represented very similarly by the following SMTLIB term.
 
 \begin{verbatim}
-(@lemma (! (or (! (= (f t1...tn) (f t'1...t'n) :quotedCC))
-               (not (! (= t1 t'1) :quotedCC)) ...
-               (not (! (= tn t'n) :quotedCC)))
+(@lemma (! (or (= (f t1...tn) (f t'1...t'n))
+               (not (= t1 t'1)) ... (not (= tn t'n)))
     :CC ((= (f t1...tn) (f t'1...t'n)) 
          :subpath ((f t1...tn) (f t'1...t'n))
 \end{verbatim}
@@ -874,8 +859,8 @@ swapped.
 \todo{cite weak equivalence paper, and const, present rules}
 
 \begin{verbatim}
-(@lemma (! (or (! (= (select a i) (select b j)) :quotedCC) 
-               (not (! (= i j) :quoted CC)) ...)
+(@lemma (! (or (= (select a i) (select b j))
+               (not (= i j)) ...)
   :read-over-weakeq ((= (select a i) (select b j))
                      :weakpath (i (a ... b)))))
 \end{verbatim}
@@ -887,7 +872,7 @@ a (non-negated) equality $i=k$ in the clause (i.e., the conflict guarantees $i\n
 The equality $i=k$ is omitted if it is trivially false, e.g., for $k = i+1$.
 
 \begin{verbatim}
-(@lemma (! (or (! (= (select a i) v) :quotedCC) ...)
+(@lemma (! (or (= (select a i) v) ...)
   :read-const-weakeq ((= (select a i) v)
                       :weakpath (i (a ... const v)))))
 \end{verbatim}
@@ -900,7 +885,7 @@ Note: For \verb+:read-const-weakeq+, if $a = (const\ v)$, the weak path
 contains only one element.  This is the only reason why one can have a
 path of length one.
 \begin{verbatim}
-(@lemma (! (or (! (= a b) :quotedCC) ...)
+(@lemma (! (or (= a b) ...)
   :weakeq-ext ((= a b)
                :subpath (a ... b)
                :weakpath (i1 (a ... b))...
@@ -924,7 +909,7 @@ Again, the equality $i=k$ is omitted if it is trivially false, e.g., for $k = i+
 disequality $i_k \neq i$ is omitted if the indices are identical.
 
 \begin{verbatim}
-(@lemma (! (or (! (= (const v) (const v')) :quotedCC) ...)
+(@lemma (! (or (= (const v) (const v')) ...)
   :const-weakeq ((= (const v) (const v'))
                  :subpath ((const v) ... (const v')))))
 \end{verbatim}
@@ -959,9 +944,7 @@ order as the literals in the lemma.  For example if $t_1 + t_2 - t_3 =
 0$, the following lemma explains why $t_1 < 0 \land t_2 = 0 \land t_3
 >= 0$ is unsatisifiable.
 \begin{verbatim}
-(@lemma (! (or (not (! (< t1 0) :quotedLA)
-               (not (! (= t2 0) :quotedLA)
-               (! (< t3 0) :quotedLA))
+(@lemma (! (or (not (< t1 0)) (not (= t2 0)) (< t3 0))
   :LA (1 1 (- 1))))))
 \end{verbatim}
 
@@ -974,16 +957,12 @@ if the literal contains only integer variables.
 A positive equality literal can only appear in a trichotomy lemma.
 This lemma explains $t \leq 0 \rightarrow t < 0 \lor t=0$ and has the form
 \begin{verbatim}
-(@lemma (! (or (! (< t 0) :quotedLA)
-               (! (= t 0) :quotedLA)
-               (not (! (<= t 0) :quotedLA))) :trichotomy))
+(@lemma (! (or (< t 0) (= t 0) (not (<= t 0))) :trichotomy))
 \end{verbatim}
 The literals may appear in any order in the clause.  For integer
 arithmetic the literals never use $<$ and the lemma has the form.
 \begin{verbatim}
-(@lemma (! (or (! (<= "t+1" 0) :quotedLA)
-               (! (= t 0) :quotedLA)
-               (not (! (<= t 0) :quotedLA))) :trichotomy))
+(@lemma (! (or (<= "t+1" 0) (= t 0) (not (<= t 0))) :trichotomy))
 \end{verbatim}
 Here \verb|"t+1"| stands for the canonical form of $t+1$.
 
@@ -997,14 +976,11 @@ These lemmas are a bit special as they are created by linear
 arithmetic and by congruence closure to propagate equalities to the
 other theory.  We use slightly different representation of equalities
 in these theories.  As explained earlier in congruence closure an
-equality $t_1=t_2$ is represented as $(!\ (=\ t_1\ t_2)\ :quotedCC)$,
-while in congruence closure it is
-$(!\ (=\ \cf_{gcd}(t_1-t_2)\ 0)\ :quotedLA)$.
+equality $t_1=t_2$ is represented as $(=\ t_1\ t_2)$,
+while in linear arithmetic it is $(=\ \cf_{gcd}(t_1-t_2)\ 0)$.
 To connect these literals, we use Nelson-Oppen theory lemmas of the form.
 \begin{verbatim}
-(@lemma (! (or (! (= t1 t2) :quotedCC)
-               (not (! (= "t1-t2" 0) :quotedLA)))
-  :EQ))
+(@lemma (! (or (= t1 t2) (not (= "t1-t2" 0))) :EQ))
 \end{verbatim}
 This propagates an equality from linear arithmetic to congruence
 closure.  A similar lemma where the literals occur in the opposite
@@ -1207,10 +1183,6 @@ will be created.  This literal should replace the term in the (flattened)
 clause.  We distinguish different kinds of literals, but all literals are
 introduced into the proof tree using the (intern) rewrite rule with.
 
-Depending on the literal, the (intern) function basically quotes the literals
-with a \texttt{:quoted}, \texttt{:quotedCC}, or \texttt{:quotedLA} annotation.
-It also does some literal simplification, see the previous section.
-
 \paragraph{Tautologies.}  For complex formulas we create auxiliary literals.
 These literals are defined by tautology clauses.  These clauses are build from
 a tautology axiom which is usually already in CNF.  The \verb+@tautology+
@@ -1336,7 +1308,7 @@ corresponds to the previous steps.
   )
   (@trans
     (@rewrite (! (= (not (not (= (* 2 x) z))) (= (* 2 x) z)) :notSimp))
-    (@rewrite (! (= (= (* 2 x) z) (! (= (+ z (* (- 2) x)) 0) :quotedLA)) :intern))))
+    (@rewrite (! (= (= (* 2 x) z) (= (+ z (* (- 2) x)) 0)) :intern))))
 \end{verbatim}
 
 \end{document}

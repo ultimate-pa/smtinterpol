@@ -133,7 +133,7 @@ public class LAInterpolator {
 	 * Compute the literals and corresponding Farkas coefficients for this LA lemma
 	 */
 	private HashMap<Term, Rational> getFarkasCoeffs(final InterpolatorClauseTermInfo clauseInfo) {
-		final HashMap<Term, Rational> coeffMap = new HashMap<Term, Rational>();
+		final HashMap<Term, Rational> coeffMap = new HashMap<>();
 		final Term[] lits = clauseInfo.getLiterals();
 		final Object[] coeffs = (Object[]) clauseInfo.getLemmaAnnotation();
 		for (int i = 0; i < coeffs.length; i++) {
@@ -261,10 +261,10 @@ public class LAInterpolator {
 			for (int part = 0; part < mInterpolator.mNumInterpolants; part++) {
 				if (occurrenceInfo.isALocal(part)) {
 					numALocal[part]++;
-					aLocalLit[part] = mInterpolator.unquote(lit);
+					aLocalLit[part] = lit;
 				} else if (occurrenceInfo.isBLocal(part)) {
 					numBLocal[part]++;
-					bLocalLit[part] = mInterpolator.unquote(lit);
+					bLocalLit[part] = lit;
 				}
 			}
 			if (atomTermInfo.isBoundConstraint()) {

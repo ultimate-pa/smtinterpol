@@ -529,11 +529,11 @@ public class CCProofGenerator {
 		int i = 0;
 		if (mainEq != null) {
 			// First the (positive) diseq literal
-			args[i++] = theory.annotatedTerm(ProofConstants.ANNOT_QUOTED_CC, mainEq);
+			args[i++] = mainEq;
 		}
 		// then the other literals, there may also be other positive literals.
 		for (final Literal entry : info.getLiterals()) {
-			Term arg = entry.getAtom().getSMTFormula(theory, true);
+			Term arg = entry.getAtom().getSMTFormula(theory);
 			if (entry.getSign() < 0) {
 				arg = theory.not(arg);
 			}
@@ -546,7 +546,7 @@ public class CCProofGenerator {
 				auxLiterals.put(entry.getDiseq(), theory.term("=", lhs, rhs));
 			}
 			/* these are always negated equalities */
-			Term arg = theory.annotatedTerm(ProofConstants.ANNOT_QUOTED_CC, auxLiterals.get(entry.getDiseq()));
+			Term arg = auxLiterals.get(entry.getDiseq());
 			arg = theory.not(arg);
 			args[i++] = arg;
 		}
@@ -564,7 +564,7 @@ public class CCProofGenerator {
 		if (infoDiseq != null) {
 			final Term diseqTerm = theory.term(SMTLIBConstants.EQUALS, infoDiseq.getFirst().getFlatTerm(),
 					infoDiseq.getSecond().getFlatTerm());
-			subannots[k++] = theory.annotatedTerm(ProofConstants.ANNOT_QUOTED_CC, diseqTerm);
+			subannots[k++] = diseqTerm;
 		}
 		for (final Object annot : lemmaAnnot) {
 			subannots[k++] = annot;
@@ -617,7 +617,7 @@ public class CCProofGenerator {
 					// disequality must occur positively in lemma or not at all.
 					assert diseqLit == null || diseqLit.getSign() > 0;
 					// if disequality does not occur, it is a trivial disequality.
-					provedEq = diseqLit == null ? null : diseqLit.getSMTFormula(theory, false);
+					provedEq = diseqLit == null ? null : diseqLit.getSMTFormula(theory);
 				}
 			} else {
 				// auxLiteral should already have been created by the lemma that needs it.
@@ -628,8 +628,7 @@ public class CCProofGenerator {
 			// Build lemma annotations.
 			Term lemma = buildLemma(theory, lemmaNo == 0 ? mRule : RuleKind.CC, info, provedEq, auxLiterals);
 			if (lemmaNo != 0) {
-				final Term pivot = theory.annotatedTerm(ProofConstants.ANNOT_QUOTED_CC, provedEq);
-				lemma = theory.annotatedTerm(new Annotation[] { new Annotation(":pivot", pivot) }, lemma);
+				lemma = theory.annotatedTerm(new Annotation[] { new Annotation(":pivot", provedEq) }, lemma);
 			}
 			allLemmas[lemmaNo] = lemma;
 		}

@@ -29,7 +29,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 
 /**
  * Represents a modifiable affin term, i.e. SUM_i c_i * x_i + c, where the x_i are initially nonbasic variable.
@@ -189,11 +188,10 @@ public class MutableAffineTerm {
 
 	/**
 	 * Convert the affine term to a term in our core theory.
-	 *
 	 * @param useAuxVars
 	 *            use auxiliary variables for non-variable terms (unimplemented).
 	 */
-	public Term toSMTLib(final Theory t, final boolean isInt, final boolean quoted) {
+	public Term toSMTLib(final Theory t, final boolean isInt) {
 		final Sort numSort = isInt ? t.getSort("Int") : t.getSort("Real");
 		assert (numSort != null);
 		final Sort[] binfunc = new Sort[] { numSort, numSort };
@@ -252,7 +250,7 @@ public class MutableAffineTerm {
 	 *            Theory used in conversion.
 	 * @return The SMTLib term representing the formula <code>this <= 0</code>.
 	 */
-	public Term toSMTLibLeq0(final Theory smtTheory, final boolean quoted) {
+	public Term toSMTLibLeq0(final Theory smtTheory) {
 		assert mConstant.mEps >= 0;
 		if (isConstant()) {
 			return mConstant.compareTo(InfinitesimalNumber.ZERO) <= 0 ? smtTheory.mTrue : smtTheory.mFalse;
@@ -261,7 +259,6 @@ public class MutableAffineTerm {
 		final Sort sort = smtTheory.getSort(isInt ? "Int" : "Real");
 		final String comp = mConstant.mEps == 0 ? "<=" : "<";
 		final Term zero = Rational.ZERO.toTerm(sort);
-		final Term res = smtTheory.term(comp, toSMTLib(smtTheory, isInt, quoted), zero);
-		return quoted ? smtTheory.annotatedTerm(ProofConstants.ANNOT_QUOTED_LA, res) : res;
+		return smtTheory.term(comp, toSMTLib(smtTheory, isInt), zero);
 	}
 }

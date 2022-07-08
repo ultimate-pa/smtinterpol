@@ -56,7 +56,7 @@ public class ProofTermGenerator extends NonRecursive {
 				args[i + 1] = t.annotatedTerm(
 						new Annotation[] {
 							new Annotation(":pivot",
-									antes[i].mPivot.getSMTFormula(t, true))},
+									antes[i].mPivot.getSMTFormula(t))},
 									engine.getConverted());
 			}
 			final Term res = t.term(ProofConstants.FN_RES, args);

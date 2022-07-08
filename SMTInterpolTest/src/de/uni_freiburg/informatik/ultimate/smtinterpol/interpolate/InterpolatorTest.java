@@ -50,9 +50,6 @@ public class InterpolatorTest {
 	Sort mReal;
 	Term mA, mB, mS;
 
-	Annotation[] QUOTED_LA = new Annotation[] { new Annotation(":quotedLA", null) };
-	Annotation[] QUOTED_CC = new Annotation[] { new Annotation(":quotedCC", null) };
-
 	public InterpolatorTest() {
 		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setOption(":produce-proofs", true);
@@ -95,13 +92,11 @@ public class InterpolatorTest {
 		}
 		final Term aSmt = aterm.toSMTLib(mTheory, false);
 		final Term bSmt = bterm.toSMTLib(mTheory, false);
-		Term cceq = ccswap ? mTheory.term("=", aSmt, bSmt) : mTheory.term("=", bSmt, aSmt);
-		cceq = mTheory.annotatedTerm(QUOTED_CC, cceq);
+		final Term cceq = ccswap ? mTheory.term("=", aSmt, bSmt) : mTheory.term("=", bSmt, aSmt);
 		final InterpolatorAffineTerm linTerm = new InterpolatorAffineTerm(aterm);
 		linTerm.add(Rational.MONE, bterm);
 		linTerm.mul(linTerm.getGcd().inverse());
-		Term laeq = mTheory.term("=", linTerm.toSMTLib(mTheory, false), Rational.ZERO.toTerm(mReal));
-		laeq = mTheory.annotatedTerm(QUOTED_LA, laeq);
+		final Term laeq = mTheory.term("=", linTerm.toSMTLib(mTheory, false), Rational.ZERO.toTerm(mReal));
 		final Term[] lits = clauseswap
 				? litswap ? new Term[] { mTheory.term("not", cceq), laeq }
 						: new Term[] { laeq, mTheory.term("not", cceq) }

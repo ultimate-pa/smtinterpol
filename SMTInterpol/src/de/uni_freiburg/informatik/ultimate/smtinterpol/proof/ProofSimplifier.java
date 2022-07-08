@@ -199,17 +199,6 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
-	private Term removeQuoted(Term proof, final Term quotedTerm, final Term term, final boolean polarity) {
-		final Term quotedEq = proof.getTheory().term("=", quotedTerm, term);
-		if (polarity) {
-			proof = mProofRules.resolutionRule(term, proof, mProofRules.iffElim1(quotedEq));
-
-		} else {
-			proof = mProofRules.resolutionRule(term, mProofRules.iffElim2(quotedEq), proof);
-		}
-		return mProofRules.resolutionRule(quotedEq, mProofRules.delAnnot(quotedTerm), proof);
-	}
-
 	private Term convertTermITE(final Term[] clause) {
 		assert isApplication("=", clause[clause.length - 1]);
 		Term iteTerm = ((ApplicationTerm) clause[clause.length - 1]).getParameters()[0];
@@ -637,14 +626,13 @@ public class ProofSimplifier extends TermTransformer {
 		assert clause.length == 2;
 		final boolean isEqTrue = name == ":excludedMiddle1";
 
-		// Check for the form: (+ (! (= p true) :quoted) - p) :excludedMiddle1
-		// or (+ (! (= p false) :quoted) + p) :excludedMiddle2
-		final Term quotedAtom = clause[0];
-		final boolean isQuotedQuant = ((AnnotatedTerm) quotedAtom).getAnnotations()[0].getKey().equals(":quotedQuant");
-		final Term equality = unquote(quotedAtom);
+		// Check for the form: (+ (= p true) - p) :excludedMiddle1
+		// or (+ (= p false) + p) :excludedMiddle2
+		final Term equality = clause[0];
 		assert isApplication("=", equality);
 		final Term[] eqArgs = ((ApplicationTerm) equality).getParameters();
-		final Term atomTerm = isQuotedQuant ? expandAux((ApplicationTerm) eqArgs[0]) : eqArgs[0];
+		final boolean isAuxLiteral = isAuxApplication(eqArgs[0]);
+		final Term atomTerm = isAuxLiteral ? expandAux((ApplicationTerm) eqArgs[0]) : eqArgs[0];
 		final Term lit = clause[1];
 		assert !isEqTrue || isApplication("not", lit);
 		final Term atom = isEqTrue ? negate(lit) : lit;
@@ -655,11 +643,7 @@ public class ProofSimplifier extends TermTransformer {
 				? mProofRules.resolutionRule(eqArgs[1], mProofRules.trueIntro(), mProofRules.iffIntro2(equality))
 				: mProofRules.resolutionRule(eqArgs[1], mProofRules.iffIntro1(equality), mProofRules.falseElim());
 
-		final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, equality);
-		final Term expandProof = mProofRules.delAnnot(quotedAtom);
-		proof = mProofRules.resolutionRule(equality, proof, mProofRules.iffElim1(expandEq));
-		proof = mProofRules.resolutionRule(expandEq, expandProof, proof);
-		if (isQuotedQuant) {
+		if (isAuxLiteral) {
 			final Term expandAuxEq = mSkript.term(SMTLIBConstants.EQUALS, eqArgs[0], atomTerm);
 			final Term expandAuxProof = mProofRules.expand(eqArgs[0]);
 			if (isEqTrue) {
@@ -670,6 +654,22 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		proof = removeNot(proof, atom, !isEqTrue);
 		return proof;
+	}
+
+	private boolean isSkolem(Term term) {
+		if (term instanceof ApplicationTerm) {
+			final FunctionSymbol func = ((ApplicationTerm) term).getFunction();
+			return func.isIntern() && func.getName().startsWith("@skolem");
+		}
+		return false;
+	}
+
+	private boolean isAuxApplication(Term term) {
+		if (term instanceof ApplicationTerm) {
+			final FunctionSymbol func = ((ApplicationTerm) term).getFunction();
+			return func.isIntern() && func.getName().startsWith("@AUX");
+		}
+		return false;
 	}
 
 	private int findArgPosition(final Term searchTerm, final Term[] mainParams) {
@@ -684,17 +684,22 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertTautElimIntro(final String ruleName, final Term[] clauseLits) {
 		final boolean isElim = ruleName.contains("-");
 
-		Term mainAtom = clauseLits[0];
-		final Term quotedAtom = mainAtom;
-		final boolean isQuotedQuant = mainAtom instanceof AnnotatedTerm;
-		if (isQuotedQuant) {
-			mainAtom = unquoteExpand(mainAtom);
-		} else if (isElim) {
-			assert isApplication(SMTLIBConstants.NOT, mainAtom);
-			mainAtom = ((ApplicationTerm) mainAtom).getParameters()[0];
+		ApplicationTerm mainAtom;
+		final ApplicationTerm firstAtom = (ApplicationTerm) clauseLits[0];
+		final boolean isAuxDefEq = isApplication(SMTLIBConstants.EQUALS, firstAtom);
+		if (isAuxDefEq) {
+			assert isApplication(isElim ? SMTLIBConstants.FALSE : SMTLIBConstants.TRUE, firstAtom.getParameters()[1]);
+			mainAtom = (ApplicationTerm) expandAuxDef(firstAtom);
+		} else {
+			if (isElim) {
+				assert isApplication(SMTLIBConstants.NOT, firstAtom);
+				mainAtom = (ApplicationTerm) firstAtom.getParameters()[0];
+			} else {
+				mainAtom = firstAtom;
+			}
 		}
-		assert ruleName.startsWith(":" + ((ApplicationTerm) mainAtom).getFunction().getName());
-		final Term[] mainParams = ((ApplicationTerm) mainAtom).getParameters();
+		assert ruleName.startsWith(":" + mainAtom.getFunction().getName());
+		final Term[] mainParams = mainAtom.getParameters();
 
 		Term proof;
 		switch (ruleName) {
@@ -798,13 +803,13 @@ public class ProofSimplifier extends TermTransformer {
 		default:
 			throw new AssertionError();
 		}
-		if (isQuotedQuant) {
-			final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, mainAtom);
+		if (isAuxDefEq) {
+			final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, firstAtom, mainAtom);
 			if (isElim) {
-				proof = mProofRules.resolutionRule(mainAtom, proveAuxElim(quotedAtom, mainAtom), proof);
+				proof = mProofRules.resolutionRule(mainAtom, proveAuxElim(firstAtom, mainAtom), proof);
 			} else {
 				proof = mProofRules.resolutionRule(mainAtom, proof, mProofRules.iffElim1(expandEq));
-				proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(quotedAtom, mainAtom), proof);
+				proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(firstAtom, mainAtom), proof);
 			}
 		}
 		return proof;
@@ -1321,71 +1326,45 @@ public class ProofSimplifier extends TermTransformer {
 			return mProofRules.refl(lhs);
 		}
 
-		// term x can be rewritten to (not (! (= x false) :quoted))
+		// term x can be rewritten to (not (= x false))) for EPR reasoning
 		if (isApplication("not", rhs)) {
-			final Term quotedAtom = negate(rhs);
-			if (quotedAtom instanceof AnnotatedTerm) {
-				final Term unquotedAtom = unquote(quotedAtom);
-				if (isApplication("=", unquotedAtom)) {
-					final ApplicationTerm rhsApp = (ApplicationTerm) unquotedAtom;
-					if (isApplication("false", rhsApp.getParameters()[1])
-							&& lhs == rhsApp.getParameters()[0]) {
-						final Term rhsLit = theory.term("not", rhsApp);
-						final Term lhsEqRhsLit = theory.term("=", lhs, rhsLit);
-						Term proofLhsEqRhsLit;
-						Term proofUnquote = mProofRules.resolutionRule(theory.term("=", quotedAtom, unquotedAtom),
-								mProofRules.delAnnot(quotedAtom), mProofRules.symm(unquotedAtom, quotedAtom));
-						final Term falseTerm = rhsApp.getParameters()[1];
-						proofLhsEqRhsLit = proveIff(lhsEqRhsLit,
-								mProofRules.resolutionRule(rhsApp, mProofRules.notIntro(rhsLit), mProofRules.iffElim2(rhsApp)),
-								mProofRules.resolutionRule(rhsApp, mProofRules.iffIntro1(rhsApp), mProofRules.notElim(rhsLit)));
-						proofLhsEqRhsLit = mProofRules.resolutionRule(falseTerm, proofLhsEqRhsLit, mProofRules.falseElim());
-						proofUnquote = mProofRules.resolutionRule(theory.term("=", unquotedAtom, quotedAtom), proofUnquote,
-								mProofRules.cong(rhsLit, rhs));
-						return mProofRules.resolutionRule(theory.term("=", lhs, rhsLit), proofLhsEqRhsLit,
-								mProofRules.resolutionRule(theory.term("=", rhsLit, rhs), proofUnquote,
-										mProofRules.trans(lhs, rhsLit, rhs)));
-					}
+			final Term atom = ((ApplicationTerm) rhs).getParameters()[0];
+			if (isApplication("=", atom)) {
+				final ApplicationTerm rhsApp = (ApplicationTerm) atom;
+				if (isApplication("false", rhsApp.getParameters()[1]) && lhs == rhsApp.getParameters()[0]) {
+					final Term rhsLit = theory.term("not", rhsApp);
+					final Term lhsEqRhsLit = theory.term("=", lhs, rhsLit);
+					Term proofLhsEqRhsLit;
+					final Term falseTerm = rhsApp.getParameters()[1];
+					proofLhsEqRhsLit = proveIff(lhsEqRhsLit,
+							mProofRules.resolutionRule(rhsApp, mProofRules.notIntro(rhsLit),
+									mProofRules.iffElim2(rhsApp)),
+							mProofRules.resolutionRule(rhsApp, mProofRules.iffIntro1(rhsApp),
+									mProofRules.notElim(rhsLit)));
+					proofLhsEqRhsLit = mProofRules.resolutionRule(falseTerm, proofLhsEqRhsLit, mProofRules.falseElim());
+					return proofLhsEqRhsLit;
 				}
 			}
 		}
 
-		if (rhs instanceof AnnotatedTerm) {
-			final Term unquoteRhs = unquote(rhs);
+		/* second case: boolean functions are created as equality with true */
+		if (isApplication("=", rhs)) {
+			final Term[] rhsArgs = ((ApplicationTerm) rhs).getParameters();
+			if (rhsArgs.length == 2 && isApplication("true", rhsArgs[1])) {
+				/* check if we need to expand an @aux application */
+				if (lhs == rhsArgs[0] || isAuxApplication(rhsArgs[0])) {
 
-			/* check for quoted auxiliary literals */
-			if (lhs == unquoteRhs) {
-				return mProofRules.resolutionRule(theory.term("=", rhs, lhs), mProofRules.delAnnot(rhs),
-						mProofRules.symm(lhs, rhs));
-			}
-
-			/* second case: boolean functions are created as equality with true */
-			if (isApplication("=", unquoteRhs)) {
-				final Term[] rhsArgs = ((ApplicationTerm) unquoteRhs).getParameters();
-				if (rhsArgs.length == 2 && isApplication("true", rhsArgs[1])) {
-					/* check if we need to expand an @aux application */
-					final boolean needsExpand = lhs != rhsArgs[0] && (rhsArgs[0] instanceof ApplicationTerm
-							&& mAuxDefs.containsKey(((ApplicationTerm) rhsArgs[0]).getFunction()));
-					if (needsExpand || lhs == rhsArgs[0]) {
-						final Term transitivity = needsExpand ? mProofRules.trans(lhs, rhsArgs[0], unquoteRhs, rhs)
-								: mProofRules.trans(lhs, unquoteRhs, rhs);
-
-						final Term equality2 = theory.term("=", unquoteRhs, rhs);
-						final Term proof2 = mProofRules.resolutionRule(theory.term("=", rhs, unquoteRhs),
-								mProofRules.delAnnot(rhs), mProofRules.symm(unquoteRhs, rhs));
-
-						final Term equality1 = theory.term("=", rhsArgs[0], unquoteRhs);
-						final Term proof1 = res(rhsArgs[1], mProofRules.trueIntro(), proveIff(equality1,
-								mProofRules.iffIntro2(unquoteRhs), mProofRules.iffElim1(unquoteRhs)));
-						Term proof = mProofRules.resolutionRule(equality1, proof1,
-								mProofRules.resolutionRule(equality2, proof2, transitivity));
-						if (needsExpand) {
-							proof = res(theory.term("=", lhs, rhsArgs[0]), res(theory.term("=", rhsArgs[0], lhs),
-													mProofRules.expand(rhsArgs[0]), mProofRules.symm(lhs, rhsArgs[0])),
-											proof);
-						}
-						return proof;
+					final Term equality1 = theory.term("=", rhsArgs[0], rhs);
+					Term proof = res(rhsArgs[1], mProofRules.trueIntro(),
+							proveIff(equality1, mProofRules.iffIntro2(rhs), mProofRules.iffElim1(rhs)));
+					if (lhs != rhsArgs[0]) {
+						final Term transitivity = mProofRules.trans(lhs, rhsArgs[0], rhs);
+						proof = mProofRules.resolutionRule(equality1, proof, transitivity);
+						proof = res(theory.term("=", lhs, rhsArgs[0]), res(theory.term("=", rhsArgs[0], lhs),
+												mProofRules.expand(rhsArgs[0]), mProofRules.symm(lhs, rhsArgs[0])),
+										proof);
 					}
+					return proof;
 				}
 			}
 		}
@@ -1396,7 +1375,7 @@ public class ProofSimplifier extends TermTransformer {
 			return proveRewriteWithLeq(lhs, rhs, true);
 		}
 
-		// eq is rewritten to quotedCC
+		// eq is normalized in CC (sides may be swapped)
 		if (isApplication("=", lhs)) {
 			/* compute affine term for lhs */
 			final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
@@ -1413,33 +1392,20 @@ public class ProofSimplifier extends TermTransformer {
 				return proveIffTrue(theory.term("=", lhs, rhs), mProofRules.refl(lhsParams[0]));
 			}
 
-			final Term unquoteRhs = unquote(rhs);
-			final Term equality2 = theory.term("=", unquoteRhs, rhs);
-			final Term proof2 = mProofRules.resolutionRule(theory.term("=", rhs, unquoteRhs),
-					mProofRules.delAnnot(rhs), mProofRules.symm(unquoteRhs, rhs));
-
-			assert isApplication("=", unquoteRhs);
-			final Term[] rhsParams = ((ApplicationTerm) unquoteRhs).getParameters();
+			assert isApplication("=", rhs);
+			final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
 			assert rhsParams.length == 2;
 
-			if (lhs == unquoteRhs) {
-				// lhs and rhs are the same (modulo quote)
-				return proof2;
-			}
-
-			final Term equality1 = theory.term("=", lhs, unquoteRhs);
-			Term proof1;
+			final Term equality = theory.term("=", lhs, rhs);
 			if (lhsParams[1] == rhsParams[0] && lhsParams[0] == rhsParams[1]) {
 				// lhs and rhs are only swapped
-				proof1 = proveIff(equality1, mProofRules.symm(rhsParams[0], rhsParams[1]),
+				return proveIff(equality, mProofRules.symm(rhsParams[0], rhsParams[1]),
 						mProofRules.symm(lhsParams[0], lhsParams[1]));
 			} else {
 				// Now it must be an LA equality that got normalized in a different way.
 				assert lhsParams[0].getSort().isNumericSort();
-				proof1 = proveRewriteWithLinEq(lhs, unquoteRhs);
+				return proveRewriteWithLinEq(lhs, rhs);
 			}
-			return mProofRules.resolutionRule(equality1, proof1,
-					mProofRules.resolutionRule(equality2, proof2, mProofRules.trans(lhs, unquoteRhs, rhs)));
 		}
 		throw new AssertionError();
 	}
@@ -2826,7 +2792,6 @@ public class ProofSimplifier extends TermTransformer {
 		final Theory theory = mSkript.getTheory();
 		final BigInteger[] coeffs = new BigInteger[coefficients.length];
 		final Term[] atoms = new Term[clause.length];
-		final Term[] quotedAtoms = new Term[clause.length];
 		final BitSet polarities = new BitSet();
 		final Term[] realAtoms = new Term[clause.length];
 		final Term[] realAtomProofs = new Term[clause.length];
@@ -2838,8 +2803,7 @@ public class ProofSimplifier extends TermTransformer {
 
 			final Term lit = clause[i];
 			final boolean isNegated = isApplication("not", lit);
-			final Term quotedAtom = isNegated ? negate(lit) : lit;
-			final Term atom = unquote(quotedAtom);
+			final Term atom = isNegated ? negate(lit) : lit;
 			final Term[] atomParams = ((ApplicationTerm) atom).getParameters();
 			Term realAtom;
 			Term realAtomProof;
@@ -2877,13 +2841,11 @@ public class ProofSimplifier extends TermTransformer {
 			realAtoms[i] = realAtom;
 			realAtomProofs[i] = realAtomProof;
 			atoms[i] = atom;
-			quotedAtoms[i] = quotedAtom;
 			polarities.set(i, !isNegated);
 		}
 		Term proof = mProofRules.farkas(realAtoms, coeffs);
 		for (int i = 0; i < atoms.length; i++) {
 			proof = res(realAtoms[i], realAtomProofs[i], proof);
-			proof = removeQuoted(proof, quotedAtoms[i], atoms[i], polarities.get(i));
 		}
 		return proof;
 	}
@@ -2897,27 +2859,23 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertTrichotomy(final Term[] clause) {
 		assert clause.length == 3;
 		final Theory theory = clause[0].getTheory();
-		Term quotedEq = null, eq = null;
-		Term quotedLt = null, lt = null;
-		Term quotedGt = null, gt = null;
+		Term eq = null;
+		Term lt = null;
+		Term gt = null;
 		for (final Term lit : clause) {
 			final boolean isNegated = isApplication("not", lit);
-			final Term quotedAtom = isNegated ? ((ApplicationTerm) lit).getParameters()[0] : lit;
-			final Term atom = unquote(quotedAtom);
+			final Term atom = isNegated ? ((ApplicationTerm) lit).getParameters()[0] : lit;
 			assert isZero(((ApplicationTerm) atom).getParameters()[1]);
 
 			if (isApplication("=", atom)) {
 				assert !isNegated && eq == null;
-				quotedEq = quotedAtom;
 				eq = atom;
 			} else if (isApplication("<=", atom) || isApplication("<", atom)) {
 				if (isNegated) {
 					assert gt == null;
-					quotedGt = quotedAtom;
 					gt = atom;
 				} else {
 					assert lt == null;
-					quotedLt = quotedAtom;
 					lt = atom;
 				}
 			} else {
@@ -2944,9 +2902,6 @@ public class ProofSimplifier extends TermTransformer {
 							mProofRules.farkas(new Term[] { realLeq, realLt },
 									new BigInteger[] { BigInteger.ONE, BigInteger.ONE })));
 		}
-		proof = removeQuoted(proof, quotedGt, gt, false);
-		proof = removeQuoted(proof, quotedLt, lt, true);
-		proof = removeQuoted(proof, quotedEq, eq, true);
 		return proof;
 	}
 
@@ -2958,20 +2913,17 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	private Term convertEQLemma(final Term[] clause) {
 		assert clause.length == 2;
-		Term quotedNegAtom;
-		Term quotedPosAtom;
+		Term negAtom;
+		Term posAtom;
 
 		if (isApplication("not", clause[0])) {
-			quotedNegAtom = negate(clause[0]);
-			quotedPosAtom = clause[1];
+			negAtom = negate(clause[0]);
+			posAtom = clause[1];
 		} else {
 			assert isApplication("not", clause[1]);
-			quotedNegAtom = negate(clause[1]);
-			quotedPosAtom = clause[0];
+			negAtom = negate(clause[1]);
+			posAtom = clause[0];
 		}
-		final Term negAtom = unquote(quotedNegAtom);
-		final Term posAtom = unquote(quotedPosAtom);
-
 		assert isApplication("=", negAtom) && isApplication("=", posAtom);
 		final Term[] negAtomArgs = ((ApplicationTerm) negAtom).getParameters();
 		final Term[] posAtomArgs = ((ApplicationTerm) posAtom).getParameters();
@@ -2986,9 +2938,7 @@ public class ProofSimplifier extends TermTransformer {
 			multiplier = multiplier.negate();
 		}
 		assert negDiff.equals(posDiff);
-		Term proof = proveEqWithMultiplier(negAtomArgs, posAtomArgs, multiplier);
-		proof = removeQuoted(proof, quotedNegAtom, negAtom, false);
-		proof = removeQuoted(proof, quotedPosAtom, posAtom, true);
+		final Term proof = proveEqWithMultiplier(negAtomArgs, posAtomArgs, multiplier);
 		return proof;
 	}
 
@@ -3003,16 +2953,15 @@ public class ProofSimplifier extends TermTransformer {
 			final HashMap<SymmetricPair<Term>, Term> disequalities) {
 		for (final Term literal : clause) {
 			final boolean negated = isApplication("not", literal);
-			final Term quotedAtom = negated ? ((ApplicationTerm) literal).getParameters()[0] : literal;
-			final Term atom = unquote(quotedAtom);
+			final Term atom = negated ? ((ApplicationTerm) literal).getParameters()[0] : literal;
 			assert isApplication("=", atom);
 			final Term[] sides = ((ApplicationTerm) atom).getParameters();
 			assert sides.length == 2;
 			if (negated) {
 				// negated atom in clause -> equality in conflict
-				equalities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
+				equalities.put(new SymmetricPair<>(sides[0], sides[1]), atom);
 			} else {
-				disequalities.put(new SymmetricPair<>(sides[0], sides[1]), quotedAtom);
+				disequalities.put(new SymmetricPair<>(sides[0], sides[1]), atom);
 			}
 		}
 	}
@@ -3029,7 +2978,7 @@ public class ProofSimplifier extends TermTransformer {
 		final int startSubpathAnnot = 1;
 
 		// The goal equality
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final Term goalEquality = (Term) ccAnnotation[0];
 		final Theory theory = goalEquality.getTheory();
 
 		/* collect literals and search for the disequality */
@@ -3380,7 +3329,7 @@ public class ProofSimplifier extends TermTransformer {
 		final HashSet<Term> neededEqualities = new HashSet<>();
 		final HashSet<Term> neededDisequalities = new HashSet<>();
 
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final Term goalEquality = (Term) ccAnnotation[0];
 		assert isApplication("=", goalEquality);
 		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
 		assert goalTerms.length == 2;
@@ -3435,7 +3384,7 @@ public class ProofSimplifier extends TermTransformer {
 		final HashSet<Term> neededEqualities = new HashSet<>();
 		final HashSet<Term> neededDisequalities = new HashSet<>();
 
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final Term goalEquality = (Term) ccAnnotation[0];
 		assert isApplication("=", goalEquality);
 		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
 		assert goalTerms.length == 2;
@@ -3500,7 +3449,7 @@ public class ProofSimplifier extends TermTransformer {
 		final HashSet<Term> neededEqualities = new HashSet<>();
 		final HashSet<Term> neededDisequalities = new HashSet<>();
 
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final Term goalEquality = (Term) ccAnnotation[0];
 		assert isApplication("=", goalEquality);
 		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
 		assert goalTerms.length == 2;
@@ -3619,13 +3568,13 @@ public class ProofSimplifier extends TermTransformer {
 		final HashSet<Term> neededEqualities = new HashSet<>();
 		final HashSet<Term> neededDisequalities = new HashSet<>();
 
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final ApplicationTerm goalEquality = (ApplicationTerm) ccAnnotation[0];
 		assert isApplication("=", goalEquality);
 		assert ccAnnotation[1].equals(":cons");
 		final ApplicationTerm consTerm = (ApplicationTerm) ccAnnotation[2];
 		final FunctionSymbol consFunc = consTerm.getFunction();
 		assert consFunc.isConstructor();
-		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+		final Term[] goalTerms = goalEquality.getParameters();
 		assert goalTerms.length == 2;
 
 		assert goalTerms[0] instanceof ApplicationTerm;
@@ -3674,7 +3623,7 @@ public class ProofSimplifier extends TermTransformer {
 		final HashSet<Term> neededEqualities = new HashSet<>();
 		final HashSet<Term> neededDisequalities = new HashSet<>();
 
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final Term goalEquality = (Term) ccAnnotation[0];
 		assert isApplication("=", goalEquality);
 		assert ccAnnotation[1].equals(":cons");
 		final ApplicationTerm consTerm = (ApplicationTerm) ccAnnotation[2];
@@ -3737,9 +3686,9 @@ public class ProofSimplifier extends TermTransformer {
 		final HashSet<Term> neededEqualities = new HashSet<>();
 		final HashSet<Term> neededDisequalities = new HashSet<>();
 
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final ApplicationTerm goalEquality = (ApplicationTerm) ccAnnotation[0];
 		assert isApplication("=", goalEquality);
-		final Term[] goalTerms = ((ApplicationTerm) goalEquality).getParameters();
+		final Term[] goalTerms = goalEquality.getParameters();
 		assert goalTerms.length == 2;
 
 		final ApplicationTerm consTerm = (ApplicationTerm) goalTerms[1];
@@ -3879,7 +3828,7 @@ public class ProofSimplifier extends TermTransformer {
 		final HashSet<Term> neededDisequalities = new HashSet<>();
 
 		assert ccAnnotation.length == 4;
-		final ApplicationTerm goalEquality = (ApplicationTerm) unquote((Term) ccAnnotation[0]);
+		final ApplicationTerm goalEquality = (ApplicationTerm) ccAnnotation[0];
 		assert ccAnnotation[1].equals(":cons");
 		final ApplicationTerm consTerm1 = (ApplicationTerm) ccAnnotation[2];
 		final ApplicationTerm consTerm2 = (ApplicationTerm) ccAnnotation[3];
@@ -4383,30 +4332,15 @@ public class ProofSimplifier extends TermTransformer {
 
 
 	/* === Auxiliary functions === */
-	private Term unquote(final Term quotedTerm) {
-		if (quotedTerm instanceof AnnotatedTerm) {
-			final AnnotatedTerm annTerm = (AnnotatedTerm) quotedTerm;
-			final Annotation[] annots = annTerm.getAnnotations();
-			if (annots.length == 1) {
-				final String annot = annots[0].getKey();
-				if (annot == ":quoted" || annot == ":quotedCC" || annot == ":quotedLA"
-						|| annot == ":quotedQuant") {
-					final Term result = annTerm.getSubterm();
-					return result;
-				}
-			}
-		}
-		throw new AssertionError("Expected quoted literal, but got " + quotedTerm);
-	}
 
 	private Term expandAux(final ApplicationTerm auxTerm) {
-		final LambdaTerm lambda = mAuxDefs.get(auxTerm.getFunction());
+		final FunctionSymbol auxFunc = auxTerm.getFunction();
 		return new FormulaUnLet()
-				.unlet(mSkript.let(lambda.getVariables(), auxTerm.getParameters(), lambda.getSubterm()));
+				.unlet(mSkript.let(auxFunc.getDefinitionVars(), auxTerm.getParameters(), auxFunc.getDefinition()));
 	}
 
-	private Term unquoteExpand(final Term quotedTerm) {
-		final ApplicationTerm auxTerm = (ApplicationTerm) ((ApplicationTerm) unquote(quotedTerm)).getParameters()[0];
+	private Term expandAuxDef(final ApplicationTerm auxEqTerm) {
+		final ApplicationTerm auxTerm = (ApplicationTerm) auxEqTerm.getParameters()[0];
 		return expandAux(auxTerm);
 	}
 
@@ -4604,14 +4538,19 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Prove the needed equalities and disequalities from their unquoted counterpart.  It also handles symmetric
-	 * cases and trivial equalities/disequalities.
+	 * Prove the needed equalities and disequalities in the right form. It handles
+	 * symmetric cases and trivial equalities/disequalities.
 	 *
-	 * @param proof  the proof that is modified to remove the equalities/disequalities
-	 * @param allEqualities a hash map from symmetric pair to quoted equality as it appears (negated) in the clause.
-	 * @param allDisequalities a hash map from symmetric pair to quoted equality as it appears (positive) in the clause.
-	 * @param neededEqualities a set of needed equalities (occurring negative in the proved clause)
-	 * @param neededDisequalities a set of needed disequalities (occurring positive in the proved clause).
+	 * @param proof               the proof that is modified to remove the
+	 *                            equalities/disequalities
+	 * @param allEqualities       a hash map from symmetric pair to the equality as
+	 *                            it appears (negated) in the clause.
+	 * @param allDisequalities    a hash map from symmetric pair to the equality as
+	 *                            it appears (positive) in the clause.
+	 * @param neededEqualities    a set of needed equalities (occurring negative in
+	 *                            the proved clause)
+	 * @param neededDisequalities a set of needed disequalities (occurring positive
+	 *                            in the proved clause).
 	 * @return the modified proof.
 	 */
 	private Term resolveNeededEqualities(Term proof, final Map<SymmetricPair<Term>, Term> allEqualities,
@@ -4620,10 +4559,9 @@ public class ProofSimplifier extends TermTransformer {
 		for (final Term eq : neededEqualities) {
 			assert isApplication("=", eq);
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
-			final Term quotedEq = allEqualities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
-			if (quotedEq != null) {
-				final Term unquoteEq = unquote(quotedEq);
-				if (unquoteEq != eq) {
+			final Term clauseEq = allEqualities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
+			if (clauseEq != null) {
+				if (clauseEq != eq) {
 					// need symmetry
 					proof = res(eq, mProofRules.symm(eqParam[0], eqParam[1]), proof);
 				}
@@ -4636,10 +4574,9 @@ public class ProofSimplifier extends TermTransformer {
 		for (final Term eq : neededDisequalities) {
 			assert isApplication("=", eq);
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
-			final Term quotedEq = allDisequalities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
-			if (quotedEq != null) {
-				final Term unquoteEq = unquote(quotedEq);
-				if (unquoteEq != eq) {
+			final Term clauseEq = allDisequalities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
+			if (clauseEq != null) {
+				if (clauseEq != eq) {
 					// need symmetry
 					proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
 				}
@@ -4648,12 +4585,6 @@ public class ProofSimplifier extends TermTransformer {
 				assert proofEq != null;
 				proof = res(eq, proof, proofEq);
 			}
-		}
-		for (final Term quotedEq : allEqualities.values()) {
-			proof = removeQuoted(proof, quotedEq, unquote(quotedEq), false);
-		}
-		for (final Term quotedEq : allDisequalities.values()) {
-			proof = removeQuoted(proof, quotedEq, unquote(quotedEq), true);
 		}
 		return proof;
 	}
@@ -4768,59 +4699,40 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Proves the clause { (! (= auxTerm false) :quotedQuant)), expanded }.
+	 * Proves the clause { (= auxTerm false), expanded }.
 	 *
-	 * @param quotedAtom
-	 *            the (! (= auxTerm true) :quotedQuant) term
-	 * @param expanded
-	 *            the expanded definition of auxTerm
+	 * @param auxEqAtom the (= auxTerm true) term
+	 * @param expanded  the expanded definition of auxTerm
 	 * @return the proof
 	 */
-	private Term proveAuxElim(final Term quotedAtom, final Term expanded) {
-		// prove the equality (= quotedAtom mainAtom)
-		// where quotedAtom is (! (= auxTerm false) :quotedQuant)
-		// and mainAtom is the expanded form of auxTerm.
-		final ApplicationTerm auxTerm = (ApplicationTerm) ((ApplicationTerm) unquote(quotedAtom)).getParameters()[0];
-		final Term unquotedAtom = ((AnnotatedTerm) quotedAtom).getSubterm();
+	private Term proveAuxElim(final ApplicationTerm auxEqAtom, final Term expanded) {
+		final ApplicationTerm auxTerm = (ApplicationTerm) auxEqAtom.getParameters()[0];
 		final Term falseTerm = mSkript.term(SMTLIBConstants.FALSE);
-		final Term auxFalseEq = mSkript.term(SMTLIBConstants.EQUALS, auxTerm, falseTerm);
-		final Term unquoteEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, unquotedAtom);
 		final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, auxTerm, expanded);
 
-		return res(unquoteEq, mProofRules.delAnnot(quotedAtom),
-				res(auxFalseEq,
-						res(auxTerm, res(falseTerm, mProofRules.iffIntro1(auxFalseEq), mProofRules.falseElim()),
-								res(expandEq, mProofRules.expand(auxTerm), mProofRules.iffElim2(expandEq))),
-						mProofRules.iffElim1(unquoteEq)));
+		return res(auxTerm, res(falseTerm, mProofRules.iffIntro1(auxEqAtom), mProofRules.falseElim()),
+				res(expandEq, mProofRules.expand(auxTerm), mProofRules.iffElim2(expandEq)));
 	}
 
 	/**
-	 * Proves the equality (= (! (= auxTerm true) :quotedQuant) expanded)
+	 * Proves the equality (= (= auxTerm true) expanded).
 	 *
-	 * @param quotedAtom
-	 *            the (! (= auxTerm true) :quotedQuant) term
-	 * @param expanded
-	 *            the expanded definition of auxTerm
+	 * @param auxEqAtom the (= auxTerm true) term
+	 * @param expanded  the expanded definition of auxTerm
 	 * @return the proof
 	 */
-	private Term proveAuxExpand(final Term quotedAtom, final Term expanded) {
-		// prove the equality (= quotedAtom mainAtom)
-		// where quotedAtom is (! (= auxTerm true) :quotedQuant)
-		// and mainAtom is the expanded form of auxTerm.
-		final ApplicationTerm auxTerm = (ApplicationTerm) ((ApplicationTerm) unquote(quotedAtom)).getParameters()[0];
-		final Term unquotedAtom = ((AnnotatedTerm) quotedAtom).getSubterm();
+	private Term proveAuxExpand(final ApplicationTerm auxEqAtom, final Term expanded) {
+		final ApplicationTerm auxTerm = (ApplicationTerm) auxEqAtom.getParameters()[0];
 		final Term trueTerm = mSkript.term(SMTLIBConstants.TRUE);
-		final Term firstEq = mSkript.term(SMTLIBConstants.EQUALS, quotedAtom, unquotedAtom);
-		final Term secondEq = mSkript.term(SMTLIBConstants.EQUALS, unquotedAtom, auxTerm);
-		final Term thirdEq = mSkript.term(SMTLIBConstants.EQUALS, auxTerm, expanded);
+		final Term firstEq = mSkript.term(SMTLIBConstants.EQUALS, auxEqAtom, auxTerm);
+		final Term secondEq = mSkript.term(SMTLIBConstants.EQUALS, auxTerm, expanded);
 
-		return mProofRules.resolutionRule(firstEq, mProofRules.delAnnot(quotedAtom),
-				mProofRules.resolutionRule(secondEq,
+		return mProofRules.resolutionRule(firstEq,
 						mProofRules.resolutionRule(trueTerm, mProofRules.trueIntro(),
-								proveIff(secondEq, mProofRules.iffElim1(unquotedAtom),
-										mProofRules.iffIntro2(unquotedAtom))),
-						mProofRules.resolutionRule(thirdEq, mProofRules.expand(auxTerm),
-								mProofRules.trans(quotedAtom, unquotedAtom, auxTerm, expanded))));
+								proveIff(firstEq, mProofRules.iffElim1(auxEqAtom),
+										mProofRules.iffIntro2(auxEqAtom))),
+						mProofRules.resolutionRule(secondEq, mProofRules.expand(auxTerm),
+						mProofRules.trans(auxEqAtom, auxTerm, expanded)));
 	}
 
 	/**
@@ -4882,9 +4794,7 @@ public class ProofSimplifier extends TermTransformer {
 
 		final boolean isGreater = isApplication(">", lhs) || isApplication(">=", lhs);
 		final boolean rhsIsNegated = isApplication("not", rhs);
-		final Term quotedRhsAtom = rhsIsNegated ? negate(rhs) : rhs;
-		final boolean rhsIsQuoted = quotedRhsAtom instanceof AnnotatedTerm;
-		final Term rhsAtom = rhsIsQuoted ? unquote(quotedRhsAtom) : quotedRhsAtom;
+		final Term rhsAtom = rhsIsNegated ? negate(rhs) : rhs;
 		Term[] lhsParam = ((ApplicationTerm) lhs).getParameters();
 		final Term[] rhsAtomParam = ((ApplicationTerm) rhsAtom).getParameters();
 		final boolean isStrictLhs = isApplication("<", lhs) || isApplication(">", lhs);
@@ -4929,19 +4839,13 @@ public class ProofSimplifier extends TermTransformer {
 		Term proofToRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? negLhs : posLhs, negRhsAtom },
 				new BigInteger[] { factor.denominator(), factor.numerator() });
 		proofToRhsAtom = mProofRules.resolutionRule(negRhsAtom, rhsTotality, proofToRhsAtom);
-		Term proofFromRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? posLhs : negLhs, rhsAtom },
+		final Term proofFromRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? posLhs : negLhs, rhsAtom },
 				new BigInteger[] { factor.denominator(), factor.numerator() });
-		Term unquoteEq = null;
-		if (rhsIsQuoted) {
-			unquoteEq = theory.term(SMTLIBConstants.EQUALS, quotedRhsAtom, rhsAtom);
-			proofFromRhsAtom = mProofRules.resolutionRule(rhsAtom, mProofRules.iffElim2(unquoteEq), proofFromRhsAtom);
-			proofToRhsAtom = mProofRules.resolutionRule(rhsAtom, proofToRhsAtom, mProofRules.iffElim1(unquoteEq));
-		}
 		Term proofLhsToRhs = rhsIsNegated
-				? mProofRules.resolutionRule(quotedRhsAtom, mProofRules.notIntro(rhs), proofFromRhsAtom)
+				? mProofRules.resolutionRule(rhsAtom, mProofRules.notIntro(rhs), proofFromRhsAtom)
 				: proofToRhsAtom;
 		Term proofRhsToLhs = rhsIsNegated
-				? mProofRules.resolutionRule(quotedRhsAtom, proofToRhsAtom, mProofRules.notElim(rhs))
+				? mProofRules.resolutionRule(rhsAtom, proofToRhsAtom, mProofRules.notElim(rhs))
 				: proofFromRhsAtom;
 		proofRhsToLhs = mProofRules.resolutionRule(negLhs,
 				mProofRules.total(lhsParam[isStrictLhs ? 1 : 0], lhsParam[isStrictLhs ? 0 : 1]), proofRhsToLhs);
@@ -4953,9 +4857,6 @@ public class ProofSimplifier extends TermTransformer {
 
 		}
 		Term proof = proveIff(theory.term("=", lhs, rhs), proofLhsToRhs, proofRhsToLhs);
-		if (rhsIsQuoted) {
-			proof = mProofRules.resolutionRule(unquoteEq, mProofRules.delAnnot(quotedRhsAtom), proof);
-		}
 		if (isGreater) {
 			proof = mProofRules.resolutionRule(greaterEq,
 					isStrictLhs ? mProofRules.gtDef(lhs) : mProofRules.geqDef(lhs), proof);
@@ -4997,11 +4898,9 @@ public class ProofSimplifier extends TermTransformer {
 
 		@Override
 		public void convert(Term term) {
-			if (term instanceof ApplicationTerm) {
-				final ApplicationTerm appTerm = (ApplicationTerm) term;
-				final FunctionSymbol func = appTerm.getFunction();
-				if (func.isIntern() && (func.getName().startsWith("@AUX") || func.getName().startsWith("@skolem"))
-						&& !mQuantDefinedTerms.containsKey(func)) {
+			if (isAuxApplication(term) || isSkolem(term)) {
+				final FunctionSymbol func = ((ApplicationTerm) term).getFunction();
+				if (!mQuantDefinedTerms.containsKey(func)) {
 					// recursively convert function definition, pop it from the result stack
 					// afterwards, and only then add the function definition to make sure it's
 					// dependent functions are defined first.
@@ -5013,15 +4912,6 @@ public class ProofSimplifier extends TermTransformer {
 						}
 					});
 					super.convert(func.getDefinition());
-				}
-			}
-			// strip term argument from quotedQuant annotations, as we do not need them
-			if (term instanceof AnnotatedTerm) {
-				final AnnotatedTerm annTerm = (AnnotatedTerm) term;
-				if (annTerm.getAnnotations().length == 1
-						&& annTerm.getAnnotations()[0].getKey().equals(":quotedQuant")
-						&& annTerm.getAnnotations()[0].getValue() != null) {
-					term = mSkript.annotate(annTerm.getSubterm(), ProofConstants.ANNOT_QUOTED_QUANT);
 				}
 			}
 			super.convert(term);

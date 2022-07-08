@@ -156,10 +156,4 @@ public interface ProofConstants {
 	public static Annotation getTautExistsPos(final Term[] newVars) {
 		return new Annotation(":exists+", newVars);
 	}
-
-	// Annotations of quoted literals
-	final static Annotation[] ANNOT_QUOTED = new Annotation[] { new Annotation(":quoted", null) };
-	final static Annotation[] ANNOT_QUOTED_CC = new Annotation[] { new Annotation(":quotedCC", null) };
-	final static Annotation[] ANNOT_QUOTED_LA = new Annotation[] { new Annotation(":quotedLA", null) };
-	final static Annotation[] ANNOT_QUOTED_QUANT = new Annotation[] { new Annotation(":quotedQuant", null) };
 }

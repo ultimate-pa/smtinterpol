@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 
 /**
  * Represents a quantified literal.
@@ -119,8 +118,8 @@ public abstract class QuantLiteral implements ILiteral {
 	}
 
 	@Override
-	public Term getSMTFormula(final Theory theory, final boolean quoted) {
-		return quoted ? theory.annotatedTerm(ProofConstants.ANNOT_QUOTED_QUANT, mTerm) : mTerm;
+	public Term getSMTFormula(final Theory theory) {
+		return mTerm;
 	}
 
 	/**
@@ -141,8 +140,8 @@ public abstract class QuantLiteral implements ILiteral {
 		}
 
 		@Override
-		public Term getSMTFormula(final Theory theory, final boolean quoted) {
-			return theory.not(super.getAtom().getSMTFormula(theory, quoted));
+		public Term getSMTFormula(final Theory theory) {
+			return theory.not(super.getAtom().getSMTFormula(theory));
 		}
 	}
 

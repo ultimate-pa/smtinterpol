@@ -37,7 +37,6 @@ import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -385,11 +384,6 @@ public class ProofChecker extends NonRecursive {
 	Stack<Term[]> mStackResults = new Stack<>();
 
 	/**
-	 * Defined quantified terms. This contains the {@literal @}AUX terms. TODO and the skolem terms.
-	 */
-	HashMap<ApplicationTerm, Term> mQuantDefinedTerms;
-
-	/**
 	 * Skolem terms. This contains for each skolem function the existentially
 	 * quantified formula and the variable for which it was created.
 	 */
@@ -434,7 +428,6 @@ public class ProofChecker extends NonRecursive {
 
 		// Initializing the proof-checker-cache
 		mCacheConv = new HashMap<>();
-		mQuantDefinedTerms = new HashMap<>();
 		mSkolemFunctions = new HashMap<>();
 		mError = 0;
 		// Now non-recursive:
@@ -625,8 +618,7 @@ public class ProofChecker extends NonRecursive {
 			final Set<SymmetricPair<Term>> disequalities) {
 		for (final Term literal : clause) {
 			final boolean negated = isApplication("not", literal);
-			final Term quotedAtom = negated ? ((ApplicationTerm) literal).getParameters()[0] : literal;
-			final Term atom = unquote(quotedAtom);
+			final Term atom = negated ? ((ApplicationTerm) literal).getParameters()[0] : literal;
 			if (!isApplication("=", atom)) {
 				reportError("Unknown literal in array lemma.");
 				return;
@@ -661,7 +653,7 @@ public class ProofChecker extends NonRecursive {
 		final int startSubpathAnnot = 1;
 
 		// The goal equality
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final Term goalEquality = (Term) ccAnnotation[0];
 
 		/* collect literals */
 		final HashSet<SymmetricPair<Term>> allEqualities = new HashSet<>();
@@ -755,7 +747,7 @@ public class ProofChecker extends NonRecursive {
 		final HashSet<SymmetricPair<Term>> allDisequalities = new HashSet<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
-		final Term goalEquality = unquote((Term) ccAnnotation[0]);
+		final Term goalEquality = (Term) ccAnnotation[0];
 		if (!isApplication("=", goalEquality)) {
 			reportError("Goal equality is not an equality in array lemma");
 			return;
@@ -1082,7 +1074,7 @@ public class ProofChecker extends NonRecursive {
 		case ":dt-project": {
 			assert ccAnnotation.length == 3;
 
-			final Term goalEquality = unquote((Term) ccAnnotation[0]);
+			final Term goalEquality = (Term) ccAnnotation[0];
 			if (!isApplication("=", goalEquality)) {
 				reportError("malformed main equality in dt-project");
 			}
@@ -1128,7 +1120,7 @@ public class ProofChecker extends NonRecursive {
 		case ":dt-tester": {
 			assert ccAnnotation.length == 3;
 
-			final Term goalEquality = unquote((Term) ccAnnotation[0]);
+			final Term goalEquality = (Term) ccAnnotation[0];
 			if (!isApplication("=", goalEquality)) {
 				reportError("malformed main equality in dt-tester");
 			}
@@ -1170,7 +1162,7 @@ public class ProofChecker extends NonRecursive {
 		case ":dt-constructor": {
 			assert ccAnnotation.length == 1;
 
-			final Term goalEquality = unquote((Term) ccAnnotation[0]);
+			final Term goalEquality = (Term) ccAnnotation[0];
 			if (!isApplication("=", goalEquality)) {
 				reportError("malformed main equality in dt-constructor");
 			}
@@ -1278,7 +1270,7 @@ public class ProofChecker extends NonRecursive {
 				reportError("malformed annotation of dt-injective");
 			}
 
-			final Term goalEquality = unquote((Term) ccAnnotation[0]);
+			final Term goalEquality = (Term) ccAnnotation[0];
 			if (!isApplication("=", goalEquality)) {
 				reportError("malformed main equality in dt-injective");
 			}
@@ -1497,7 +1489,6 @@ public class ProofChecker extends NonRecursive {
 				literal = ((ApplicationTerm) literal).getParameters()[0];
 				isNegated = true;
 			}
-			literal = unquote(literal);
 			boolean isStrict;
 			if (isNegated) {
 				if (isApplication("<=", literal)) {
@@ -1586,7 +1577,6 @@ public class ProofChecker extends NonRecursive {
 			if (isNegated) {
 				lit = ((ApplicationTerm) lit).getParameters()[0];
 			}
-			lit = unquote(lit);
 
 			Rational offset = Rational.ZERO;
 			if (isApplication("=", lit)) {
@@ -1676,8 +1666,6 @@ public class ProofChecker extends NonRecursive {
 			reportError("Lemma :EQ must have one negated literal");
 			return;
 		}
-		lit1 = unquote(lit1);
-		lit2 = unquote(lit2);
 
 		if (!isApplication("=", lit1) || ((ApplicationTerm) lit1).getParameters().length != 2
 				|| !isApplication("=", lit2) || ((ApplicationTerm) lit2).getParameters().length != 2) {
@@ -1737,8 +1725,9 @@ public class ProofChecker extends NonRecursive {
 
 	Term[] walkTautology(final ApplicationTerm tautologyApp) {
 		/*
-		 * Tautologies are created to define the meaning of proxy literals like (! (or a b c) :quoted), or of proxy
-		 * terms like (ite cond t1 t2) or (div x 5). They are of the form
+		 * Tautologies are created to define the meaning of proxy literals like (or a b
+		 * c), or of proxy terms like (ite cond t1 t2) or (div x 5). They are of the
+		 * form
 		 *
 		 * (@tautology (! (or ...) :type))
 		 *
@@ -1855,10 +1844,10 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	private boolean checkTautOrNeg(final Term[] clause) {
-		// Check for the form: (or (not (! (or p1 ... pn) :quoted)) p1 ... pn)
+		// Check for the form: (or (not (or p1 ... pn)) p1 ... pn)
 		Term lit = clause[0];
-		if (lit instanceof AnnotatedTerm) {
-			lit = unquote(lit, true, false);
+		if (isAuxEquality(lit)) {
+			lit = expandAuxEquality((ApplicationTerm) lit, false);
 		}
 		lit = negate(lit);
 		if (!isApplication("or", lit) || ((ApplicationTerm) lit).getParameters().length != clause.length - 1) {
@@ -1874,15 +1863,13 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	private boolean checkTautOrPos(final Term[] clause) {
-		// Check for the form: (or (! (or p1 ... pn) :quoted) (not pi))
+		// Check for the form: (or (or p1 ... pn) (not pi))
 		if (clause.length != 2) {
 			return false;
 		}
-		final Term lit;
-		if (clause[0] instanceof AnnotatedTerm) {
-			lit = unquote(clause[0], true, false);
-		} else {
-			lit = clause[0];
+		Term lit = clause[0];
+		if (isAuxEquality(lit)) {
+			lit = expandAuxEquality((ApplicationTerm) lit, false);
 		}
 		if (!isApplication("or", lit)) {
 			return false;
@@ -1908,13 +1895,13 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	private boolean checkTautAndNeg(final Term[] clause) {
-		// Check for the form: (or (! (not (and p1 ... pn) :quoted)) pi)
+		// Check for the form: (or (not (and p1 ... pn)) pi)
 		if (clause.length != 2) {
 			return false;
 		}
 		Term lit = clause[0];
-		if (lit instanceof AnnotatedTerm) {
-			lit = unquote(lit, true, false);
+		if (isAuxEquality(lit)) {
+			lit = expandAuxEquality((ApplicationTerm) lit, false);
 		}
 		lit = negate(lit);
 		if (!isApplication("and", lit)) {
@@ -1931,10 +1918,10 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	private boolean checkTautAndPos(final Term[] clause) {
-		// Check for the form: (or (! (and p1 ... pn) :quoted) (not p1) ... (not pn))
+		// Check for the form: (or (and p1 ... pn) (not p1) ... (not pn))
 		Term lit = clause[0];
-		if (lit instanceof AnnotatedTerm) {
-			lit = unquote(lit, true, false);
+		if (isAuxEquality(lit)) {
+			lit = expandAuxEquality((ApplicationTerm) lit, false);
 		}
 		if (!isApplication("and", lit)) {
 			return false;
@@ -1953,10 +1940,10 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	private boolean checkTautImpNeg(final Term[] clause) {
-		// Check for the form: (or (not (! (=> p1 ... pn) :quoted)) (not p1) ... (not pn-1) pn)
+		// Check for the form: (or (not (=> p1 ... pn)) (not p1) ... (not pn-1) pn)
 		Term lit = clause[0];
-		if (lit instanceof AnnotatedTerm) {
-			lit = unquote(lit, true, false);
+		if (isAuxEquality(lit)) {
+			lit = expandAuxEquality((ApplicationTerm) lit, false);
 		}
 		lit = negate(lit);
 		if (!isApplication("=>", lit)) {
@@ -1982,15 +1969,13 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	private boolean checkTautImpPos(final Term[] clause) {
-		// Check for the form: (or (! (=> p1 ... pn) :quoted) pi), resp ... (not pn))
+		// Check for the form: (or (=> p1 ... pn) pi), resp ... (not pn))
 		if (clause.length != 2) {
 			return false;
 		}
-		final Term lit;
-		if (clause[0] instanceof AnnotatedTerm) {
-			lit = unquote(clause[0], true, false);
-		} else {
-			lit = clause[0];
+		Term lit = clause[0];
+		if (isAuxEquality(lit)) {
+			lit = expandAuxEquality((ApplicationTerm) lit, false);
 		}
 		if (!isApplication("=>", lit)) {
 			return false;
@@ -2012,8 +1997,8 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		Term lit = clause[0];
-		if (lit instanceof AnnotatedTerm) {
-			lit = unquote(lit, true, false);
+		if (isAuxEquality(lit)) {
+			lit = expandAuxEquality((ApplicationTerm) lit, false);
 		}
 		final boolean negated = isApplication("not", lit);
 		if (negated) {
@@ -2025,19 +2010,19 @@ public class ProofChecker extends NonRecursive {
 		final Term[] iteParams = ((ApplicationTerm) lit).getParameters();
 		switch (tautKind) {
 		case ":ite-1":
-			// (or (not (! (ite cond then else)) :quoted)) (not cond) then)
+			// (or (not (ite cond then else)) (not cond) then)
 			return negated && clause[1] == mSkript.term("not", iteParams[0]) && clause[2] == iteParams[1];
 		case ":ite-2":
-			// (or (not (! (ite cond then else)) :quoted)) cond else)
+			// (or (not (ite cond then else)) cond else)
 			return negated && clause[1] == iteParams[0] && clause[2] == iteParams[2];
 		case ":ite-red":
 			return negated && clause[1] == iteParams[1] && clause[2] == iteParams[2];
 		case ":ite+1":
-			// (or (! (ite cond then else) :quoted) (not cond) (not then))
+			// (or (ite cond then else) (not cond) (not then))
 			return !negated && clause[1] == mSkript.term("not", iteParams[0])
 					&& clause[2] == mSkript.term("not", iteParams[1]);
 		case ":ite+2":
-			// (or (! (ite cond then else) :quoted) cond (not else))
+			// (or (ite cond then else) cond (not else))
 			return !negated && clause[1] == iteParams[0] && clause[2] == mSkript.term("not", iteParams[2]);
 		case ":ite+red":
 			return !negated && clause[1] == mSkript.term("not", iteParams[1])
@@ -2051,8 +2036,8 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		Term lit = clause[0];
-		if (lit instanceof AnnotatedTerm) {
-			lit = unquote(lit, true, false);
+		if (isAuxEquality(lit)) {
+			lit = expandAuxEquality((ApplicationTerm) lit, false);
 		}
 		final boolean negated = isApplication("not", lit);
 		if (negated) {
@@ -2067,16 +2052,16 @@ public class ProofChecker extends NonRecursive {
 		}
 		switch (tautKind) {
 		case ":xor+1":
-			// (or (not (! (xor t1 t2) :quoted)) t1 (not t2))
+			// (or (not (xor t1 t2)) t1 (not t2))
 			return !negated && clause[1] == eqParams[0] && clause[2] == mSkript.term("not", eqParams[1]);
 		case ":xor+2":
-			// (or (not (! (xor t1 t2) :quoted)) (not t1) t2)
+			// (or (not (xor t1 t2)) (not t1) t2)
 			return !negated && clause[1] == mSkript.term("not", eqParams[0]) && clause[2] == eqParams[1];
 		case ":xor-1":
-			// (or (! (xor t1 t2) :quoted) t1 t2)
+			// (or (xor t1 t2) t1 t2)
 			return negated && clause[1] == eqParams[0] && clause[2] == eqParams[1];
 		case ":xor-2":
-			// (or (! (xor t1 t2) :quoted) (not t1) (not t2))
+			// (or (xor t1 t2) (not t1) (not t2))
 			return negated && clause[1] == mSkript.term("not", eqParams[0])
 					&& clause[2] == mSkript.term("not", eqParams[1]);
 		}
@@ -2285,9 +2270,12 @@ public class ProofChecker extends NonRecursive {
 			return false;
 		}
 		final boolean isEqTrue = name == ":excludedMiddle1";
-		// Check for the form: (or (! (= p true) :quoted) (not p)) :excludedMiddle1
-		// or (or (! (= p false) :quoted) p) :excludedMiddle2
-		final Term equality = unquote(clause[0], true, true);
+		// Check for the form: (or (= p true) (not p)) :excludedMiddle1
+		// or (or (= p false) p) :excludedMiddle2
+		Term equality = clause[0];
+		if (isAuxEquality(equality)) {
+			equality = expandAuxEquality((ApplicationTerm) equality, true);
+		}
 		if (!isApplication("=", equality)) {
 			return false;
 		}
@@ -3617,10 +3605,7 @@ public class ProofChecker extends NonRecursive {
 	}
 
 	boolean checkRewriteAuxIntro(final Term lhs, final Term rhs) {
-		if (!(rhs instanceof ApplicationTerm) || !((ApplicationTerm) rhs).getFunction().getName().startsWith("@AUX")) {
-			return false;
-		}
-		return compareAuxDef(rhs, lhs);
+		return isAuxApplication(rhs) && expandAux((ApplicationTerm) rhs) == lhs;
 	}
 
 	boolean checkRewriteIntern(final Term lhs, Term rhs) {
@@ -3635,7 +3620,6 @@ public class ProofChecker extends NonRecursive {
 				isNegRewrite = true;
 				rhs = negate(rhs);
 			}
-			rhs = unquote(rhs);
 			if (isApplication("=", rhs)) {
 				final ApplicationTerm rhsApp = (ApplicationTerm) rhs;
 				return isApplication(isNegRewrite ? "false" : "true", rhsApp.getParameters()[1])
@@ -3645,10 +3629,8 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		/* Check for auxiliary literals */
-		if (isApplication("ite", lhs) || isApplication("or", lhs) || isApplication("xor", lhs)
-				|| isApplication("=>", lhs) || isApplication("and", lhs) || lhs instanceof MatchTerm) {
-			rhs = unquote(rhs, true, false);
-			return lhs == rhs;
+		if (isAuxEquality(rhs)) {
+			return lhs == expandAuxEquality((ApplicationTerm) rhs, false);
 		}
 
 		if (!(lhs instanceof ApplicationTerm)) {
@@ -3661,7 +3643,6 @@ public class ProofChecker extends NonRecursive {
 				return false;
 			}
 			/* second case: boolean functions are created as equalities */
-			rhs = unquote(rhs);
 			if (!isApplication("=", rhs)) {
 				return false;
 			}
@@ -3702,7 +3683,6 @@ public class ProofChecker extends NonRecursive {
 			}
 
 			// Now check that rhs is as expected
-			rhs = unquote(rhs);
 			if (!isApplication(isStrict ? "<" : "<=", rhs)) {
 				return false;
 			}
@@ -3725,7 +3705,6 @@ public class ProofChecker extends NonRecursive {
 				return lhsParams[0] == lhsParams[1];
 			}
 
-			rhs = unquote(rhs);
 			if (!isApplication("=", rhs)) {
 				return false;
 			}
@@ -3811,24 +3790,19 @@ public class ProofChecker extends NonRecursive {
 			return new Term[0];
 		}
 		Term[] args;
-		boolean needsCloning;
 		if (isApplication("or", clauseAsTerm)) {
 			args = ((ApplicationTerm) clauseAsTerm).getParameters();
-			needsCloning = true;
 		} else {
 			args = new Term[] { clauseAsTerm };
-			needsCloning = false;
 		}
-		for (int i = 0; i < args.length; i++) {
-			while (isDoubleNeg(args[i])) {
-				if (needsCloning) {
-					args = args.clone();
-					needsCloning = false;
-				}
-				args[i] = removeDoubleNeg(args[i]);
+		final LinkedHashSet<Term> clause = new LinkedHashSet<>();
+		for (Term arg : args) {
+			while (isDoubleNeg(arg)) {
+				arg = removeDoubleNeg(arg);
 			}
+			clause.add(arg);
 		}
-		return args;
+		return clause.toArray(new Term[clause.size()]);
 	}
 
 	/**
@@ -3981,58 +3955,53 @@ public class ProofChecker extends NonRecursive {
 		return mStackResults.pop();
 	}
 
-	Term unquote(final Term quotedTerm) {
-		return unquote(quotedTerm, false, false);
+	private boolean isAuxApplication(Term term) {
+		if (term instanceof ApplicationTerm) {
+			final FunctionSymbol func = ((ApplicationTerm) term).getFunction();
+			return func.isIntern() && func.getName().startsWith("@AUX");
+		}
+		return false;
 	}
 
-	Term unquote(final Term quotedTerm, final boolean replaceQuantAux, final boolean excludedMiddle) {
-		if (quotedTerm instanceof AnnotatedTerm) {
-			final AnnotatedTerm annTerm = (AnnotatedTerm) quotedTerm;
-			final Annotation[] annots = annTerm.getAnnotations();
-			if (annots.length == 1) {
-				final String annot = annots[0].getKey();
-				// Check for Quant AUX literals
-				if (annot == ":quotedQuant" && annots[0].getValue() instanceof Term) {
-					final Term subterm = annTerm.getSubterm();
-					if (isApplication("=", subterm)) {
-						final ApplicationTerm auxApp = (ApplicationTerm) subterm;
-						final Term rhs = auxApp.getParameters()[1];
-						final boolean isNegated = isApplication("false", rhs);
-						if (isNegated || isApplication("true", rhs)) {
-							final Term lhs = auxApp.getParameters()[0];
-							if (lhs instanceof ApplicationTerm
-									&& ((ApplicationTerm) lhs).getFunction().getName().startsWith("@AUX")) {
-								// the definition of the quantAuxLit can be found in the annotation
-								if (replaceQuantAux) {
-									// TODO Check if comparison is needed somewhere else
-									if (compareAuxDef(lhs, (Term) annots[0].getValue())) {
-										// check that the aux definition matches
-										Term definingTerm = (Term) annots[0].getValue();
-										if (excludedMiddle) {
-											return mSkript.term(SMTLIBConstants.EQUALS, definingTerm, rhs);
-										} else {
-											if (isNegated) {
-												definingTerm = mSkript.term(SMTLIBConstants.NOT, definingTerm);
-											}
-											return definingTerm;
-										}
-									}
-								} else {
-									return annTerm.getSubterm();
-								}
-							}
-						}
-					}
-					reportError("Malformed quantified AUX literal");
-				} else if (annot == ":quoted" || annot == ":quotedCC" || annot == ":quotedLA"
-						|| annot == ":quotedQuant") {
-					final Term result = annTerm.getSubterm();
-					return result;
-				}
-			}
+	private Term expandAux(final ApplicationTerm auxTerm) {
+		final FunctionSymbol auxFunc = auxTerm.getFunction();
+		return new FormulaUnLet()
+				.unlet(mSkript.let(auxFunc.getDefinitionVars(), auxTerm.getParameters(), auxFunc.getDefinition()));
+	}
+
+	/**
+	 * Check if the given atom term is an aux equality. This is an equality of the
+	 * form (= (@AUX...) true) or (= (@AUX...) false).
+	 *
+	 * @param atom the term to check
+	 * @return true if this is an AUX equality atom.
+	 */
+	private boolean isAuxEquality(final Term atom) {
+		if (isApplication("=", atom)) {
+			final ApplicationTerm auxApp = (ApplicationTerm) atom;
+			final Term[] args = auxApp.getParameters();
+			return isAuxApplication(args[0]) && (isApplication("true", args[1]) || isApplication("false", args[1]));
 		}
-		reportError("Expected quoted literal, but got %s", quotedTerm);
-		return quotedTerm;
+		return false;
+	}
+
+	Term expandAuxEquality(final ApplicationTerm auxEquality, final boolean excludedMiddle) {
+		assert isApplication("=", auxEquality);
+		final Term rhs = auxEquality.getParameters()[1];
+		final boolean isNegated = isApplication("false", rhs);
+		assert isNegated || isApplication("true", rhs);
+		final Term auxTerm = auxEquality.getParameters()[0];
+		assert isAuxApplication(auxTerm);
+		// the definition of the quantAuxLit can be found in the annotation
+		Term definingTerm = expandAux((ApplicationTerm) auxTerm);
+		if (excludedMiddle) {
+			return mSkript.term(SMTLIBConstants.EQUALS, definingTerm, rhs);
+		} else {
+			if (isNegated) {
+				definingTerm = mSkript.term(SMTLIBConstants.NOT, definingTerm);
+			}
+			return definingTerm;
+		}
 	}
 
 	/**
@@ -4129,24 +4098,6 @@ public class ProofChecker extends NonRecursive {
 			}
 		}
 		return null;
-	}
-
-	/**
-	 * Check that an {@literal @}AUX term has the same definition as previously seen.
-	 */
-	private boolean compareAuxDef(final Term auxTerm, final Term defTerm) {
-		assert auxTerm instanceof ApplicationTerm
-				&& ((ApplicationTerm) auxTerm).getFunction().getName().startsWith("@AUX");
-		final ApplicationTerm auxApp = (ApplicationTerm) auxTerm;
-		for (final Term p : auxApp.getParameters()) {
-			assert p instanceof TermVariable;
-		}
-		if (!mQuantDefinedTerms.containsKey(auxApp)) {
-			mQuantDefinedTerms.put(auxApp, defTerm);
-			return true;
-		} else {
-			return mQuantDefinedTerms.get(auxApp) == defTerm;
-		}
 	}
 
 	/**

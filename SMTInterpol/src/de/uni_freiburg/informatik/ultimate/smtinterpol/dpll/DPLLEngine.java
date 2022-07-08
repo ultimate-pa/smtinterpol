@@ -1741,7 +1741,7 @@ public class DPLLEngine {
 		int i = -1;
 		for (final Literal lit : mDPLLStack) {
 			if (!(lit.getAtom() instanceof NamedAtom)) {
-				res[++i] = lit.getSMTFormula(smtTheory, true);
+				res[++i] = lit.getSMTFormula(smtTheory);
 			}
 		}
 		return res;

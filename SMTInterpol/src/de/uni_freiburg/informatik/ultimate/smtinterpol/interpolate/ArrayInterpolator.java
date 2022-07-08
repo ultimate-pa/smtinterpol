@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
-import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -64,7 +63,7 @@ public class ArrayInterpolator {
 	 * The main disequality of this lemma, i.e., "a[i]!=b[j]" for read-over-weakeq, "a!=b" for weakeq-ext, "a[i]!=v" for
 	 * read-const-weakeq, "v!=w" for const-weakeq.
 	 */
-	private AnnotatedTerm mDiseq;
+	private Term mDiseq;
 	/**
 	 * The LitInfo for the main disequality of this lemma.
 	 */
@@ -72,11 +71,11 @@ public class ArrayInterpolator {
 	/**
 	 * The atoms of the equality literals in this lemma. Note that they appear negated in the clause.
 	 */
-	private Map<SymmetricPair<Term>, AnnotatedTerm> mEqualities;
+	private Map<SymmetricPair<Term>, Term> mEqualities;
 	/**
 	 * The atoms of the disequality literals in this lemma. Note that they appear positively in the clause.
 	 */
-	private Map<SymmetricPair<Term>, AnnotatedTerm> mDisequalities;
+	private Map<SymmetricPair<Term>, Term> mDisequalities;
 	/**
 	 * The store path between the arrays of the main disequality for weak equivalence in a weakeq-ext lemma, and for
 	 * weak equivalence modulo i, where i is the path index, in a read-over-weakeq lemma.
@@ -93,7 +92,7 @@ public class ArrayInterpolator {
 	/**
 	 * The strong path between the select indices of the main disequality for read-over-weakeq.
 	 */
-	private AnnotatedTerm mIndexEquality;
+	private Term mIndexEquality;
 	/**
 	 * This map contains the paths for weak congruence on index i in weakeq-ext.
 	 */
@@ -139,8 +138,7 @@ public class ArrayInterpolator {
 	private ApplicationTerm getDiseq(final InterpolatorClauseTermInfo clauseInfo) {
 		final Object[] annotations = (Object[]) clauseInfo.getLemmaAnnotation();
 		assert annotations.length % 2 == 1;
-		final AnnotatedTerm quotedDiseq = (AnnotatedTerm) annotations[0];
-		final ApplicationTerm diseq = (ApplicationTerm) quotedDiseq.getSubterm();
+		final ApplicationTerm diseq = (ApplicationTerm) annotations[0];
 		assert diseq.getFunction().getName().equals(SMTLIBConstants.EQUALS);
 		return diseq;
 	}
@@ -181,9 +179,9 @@ public class ArrayInterpolator {
 			final InterpolatorAtomInfo atomTermInfo = mInterpolator.getAtomTermInfo(atom);
 			final ApplicationTerm equality = atomTermInfo.getEquality();
 			// negated in clause means positive in conflict
-			final Map<SymmetricPair<Term>, AnnotatedTerm> map = (atom != literal ? mEqualities : mDisequalities);
+			final Map<SymmetricPair<Term>, Term> map = (atom != literal ? mEqualities : mDisequalities);
 			map.put(new SymmetricPair<>(equality.getParameters()[0], equality.getParameters()[1]),
-					(AnnotatedTerm) atom);
+					atom);
 		}
 		final ApplicationTerm equality = getDiseq(mLemmaInfo);
 		final Term[] eqParams = equality.getParameters();
@@ -229,7 +227,7 @@ public class ArrayInterpolator {
 		mStorePath = paths[0];
 
 		assert mDiseq != null;
-		final ApplicationTerm selectEq = (ApplicationTerm) mDiseq.getSubterm();
+		final ApplicationTerm selectEq = (ApplicationTerm) mDiseq;
 		assert selectEq.getFunction().getName().equals("=")
 			&& selectEq.getParameters()[0] instanceof ApplicationTerm
 			&& selectEq.getParameters()[1] instanceof ApplicationTerm
@@ -530,10 +528,10 @@ public class ArrayInterpolator {
 		for (int color = 0; color < mNumInterpolants; color++) {
 			if (mainPath.mSharedIndex[color] != null && mainPath.mSharedIndex[color] == mStorePath.getIndex()) {
 				if (mDiseqInfo.isALocal(color) && indexEqInfo.isBLocal(color)) {
-					mInterpolants[color].add(mTheory.not(mInterpolator.unquote(mIndexEquality)));
+					mInterpolants[color].add(mTheory.not(mIndexEquality));
 				} else if (!mDiseqInfo.isALocal(color) && indexEqInfo.isALocal(color)) {
 					if (otherIndexOccur.isAB(color)) {
-						mInterpolants[color].add(mInterpolator.unquote(mIndexEquality));
+						mInterpolants[color].add(mIndexEquality);
 					}
 				}
 			}
@@ -661,7 +659,7 @@ public class ArrayInterpolator {
 	 */
 	private Term buildSelect(final Term term, final Term index) {
 		final Term select;
-		if (term instanceof AnnotatedTerm && mEqualities.containsValue(term)) {
+		if (mEqualities.containsValue(term)) {
 			// The term is actually a mixed select equality
 			final LitInfo selectInfo = mInterpolator.getAtomOccurenceInfo(term);
 			select = selectInfo.getMixedVar();
@@ -934,7 +932,7 @@ public class ArrayInterpolator {
 			for (int i = 0; i < mPath.length - 1; i++) {
 				final Term left = mPath[i];
 				final Term right = mPath[i + 1];
-				final AnnotatedTerm lit = mEqualities.get(new SymmetricPair<>(left, right));
+				final Term lit = mEqualities.get(new SymmetricPair<>(left, right));
 				Term boundaryTerm = left;
 
 				// Each step in a weak path can be either an equality literal or a store step of form "a (store a k v)",
@@ -987,7 +985,7 @@ public class ArrayInterpolator {
 			final Term boundaryTerm = left;
 			final Occurrence stepOcc = mInterpolator.getOccurrence(storeTerm);
 			final Term storeIndex = getIndexFromStore(storeTerm);
-			final AnnotatedTerm indexDiseq = mDisequalities.get(new SymmetricPair<>(storeIndex, mPathIndex));
+			final Term indexDiseq = mDisequalities.get(new SymmetricPair<>(storeIndex, mPathIndex));
 			if (indexDiseq != null) {
 				final Occurrence indexDiseqOcc = mInterpolator.getAtomOccurenceInfo(indexDiseq);
 				final Occurrence intersectOcc = stepOcc.intersect(indexDiseqOcc);
@@ -1011,7 +1009,7 @@ public class ArrayInterpolator {
 			if (match == null) {
 				return false;
 			}
-			final AnnotatedTerm selectEq = match.mEqualityLit;
+			final Term selectEq = match.mEqualityLit;
 			final InterpolatorAtomInfo termInfo = mInterpolator.getAtomTermInfo(selectEq);
 			final LitInfo stepInfo = mInterpolator.getAtomOccurenceInfo(selectEq);
 			final ApplicationTerm selectEqApp = termInfo.getEquality();
@@ -1075,7 +1073,7 @@ public class ArrayInterpolator {
 			for (int i = 0; i < mPath.length - 1; i++) {
 				final Term left = mPath[i];
 				final Term right = mPath[i + 1];
-				final AnnotatedTerm lit = mEqualities.get(new SymmetricPair<>(left, right));
+				final Term lit = mEqualities.get(new SymmetricPair<>(left, right));
 				Term boundaryTerm;
 				boundaryTerm = left;
 
@@ -1244,12 +1242,12 @@ public class ArrayInterpolator {
 		}
 
 		class MatchingSelectEquality {
-			AnnotatedTerm mEqualityLit;
+			Term mEqualityLit;
 			boolean mIsSwapped;
 			boolean mIsConstLeft;
 			boolean mIsConstRight;
 
-			public MatchingSelectEquality(AnnotatedTerm equalityLit,
+			public MatchingSelectEquality(Term equalityLit,
 					boolean isSwapped, boolean isConstLeft, boolean isConstRight) {
 				mEqualityLit = equalityLit;
 				mIsSwapped = isSwapped;
@@ -1504,14 +1502,14 @@ public class ArrayInterpolator {
 		 *
 		 */
 		private Term buildFPiTerm(final boolean isAPath, final int color, final Term sharedIndex,
-				final ArrayList<AnnotatedTerm> indexDiseqs, final ArrayList<AnnotatedTerm> indexEqs) {
+				final ArrayList<Term> indexDiseqs, final ArrayList<Term> indexEqs) {
 			if (indexDiseqs == null && indexEqs == null) {
 				return isAPath ? mTheory.mFalse : mTheory.mTrue;
 			}
 
 			final Set<Term> indexTerms = new HashSet<>();
 			if (indexDiseqs != null) {
-				for (final AnnotatedTerm diseq : indexDiseqs) {
+				for (final Term diseq : indexDiseqs) {
 					final InterpolatorAtomInfo termInfo = mInterpolator.getAtomTermInfo(diseq);
 					final LitInfo info = mInterpolator.getAtomOccurenceInfo(diseq);
 					final ApplicationTerm diseqApp = termInfo.getEquality();
@@ -1538,7 +1536,7 @@ public class ArrayInterpolator {
 				}
 			}
 			if (indexEqs != null) {
-				for (final AnnotatedTerm eq : indexEqs) {
+				for (final Term eq : indexEqs) {
 					final InterpolatorAtomInfo termInfo = mInterpolator.getAtomTermInfo(eq);
 					final LitInfo info = mInterpolator.getAtomOccurenceInfo(eq);
 					final ApplicationTerm eqApp = termInfo.getEquality();
@@ -1591,12 +1589,12 @@ public class ArrayInterpolator {
 			 * For each partition this contains the set of B(resp. A)-local and mixed store index disequalities found on
 			 * the A (resp. B) path so far.
 			 */
-			ArrayList<AnnotatedTerm>[] mIndexDiseqs;
+			ArrayList<Term>[] mIndexDiseqs;
 			/**
 			 * For each partition this contains the set of B(resp. A)-local and mixed select index equalities found on
 			 * the A (resp. B) path so far.
 			 */
-			ArrayList<AnnotatedTerm>[] mIndexEqs;
+			ArrayList<Term>[] mIndexEqs;
 			/**
 			 * For each partition, this stores the store indices on the A (B) path so far. This is only used for the
 			 * main path of a weakeq-ext lemma.
@@ -1744,7 +1742,7 @@ public class ArrayInterpolator {
 			 * @param storeTerm
 			 *            The store term from which we extract the store index.
 			 */
-			private void addIndexDisequality(final WeakPathEnd other, final AnnotatedTerm diseq) {
+			private void addIndexDisequality(final WeakPathEnd other, final Term diseq) {
 				final LitInfo diseqInfo = mInterpolator.getAtomOccurenceInfo(diseq);
 
 				// The diseq has to be added to all partitions where it is mixed and all partitions that lie on the
@@ -1765,7 +1763,7 @@ public class ArrayInterpolator {
 			 * the path is.
 			 */
 			private void addIndexDiseqAllColors(final WeakPathEnd other, final Occurrence occur,
-					final AnnotatedTerm diseq) {
+					final Term diseq) {
 				int currentColor = mColor;
 				// Up
 				mHasABPath.and(occur.mInA);
@@ -1799,7 +1797,7 @@ public class ArrayInterpolator {
 			/**
 			 * Add the index disequality to one partition.
 			 */
-			private void addIndexDiseqOneColor(final WeakPathEnd other, final AnnotatedTerm diseq, final int color) {
+			private void addIndexDiseqOneColor(final WeakPathEnd other, final Term diseq, final int color) {
 				// If the path is still open at the other path end, i.e. if other.mLastChange[color] is still null, we
 				// have to store the diseq in the other pathend
 				if (other.mLastChange[color] == null) {
@@ -1829,7 +1827,7 @@ public class ArrayInterpolator {
 				assert isSelectTerm(selectTerm);
 				if (getIndexFromSelect(selectTerm) != mPathIndex) {
 					final Term selectIndex = getIndexFromSelect(selectTerm);
-					final AnnotatedTerm indexEq = mEqualities.get(new SymmetricPair<>(selectIndex, mPathIndex));
+					final Term indexEq = mEqualities.get(new SymmetricPair<>(selectIndex, mPathIndex));
 					final LitInfo eqInfo = mInterpolator.getAtomOccurenceInfo(indexEq);
 					addSelectIndexEqAllColors(other, eqInfo, indexEq);
 					if (eqInfo.getMixedVar() != null) {
@@ -1844,8 +1842,7 @@ public class ArrayInterpolator {
 			 * those partitions. This adds the index equality to all partitions where it is not in A (resp. B) while the
 			 * path is.
 			 */
-			private void addSelectIndexEqAllColors(final WeakPathEnd other, final Occurrence occur,
-					final AnnotatedTerm eq) {
+			private void addSelectIndexEqAllColors(final WeakPathEnd other, final Occurrence occur, final Term eq) {
 				int currentColor = mColor;
 				// Up
 				mHasABPath.and(occur.mInA);
@@ -1879,7 +1876,7 @@ public class ArrayInterpolator {
 			/**
 			 * Add the index equality to one partition.
 			 */
-			private void addSelectIndexEqOneColor(final WeakPathEnd other, final AnnotatedTerm eq, final int color) {
+			private void addSelectIndexEqOneColor(final WeakPathEnd other, final Term eq, final int color) {
 				// If the path is still open at the other path end, i.e. if other.mLastChange[color] is still null, we
 				// have to store the diseq in the other pathend
 				if (other.mLastChange[color] == null) {
@@ -1978,9 +1975,9 @@ public class ArrayInterpolator {
 					// Use shared store indices to rewrite "left" to "right" in order to shorten the weq- or nweq-term.
 					final Set<Term> sharedIndices = new HashSet<>();
 					if (mIndexDiseqs[color] != null) {
-						final Iterator<AnnotatedTerm> it = mIndexDiseqs[color].iterator();
+						final Iterator<Term> it = mIndexDiseqs[color].iterator();
 						while (it.hasNext()) {
-							final AnnotatedTerm diseq = it.next();
+							final Term diseq = it.next();
 							final InterpolatorAtomInfo termInfo = mInterpolator.getAtomTermInfo(diseq);
 							final LitInfo info = mInterpolator.getAtomOccurenceInfo(diseq);
 							if (!info.isMixed(color)) {
@@ -2237,8 +2234,7 @@ public class ArrayInterpolator {
 							}
 							final Term lastSharedOnIndexPath = equals(mHead) ? indexPath.mTail.mLastChange[color]
 									: indexPath.mHead.mLastChange[color];
-							if (lastSharedOnIndexPath instanceof AnnotatedTerm
-									&& mEqualities.containsValue(lastSharedOnIndexPath)) {
+							if (mEqualities.containsValue(lastSharedOnIndexPath)) {// TODO use key
 								rewriteToArray = null;
 								// Last change was at a mixed select equality
 								final LitInfo selectEq = mInterpolator.getAtomOccurenceInfo(lastSharedOnIndexPath);
@@ -2259,8 +2255,7 @@ public class ArrayInterpolator {
 							}
 							final Term lastSharedOnIndexPath = equals(mHead) ? indexPath.mTail.mLastChange[color]
 									: indexPath.mHead.mLastChange[color];
-							assert !(lastSharedOnIndexPath instanceof AnnotatedTerm
-									&& mEqualities.containsValue(lastSharedOnIndexPath));
+							assert !(mEqualities.containsValue(lastSharedOnIndexPath));
 							rewriteToArray = lastSharedOnIndexPath;
 							rewriteWithElement = buildSelect(rewriteToArray, rewriteAtIndex);
 						}
@@ -2271,12 +2266,12 @@ public class ArrayInterpolator {
 						// Needed for case without shared index (then there are no indexEqs)
 						final int fPiOrderForRecursion;
 						if (equals(mHead)) { // recursionPath is the left outer path
-							final ArrayList<AnnotatedTerm> indexDiseqs = indexPath.mTail.mIndexDiseqs[color];
+							final ArrayList<Term> indexDiseqs = indexPath.mTail.mIndexDiseqs[color];
 							fPiOrderForRecursion = indexDiseqs == null ? 0 : indexDiseqs.size();
 							fPi = indexPath.buildFPiTerm(!isAPath, color, rewriteAtIndex, indexDiseqs,
 									indexPath.mTail.mIndexEqs[color]);
 						} else { // recursionPath is the right outer path
-							final ArrayList<AnnotatedTerm> indexDiseqs = indexPath.mHead.mIndexDiseqs[color];
+							final ArrayList<Term> indexDiseqs = indexPath.mHead.mIndexDiseqs[color];
 							fPiOrderForRecursion = indexDiseqs == null ? 0 : indexDiseqs.size();
 							fPi = indexPath.buildFPiTerm(!isAPath, color, rewriteAtIndex, indexDiseqs,
 									indexPath.mHead.mIndexEqs[color]);

@@ -283,11 +283,11 @@ public class Clause extends SimpleListable<Clause> {
 			return theory.mFalse;
 		}
 		if (mLiterals.length == 1) {
-			return mLiterals[0].getSMTFormula(theory, true);
+			return mLiterals[0].getSMTFormula(theory);
 		}
 		final Term[] args = new Term[mLiterals.length];
 		for (int i = 0; i < mLiterals.length; ++i) {
-			args[i] = mLiterals[i].getSMTFormula(theory, true);
+			args[i] = mLiterals[i].getSMTFormula(theory);
 		}
 		return theory.term("or", args);
 	}
@@ -295,7 +295,7 @@ public class Clause extends SimpleListable<Clause> {
 	public Term[] toTermArray(final Theory theory) {
 		final Term[] literals = new Term[mLiterals.length];
 		for (int i = 0; i < mLiterals.length; ++i) {
-			literals[i] = mLiterals[i].getSMTFormula(theory, true);
+			literals[i] = mLiterals[i].getSMTFormula(theory);
 		}
 		return literals;
 	}
