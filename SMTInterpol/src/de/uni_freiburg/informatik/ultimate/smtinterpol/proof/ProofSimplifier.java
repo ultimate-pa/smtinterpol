@@ -79,7 +79,8 @@ public class ProofSimplifier extends TermTransformer {
 
 	private HashMap<FunctionSymbol, LambdaTerm> mAuxDefs;
 
-	private final static String ANNOT_PROVED = ":proved";
+	private final static String ANNOT_PROVES_CLAUSE = ":proves";
+	private final static String ANNOT_PROVED_EQ = ":provedEq";
 
 	/**
 	 * Create a proof checker.
@@ -96,24 +97,33 @@ public class ProofSimplifier extends TermTransformer {
 		mChecker = new MinimalProofChecker(mSkript, new DefaultLogger());
 	}
 
+	private Term annotateProvedClause(final Term proof, Annotation annot, final ProofLiteral[] clause) {
+		final Object[] clauseAnnot = new Object[clause.length * 2];
+		for (int i = 0; i < clause.length; i++) {
+			clauseAnnot[2 * i] = clause[i].getPolarity() ? "+" : "-";
+			clauseAnnot[2 * i + 1] = clause[i].getAtom();
+		}
+		return mSkript.annotate(proof, annot, new Annotation(ANNOT_PROVES_CLAUSE, clauseAnnot));
+	}
+
 	private Term annotateProved(final Term provedTerm, final Term proof) {
-		return proof.getTheory().annotatedTerm(new Annotation[] { new Annotation(ANNOT_PROVED, provedTerm) }, proof);
+		return mSkript.annotate(proof, new Annotation(ANNOT_PROVED_EQ, provedTerm));
 	}
 
 	private Term provedTerm(final AnnotatedTerm annotatedTerm) {
-		assert annotatedTerm.getAnnotations()[0].getKey() == ANNOT_PROVED;
+		assert annotatedTerm.getAnnotations()[0].getKey() == ANNOT_PROVED_EQ;
 		return (Term) annotatedTerm.getAnnotations()[0].getValue();
 	}
 
 	private Term stripAnnotation(final Term term) {
-		if (term instanceof AnnotatedTerm && ((AnnotatedTerm) term).getAnnotations()[0].getKey() == ANNOT_PROVED) {
+		if (term instanceof AnnotatedTerm && ((AnnotatedTerm) term).getAnnotations()[0].getKey() == ANNOT_PROVED_EQ) {
 			return ((AnnotatedTerm) term).getSubterm();
 		}
 		return term;
 	}
 
 	private Term subproof(final AnnotatedTerm annotatedTerm) {
-		assert annotatedTerm.getAnnotations()[0].getKey() == ANNOT_PROVED;
+		assert annotatedTerm.getAnnotations()[0].getKey() == ANNOT_PROVED_EQ;
 		return annotatedTerm.getSubterm();
 	}
 
@@ -156,10 +166,16 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertClause(final Term[] newParams) {
 		assert newParams.length == 1;
 		assert newParams[0] instanceof AnnotatedTerm;
-		// the argument is the proved clause.
-		// the annots are currently discarded
+		// The annotated term should be of the form:
+		// (! proof :proves clause :input optformulaname)
 		final AnnotatedTerm annotTerm = (AnnotatedTerm) newParams[0];
-		return annotTerm.getSubterm();
+		final Term proof = annotTerm.getSubterm();
+		final Annotation[] annots = annotTerm.getAnnotations();
+		assert annots.length == 2 && annots[0].getKey() == ProofConstants.ANNOTKEY_PROVES
+				&& annots[1].getKey() == ProofConstants.ANNOTKEY_INPUT;
+		final ProofLiteral[] proofLiterals = termArrayToProofLiterals((Term[]) annots[0].getValue());
+		// add the input annotation
+		return annotateProvedClause(proof, new Annotation(":cnf", annots[1].getValue()), proofLiterals);
 	}
 
 	/**
@@ -4199,6 +4215,7 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		}
 		assert checkProof(subProof, termToProofLiterals(lemma));
+		subProof = annotateProvedClause(subProof, annTerm.getAnnotations()[0], termToProofLiterals(lemma));
 		return subProof;
 	}
 
@@ -4661,14 +4678,13 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Convert a clause term into an Array of proof literals, one entry for each
+	 * Convert an array of terms into an array of proof literals, one entry for each
 	 * disjunct. This also removes double negations.
 	 *
 	 * @param clauseTerm The term representing a clause.
 	 * @return The disjuncts of the clause.
 	 */
-	private ProofLiteral[] termToProofLiterals(final Term clauseTerm) {
-		final Term[] clauseLits = termToClause(clauseTerm);
+	private ProofLiteral[] termArrayToProofLiterals(final Term[] clauseLits) {
 		final ProofLiteral[] proofLits = new ProofLiteral[clauseLits.length];
 		for (int i = 0; i < proofLits.length; i++) {
 			Term lit = clauseLits[i];
@@ -4680,6 +4696,17 @@ public class ProofSimplifier extends TermTransformer {
 			proofLits[i] = new ProofLiteral(lit, polarity);
 		}
 		return proofLits;
+	}
+
+	/**
+	 * Convert a clause term into an array of proof literals, one entry for each
+	 * disjunct. This also removes double negations.
+	 *
+	 * @param clauseTerm The term representing a clause.
+	 * @return The disjuncts of the clause.
+	 */
+	private ProofLiteral[] termToProofLiterals(final Term clauseTerm) {
+		return termArrayToProofLiterals(termToClause(clauseTerm));
 	}
 
 	/**
