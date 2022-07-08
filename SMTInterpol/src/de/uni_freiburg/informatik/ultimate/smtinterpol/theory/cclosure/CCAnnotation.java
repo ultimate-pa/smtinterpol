@@ -120,22 +120,28 @@ public class CCAnnotation implements IAnnotation {
 		 */
 		CONST_WEAKEQ(":const-weakeq"),
 		/**
-		 * Selector application on corresponding constructor application, e.g.,
-		 * car(cons(x,y)) = x.
+		 * Selector application on corresponding constructor application. Its conflict
+		 * is:
+		 *
+		 * <pre>
+		 * u = cons(u1,...,un) , seli(u) != ui
+		 * </pre>
 		 */
 		DT_PROJECT(":dt-project"),
 		/**
 		 * Rule that the result of a constructor application fulfills an is predicate,
 		 * iff it's index is the same constructor.
 		 *
+		 * The conflict is:
+		 *
 		 * <pre>
-		 * is_cons(cons(x, y)) = true
+		 * u = cons(u1,...,un) , is_cons(u) != true
 		 * </pre>
 		 *
 		 * and
 		 *
 		 * <pre>
-		 * is_cons(nil) = false
+		 * u = cons1(u1,...,un) , is_cons2(u) != false
 		 * </pre>
 		 *
 		 * .
@@ -143,30 +149,44 @@ public class CCAnnotation implements IAnnotation {
 		DT_TESTER(":dt-tester"),
 		/**
 		 * Rule that an datatype object where a tester returns true must be equal to
-		 * it's constructor applictaion.
+		 * it's constructor application. The conflict is
 		 *
 		 * <pre>
-		 * is_cons(u) = true -> u = cons(car(u), cdr(u))
+		 * is_cons(u) = true , u != cons(car(u), cdr(u)).
 		 * </pre>
-		 *
-		 * .
 		 */
 		DT_CONSTRUCTOR(":dt-constructor"),
 		/**
 		 * Every datatype object must fulfill at least one tester. I.e. we can do
 		 * case-distinction over all constructors.
+		 *
+		 * <pre>
+		 * is_cons1(u) = false, ..., is_consn(u) = false
+		 * </pre>
 		 */
 		DT_CASES(":dt-cases"),
 		/**
 		 * Every datatype object must fulfill at most one tester.
+		 *
+		 * <pre>
+		 * is_consi(u) = true, is_consj(u) = true
+		 * </pre>
 		 */
 		DT_UNIQUE(":dt-unique"),
 		/**
 		 * Every constructor returns different objects, e.g., cons(x,y) != nil.
+		 *
+		 * <pre>
+		 *  cons1(u1,...,un) = cons2(v1,...,vm)
+		 * </pre>
 		 */
 		DT_DISJOINT(":dt-disjoint"),
 		/**
 		 * Every constructor is injective, e.g., cons(x1,x2) = cons(y1,y2) -> x1=x2.
+		 *
+		 * <pre>
+		 *  cons(u1,...,un) = cons(v1,...,vm), ui != vi
+		 * </pre>
 		 */
 		DT_INJECTIVE(":dt-injective"),
 		/**
