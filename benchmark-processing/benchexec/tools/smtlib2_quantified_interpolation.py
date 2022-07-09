@@ -22,7 +22,7 @@ class Smtlib2Tool(benchexec.tools.template.BaseTool):
             for line in output:
                 line = line.strip()
                 if line == "INFO - FOUND VALID INTERPOLANT":
-                	status = result.RESULT_DONE
+                    status = result.RESULT_DONE
                 elif not status and line.startswith("(error "):
                     status = "ERROR"
 
