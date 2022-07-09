@@ -91,6 +91,8 @@ public class SystemTest {
 			return false;
 		} else if (f.getParent().contains("test" + separator + "datatype" + separator + "quantified")) {
 			return false;
+		} else if (f.getParent().endsWith("timeout")) {
+			return false;
 		}
 		return true;
 	}

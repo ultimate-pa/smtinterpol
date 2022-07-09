@@ -73,8 +73,8 @@ public class InterpolatorAtomInfo {
 	 */
 	public void computeAtomInfo(final Term term) {
 		// Store the underlying atom
-		final ApplicationTerm atom = (ApplicationTerm) term;
-		if (atom.getFunction().isIntern()) {
+		if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().isIntern()) {
+			final ApplicationTerm atom = (ApplicationTerm) term;
 			assert !atom.getFunction().getName().equals(SMTLIBConstants.NOT);
 			final String funcName = atom.getFunction().getName();
 			final boolean isEquals = funcName == SMTLIBConstants.EQUALS;

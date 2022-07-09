@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Deque;
@@ -319,7 +320,9 @@ public class Interpolator extends NonRecursive {
 				final CCInterpolator ipolator = new CCInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leafTermInfo);
 				// Replace non-shared symbols in interpolant.
-				interpolants = replaceNonsharedSymbols(interpolants);
+				for (int i = 0; i < interpolants.length; i++) {
+					interpolants[i] = replaceNonsharedSymbols(interpolants[i], i);
+				}
 				break;
 			}
 			case ":LA": {
@@ -343,11 +346,14 @@ public class Interpolator extends NonRecursive {
 			case ":inst": {
 				// TODO: Only supports EUF.
 				final CCInterpolator ipolator = new CCInterpolator(this);
-				interpolants = ipolator.interpolateInstantiation(leaf);
+				interpolants = ipolator.interpolateInstantiation(leafTermInfo);
 				// Replace non-shared symbols in interpolant.
-				interpolants = replaceNonsharedSymbols(interpolants);
+				for (int i = 0; i < interpolants.length; i++) {
+					interpolants[i] = replaceNonsharedSymbols(interpolants[i], i);
+				}
 				// Check for unsupported variables and add quantifiers if necessary.
 				interpolants = addQuantifier(interpolants, new Term[] { leaf });
+				break;
 			}
 			default:
 				throw new UnsupportedOperationException("Unknown lemma type!");
@@ -412,7 +418,7 @@ public class Interpolator extends NonRecursive {
 					throw new UnsupportedOperationException("Cannot handle mixed literal " + pivot);
 				}
 			}
-			interp[i] = replaceNonsharedSymbols(interp)[i];
+			interp[i] = replaceNonsharedSymbols(interp[i], i);
 			// TODO: What about quantifier introduction?
 			mLogger.debug(interp[i]);
 		}
@@ -430,20 +436,18 @@ public class Interpolator extends NonRecursive {
 	private void summarize(final Term proofTerm) {
 		Term[] interpolants = null;
 		interpolants = mInterpolated.getLast();
-		final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
+		final InterpolatorClauseInfo proofTermInfo = getClauseTermInfo(proofTerm);
 		if (proofTermInfo.getLiterals() == null) {
 			proofTermInfo.computeResolutionLiterals(this);
 		}
 
-		interpolants = replaceNonsharedSymbols(interpolants);
+		for (int i = 0; i < interpolants.length; i++) {
+			interpolants[i] = replaceNonsharedSymbols(interpolants[i], i);
+		}
 		// Add quantifiers if necessary. TODO: Is there a better place to do this?
 		interpolants = addQuantifier(interpolants, proofTermInfo.getLiterals());
 
 		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
-			final InterpolatorClauseInfo proofTermInfo = getClauseTermInfo(proofTerm);
-			if (proofTermInfo.getLiterals() == null) {
-				proofTermInfo.computeResolutionLiterals(this);
-			}
 			mChecker.checkInductivity(proofTermInfo.getLiterals(), interpolants);
 		}
 
@@ -966,7 +970,7 @@ public class Interpolator extends NonRecursive {
 	// looking for subterms.
 	HashSet<Term> getAllSubTerms(final Term literal) {
 		final HashSet<Term> subTerms = new HashSet<>();
-		final ArrayDeque<Term> todo = new ArrayDeque<Term>();
+		final ArrayDeque<Term> todo = new ArrayDeque<>();
 
 		todo.addLast(literal);
 		while (!todo.isEmpty()) {
@@ -986,33 +990,6 @@ public class Interpolator extends NonRecursive {
 			}
 		}
 		return subTerms;
-	}
-
-	// TODO:
-	HashSet<Term> getTermVariables(final Term literal) {
-		final HashSet<Term> vars = new HashSet<>();
-		final ArrayDeque<Term> todo = new ArrayDeque<Term>();
-
-		todo.addLast(literal);
-		while (!todo.isEmpty()) {
-			final Term term = todo.removeLast();
-			if (term instanceof ApplicationTerm) {
-				final ApplicationTerm appTerm = (ApplicationTerm) term;
-				for (final Term at : appTerm.getParameters()) {
-					todo.addLast(at);
-				}
-			}
-			if (term instanceof QuantifiedFormula) {
-				todo.add(((QuantifiedFormula) term).getSubformula());
-			}
-			if (term instanceof AnnotatedTerm) {
-				todo.add(((AnnotatedTerm) term).getSubterm());
-			}
-			if (term instanceof TermVariable) {
-				vars.add(term);
-			}
-		}
-		return vars;
 	}
 
 	LitInfo getAtomOccurenceInfo(final Term atom) {
@@ -1570,20 +1547,19 @@ public class Interpolator extends NonRecursive {
 	/**
 	 * Collect all non-logical symbols in a term.
 	 */
-	public HashSet<String> getSymbols(final Term term) {
+	public HashSet<FunctionSymbol> getSymbols(final Term term) {
 		assert term != null;
 
-		final HashSet<String> result = new HashSet<String>();
+		final HashSet<FunctionSymbol> result = new HashSet<>();
+		final HashSet<Term> visited = new HashSet<>();
 		final Deque<Term> todoStack = new ArrayDeque<>();
-
-		todoStack.add(unquote(term));
+		todoStack.add(term);
 
 		while (!todoStack.isEmpty()) {
 			Term t = todoStack.pop();
-
 			while ((t instanceof AnnotatedTerm || t instanceof QuantifiedFormula)) {
 				if (t instanceof QuantifiedFormula) {
-					t = unquote(((QuantifiedFormula) t).getSubformula());
+					t = ((QuantifiedFormula) t).getSubformula();
 				}
 				if (t instanceof AnnotatedTerm) {
 					t = ((AnnotatedTerm) t).getSubterm();
@@ -1593,20 +1569,18 @@ public class Interpolator extends NonRecursive {
 			if (t instanceof TermVariable || t instanceof ConstantTerm) {
 				continue;
 			}
-
-			ApplicationTerm at = (ApplicationTerm) t;
-
-			FunctionSymbol funSymbol = at.getFunction();
-			String symbol = funSymbol.getName();
-			Term[] params = at.getParameters();
-
-			for (int i = 0; i < params.length; i++) {
-				todoStack.add(params[i]);
+			if (!visited.add(t)) {
+				continue;
 			}
+
 			// Add symbol if it is not an internal symbol
+			final ApplicationTerm at = (ApplicationTerm) t;
+			final FunctionSymbol funSymbol = at.getFunction();
 			if (!funSymbol.isIntern() || funSymbol.getName().startsWith("@AUX") || funSymbol.getName().contains("skolem")) {
-				result.add(symbol);
+				result.add(funSymbol);
 			}
+			// visit all children
+			todoStack.addAll(Arrays.asList(at.getParameters()));
 		}
 		return result;
 	}
@@ -1623,7 +1597,7 @@ public class Interpolator extends NonRecursive {
 				if (term.getParameters()[i] instanceof TermVariable) {
 					continue;
 				}
-				int j = getNestingDepth((ApplicationTerm) term.getParameters()[i], n + 1);
+				final int j = getNestingDepth((ApplicationTerm) term.getParameters()[i], n + 1);
 				nMax = (j > nMax) ? j : nMax;
 			}
 			return nMax;
@@ -1634,20 +1608,20 @@ public class Interpolator extends NonRecursive {
 	 * Return a list of terms with descending number of nested function depth.
 	 */
 	ArrayList<Term> orderTerms(final HashSet<Term> terms) {
-		final ArrayList<Term> ordered = new ArrayList<Term>();
-		final HashMap<Term, Integer> info = new HashMap<Term, Integer>();
+		final ArrayList<Term> ordered = new ArrayList<>();
+		final HashMap<Term, Integer> info = new HashMap<>();
 
 		// Collect nested function depth for all terms.
-		for (Term t : terms) {
-			ApplicationTerm at = (ApplicationTerm) t;
+		for (final Term t : terms) {
+			final ApplicationTerm at = (ApplicationTerm) t;
 
 			if (info.get(at) == null) {
 				info.put(at, getNestingDepth(at, 0));
 			}
 		}
 		// Order terms in descending order of nested function depth.
-		for (Term t : terms) {
-			ApplicationTerm at = (ApplicationTerm) t;
+		for (final Term t : terms) {
+			final ApplicationTerm at = (ApplicationTerm) t;
 			int n = 0;
 			for (int i = 0; i < ordered.size(); i++) {
 				if (info.get(at) > info.get(ordered.get(i))) {
@@ -1667,83 +1641,79 @@ public class Interpolator extends NonRecursive {
 	public void colorSymbols(final Term literal, final int partition) {
 		assert literal != null;
 
-		HashSet<String> symbols = getSymbols(literal);
-		for (String symbol : symbols) {
+		final HashSet<FunctionSymbol> symbols = getSymbols(literal);
+		for (final FunctionSymbol symbol : symbols) {
 			Occurrence funOcc = new Occurrence();
-			if (mSymbolOccurrenceInfos.containsKey(symbol)) {
-				funOcc = mSymbolOccurrenceInfos.get(symbol);
+			if (mFunctionSymbolOccurrenceInfos.containsKey(symbol)) {
+				funOcc = mFunctionSymbolOccurrenceInfos.get(symbol);
 			}
 			funOcc.occursIn(partition);
-			mSymbolOccurrenceInfos.put(symbol, funOcc);
+			mFunctionSymbolOccurrenceInfos.put(symbol, funOcc);
 		}
 	}
 
 	/**
-	 * Replace all non-shared symbols in the interpolants by auxiliary variables.
-	 * 
-	 * @param interpolants Array of interpolants that possibly contain non-shared
-	 *                     symbols.
+	 * Replace all non-shared symbols in the interpolant by auxiliary variables.
+	 *
+	 * @param interpolant   The interpolant that possibly contain non-shared
+	 *                      symbols.
+	 * @param interpolantNr the number of the interpolant
 	 * @return resulting Array of interpolants only containing shared symbols.
 	 */
-	private Term[] replaceNonsharedSymbols(Term[] interpolants) {
-		// Term interpolant = null;
+	private Term replaceNonsharedSymbols(Term interpolant, int interpolantNr) {
+		final HashSet<FunctionSymbol> nonSharedSymbols = getNonsharedSymbols(interpolant, interpolantNr);
 
-		for (int i = 0; i < interpolants.length; i++) {
-			Term interpolant = interpolants[i];
-			HashSet<String> nonSharedSymbols = getNonsharedSymbols(interpolant, i);
+		if (nonSharedSymbols.isEmpty()) {
+			// The current interpolant only contains shared symbols.
+			return interpolant;
+		}
+		final HashSet<Term> subTerms = getAllSubTerms(interpolant);
 
-			if (nonSharedSymbols.isEmpty()) {
-				// The current interpolant only contains shared symbols.
-				continue;
+		// Collect the subterms that need to be replaced.
+		for (final FunctionSymbol s : nonSharedSymbols) {
+			final HashSet<Term> replace = new HashSet<>(subTerms);
+			for (final Term sub : subTerms) {
+				if (sub instanceof TermVariable || ((ApplicationTerm) sub).getFunction() != s) {
+					replace.remove(sub);
+				}
 			}
-			HashSet<Term> subTerms = getAllSubTerms(interpolant);
 
-			// Collect the subterms that need to be replaced.
-			for (String s : nonSharedSymbols) {
-				HashSet<Term> replace = new HashSet<Term>(subTerms);
-				for (Term sub : subTerms) {
-					if (sub instanceof TermVariable || ((ApplicationTerm) sub).getFunction().getName() != s) {
-						replace.remove(sub);
-					}
+			// Order in which we replace subterms in nested functions may effect result,
+			// i.e. if we have f(f(a)) and we want to replace f(...), we should start with
+			// the outermost occurrence of f.
+			final ArrayList<Term> ordered = orderTerms(replace);
+
+			// Replace the term by a variable
+			for (int j = 0; j < ordered.size(); j++) {
+				TermVariable auxVar;
+				final Term t = ordered.get(j);
+				final Sort sort = t.getSort();
+				// Is there already a mapping from term to variable?
+				if (mMixedTermAuxEq.containsKey(t)) {
+					auxVar = mMixedTermAuxEq.get(t);
+				} else {
+					// Create fresh variable.
+					auxVar = mTheory.createFreshTermVariable("purAux", sort);
+					mMixedTermAuxEq.put(t, auxVar);
 				}
-
-				// Order in which we replace subterms in nested functions may effect result,
-				// i.e. if we have f(f(a)) and we want to replace f(...), we should start with
-				// the outermost occurrence of f.
-				ArrayList<Term> ordered = orderTerms(replace);
-
-				// Replace the term by a variable
-				for (int j = 0; j < ordered.size(); j++) {
-					TermVariable auxVar;
-					Term t = ordered.get(j);
-					Sort sort = t.getSort();
-					// Is there already a mapping from term to variable?
-					if (mMixedTermAuxEq.containsKey(t)) {
-						auxVar = mMixedTermAuxEq.get(t);
-					} else {
-						// Create fresh variable.
-						auxVar = mTheory.createFreshTermVariable("purAux", sort);
-						mMixedTermAuxEq.put(t, auxVar);
-					}
-					final TermTransformer ipolator = new TermSubstitutor(t, auxVar);
-					interpolants[i] = ipolator.transform(interpolants[i]);
-				}
+				final TermTransformer ipolator = new TermSubstitutor(t, auxVar);
+				interpolant = ipolator.transform(interpolant);
 			}
 		}
-		return interpolants;
+		return interpolant;
 	}
 
 	/**
 	 * Collect all non-logical symbols in a given term that are not AB-shared in the
 	 * given partition.
 	 */
-	public HashSet<String> getNonsharedSymbols(final Term term, final int partition) {
-		HashSet<String> result = new HashSet<String>();
-		HashSet<String> symbols = getSymbols(term);
+	public HashSet<FunctionSymbol> getNonsharedSymbols(final Term term, final int partition) {
+		final HashSet<FunctionSymbol> result = new HashSet<>();
+		final HashSet<FunctionSymbol> symbols = getSymbols(term);
 
-		for (String s : symbols) {
-			assert mSymbolOccurrenceInfos.get(s) != null;
-			if (!mSymbolOccurrenceInfos.get(s).isAB(partition)) {
+		for (final FunctionSymbol s : symbols) {
+			assert mFunctionSymbolOccurrenceInfos.get(s) != null;
+			if (!mFunctionSymbolOccurrenceInfos.get(s).isAB(partition)) {
 				result.add(s);
 			}
 		}
@@ -1753,14 +1723,14 @@ public class Interpolator extends NonRecursive {
 	/**
 	 * Collect the set of unsupported variables relative to a given clause from a
 	 * list of variables .
-	 * 
+	 *
 	 * @param variables The variables to be checked
 	 * @param clause    The clause against which the variables are checked
 	 * @return Set of TermVariables that are not supported by the clause
 	 */
 	private HashSet<TermVariable> getUnsupportedVariables(ArrayList<TermVariable> variables, Term[] clause) {
-		HashSet<TermVariable> result = new HashSet<TermVariable>();
-		HashSet<Term> subTerms = new HashSet<Term>();
+		final HashSet<TermVariable> result = new HashSet<>();
+		final HashSet<Term> subTerms = new HashSet<>();
 
 		if (variables.isEmpty()) {
 			return result;
@@ -1773,9 +1743,9 @@ public class Interpolator extends NonRecursive {
 		// Check if term that was replaced by the variable is a subterm of the clause.
 		for (int i = 0; i < variables.size(); i++) {
 			Term replaced = null;
-			for (Entry<Term, TermVariable> e : mMixedTermAuxEq.entrySet()) {
+			for (final Entry<Term, TermVariable> e : mMixedTermAuxEq.entrySet()) {
 				if (e.getValue().equals(variables.get(i))) {
-					replaced = (Term) e.getKey();
+					replaced = e.getKey();
 					break;
 				}
 			}
@@ -1793,41 +1763,41 @@ public class Interpolator extends NonRecursive {
 	 * return a list where the given variables are ordered according to their
 	 * dependencies, i.e. For v1, v2 with dependency v1=f(v2), we return [v2,v1].
 	 * Only works if variable dependencies do not contain cycles.
-	 * 
+	 *
 	 * @param unsupported    Set of variables to be sorted.
 	 * @param variableToTerm Set containing mapping between variables and the terms
 	 *                       that they replaced.
 	 * @return List of variables in dependency order.
 	 */
 	private List<TermVariable> sortVariables(HashMap<TermVariable, Term> map) {
-		HashMap<TermVariable, HashSet<TermVariable>> dependencies = new HashMap<TermVariable, HashSet<TermVariable>>();
+		final HashMap<TermVariable, HashSet<TermVariable>> dependencies = new HashMap<>();
 
 		// Build dependency map.
-		for (Entry<TermVariable, Term> e1 : map.entrySet()) {
-			Term t1 = (Term) e1.getValue();
-			HashSet<TermVariable> deps = new HashSet<TermVariable>();
-			for (Entry<TermVariable, Term> e2 : map.entrySet()) {
+		for (final Entry<TermVariable, Term> e1 : map.entrySet()) {
+			final Term t1 = e1.getValue();
+			final HashSet<TermVariable> deps = new HashSet<>();
+			for (final Entry<TermVariable, Term> e2 : map.entrySet()) {
 				if (e1.equals(e2)) {
 					continue;
 				}
-				Term t2 = (Term) e2.getValue();
+				final Term t2 = e2.getValue();
 				// check if v2 is subTerm of v1
-				HashSet<Term> sub = getAllSubTerms(t1);
+				final HashSet<Term> sub = getAllSubTerms(t1);
 				if (sub.contains(t2)) {
-					deps.add((TermVariable) e2.getKey());
+					deps.add(e2.getKey());
 				}
 			}
-			dependencies.put((TermVariable) e1.getKey(), deps);
+			dependencies.put(e1.getKey(), deps);
 		}
 
-		Deque<TermVariable> todoStack = new ArrayDeque<TermVariable>(map.keySet());
-		List<TermVariable> ordered = new ArrayList<TermVariable>();
+		final Deque<TermVariable> todoStack = new ArrayDeque<>(map.keySet());
+		final List<TermVariable> ordered = new ArrayList<>();
 		TermVariable seen = null;
 		Boolean reset = true;
 
 		// Compute dependency ordered list.
 		while (!todoStack.isEmpty()) {
-			TermVariable tv = todoStack.pop();
+			final TermVariable tv = todoStack.pop();
 			if (tv == seen) {
 				throw new IllegalArgumentException("Variable dependencies must not contain cycles.");
 			}
@@ -1852,48 +1822,49 @@ public class Interpolator extends NonRecursive {
 	 * Add quantifiers to the provisional interpolants for a given clause if the
 	 * provisional interpolant contains auxiliary variables that are not supported
 	 * by the clause.
-	 * 
+	 *
 	 * @param interpolants Set of provisional interpolants for the clause
 	 * @param clause       The clause for which the interpolants should be computed
 	 * @return The modified interpolant.
 	 */
 	private Term[] addQuantifier(final Term[] interpolants, Term[] clause) {
-		ArrayList<TermVariable> vars = new ArrayList<TermVariable>();
-		HashMap<TermVariable, Term> termToAuxEq = (HashMap<TermVariable, Term>) mMixedTermAuxEq.entrySet().stream()
+		final ArrayList<TermVariable> vars = new ArrayList<>();
+		final HashMap<TermVariable, Term> termToAuxEq = (HashMap<TermVariable, Term>) mMixedTermAuxEq.entrySet().stream()
 				.collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
-		HashMap<TermVariable, Term> mapUnsupported = new HashMap<TermVariable, Term>();
+		final HashMap<TermVariable, Term> mapUnsupported = new HashMap<>();
 
 		if (termToAuxEq.isEmpty()) {
 			return interpolants;
 		}
 		// Get the list of mixed-term auxiliary variables introduced for the clause.
-		vars.addAll((Collection<? extends TermVariable>) termToAuxEq.keySet());
+		vars.addAll(termToAuxEq.keySet());
 
 		// Collect those auxiliary variables not supported by the clause.
-		HashSet<TermVariable> unsupported = getUnsupportedVariables(vars, clause);
+		final HashSet<TermVariable> unsupported = getUnsupportedVariables(vars, clause);
 		if (unsupported.isEmpty()) {
 			return interpolants;
 		}
 
 		// Store mapping from variable to term for unsupported variables.
-		for (TermVariable tv : unsupported) {
+		for (final TermVariable tv : unsupported) {
 			mapUnsupported.put(tv, termToAuxEq.get(tv));
 		}
 
 		// Sort unsupported variables in dependency order.
-		List<TermVariable> ordered = sortVariables(mapUnsupported);
+		final List<TermVariable> ordered = sortVariables(mapUnsupported);
 
 		// Insert quantifiers for unsupported variables in inverse dependency order.
 		for (int i = 0; i < mNumInterpolants; i++) {
+			final HashSet<TermVariable> freeVars = new HashSet<>(Arrays.asList(interpolants[i].getFreeVars()));
 			for (int j = ordered.size() - 1; j >= 0; j--) {
-				if (!getTermVariables(interpolants[i]).contains(ordered.get(j))) {
+				if (!freeVars.contains(ordered.get(j))) {
 					continue;
 				}
 				// Get term that was replaced by the variable
-				String outermost = ((ApplicationTerm) mapUnsupported.get(ordered.get(j))).getFunction().getName();
+				final FunctionSymbol outermost = ((ApplicationTerm) mapUnsupported.get(ordered.get(j))).getFunction();
 
 				// Add quantifier according to color of outermost function symbol.
-				if (mSymbolOccurrenceInfos.get(outermost).isALocal(i)) {
+				if (mFunctionSymbolOccurrenceInfos.get(outermost).isALocal(i)) {
 					interpolants[i] = mTheory.exists(new TermVariable[] { ordered.get(j) }, interpolants[i]);
 				} else {
 					interpolants[i] = mTheory.forall(new TermVariable[] { ordered.get(j) }, interpolants[i]);

@@ -237,17 +237,12 @@ public class CCInterpolator {
 	 *            The right application term.
 	 * @return The array of interpolants.
 	 */
-	private Term[] interpolateCongruence(final ApplicationTerm left, final ApplicationTerm right, final InterpolatorClauseInfo clauseInfo) {
+	private Term[] interpolateCongruence(final ApplicationTerm left, final ApplicationTerm right) {
 		final Term[] interpolants = new Term[mNumInterpolants];
 		final Term[] leftParams = left.getParameters();
 		final Term[] rightParams = right.getParameters();
 		final LitInfo[] paramInfos = new LitInfo[leftParams.length];
 		assert left.getFunction() == right.getFunction() && leftParams.length == rightParams.length;
-
-		// Get outermost function symbol and its occurrence.
-		final String outermost = left.getFunction().getName().toString();
-		final Occurrence outermostOcc = mInterpolator.mSymbolOccurrenceInfos.get(outermost);
-		assert outermostOcc != null;
 
 		for (int i = 0; i < leftParams.length; i++) {
 			if (leftParams[i] == rightParams[i]) {
@@ -266,8 +261,8 @@ public class CCInterpolator {
 						terms.add(mTheory.term("=", leftParams[paramNr], rightParams[paramNr]));
 					} else if (paramInfos[paramNr] != null && paramInfos[paramNr].isMixed(part)) {
 						// Collect A-local parts in mixed parameter equalities.
-						TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
-						Term sideA = paramInfos[paramNr].getLhsOccur().isALocal(part) ? leftParams[paramNr]
+						final TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
+						final Term sideA = paramInfos[paramNr].getLhsOccur().isALocal(part) ? leftParams[paramNr]
 								: rightParams[paramNr];
 						terms.add(mTheory.term("=", mixedVar, sideA));
 					}
@@ -281,54 +276,14 @@ public class CCInterpolator {
 						terms.add(mTheory.not(mTheory.term("=", leftParams[paramNr], rightParams[paramNr])));
 					} else if (paramInfos[paramNr] != null && paramInfos[paramNr].isMixed(part)) {
 						// Collect B-local parts in mixed parameter equalities.
-						TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
-						Term sideB = paramInfos[paramNr].getLhsOccur().isBLocal(part) ? leftParams[paramNr]
+						final TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
+						final Term sideB = paramInfos[paramNr].getLhsOccur().isBLocal(part) ? leftParams[paramNr]
 								: rightParams[paramNr];
 						terms.add(mTheory.term("=", mixedVar, sideB));
 					}
 				}
 				interpolants[part] = mTheory.or(terms.toArray(new Term[terms.size()]));
-			}
-//				else if (mDiseqOccurrences.isAB(part) && outermostOcc.isAB(part)) {
-//				// Color literal depending on its source. If it has none, treat it as if it
-//				// originates from B.
-//				if (outermostOcc.isALocal(part)) {
-//					// The literal originates from partition A.
-//					final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
-//					for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
-//						// Collect negated B-local literals.
-//						if (paramInfos[paramNr] != null && paramInfos[paramNr].isBLocal(part)) {
-//							terms.add(mTheory.not(mTheory.term("=", leftParams[paramNr], rightParams[paramNr])));
-//						} else if (paramInfos[paramNr] != null && paramInfos[paramNr].isMixed(part)) {
-//							// Collect B-local parts in mixed parameter equalities.
-//							TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
-//							Term sideB = paramInfos[paramNr].getLhsOccur().isBLocal(part) ? leftParams[paramNr]
-//									: rightParams[paramNr];
-//							terms.add(mTheory.term("=", mixedVar, sideB));
-//						}
-//					}
-//					interpolants[part] = mTheory.or(terms.toArray(new Term[terms.size()]));
-//				} 
-//				else {
-//					// The literal originates from partition B.
-//					// Collect non-B-local-orShared literals
-//					final ArrayDeque<Term> terms = new ArrayDeque<>(leftParams.length);
-//					for (int paramNr = 0; paramNr < leftParams.length; paramNr++) {
-//						// Collect A-local literals.
-//						if (paramInfos[paramNr] != null && paramInfos[paramNr].isALocal(part)) {
-//							terms.add(mTheory.term("=", leftParams[paramNr], rightParams[paramNr]));
-//						} else if (paramInfos[paramNr] != null && paramInfos[paramNr].isMixed(part)) {
-//							// Collect A-local parts in mixed parameter equalities.
-//							TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
-//							Term sideA = paramInfos[paramNr].getLhsOccur().isALocal(part) ? leftParams[paramNr]
-//									: rightParams[paramNr];
-//							terms.add(mTheory.term("=", mixedVar, sideA));
-//						}
-//					}
-//					interpolants[part] = mTheory.and(terms.toArray(new Term[terms.size()]));
-//				}
-//			} 
-			else {
+			} else {
 				// the congruence is mixed.  In this case f must be shared and we need to find boundary
 				// terms for every parameter.
 				final Term[] boundaryTerms = new Term[leftParams.length];
@@ -441,37 +396,35 @@ public class CCInterpolator {
 		return interpolants;
 	}
 
-	public Term[] interpolateInstantiation(final Term proofTerm) {
-		assert mInterpolator.getClauseTermInfo(proofTerm).getLemmaType().equals(":inst");
+	public Term[] interpolateInstantiation(final InterpolatorClauseInfo proofTermInfo) {
+		assert proofTermInfo.getLemmaType().equals(":inst");
 
 		final Term[] interpolants = new Term[mNumInterpolants];
-		final InterpolatorClauseTermInfo proofTermInfo = mInterpolator.getClauseTermInfo(proofTerm);
 
 		// The literals in the instantiation lemma.
 		final Term[] lits = proofTermInfo.getLiterals();
 
 		// Get occurrence of quantified literal.
-		Term quantLit = mInterpolator.getAtom(lits[0]);
-		Occurrence quantLitInfo = mInterpolator.getAtomOccurenceInfo(quantLit);
+		final Term quantLit = mInterpolator.getAtom(lits[0]);
+		final Occurrence quantLitInfo = mInterpolator.getAtomOccurenceInfo(quantLit);
 
 		for (int part = 0; part < mNumInterpolants; part++) {
 			final ArrayDeque<Term> terms = new ArrayDeque<>(lits.length);
 			if (quantLitInfo.isALocal(part)) {
 				// Instance is in A.
 				for (int i = 0; i < lits.length; i++) {
-					Term atom = mInterpolator.getAtom(lits[i]);
-					Term unquoted = mInterpolator.unquote(atom);
-					LitInfo litInfo = mInterpolator.getAtomOccurenceInfo(atom);
+					final Term atom = mInterpolator.getAtom(lits[i]);
+					final LitInfo litInfo = mInterpolator.getAtomOccurenceInfo(atom);
 					// Collect all B-local or shared literals. (We do not explicitly negate them, as
 					// literals in the lemma are already the negation of literals in the conflict.)
 					if (litInfo.isBorShared(part)) {
 						terms.add(lits[i]);
 					} else if (litInfo.isMixed(part)) {
 						// Collect B-part from splitting mixed literal.
-						TermVariable mixedVar = litInfo.getMixedVar();
-						Term sideB = litInfo.getLhsOccur().isBLocal(part)
-								? ((ApplicationTerm) unquoted).getParameters()[0]
-								: ((ApplicationTerm) unquoted).getParameters()[1];
+						final TermVariable mixedVar = litInfo.getMixedVar();
+						final Term sideB = litInfo.getLhsOccur().isBLocal(part)
+								? ((ApplicationTerm) atom).getParameters()[0]
+								: ((ApplicationTerm) atom).getParameters()[1];
 
 						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "@EQ";
 						terms.add(mTheory.not(mTheory.term(op, mixedVar, sideB)));
@@ -485,19 +438,18 @@ public class CCInterpolator {
 			} else {
 				// Instance is in B.
 				for (int i = 0; i < lits.length; i++) {
-					Term atom = mInterpolator.getAtom(lits[i]);
-					Term unquoted = mInterpolator.unquote(atom);
-					LitInfo litInfo = mInterpolator.getAtomOccurenceInfo(atom);
+					final Term atom = mInterpolator.getAtom(lits[i]);
+					final LitInfo litInfo = mInterpolator.getAtomOccurenceInfo(atom);
 					// Collect all A-local literals. (We need to explicitly negate them,
 					// as we need the conflict literal.)
 					if (litInfo.isALocal(part)) {
 						terms.add(mTheory.not(lits[i]));
 					} else if (litInfo.isMixed(part)) {
 						// Collect A-part from splitting mixed literal.
-						TermVariable mixedVar = litInfo.getMixedVar();
-						Term sideA = litInfo.getLhsOccur().isALocal(part)
-								? ((ApplicationTerm) unquoted).getParameters()[0]
-								: ((ApplicationTerm) unquoted).getParameters()[1];
+						final TermVariable mixedVar = litInfo.getMixedVar();
+						final Term sideA = litInfo.getLhsOccur().isALocal(part)
+								? ((ApplicationTerm) atom).getParameters()[0]
+								: ((ApplicationTerm) atom).getParameters()[1];
 						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "@EQ";
 						terms.add(mTheory.term(op, mixedVar, sideA));
 					}
@@ -532,7 +484,7 @@ public class CCInterpolator {
 
 		mPath = (Term[]) proofTermInfo.getLemmaAnnotation();
 		if (proofTermInfo.getLemmaType() == ":cong") {
-			return interpolateCongruence((ApplicationTerm) mPath[0], (ApplicationTerm) mPath[1], proofTermInfo);
+			return interpolateCongruence((ApplicationTerm) mPath[0], (ApplicationTerm) mPath[1]);
 		} else {
 			return interpolateTransitivity();
 		}
