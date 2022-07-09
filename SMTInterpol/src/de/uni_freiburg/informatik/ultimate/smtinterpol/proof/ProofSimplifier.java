@@ -2972,14 +2972,11 @@ public class ProofSimplifier extends TermTransformer {
 	 * @param clause       the clause to check
 	 * @param ccAnnotation the argument of the :CC annotation.
 	 */
-	private Term convertCCLemma(final Term[] clause, final Object[] ccAnnotation) {
-		assert ccAnnotation.length >= 3 && ccAnnotation[0] instanceof Term && ccAnnotation[1] == ":subpath"
-				&& ccAnnotation[2] instanceof Term[];
-		final int startSubpathAnnot = 1;
+	private Term convertCCLemma(final Term[] clause, String lemmaType, final Term[] mainPath) {
+		assert mainPath.length >= 2 : "Main path too short in CC lemma";
 
 		// The goal equality
-		final Term goalEquality = (Term) ccAnnotation[0];
-		final Theory theory = goalEquality.getTheory();
+		final Theory theory = mainPath[0].getTheory();
 
 		/* collect literals and search for the disequality */
 		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
@@ -2987,18 +2984,11 @@ public class ProofSimplifier extends TermTransformer {
 		collectEqualities(clause, allEqualities, allDisequalities);
 		assert allDisequalities.size() <= 1;
 
-		final Term[] mainPath = (Term[]) ccAnnotation[startSubpathAnnot + 1];
-		assert mainPath.length >= 2 : "Main path too short in CC lemma";
-		assert isApplication("=", goalEquality) : "Goal equality is not an equality in CC lemma";
-		final Term[] sides = ((ApplicationTerm) goalEquality).getParameters();
-		assert sides.length == 2 : "Expected binary equality in CC lemma";
-		assert new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1])
-				.equals(new SymmetricPair<>(sides[0], sides[1])) : "Did not explain main equality " + goalEquality;
 
 		Term proof;
 		final HashSet<Term> neededEqualities = new HashSet<>();
-		final Term mainPathEquality = theory.term("=", mainPath[0], mainPath[mainPath.length - 1]);
 		if (mainPath.length == 2) {
+			assert lemmaType == ":cong" : "Transitivity lemma must have at least three steps";
 			// This must be a congruence lemma
 			assert mainPath[0] instanceof ApplicationTerm && mainPath[1] instanceof ApplicationTerm;
 			final ApplicationTerm lhs = (ApplicationTerm) mainPath[0];
@@ -3015,12 +3005,14 @@ public class ProofSimplifier extends TermTransformer {
 				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, lhsParams[i], rhsParams[i]));
 			}
 		} else {
+			assert lemmaType == ":trans" : "Congruence lemma must have a main path of length 2";
 			// This is a transitivity lemma
 			proof = mProofRules.trans(mainPath);
 			for (int i = 0; i < mainPath.length - 1; i++) {
 				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, mainPath[i], mainPath[i + 1]));
 			}
 		}
+		final Term mainPathEquality = theory.term("=", mainPath[0], mainPath[mainPath.length - 1]);
 		final Set<Term> neededDisequalities = Collections.singleton(mainPathEquality);
 		proof = resolveNeededEqualities(proof, allEqualities, allDisequalities, neededEqualities, neededDisequalities);
 		return proof;
@@ -4111,8 +4103,9 @@ public class ProofSimplifier extends TermTransformer {
 		Term subProof;
 
 		switch (lemmaType) {
-		case ":CC":
-			subProof = convertCCLemma(clause, (Object[]) lemmaAnnotation);
+		case ":trans":
+		case ":cong":
+			subProof = convertCCLemma(clause, lemmaType, (Term[]) lemmaAnnotation);
 			break;
 		case ":read-over-weakeq":
 			subProof = convertArraySelectWeakEqLemma(clause, (Object[]) lemmaAnnotation);

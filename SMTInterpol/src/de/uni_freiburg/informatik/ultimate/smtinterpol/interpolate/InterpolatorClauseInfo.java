@@ -32,7 +32,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
  *
  * @author Tanja Schindler
  */
-public class InterpolatorClauseTermInfo {
+public class InterpolatorClauseInfo {
 
 	/**
 	 * The literals of this clause. This may be null for resolution clauses, if the literals haven't been computed yet.
@@ -64,7 +64,7 @@ public class InterpolatorClauseTermInfo {
 	 * Create the information for a proof term representing a clause. This fills in all relevant fields for the given
 	 * proof term.
 	 */
-	public InterpolatorClauseTermInfo(final Term term) {
+	public InterpolatorClauseInfo(final Term term) {
 		mNodeKind = ((ApplicationTerm) term).getFunction().getName();
 		if (isResolution()) {
 			mResolutionArgs = ((ApplicationTerm) term).getParameters();
@@ -79,11 +79,11 @@ public class InterpolatorClauseTermInfo {
 	public void computeResolutionLiterals(final Interpolator interpolator) {
 		assert isResolution();
 		final LinkedHashSet<Term> literals = new LinkedHashSet<>();
-		final InterpolatorClauseTermInfo primInfo = interpolator.mClauseTermInfos.get(getPrimary());
+		final InterpolatorClauseInfo primInfo = interpolator.mClauseTermInfos.get(getPrimary());
 		literals.addAll(Arrays.asList(primInfo.getLiterals()));
 		for (final AnnotatedTerm antecedent : getAntecedents()) {
 			final Term pivot = computePivot(antecedent);
-			final InterpolatorClauseTermInfo antecedentInfo =
+			final InterpolatorClauseInfo antecedentInfo =
 					interpolator.mClauseTermInfos.get(antecedent.getSubterm());
 			literals.remove(interpolator.mTheory.not(pivot));
 			for (final Term antLit : antecedentInfo.getLiterals()) {
@@ -168,7 +168,8 @@ public class InterpolatorClauseTermInfo {
 	}
 
 	/**
-	 * Gets the lemma type, i.e., the key of the lemma annotation. This should be one of :EQ, :CC, :LA or :trichotomy.
+	 * Gets the lemma type, i.e., the key of the lemma annotation. This should be
+	 * one of :EQ, :cong, :trans, :LA or :trichotomy.
 	 *
 	 * @return the leaf kind.
 	 */

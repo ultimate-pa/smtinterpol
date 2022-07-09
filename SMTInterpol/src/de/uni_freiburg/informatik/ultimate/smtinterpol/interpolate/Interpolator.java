@@ -106,7 +106,7 @@ public class Interpolator extends NonRecursive {
 	HashMap<String, Integer> mPartitions;
 	HashMap<Term, LitInfo> mAtomOccurenceInfos;
 	HashMap<Term, Term[]> mInterpolants;
-	HashMap<Term, InterpolatorClauseTermInfo> mClauseTermInfos;
+	HashMap<Term, InterpolatorClauseInfo> mClauseTermInfos;
 	HashMap<Term, InterpolatorAtomInfo> mLiteralTermInfos;
 	HashMap<FunctionSymbol, Occurrence> mFunctionSymbolOccurrenceInfos;
 	HashMap<Term, TermVariable> mMixedTermAuxEq;
@@ -138,7 +138,7 @@ public class Interpolator extends NonRecursive {
 			if (proofTreeWalker.checkCacheForInterpolants(mProofTerm)) {
 				return;
 			}
-			final InterpolatorClauseTermInfo proofTermInfo = ((Interpolator) engine).getClauseTermInfo(mProofTerm);
+			final InterpolatorClauseInfo proofTermInfo = ((Interpolator) engine).getClauseTermInfo(mProofTerm);
 			if (proofTermInfo.isResolution()) {
 				((Interpolator) engine).walkResolutionNode(mProofTerm);
 			} else {
@@ -264,7 +264,7 @@ public class Interpolator extends NonRecursive {
 		if (mCancel.isTerminationRequested()) {
 			throw new SMTLIBException("Timeout exceeded");
 		}
-		final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
+		final InterpolatorClauseInfo proofTermInfo = getClauseTermInfo(proofTerm);
 		// get primary and antecedents
 		final Term prim = proofTermInfo.getPrimary();
 
@@ -295,7 +295,7 @@ public class Interpolator extends NonRecursive {
 			throw new SMTLIBException("Timeout exceeded");
 		}
 		Term[] interpolants;
-		final InterpolatorClauseTermInfo leafTermInfo = getClauseTermInfo(leaf);
+		final InterpolatorClauseInfo leafTermInfo = getClauseTermInfo(leaf);
 		if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_CLAUSE)) {
 			if (isSkolemizedFormula(leaf)) {
 				throw new UnsupportedOperationException("Interpolation not supported for quantified formulae.");
@@ -307,26 +307,37 @@ public class Interpolator extends NonRecursive {
 				interpolants[i] = mStartOfSubtrees[i] <= partition && partition <= i ? mTheory.mFalse : mTheory.mTrue;
 			}
 		} else if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_LEMMA)) {
-			if (leafTermInfo.getLemmaType().equals(":EQ")) {
-				interpolants = new EQInterpolator(this).computeInterpolants(leaf);
-			} else if (leafTermInfo.getLemmaType().equals(":CC")) {
+			switch (leafTermInfo.getLemmaType()) {
+			case ":EQ":
+				interpolants = new EQInterpolator(this).computeInterpolants(leafTermInfo);
+				break;
+			case ":cong":
+			case ":trans": {
 				final CCInterpolator ipolator = new CCInterpolator(this);
-				interpolants = ipolator.computeInterpolants(leaf);
-			} else if (leafTermInfo.getLemmaType().equals(":LA")) {
+				interpolants = ipolator.computeInterpolants(leafTermInfo);
+				break;
+			}
+			case ":LA": {
 				final LAInterpolator ipolator = new LAInterpolator(this);
-				interpolants = ipolator.computeInterpolants(leaf);
-			} else if (leafTermInfo.getLemmaType().equals(":trichotomy")) {
+				interpolants = ipolator.computeInterpolants(leafTermInfo);
+				break;
+			}
+			case ":trichotomy": {
 				final LAInterpolator ipolator = new LAInterpolator(this);
-				interpolants = ipolator.computeTrichotomyInterpolants(leaf);
-			} else if (leafTermInfo.getLemmaType().equals(":read-over-weakeq")
-					|| leafTermInfo.getLemmaType().equals(":weakeq-ext")
-					|| leafTermInfo.getLemmaType().equals(":const-weakeq")
-					|| leafTermInfo.getLemmaType().equals(":read-const-weakeq")) {
+				interpolants = ipolator.computeTrichotomyInterpolants(leafTermInfo);
+				break;
+			}
+			case ":read-over-weakeq":
+			case ":weakeq-ext":
+			case ":const-weakeq":
+			case ":read-const-weakeq": {
 				final ArrayInterpolator ipolator = new ArrayInterpolator(this);
-				interpolants = ipolator.computeInterpolants(leaf);
-			} else if (leafTermInfo.getLemmaType().equals(":inst")) {
+				interpolants = ipolator.computeInterpolants(leafTermInfo);
+				break;
+			}
+			case ":inst":
 				throw new UnsupportedOperationException("Interpolation not supported for quantified formulae.");
-			} else {
+			default:
 				throw new UnsupportedOperationException("Unknown lemma type!");
 			}
 		} else {
@@ -407,7 +418,7 @@ public class Interpolator extends NonRecursive {
 		interpolants = mInterpolated.getLast();
 
 		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
-			final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
+			final InterpolatorClauseInfo proofTermInfo = getClauseTermInfo(proofTerm);
 			if (proofTermInfo.getLiterals() == null) {
 				proofTermInfo.computeResolutionLiterals(this);
 			}
@@ -745,7 +756,7 @@ public class Interpolator extends NonRecursive {
 
 		while (!todoStack.isEmpty()) {
 			final Term proofTerm = todoStack.pop();
-			final InterpolatorClauseTermInfo proofTermInfo = getClauseTermInfo(proofTerm);
+			final InterpolatorClauseInfo proofTermInfo = getClauseTermInfo(proofTerm);
 			if (proofTermInfo.isResolution()) {
 				final Term primary = proofTermInfo.getPrimary();
 				if (seen.add(primary)) {
@@ -1410,11 +1421,11 @@ public class Interpolator extends NonRecursive {
 	 * to avoid recalculating them. This can be used for complex proof terms such as complete resolution steps or
 	 * lemmata, but also for single literals.
 	 */
-	InterpolatorClauseTermInfo getClauseTermInfo(final Term term) {
+	InterpolatorClauseInfo getClauseTermInfo(final Term term) {
 		if (mClauseTermInfos.containsKey(term)) {
 			return mClauseTermInfos.get(term);
 		}
-		final InterpolatorClauseTermInfo info = new InterpolatorClauseTermInfo(term);
+		final InterpolatorClauseInfo info = new InterpolatorClauseInfo(term);
 		mClauseTermInfos.put(term, info);
 		return info;
 	}
@@ -1438,7 +1449,7 @@ public class Interpolator extends NonRecursive {
 	}
 
 	private boolean isSkolemizedFormula(final Term leaf) {
-		final InterpolatorClauseTermInfo info = getClauseTermInfo(leaf);
+		final InterpolatorClauseInfo info = getClauseTermInfo(leaf);
 		for (final Term lit : info.getLiterals()) {
 			if (containsSkolemVar(lit)) {
 				return true;

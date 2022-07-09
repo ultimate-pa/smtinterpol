@@ -58,7 +58,7 @@ public class ArrayInterpolator {
 	/**
 	 * Information about the lemma proof term.
 	 */
-	private InterpolatorClauseTermInfo mLemmaInfo;
+	private InterpolatorClauseInfo mLemmaInfo;
 	/**
 	 * The main disequality of this lemma, i.e., "a[i]!=b[j]" for read-over-weakeq, "a!=b" for weakeq-ext, "a[i]!=v" for
 	 * read-const-weakeq, "v!=w" for const-weakeq.
@@ -135,7 +135,7 @@ public class ArrayInterpolator {
 	 *
 	 * @return paths an array containing the proof paths
 	 */
-	private ApplicationTerm getDiseq(final InterpolatorClauseTermInfo clauseInfo) {
+	private ApplicationTerm getDiseq(final InterpolatorClauseInfo clauseInfo) {
 		final Object[] annotations = (Object[]) clauseInfo.getLemmaAnnotation();
 		assert annotations.length % 2 == 1;
 		final ApplicationTerm diseq = (ApplicationTerm) annotations[0];
@@ -148,7 +148,7 @@ public class ArrayInterpolator {
 	 *
 	 * @return paths an array containing the proof paths
 	 */
-	private ProofPath[] getPaths(final InterpolatorClauseTermInfo clauseInfo) {
+	private ProofPath[] getPaths(final InterpolatorClauseInfo clauseInfo) {
 		final Object[] annotations = (Object[]) clauseInfo.getLemmaAnnotation();
 		assert annotations.length % 2 == 1;
 		final int length = (annotations.length - 1) / 2;
@@ -169,8 +169,8 @@ public class ArrayInterpolator {
 	 *            An array lemma.
 	 * @return An array containing interpolants for all partitions.
 	 */
-	public Term[] computeInterpolants(final Term proofTerm) {
-		mLemmaInfo = mInterpolator.getClauseTermInfo(proofTerm);
+	public Term[] computeInterpolants(final InterpolatorClauseInfo lemmaInfo) {
+		mLemmaInfo = lemmaInfo;
 		mEqualities = new HashMap<>();
 		mDisequalities = new HashMap<>();
 		mABSwitchOccur = mInterpolator.new Occurrence();
@@ -190,14 +190,14 @@ public class ArrayInterpolator {
 
 		Term[] interpolants = new Term[mNumInterpolants];
 		if (mLemmaInfo.getLemmaType().equals(":read-over-weakeq")) {
-			interpolants = computeReadOverWeakeqInterpolants(proofTerm);
+			interpolants = computeReadOverWeakeqInterpolants();
 		} else if (mLemmaInfo.getLemmaType().equals(":weakeq-ext")) {
-			interpolants = computeWeakeqExtInterpolants(proofTerm);
+			interpolants = computeWeakeqExtInterpolants();
 		} else if (mLemmaInfo.getLemmaType().equals(":const-weakeq")) {
-			interpolants = computeConstWeakeqInterpolants(proofTerm);
+			interpolants = computeConstWeakeqInterpolants();
 		} else {
 			assert mLemmaInfo.getLemmaType().equals(":read-const-weakeq") : "Unknown array lemma!";
-			interpolants = computeReadConstWeakeqInterpolants(proofTerm);
+			interpolants = computeReadConstWeakeqInterpolants();
 		}
 
 		final FormulaUnLet unletter = new FormulaUnLet();
@@ -221,7 +221,7 @@ public class ArrayInterpolator {
 	 *            A read-over-weakeq lemma.
 	 * @return An array containing the interpolants for all partitions.
 	 */
-	private Term[] computeReadOverWeakeqInterpolants(final Term proofTerm) {
+	private Term[] computeReadOverWeakeqInterpolants() {
 		final ProofPath[] paths = getPaths(mLemmaInfo);
 		assert paths.length == 1;
 		mStorePath = paths[0];
@@ -275,7 +275,7 @@ public class ArrayInterpolator {
 	 *            A weakeq-ext lemma.
 	 * @return An array containing the interpolants for all partitions.
 	 */
-	private Term[] computeWeakeqExtInterpolants(final Term proofTerm) {
+	private Term[] computeWeakeqExtInterpolants() {
 		// TODO Find shared arrays for the mixed case. If there are shared arrays for mDiseq, we don't need to build the
 		// recursive interpolant but interpolate in such way that all paths in either A or B are closed by shared terms.
 		final ProofPath[] paths = getPaths(mLemmaInfo);
@@ -331,7 +331,7 @@ public class ArrayInterpolator {
 	 *            a const-weakeq lemma.
 	 * @return an array containing the interpolants of the lemma for all partitions of the interpolation problem.
 	 */
-	private Term[] computeConstWeakeqInterpolants(final Term proofTerm) {
+	private Term[] computeConstWeakeqInterpolants() {
 		final ProofPath[] paths = getPaths(mLemmaInfo);
 		assert paths.length == 1;
 		mStorePath = paths[0];
@@ -370,7 +370,7 @@ public class ArrayInterpolator {
 	 *            a read-const-weakeq lemma.
 	 * @return an array containing the interpolants of the lemma for all partitions of the interpolation problem.
 	 */
-	private Term[] computeReadConstWeakeqInterpolants(final Term proofTerm) {
+	private Term[] computeReadConstWeakeqInterpolants() {
 		final ProofPath[] paths = getPaths(mLemmaInfo);
 		assert paths.length == 1;
 		mStorePath = paths[0];

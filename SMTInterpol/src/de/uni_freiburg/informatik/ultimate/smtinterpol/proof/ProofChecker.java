@@ -570,22 +570,37 @@ public class ProofChecker extends NonRecursive {
 		final Term lemma = annTerm.getSubterm();
 		final Term[] clause = termToClause(lemma);
 
-		if (lemmaType == ":LA") {
+		switch (lemmaType) {
+		case ":LA":
 			checkLALemma(clause, (Term[]) lemmaAnnotation);
-		} else if (lemmaType == ":CC") {
-			checkCCLemma(clause, (Object[]) lemmaAnnotation);
-		} else if (lemmaType == ":CC" || lemmaType == ":read-over-weakeq" || lemmaType == ":weakeq-ext"
-				|| lemmaType == ":read-const-weakeq" || lemmaType == ":const-weakeq") {
+			break;
+		case ":trans":
+		case ":cong":
+			checkCCLemma(clause, lemmaType, (Term[]) lemmaAnnotation);
+			break;
+		case ":read-over-weakeq":
+		case ":weakeq-ext":
+		case ":read-const-weakeq":
+		case ":const-weakeq":
 			checkArrayLemma(lemmaType, clause, (Object[]) lemmaAnnotation);
-		} else if (lemmaType == ":dt-project" || lemmaType == ":dt-tester" || lemmaType == ":dt-constructor"
-				|| lemmaType == ":dt-cases" || lemmaType == ":dt-unique" || lemmaType == ":dt-injective"
-				|| lemmaType == ":dt-disjoint" || lemmaType == ":dt-cycle") {
+			break;
+		case ":dt-project":
+		case ":dt-tester":
+		case ":dt-constructor":
+		case ":dt-cases":
+		case ":dt-unique":
+		case ":dt-injective":
+		case ":dt-disjoint":
+		case ":dt-cycle":
 			checkDataTypeLemma(lemmaType, clause, (Object[]) lemmaAnnotation);
-		} else if (lemmaType == ":trichotomy") {
+			break;
+		case ":trichotomy":
 			checkTrichotomy(clause);
-		} else if (lemmaType == ":EQ") {
+			break;
+		case ":EQ":
 			checkEQLemma(clause);
-		} else if (lemmaType == ":inst") {
+			break;
+		case ":inst": {
 			mNumInstancesUsed++;
 			final Object[] subannots = ((Object[]) lemmaAnnotation);
 			assert subannots.length == 5;
@@ -599,7 +614,9 @@ public class ProofChecker extends NonRecursive {
 				mNumInstancesFromEnumeration++;
 			}
 			checkInstLemma(clause, subannots);
-		} else {
+			break;
+		}
+		default:
 			reportError("Cannot deal with lemma %s", lemmaType);
 			mLogger.error(annTerm);
 		}
@@ -644,52 +661,33 @@ public class ProofChecker extends NonRecursive {
 	 * @param clause       the clause to check
 	 * @param ccAnnotation the argument of the :CC annotation.
 	 */
-	private void checkCCLemma(final Term[] clause, final Object[] ccAnnotation) {
-		if (ccAnnotation.length < 3 || !(ccAnnotation[0] instanceof Term) || ccAnnotation[1] != ":subpath"
-				|| !(ccAnnotation[2] instanceof Term[])) {
-			reportError("Malformed CC annotation");
-			return;
-		}
-		final int startSubpathAnnot = 1;
-
-		// The goal equality
-		final Term goalEquality = (Term) ccAnnotation[0];
-
+	private void checkCCLemma(final Term[] clause, String lemmaType, final Term[] mainPath) {
 		/* collect literals */
 		final HashSet<SymmetricPair<Term>> allEqualities = new HashSet<>();
 		final HashSet<SymmetricPair<Term>> allDisequalities = new HashSet<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
-		final Term[] mainPath = (Term[]) ccAnnotation[startSubpathAnnot + 1];
 		if (mainPath.length < 2) {
 			reportError("Main path too short in CC lemma");
 			return;
 		}
-		if (!isApplication("=", goalEquality)) {
-			reportError("Goal equality is not an equality in CC lemma");
-			return;
-		}
-		final Term[] sides = ((ApplicationTerm) goalEquality).getParameters();
-		if (sides.length != 2) {
-			reportError("Expected binary equality in CC lemma");
+		if ((mainPath.length == 2) != (lemmaType == ":cong")) {
+			reportError("Main path has wrong length in %s lemma", lemmaType);
 			return;
 		}
 		if (allDisequalities.isEmpty()) {
-			if (!checkTrivialDisequality(sides[0], sides[1])) {
+			if (!checkTrivialDisequality(mainPath[0], mainPath[mainPath.length - 1])) {
 				reportError("Did not find goal equality in CC lemma");
 			}
 		} else {
 			final SymmetricPair<Term> diseq = allDisequalities.iterator().next();
-			if (!diseq.equals(new SymmetricPair<>(sides[0], sides[1])) || allDisequalities.size() != 1) {
+			if (!diseq.equals(new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1]))
+					|| allDisequalities.size() != 1) {
 				reportError("Unexpected positive literal in CC lemma.");
 			}
 		}
-		if (!new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1])
-				.equals(new SymmetricPair<>(sides[0], sides[1]))) {
-			reportError("Did not explain main equality %s", goalEquality);
-		}
 
-		if (mainPath.length == 2) {
+		if (lemmaType == ":cong") {
 			// This must be a congruence lemma
 			if (!(mainPath[0] instanceof ApplicationTerm) || !(mainPath[1] instanceof ApplicationTerm)) {
 				reportError("Malformed congruence lemma");

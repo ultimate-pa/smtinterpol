@@ -103,8 +103,7 @@ public class ProofSimplifierTest {
 			orParams[i] = mSmtInterpol.term("not", eqs[i]);
 		}
 		final Term clause = mSmtInterpol.term("or", (Term[]) shuffle(orParams));
-		final Object[] subannots = new Object[] { eqs[len - 1], ":subpath", terms };
-		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":CC", subannots) };
+		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":trans", terms) };
 		final Term lemma = mSmtInterpol.term(ProofConstants.FN_LEMMA, mSmtInterpol.annotate(clause, lemmaAnnots));
 		return lemma;
 	}
@@ -124,8 +123,7 @@ public class ProofSimplifierTest {
 			orParams[i] = i == len - 1 ? eqs[i] : mSmtInterpol.term("not", eqs[i]);
 		}
 		final Term clause = mSmtInterpol.term("or", (Term[]) shuffle(orParams));
-		final Object[] subannots = new Object[] { eqs[len - 1], ":subpath", terms };
-		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":CC", subannots) };
+		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":trans", terms) };
 		final Term lemma = mSmtInterpol.term(ProofConstants.FN_LEMMA,
 				mSmtInterpol.annotate(clause, lemmaAnnots));
 		return lemma;
@@ -559,8 +557,8 @@ public class ProofSimplifierTest {
 			final Term equality = mSmtInterpol.term(SMTLIBConstants.EQUALS, p, (flags & 1) != 0 ? falseTerm : trueTerm);
 			final Term litp = (flags & 1) != 0 ? p : mSmtInterpol.term(SMTLIBConstants.NOT, p);
 			final Term clause = mSmtInterpol.term(SMTLIBConstants.OR, equality, litp);
-			final Annotation rule = (flags & 1) != 0 ? ProofConstants.AUX_EXCLUDED_MIDDLE_2
-					: ProofConstants.AUX_EXCLUDED_MIDDLE_1;
+			final Annotation rule = (flags & 1) != 0 ? ProofConstants.TAUT_EXCLUDED_MIDDLE_2
+					: ProofConstants.TAUT_EXCLUDED_MIDDLE_1;
 			final Term tautology = mSmtInterpol.term(ProofConstants.FN_TAUTOLOGY, mSmtInterpol.annotate(clause, rule));
 			checkLemmaOrRewrite(tautology, new Term[] { equality, litp });
 		}
@@ -606,7 +604,7 @@ public class ProofSimplifierTest {
 	}
 
 	public void checkIteTermBound(final Term iteTerm, final Term baseTerm, final Rational min, final Rational max) {
-		final Annotation rule = ProofConstants.AUX_TERM_ITE_BOUND;
+		final Annotation rule = ProofConstants.TAUT_TERM_ITE_BOUND;
 		final SMTAffineTerm sumMin = new SMTAffineTerm(baseTerm);
 		sumMin.add(min);
 		sumMin.add(Rational.MONE, iteTerm);

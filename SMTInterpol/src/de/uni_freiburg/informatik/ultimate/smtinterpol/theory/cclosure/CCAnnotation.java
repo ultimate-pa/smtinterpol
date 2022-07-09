@@ -98,11 +98,15 @@ public class CCAnnotation implements IAnnotation {
 	 * The kind of the array axiom. We support two kinds, read-over-weakeq and
 	 * weakeq-ext.
 	 */
-	enum RuleKind {
+	public enum RuleKind {
 		/**
-		 * Congruence closure lemma, i.e., congruence or transitivity.
+		 * Transitivity lemma.
 		 */
-		CC(":CC"),
+		TRANS(":trans"),
+		/**
+		 * Congruence lemma.
+		 */
+		CONG(":cong"),
 		/**
 		 * Read over weak equivalence lemma.
 		 */

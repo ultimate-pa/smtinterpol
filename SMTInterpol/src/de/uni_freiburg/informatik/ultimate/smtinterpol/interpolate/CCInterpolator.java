@@ -229,17 +229,6 @@ public class CCInterpolator {
 	}
 
 	/**
-	 * For a CC lemma, get the single subpath.
-	 *
-	 * @return the single proof path in the annotation.
-	 */
-	private Term[] getPath(final InterpolatorClauseTermInfo clauseInfo) {
-		final Object[] annotations = (Object[]) clauseInfo.getLemmaAnnotation();
-		assert annotations.length == 3 && annotations[1].equals(":subpath");
-		return (Term[]) annotations[2];
-	}
-
-	/**
 	 * Compute the interpolants for a congruence lemma.
 	 *
 	 * @param left
@@ -394,10 +383,9 @@ public class CCInterpolator {
 		return interpolants;
 	}
 
-	public Term[] computeInterpolants(final Term proofTerm) {
+	public Term[] computeInterpolants(final InterpolatorClauseInfo proofTermInfo) {
 		// Collect the literal infos for all equalities in the clause.
 		mEqualityOccurrences = new HashMap<>();
-		final InterpolatorClauseTermInfo proofTermInfo = mInterpolator.getClauseTermInfo(proofTerm);
 		for (final Term literal : proofTermInfo.getLiterals()) {
 			final Term atom = mInterpolator.getAtom(literal);
 			if (atom != literal) {
@@ -413,8 +401,8 @@ public class CCInterpolator {
 			}
 		}
 
-		mPath = getPath(proofTermInfo);
-		if (mPath.length == 2) {
+		mPath = (Term[]) proofTermInfo.getLemmaAnnotation();
+		if (proofTermInfo.getLemmaType() == ":cong") {
 			return interpolateCongruence((ApplicationTerm) mPath[0], (ApplicationTerm) mPath[1]);
 		} else {
 			return interpolateTransitivity();

@@ -217,7 +217,7 @@ public class TermCompiler extends TermTransformer {
 			return;
 		}
 
-		if (fsym.isIntern() && !fsym.getName().matches("@.*skolem.*")) {
+		if (fsym.isIntern()) {
 			switch (fsym.getName()) {
 			case "not":
 				setResult(mUtils.convertNot(convertedApp));
@@ -552,7 +552,7 @@ public class TermCompiler extends TermTransformer {
 				if (fsym.isConstructor() || fsym.isSelector()) {
 					break;
 				}
-				if (fsym.getName().startsWith("@AUX")) {
+				if (fsym.getName().startsWith("@AUX") || fsym.getName().matches("@.*skolem.*")) {
 					break;
 				}
 				throw new UnsupportedOperationException("Unsupported internal function " + fsym.getName());

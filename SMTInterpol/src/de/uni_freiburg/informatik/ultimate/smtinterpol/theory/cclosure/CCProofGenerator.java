@@ -422,7 +422,8 @@ public class CCProofGenerator {
 	private ProofInfo findMainPaths() {
 		final ProofInfo mainProof = new ProofInfo();
 		switch (mRule) {
-		case CC:
+		case TRANS:
+		case CONG:
 			// The main path was already collected, just return it.
 			return mPathProofMap.get(mIndexedPaths[0].getPathEnds());
 		case READ_OVER_WEAKEQ: {
@@ -522,7 +523,7 @@ public class CCProofGenerator {
 		return proofOrder;
 	}
 
-	private Term buildLemma(final Theory theory, final RuleKind rule, final ProofInfo info, final Term mainEq,
+	private Term buildLemma(final Theory theory, RuleKind rule, final ProofInfo info, final Term mainEq,
 			final HashMap<SymmetricPair<CCTerm>, Term> auxLiterals) {
 		// Collect the new clause literals.
 		final Term[] args = new Term[info.getLiterals().size() + (mainEq == null ? 0 : 1) + info.getSubProofs().size()];
@@ -553,35 +554,48 @@ public class CCProofGenerator {
 		// Create the clause.
 		final Term base = theory.or(args);
 
-		final IndexedPath[] paths = info.getPaths();
-		final SymmetricPair<CCTerm> infoDiseq = info.getDiseq();
-		Object[] lemmaAnnot = new Object[0];
-		if (rule != RuleKind.CC && mAnnot.mDTLemma != null && mAnnot.mDTLemma.getAnnotation() != null) {
-			lemmaAnnot = mAnnot.mDTLemma.getAnnotation();
-		}
-		final Object[] subannots = new Object[2 * paths.length + (infoDiseq == null ? 0 : 1) + lemmaAnnot.length];
-		int k = 0;
-		if (infoDiseq != null) {
-			final Term diseqTerm = theory.term(SMTLIBConstants.EQUALS, infoDiseq.getFirst().getFlatTerm(),
-					infoDiseq.getSecond().getFlatTerm());
-			subannots[k++] = diseqTerm;
-		}
-		for (final Object annot : lemmaAnnot) {
-			subannots[k++] = annot;
-		}
-		for (final IndexedPath p : paths) {
-			final CCTerm index = p.getIndex();
-			final CCTerm[] path = p.getPath();
+		final Object[] subannots;
+		if (rule == RuleKind.CONG) {
+			// this is a transitivity or congruence lemma
+			assert info.getPaths().length == 1;
+			final CCTerm[] path = info.getPaths()[0].getPath();
 			final Term[] subs = new Term[path.length];
 			for (int j = 0; j < path.length; ++j) {
 				subs[j] = path[j].getFlatTerm();
 			}
-			if (index == null) {
-				subannots[k++] = ":subpath";
-				subannots[k++] = subs;
-			} else {
-				subannots[k++] = ":weakpath";
-				subannots[k++] = new Object[] { index.getFlatTerm(), subs };
+			rule = subs.length == 2 ? RuleKind.CONG : RuleKind.TRANS;
+			subannots = subs;
+		} else {
+			final IndexedPath[] paths = info.getPaths();
+			final SymmetricPair<CCTerm> infoDiseq = info.getDiseq();
+			Object[] lemmaAnnot = new Object[0];
+			if (mAnnot.mDTLemma != null && mAnnot.mDTLemma.getAnnotation() != null) {
+				lemmaAnnot = mAnnot.mDTLemma.getAnnotation();
+			}
+			subannots = new Object[2 * paths.length + (infoDiseq == null ? 0 : 1) + lemmaAnnot.length];
+			int k = 0;
+			if (infoDiseq != null) {
+				final Term diseqTerm = theory.term(SMTLIBConstants.EQUALS, infoDiseq.getFirst().getFlatTerm(),
+						infoDiseq.getSecond().getFlatTerm());
+				subannots[k++] = diseqTerm;
+			}
+			for (final Object annot : lemmaAnnot) {
+				subannots[k++] = annot;
+			}
+			for (final IndexedPath p : paths) {
+				final CCTerm index = p.getIndex();
+				final CCTerm[] path = p.getPath();
+				final Term[] subs = new Term[path.length];
+				for (int j = 0; j < path.length; ++j) {
+					subs[j] = path[j].getFlatTerm();
+				}
+				if (index == null) {
+					subannots[k++] = ":subpath";
+					subannots[k++] = subs;
+				} else {
+					subannots[k++] = ":weakpath";
+					subannots[k++] = new Object[] { index.getFlatTerm(), subs };
+				}
 			}
 		}
 		final Annotation[] annots = new Annotation[] { new Annotation(rule.getKind(), subannots) };
@@ -626,7 +640,7 @@ public class CCProofGenerator {
 			}
 
 			// Build lemma annotations.
-			Term lemma = buildLemma(theory, lemmaNo == 0 ? mRule : RuleKind.CC, info, provedEq, auxLiterals);
+			Term lemma = buildLemma(theory, lemmaNo == 0 ? mRule : RuleKind.CONG, info, provedEq, auxLiterals);
 			if (lemmaNo != 0) {
 				lemma = theory.annotatedTerm(new Annotation[] { new Annotation(":pivot", provedEq) }, lemma);
 			}

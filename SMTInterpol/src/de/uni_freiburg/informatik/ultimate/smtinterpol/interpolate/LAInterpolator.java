@@ -132,7 +132,7 @@ public class LAInterpolator {
 	/**
 	 * Compute the literals and corresponding Farkas coefficients for this LA lemma
 	 */
-	private HashMap<Term, Rational> getFarkasCoeffs(final InterpolatorClauseTermInfo clauseInfo) {
+	private HashMap<Term, Rational> getFarkasCoeffs(final InterpolatorClauseInfo clauseInfo) {
 		final HashMap<Term, Rational> coeffMap = new HashMap<>();
 		final Term[] lits = clauseInfo.getLiterals();
 		final Object[] coeffs = (Object[]) clauseInfo.getLemmaAnnotation();
@@ -151,9 +151,7 @@ public class LAInterpolator {
 	 *            the LA lemma that is interpolated.
 	 * @return an array containing the partial tree interpolants.
 	 */
-	public Term[] computeInterpolants(final Term lemma) {
-		final InterpolatorClauseTermInfo lemmaInfo = mInterpolator.getClauseTermInfo(lemma);
-
+	public Term[] computeInterpolants(final InterpolatorClauseInfo lemmaInfo) {
 		final InterpolatorAffineTerm[] ipl = new InterpolatorAffineTerm[mInterpolator.mNumInterpolants + 1];
 		for (int part = 0; part < ipl.length; part++) {
 			ipl[part] = new InterpolatorAffineTerm();
@@ -240,8 +238,7 @@ public class LAInterpolator {
 	 *            the LA lemma that is interpolated.
 	 * @return an array containing the partial tree interpolants.
 	 */
-	public Term[] computeTrichotomyInterpolants(final Term lemma) {
-		final InterpolatorClauseTermInfo lemmaInfo = mInterpolator.getClauseTermInfo(lemma);
+	public Term[] computeTrichotomyInterpolants(final InterpolatorClauseInfo lemmaInfo) {
 		// Count number of A-local and B-local literals and remember one of them.
 		// Collect the occurence info for the equality and the mix var for inequality and negated inequality.
 		LitInfo equalityOccurenceInfo = null;
