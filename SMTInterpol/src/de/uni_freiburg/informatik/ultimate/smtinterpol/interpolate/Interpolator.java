@@ -320,8 +320,9 @@ public class Interpolator extends NonRecursive {
 				final CCInterpolator ipolator = new CCInterpolator(this);
 				interpolants = ipolator.computeInterpolants(leafTermInfo);
 				// Replace non-shared symbols in interpolant.
+				final InterpolantPurifier purifier = new InterpolantPurifier(this);
 				for (int i = 0; i < interpolants.length; i++) {
-					interpolants[i] = replaceNonsharedSymbols(interpolants[i], i);
+					interpolants[i] = purifier.purify(interpolants[i], i);
 				}
 				break;
 			}
@@ -348,8 +349,9 @@ public class Interpolator extends NonRecursive {
 				final CCInterpolator ipolator = new CCInterpolator(this);
 				interpolants = ipolator.interpolateInstantiation(leafTermInfo);
 				// Replace non-shared symbols in interpolant.
+				final InterpolantPurifier purifier = new InterpolantPurifier(this);
 				for (int i = 0; i < interpolants.length; i++) {
-					interpolants[i] = replaceNonsharedSymbols(interpolants[i], i);
+					interpolants[i] = purifier.purify(interpolants[i], i);
 				}
 				// Check for unsupported variables and add quantifiers if necessary.
 				interpolants = addQuantifier(interpolants, new Term[] { leaf });
@@ -388,6 +390,7 @@ public class Interpolator extends NonRecursive {
 		final Term[] antecedentInterp = collectInterpolated();
 		final Term[] primInterp = collectInterpolated();
 		final Term[] interp = new Term[mNumInterpolants];
+		final InterpolantPurifier purifier = new InterpolantPurifier(this);
 
 		for (int i = 0; i < mNumInterpolants; i++) {
 			mLogger.debug("Pivot %3$s%4$s on interpolants %1$s and %2$s gives...", primInterp[i], antecedentInterp[i],
@@ -418,7 +421,7 @@ public class Interpolator extends NonRecursive {
 					throw new UnsupportedOperationException("Cannot handle mixed literal " + pivot);
 				}
 			}
-			interp[i] = replaceNonsharedSymbols(interp[i], i);
+			interp[i] = purifier.purify(interp[i], i);
 			// TODO: What about quantifier introduction?
 			mLogger.debug(interp[i]);
 		}
@@ -441,8 +444,9 @@ public class Interpolator extends NonRecursive {
 			proofTermInfo.computeResolutionLiterals(this);
 		}
 
+		final InterpolantPurifier purifier = new InterpolantPurifier(this);
 		for (int i = 0; i < interpolants.length; i++) {
-			interpolants[i] = replaceNonsharedSymbols(interpolants[i], i);
+			interpolants[i] = purifier.purify(interpolants[i], i);
 		}
 		// Add quantifiers if necessary. TODO: Is there a better place to do this?
 		interpolants = addQuantifier(interpolants, proofTermInfo.getLiterals());
@@ -810,6 +814,13 @@ public class Interpolator extends NonRecursive {
 		}
 	}
 
+	Occurrence getOccurrence(final FunctionSymbol func) {
+		if (func.isIntern() && !func.getName().startsWith("@AUX") && !func.getName().startsWith("@skolem")) {
+			return mFullOccurrence;
+		}
+		return mFunctionSymbolOccurrenceInfos.get(func);
+	}
+
 	Occurrence getOccurrence(final Term term) {
 		if (term instanceof ConstantTerm) {
 			return mFullOccurrence;
@@ -819,9 +830,7 @@ public class Interpolator extends NonRecursive {
 		if (result == null) {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol func = appTerm.getFunction();
-			final Occurrence fsymOccurrence = func.isIntern() && !func.getName().startsWith("@AUX")
-					&& !func.getName().startsWith("@skolem") ? mFullOccurrence
-							: mFunctionSymbolOccurrenceInfos.get(appTerm.getFunction());
+			final Occurrence fsymOccurrence = getOccurrence(func);
 			result = fsymOccurrence;
 			for (final Term param : appTerm.getParameters()) {
 				// TODO make non-recursive
@@ -866,11 +875,6 @@ public class Interpolator extends NonRecursive {
 			/* AUX and skolem functions must be colored for the quantifier interpolation */
 			final FunctionSymbol fsym = at.getFunction();
 			if (!fsym.isIntern() || fsym.getName().startsWith("@AUX") || fsym.getName().contains("skolem")) {
-				final Occurrence focc = mFunctionSymbolOccurrenceInfos.get(fsym);
-				if (focc != null && focc.contains(part)) {
-					/* Already colored correctly */
-					return;
-				}
 				addOccurrence(fsym, part);
 			}
 			return;
@@ -889,16 +893,15 @@ public class Interpolator extends NonRecursive {
 	 */
 	void addOccurrence(final FunctionSymbol symbol, final int part) {
 		Occurrence occ = mFunctionSymbolOccurrenceInfos.get(symbol);
-		if (occ != null && occ.contains(part)) {
-			/* Already colored correctly */
-			return;
-		}
 		/* Create occurrence if it does not exist yet */
 		if (occ == null) {
 			occ = new Occurrence();
+			mFunctionSymbolOccurrenceInfos.put(symbol, occ);
+		} else if (occ.contains(part)) {
+			/* Already colored correctly */
+			return;
 		}
 		occ.occursIn(part);
-		mFunctionSymbolOccurrenceInfos.put(symbol, occ);
 	}
 
 	HashSet<Term> getSubTerms(final Term literal) {
@@ -1604,54 +1607,20 @@ public class Interpolator extends NonRecursive {
 	}
 
 	/**
-	 * Replace all non-shared symbols in the interpolant by auxiliary variables.
+	 * Get the purification variable for a term. This also creates the variable if
+	 * it doesn't already exists.
 	 *
-	 * @param interpolant   The interpolant that possibly contain non-shared
-	 *                      symbols.
-	 * @param interpolantNr the number of the interpolant
-	 * @return resulting Array of interpolants only containing shared symbols.
+	 * @param t the term to replace by a variable
+	 * @return the term variable.
 	 */
-	private Term replaceNonsharedSymbols(Term interpolant, int interpolantNr) {
-		final HashSet<FunctionSymbol> nonSharedSymbols = getNonsharedSymbols(interpolant, interpolantNr);
-
-		if (nonSharedSymbols.isEmpty()) {
-			// The current interpolant only contains shared symbols.
-			return interpolant;
+	public TermVariable getOrCreatePurificationVariable(Term t) {
+		TermVariable auxVar = mMixedTermAuxEq.get(t);
+		if (auxVar == null) {
+			// Create fresh variable if it didn't exists.
+			auxVar = mTheory.createFreshTermVariable("purAux", t.getSort());
+			mMixedTermAuxEq.put(t, auxVar);
 		}
-		final HashSet<Term> subTerms = getAllSubTerms(interpolant);
-
-		// Collect the subterms that need to be replaced.
-		for (final FunctionSymbol s : nonSharedSymbols) {
-			final HashSet<Term> replace = new HashSet<>(subTerms);
-			for (final Term sub : subTerms) {
-				if (sub instanceof TermVariable || ((ApplicationTerm) sub).getFunction() != s) {
-					replace.remove(sub);
-				}
-			}
-
-			// Order in which we replace subterms in nested functions may effect result,
-			// i.e. if we have f(f(a)) and we want to replace f(...), we should start with
-			// the outermost occurrence of f.
-			final ArrayList<Term> ordered = orderTerms(replace);
-
-			// Replace the term by a variable
-			for (int j = 0; j < ordered.size(); j++) {
-				TermVariable auxVar;
-				final Term t = ordered.get(j);
-				final Sort sort = t.getSort();
-				// Is there already a mapping from term to variable?
-				if (mMixedTermAuxEq.containsKey(t)) {
-					auxVar = mMixedTermAuxEq.get(t);
-				} else {
-					// Create fresh variable.
-					auxVar = mTheory.createFreshTermVariable("purAux", sort);
-					mMixedTermAuxEq.put(t, auxVar);
-				}
-				final TermTransformer ipolator = new TermSubstitutor(t, auxVar);
-				interpolant = ipolator.transform(interpolant);
-			}
-		}
-		return interpolant;
+		return auxVar;
 	}
 
 	/**
