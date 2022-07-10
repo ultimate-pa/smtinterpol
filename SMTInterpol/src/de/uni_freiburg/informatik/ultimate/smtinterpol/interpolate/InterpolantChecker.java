@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -157,9 +156,7 @@ public class InterpolantChecker {
 		 * purVarToFreshTerm Get the mapping from all so far used purification variables
 		 * to the terms they replaced.
 		 */
-		final HashMap<TermVariable, Term> purVarToTerm = (HashMap<TermVariable, Term>) mInterpolator.mMixedTermAuxEq
-				.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
-
+		final HashMap<TermVariable, Term> purVarToTerm = mInterpolator.mPurifyDefinitions;
 		final HashSet<TermVariable> activeVars = new HashSet<>();
 
 		/*
@@ -484,7 +481,7 @@ public class InterpolantChecker {
 		final LogProxy logger = mInterpolator.getLogger();
 		final int old = logger.getLoglevel();
 		try {
-			// logger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
+			logger.setLoglevel(LogProxy.LOGLEVEL_ERROR);
 			final SymbolChecker checker = new SymbolChecker(mGlobals, subOccurrences[interpolants.length]);
 			for (int part = 0; part < numPartitions; part++) {
 				mCheckingSolver.push(1);
