@@ -280,7 +280,7 @@ public class CCInterpolator {
 						final TermVariable mixedVar = paramInfos[paramNr].getMixedVar();
 						final Term sideB = paramInfos[paramNr].getLhsOccur().isBLocal(part) ? leftParams[paramNr]
 								: rightParams[paramNr];
-						terms.add(mTheory.term("=", mixedVar, sideB));
+						terms.add(mTheory.not(mTheory.term("=", mixedVar, sideB)));
 					}
 				}
 				interpolants[part] = mTheory.or(terms.toArray(new Term[terms.size()]));
