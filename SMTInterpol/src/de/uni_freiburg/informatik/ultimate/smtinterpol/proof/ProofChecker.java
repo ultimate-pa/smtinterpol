@@ -603,7 +603,7 @@ public class ProofChecker extends NonRecursive {
 		case ":inst": {
 			mNumInstancesUsed++;
 			final Object[] subannots = ((Object[]) lemmaAnnotation);
-			assert subannots.length == 5;
+			assert subannots.length == 3 || subannots.length == 5;
 			final String solverPart = (String) subannots[2];
 			if (solverPart == ":conflict") {
 				mNumInstancesFromConflictUnitSearch++;
@@ -1706,14 +1706,23 @@ public class ProofChecker extends NonRecursive {
 		}
 
 		// Check that the annotation of the lemma is well-formed.
-		if (quantAnnotation.length != 5 || quantAnnotation[0] != ":subs" || !(quantAnnotation[1] instanceof Term[])
+		if (quantAnnotation.length < 3 || quantAnnotation[0] != ":subs" || !(quantAnnotation[1] instanceof Term[])
 				|| (quantAnnotation[2] != ":conflict" && quantAnnotation[2] != ":e-matching"
-						&& quantAnnotation[2] != ":enumeration")
+						&& quantAnnotation[2] != ":enumeration")) {
+			reportError("Malformed QuantAnnotation.");
+			return;
+		}
+		// Check that the annotation of the lemma contains a subproof for the lemma
+		// clause.
+		if (quantAnnotation.length == 3) {
+			reportWarning("Not checking clausification.");
+			return;
+		}
+		if (quantAnnotation.length != 5
 				|| quantAnnotation[3] != ":subproof" || !(quantAnnotation[4] instanceof ApplicationTerm)) {
 			reportError("Malformed QuantAnnotation.");
 			return;
 		}
-		// Check that the annotation of the lemma contains a subproof for the lemma clause.
 		final ApplicationTerm subproof = (ApplicationTerm) quantAnnotation[4];
 		enqueueWalker(new InstLemmaWalker(clause, (Term[]) quantAnnotation[1]));
 		enqueueWalker(new ProofWalker(subproof));
