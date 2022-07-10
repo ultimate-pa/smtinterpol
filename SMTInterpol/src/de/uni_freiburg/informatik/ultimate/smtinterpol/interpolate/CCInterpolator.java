@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -426,8 +427,11 @@ public class CCInterpolator {
 								? ((ApplicationTerm) atom).getParameters()[0]
 								: ((ApplicationTerm) atom).getParameters()[1];
 
-						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "@EQ";
-						terms.add(mTheory.not(mTheory.term(op, mixedVar, sideB)));
+						if (mInterpolator.isNegatedTerm(lits[i])) {
+							terms.add(mTheory.not(mTheory.term(SMTLIBConstants.EQUALS, mixedVar, sideB)));
+						} else {
+							terms.add(mTheory.term(Interpolator.EQ, mixedVar, sideB));
+						}
 					}
 				}
 				if (terms.isEmpty()) {
@@ -450,8 +454,11 @@ public class CCInterpolator {
 						final Term sideA = litInfo.getLhsOccur().isALocal(part)
 								? ((ApplicationTerm) atom).getParameters()[0]
 								: ((ApplicationTerm) atom).getParameters()[1];
-						final String op = mInterpolator.isNegatedTerm(lits[i]) ? "=" : "@EQ";
-						terms.add(mTheory.term(op, mixedVar, sideA));
+						if (mInterpolator.isNegatedTerm(lits[i])) {
+							terms.add(mTheory.term(SMTLIBConstants.EQUALS, mixedVar, sideA));
+						} else {
+							terms.add(mTheory.term(Interpolator.EQ, mixedVar, sideA));
+						}
 					}
 				}
 				if (terms.isEmpty()) {
