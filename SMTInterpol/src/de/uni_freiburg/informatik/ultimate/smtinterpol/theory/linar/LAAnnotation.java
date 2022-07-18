@@ -24,10 +24,10 @@ import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.IAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 /**
@@ -67,43 +67,42 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
  */
 public class LAAnnotation implements IAnnotation {
 	/**
-	 * Map from literal in the clause to a Farkas coefficient.  Note that
-	 * the literal has the same polarity as in the clause.  When summing up
-	 * the inequalities the literal must be negated first and then multiplied
-	 * with the coefficient from this map.
+	 * Map from literal in the clause to a Farkas coefficient. Note that the literal
+	 * has the same polarity as in the clause. When summing up the inequalities the
+	 * literal must be negated first and then multiplied with the coefficient from
+	 * this map.
 	 */
 	private final Map<Literal, Rational> mCoefficients;
 	/**
-	 * Map from sub-annotations to a Farkas coefficient.  The sub-annotations
-	 * must all have the same parent annotation as this annotation (and must
-	 * be distinct from this annotation to avoid circular reasoning).  When
-	 * summing up the inequalities, the bound explained by the sub-annotation
-	 * must be multiplied with the coefficient from this map.
+	 * Map from sub-annotations to a Farkas coefficient. The sub-annotations must
+	 * all have the same parent annotation as this annotation (and must be distinct
+	 * from this annotation to avoid circular reasoning). When summing up the
+	 * inequalities, the bound explained by the sub-annotation must be multiplied
+	 * with the coefficient from this map.
 	 */
 	private final Map<LAAnnotation, Rational> mAuxAnnotations;
 
 	/**
-	 * The linvar on which this sub-annotation explains a bound, or null
-	 * if this is the top-most annotation.
-	 * If this is a sub-annotation, it explains a bound on a linear variable.
+	 * The linvar on which this sub-annotation explains a bound, or null if this is
+	 * the top-most annotation. If this is a sub-annotation, it explains a bound on
+	 * a linear variable.
 	 */
 	private LinVar mLinvar;
 	/**
-	 * The linvar on which this sub-annotation explains a bound, or null
-	 * if this is the top-most annotation.
-	 * If this is a sub-annotation, it explains a bound on a linear variable.
+	 * The linvar on which this sub-annotation explains a bound, or null if this is
+	 * the top-most annotation. If this is a sub-annotation, it explains a bound on
+	 * a linear variable.
 	 */
 	private InfinitesimalNumber mBound;
 	/**
-	 * True, if this is a sub-annotation that explains an upper bound on a
-	 * linear variable.
-	 * If this is a sub-annotation, it explains a bound on a linear variable,
-	 * either a lower or an upper bound.
+	 * True, if this is a sub-annotation that explains an upper bound on a linear
+	 * variable. If this is a sub-annotation, it explains a bound on a linear
+	 * variable, either a lower or an upper bound.
 	 */
 	private boolean mIsUpper;
 
 	public LAAnnotation() {
-		mCoefficients   = new HashMap<>();
+		mCoefficients = new HashMap<>();
 		mAuxAnnotations = new HashMap<>();
 	}
 
@@ -127,7 +126,7 @@ public class LAAnnotation implements IAnnotation {
 		if (r == null) {
 			r = Rational.ZERO;
 		}
-		assert(r.signum() * coeff.signum() >= 0);
+		assert (r.signum() * coeff.signum() >= 0);
 		r = r.add(coeff);
 		mAuxAnnotations.put(annot, r);
 	}
@@ -188,9 +187,9 @@ public class LAAnnotation implements IAnnotation {
 	}
 
 	@Override
-	public Term toTerm(Clause ignored, Theory theory) {
-		assert(mCoefficients != null);
-		return new AnnotationToProofTerm().convert(this, theory);
+	public Term toTerm(Clause ignored, ProofRules proofRules) {
+		assert (mCoefficients != null);
+		return new AnnotationToProofTerm().convert(this, proofRules);
 	}
 
 	@Override

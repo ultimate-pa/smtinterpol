@@ -25,24 +25,59 @@ import java.util.List;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
- * This is an implementation of the IProofTracker that generates the proof annotations.
+ * This is an implementation of the IProofTracker that generates the proof
+ * annotations.
  *
  * @author Jochen Hoenicke
  */
-public class ProofTracker implements IProofTracker{
+public class ProofTracker implements IProofTracker {
+
+	ProofRules mProofRules;
 
 	/**
 	 * Create a proof tracker.
 	 */
-	public ProofTracker() {
+	public ProofTracker(Theory theory) {
+		mProofRules = new ProofRules(theory);
+		setupTheory(theory);
+	}
+
+	private void setupTheory(Theory theory) {
+		if (theory.getDeclaredSorts().containsKey(ProofConstants.SORT_EQPROOF)) {
+			return;
+		}
+
+		theory.declareInternalSort(ProofConstants.SORT_EQPROOF, 0, 0);
+		final Sort proofSort = theory.getSort(ProofRules.PREFIX + ProofRules.PROOF);
+		final Sort eqProofSort = theory.getSort(ProofConstants.SORT_EQPROOF);
+		final Sort[] generic = theory.createSortVariables("X");
+		final Sort[] generic2 = new Sort[] { generic[0], generic[0] };
+
+		final Sort[] proof1 = new Sort[] { proofSort };
+		final Sort[] eqProof1 = new Sort[] { eqProofSort };
+		final Sort[] eqProof2 = new Sort[] { eqProofSort, eqProofSort };
+
+		// Rewrite proofs.
+		theory.declareInternalPolymorphicFunction(ProofConstants.FN_REFL, generic, generic,
+				eqProofSort, 0);
+		theory.declareInternalFunction(ProofConstants.FN_TRANS, eqProof2, eqProofSort,
+				FunctionSymbol.LEFTASSOC);
+		theory.declareInternalFunction(ProofConstants.FN_CONG, eqProof2, eqProofSort,
+				FunctionSymbol.LEFTASSOC);
+		theory.declareInternalFunction(ProofConstants.FN_QUANT, eqProof1, eqProofSort, 0);
+		theory.declareInternalPolymorphicFunction(ProofConstants.FN_REWRITE, generic, generic2, eqProofSort, 0);
+		theory.declareInternalFunction(ProofConstants.FN_ALLINTRO, proof1, proofSort, 0);
 	}
 
 	public Term getProof(final Term t) {
@@ -95,8 +130,7 @@ public class ProofTracker implements IProofTracker{
 	}
 
 	private boolean isReflexivity(final Term proof) {
-		return proof instanceof ApplicationTerm
-				&& ((ApplicationTerm) proof).getFunction().getName() == ProofConstants.FN_REFL;
+		return isApplication(ProofConstants.FN_REFL, proof);
 	}
 
 	@Override
@@ -107,7 +141,8 @@ public class ProofTracker implements IProofTracker{
 			return imp2;
 		}
 		if (isReflexivity(proofImp2)) {
-			// reflexivity rule is used for internal rewrites that are not visible to the outside.
+			// reflexivity rule is used for internal rewrites that are not visible to the
+			// outside.
 			// still we need to change the term
 			return buildProof(proofImp1, getProvedTerm(imp2));
 		}
@@ -121,7 +156,7 @@ public class ProofTracker implements IProofTracker{
 		final List<Term> congProofs = new ArrayList<>();
 		congProofs.add(getProof(a));
 		final Term[] params = new Term[b.length];
-		for (int i = 0; i< b.length; i++) {
+		for (int i = 0; i < b.length; i++) {
 			final Term proofB = getProof(b[i]);
 			if (!isReflexivity(proofB)) {
 				congProofs.add(proofB);
@@ -139,15 +174,65 @@ public class ProofTracker implements IProofTracker{
 		return buildProof(proof, theory.term(aTerm.getFunction(), params));
 	}
 
+	/**
+	 * Create a proof of {~lhs, rhs} from a rewrite proof {@code (= lhs rhs)} for
+	 * rhs.
+	 *
+	 * @param lhs
+	 *            the rewritten literal.
+	 * @param rewrite
+	 *            the simplified formula rhs annotated with a proof of
+	 *            {@code (= lhs rhs)}.
+	 * @return the clause proving {~lhs, rhs}
+	 */
 	@Override
-	public Term modusPonens(final Term asserted, final Term simpFormula) {
-		final Term simpProof = getProof(simpFormula);
-		if (isReflexivity(simpProof)) {
-			return buildProof(getProof(asserted), getProvedTerm(simpFormula));
+	public Term rewriteToClause(Term lhs, Term rewrite) {
+		if (isReflexivity(getProof(rewrite))) {
+			return null;
 		}
-		final Theory t = asserted.getTheory();
-		final Term proof = t.term(ProofConstants.FN_MP, getProof(asserted), simpProof);
-		return buildProof(proof, getProvedTerm(simpFormula));
+		final ProofLiteral[] lits = new ProofLiteral[] {
+				termToProofLiteral(lhs).negate(),
+				termToProofLiteral(getProvedTerm(rewrite))
+		};
+		final Annotation[] annots = new Annotation[] {
+				new Annotation(ProofConstants.ANNOTKEY_MP, getProof(rewrite))
+		};
+		return buildProof(mProofRules.oracle(lits, annots), getProvedTerm(rewrite));
+	}
+
+	public Term resolve(Term pivotLit, final Term posClause, final Term negClause) {
+		boolean positive = true;
+		while (isApplication(SMTLIBConstants.NOT, pivotLit)) {
+			pivotLit = ((ApplicationTerm) pivotLit).getParameters()[0];
+			positive = !positive;
+		}
+		return mProofRules.resolutionRule(pivotLit, positive ? posClause : negClause, positive ? negClause : posClause);
+	}
+
+	@Override
+	public Term resolveBinaryTautology(final Term asserted, final Term conclusion, final Annotation rule) {
+		final Theory theory = asserted.getTheory();
+		boolean isPositive = true;
+		final Term assertedTerm = getProvedTerm(asserted);
+		Term assertedAtom = assertedTerm;
+		while (isApplication(SMTLIBConstants.NOT, assertedAtom)) {
+			assertedAtom = ((ApplicationTerm) assertedAtom).getParameters()[0];
+			isPositive = !isPositive;
+		}
+		final Term negAsserted = isPositive ? theory.term(SMTLIBConstants.NOT, assertedAtom) : assertedAtom;
+		final Term taut = tautology(theory.term(SMTLIBConstants.OR, negAsserted, conclusion), rule);
+		final Term proof = resolve(assertedTerm, getProof(asserted), getProof(taut));
+		return buildProof(proof, conclusion);
+	}
+
+	@Override
+	public Term modusPonens(final Term asserted, final Term rewrite) {
+		if (isReflexivity(getProof(rewrite))) {
+			return buildProof(getProof(asserted), getProvedTerm(rewrite));
+		}
+		final Term assertedTerm = getProvedTerm(asserted);
+		final Term proof = resolve(assertedTerm, getProof(asserted), getProof(rewriteToClause(assertedTerm, rewrite)));
+		return buildProof(proof, getProvedTerm(rewrite));
 	}
 
 	@Override
@@ -157,8 +242,7 @@ public class ProofTracker implements IProofTracker{
 
 	@Override
 	public Term tautology(final Term axiom, final Annotation rule) {
-		final Theory t = axiom.getTheory();
-		final Term proof = t.term(ProofConstants.FN_TAUTOLOGY, t.annotatedTerm(new Annotation[] { rule }, axiom));
+		final Term proof = mProofRules.oracle(termToProofLiterals(axiom), new Annotation[] { rule });
 		return buildProof(proof, axiom);
 	}
 
@@ -173,17 +257,23 @@ public class ProofTracker implements IProofTracker{
 		if (orig == res) {
 			return reflexivity(res);
 		}
-		final Term statement = theory.term(rule.getKey() == ":removeForall" ? "=>" : "=", orig, res);
 		final Annotation[] annot = new Annotation[] { rule };
-		final Term proof = theory.term(ProofConstants.FN_REWRITE, theory.annotatedTerm(annot, statement));
+		final Term proof = theory.term(ProofConstants.FN_REWRITE, orig, theory.annotatedTerm(annot, res));
 		return buildProof(proof, res);
 	}
 
 	@Override
-	public Term asserted(final Term formula) {
-		final Theory theory = formula.getTheory();
-		final Term proof = theory.term(ProofConstants.FN_ASSERTED, formula);
-		return buildProof(proof, formula);
+	public Term asserted(Term formula) {
+		Term proof = mProofRules.asserted(formula);
+		// Apply not elimination to extract literal
+		boolean positive = true;
+		while (isApplication(SMTLIBConstants.NOT, formula)) {
+			proof = mProofRules.resolutionRule(formula, positive ? proof : mProofRules.notIntro(formula),
+					positive ? mProofRules.notElim(formula) : proof);
+			positive = !positive;
+			formula = ((ApplicationTerm) formula).getParameters()[0];
+		}
+		return buildProof(proof, positive ? formula : formula.getTheory().term(SMTLIBConstants.NOT, formula));
 	}
 
 	@Override
@@ -191,8 +281,7 @@ public class ProofTracker implements IProofTracker{
 		final Theory theory = quant.getTheory();
 		final Term subProof = getProof(newBody);
 		final boolean isForall = quant.getQuantifier() == QuantifiedFormula.FORALL;
-		final Term formula = isForall
-				? theory.forall(quant.getVariables(), getProvedTerm(newBody))
+		final Term formula = isForall ? theory.forall(quant.getVariables(), getProvedTerm(newBody))
 				: theory.exists(quant.getVariables(), getProvedTerm(newBody));
 		if (isReflexivity(subProof)) {
 			return reflexivity(formula);
@@ -211,10 +300,8 @@ public class ProofTracker implements IProofTracker{
 		subProofs[0] = getProof(newData);
 		boolean isReflexivity = isReflexivity(subProofs[0]);
 		for (int i = 0; i < newCases.length; i++) {
-			final Annotation[] annot = new Annotation[] {
-					new Annotation(":vars", oldMatch.getVariables()[i]),
-					new Annotation(":constructor", oldMatch.getConstructors()[i])
-			};
+			final Annotation[] annot = new Annotation[] { new Annotation(":vars", oldMatch.getVariables()[i]),
+					new Annotation(":constructor", oldMatch.getConstructors()[i]) };
 			final Term caseProof = getProof(newCases[i]);
 			subProofs[i + 1] = theory.annotatedTerm(annot, caseProof);
 			isReflexivity &= isReflexivity(caseProof);
@@ -232,48 +319,99 @@ public class ProofTracker implements IProofTracker{
 	@Override
 	public Term allIntro(final Term formula, final TermVariable[] vars) {
 		final Theory theory = formula.getTheory();
-		final Term subProof = getProof(formula);
-		final Term body = getProvedTerm(formula);
-		final Term quantified = theory.forall(vars, body);
-		final Annotation[] annot = new Annotation[] { new Annotation(":body", body) };
-		final Term proof = theory.term(ProofConstants.FN_ALLINTRO,
-				theory.lambda(vars, theory.annotatedTerm(annot, subProof)));
-		return buildProof(proof, quantified);
+		final Term provedClause = getProvedTerm(formula);
+		Term proof = getProof(formula);
+		if (isApplication("not", provedClause)) {
+			final Term atom = ((ApplicationTerm) provedClause).getParameters()[0];
+			proof = mProofRules.resolutionRule(atom, mProofRules.notIntro(provedClause), proof);
+		}
+		final Term[] skolemTerms = mProofRules.getSkolemVars(vars, provedClause, true);
+		proof = theory.let(vars, skolemTerms, proof);
+		final Term lettedClause = theory.let(vars, skolemTerms, provedClause);
+		final FormulaUnLet unletter = new FormulaUnLet();
+		proof = unletter.unlet(proof);
+		/* compute the resulting quantified term (forall (...) origTerm) */
+		final Term forallAtom = theory.forall(vars, provedClause);
+		proof = mProofRules.resolutionRule(unletter.unlet(lettedClause), proof,
+				mProofRules.forallIntro((QuantifiedFormula) forallAtom));
+		return buildProof(proof, forallAtom);
 	}
 
-	private boolean equalModNotNot(Term t1, Term t2) {
-		if (t1 == t2) {
-			return true;
+	/**
+	 * Checks if a term is an application of an internal function symbol.
+	 *
+	 * @param funcSym
+	 *            the expected function symbol.
+	 * @param term
+	 *            the term to check.
+	 * @return true if term is an application of funcSym.
+	 */
+	private boolean isApplication(final String funcSym, final Term term) {
+		if (term instanceof ApplicationTerm) {
+			final ApplicationTerm appTerm = (ApplicationTerm) term;
+			final FunctionSymbol func = appTerm.getFunction();
+			if (func.isIntern() && func.getName().equals(funcSym)) {
+				return true;
+			}
 		}
-		boolean negated = false;
-		while (t1 instanceof ApplicationTerm && ((ApplicationTerm) t1).getFunction().getName() == SMTLIBConstants.NOT) {
-			negated = !negated;
-			t1 = ((ApplicationTerm) t1).getParameters()[0];
-		}
-		while (t2 instanceof ApplicationTerm && ((ApplicationTerm) t2).getFunction().getName() == SMTLIBConstants.NOT) {
-			negated = !negated;
-			t2 = ((ApplicationTerm) t2).getParameters()[0];
-		}
-		return t1 == t2 && !negated;
+		return false;
 	}
 
-	@Override
-	public Term resolution(final Term asserted, final Term tautology) {
-		final Theory theory = tautology.getTheory();
-		final ApplicationTerm tautApp = (ApplicationTerm) getProvedTerm(tautology);
-		assert tautApp.getFunction().getName() == SMTLIBConstants.OR;
-		final Term[] clause = tautApp.getParameters();
-		final Annotation[] pivotAnnot = new Annotation[] { new Annotation(":pivot", clause[0]) };
-		final Term proof = theory.term(ProofConstants.FN_RES, getProof(asserted),
-				theory.annotatedTerm(pivotAnnot, getProof(tautology)));
-		assert equalModNotNot(theory.term("not", getProvedTerm(asserted)), clause[0]);
-		assert clause.length >= 2;
-		if (clause.length == 2) {
-			return buildProof(proof, clause[1]);
+	private ProofLiteral termToProofLiteral(Term term) {
+		boolean isPositive = true;
+		while (isApplication(SMTLIBConstants.NOT, term)) {
+			term = ((ApplicationTerm) term).getParameters()[0];
+			isPositive = !isPositive;
+		}
+		return new ProofLiteral(term, isPositive);
+	}
+
+	/**
+	 * Convert a clause term into an Array of terms, one entry for each disjunct.
+	 * This also handles singleton and empty clause correctly.
+	 *
+	 * @param clauseTerm
+	 *            The term representing a clause.
+	 * @return The disjuncts of the clause.
+	 */
+	private Term[] termToClause(final Term clauseTerm) {
+		assert clauseTerm != null && clauseTerm.getSort().getName() == "Bool";
+		if (isApplication("or", clauseTerm)) {
+			return ((ApplicationTerm) clauseTerm).getParameters();
+		} else if (isApplication("false", clauseTerm)) {
+			return new Term[0];
 		} else {
-			final Term[] stripped = new Term[clause.length - 1];
-			System.arraycopy(clause, 1, stripped, 0, stripped.length);
-			return buildProof(proof, theory.term("or", stripped));
+			/* in all other cases, this is a singleton clause. */
+			return new Term[] { clauseTerm };
 		}
 	}
+
+	/**
+	 * Convert an array of terms into an array of proof literals, one entry for each
+	 * disjunct. This also removes double negations.
+	 *
+	 * @param clauseTerm
+	 *            The term representing a clause.
+	 * @return The disjuncts of the clause.
+	 */
+	private ProofLiteral[] termArrayToProofLiterals(final Term[] clauseLits) {
+		final ProofLiteral[] proofLits = new ProofLiteral[clauseLits.length];
+		for (int i = 0; i < proofLits.length; i++) {
+			proofLits[i] = termToProofLiteral(clauseLits[i]);
+		}
+		return proofLits;
+	}
+
+	/**
+	 * Convert a clause term into an array of proof literals, one entry for each
+	 * disjunct. This also removes double negations.
+	 *
+	 * @param clauseTerm
+	 *            The term representing a clause.
+	 * @return The disjuncts of the clause.
+	 */
+	private ProofLiteral[] termToProofLiterals(final Term clauseTerm) {
+		return termArrayToProofLiterals(termToClause(clauseTerm));
+	}
+
 }

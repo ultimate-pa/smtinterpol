@@ -21,9 +21,9 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import java.util.Collection;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.IAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CongruencePath.SubPath;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.WeakCongruencePath.WeakSubPath;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
@@ -287,16 +287,18 @@ public class CCAnnotation implements IAnnotation {
 	 * output is a lemma where all congruences are explained by auxiliary CC lemmas
 	 * in a hyper-resolution step.
 	 *
-	 * @param clause The clause containing this annotation.
-	 * @param theory The term unifier.
+	 * @param clause
+	 *            The clause containing this annotation.
+	 * @param theory
+	 *            The term unifier.
 	 * @return the proof term in form of a resolution step of the central lemma and
 	 *         the auxiliary lemmas which are obtained from subpaths explaining
 	 *         congruences in the main lemma - or, if there are no congruences, just
 	 *         the central lemma.
 	 */
 	@Override
-	public Term toTerm(final Clause clause, final Theory theory) {
-		return new CCProofGenerator(this).toTerm(clause, theory);
+	public Term toTerm(final Clause clause, final ProofRules proofRules) {
+		return new CCProofGenerator(this).toTerm(clause, proofRules);
 	}
 
 	@Override

@@ -64,8 +64,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SolverOptions;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.MinimalProofChecker;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofChecker;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofSimplifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTermGenerator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.PropProofChecker;
@@ -76,11 +75,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TimeoutHandler;
 
 /**
- * Implementation of the {@link de.uni_freiburg.informatik.ultimate.logic.Script} interface to interact with
- * SMTInterpol.
+ * Implementation of the
+ * {@link de.uni_freiburg.informatik.ultimate.logic.Script} interface to
+ * interact with SMTInterpol.
  *
- * Users should however stick to the {@link de.uni_freiburg.informatik.ultimate.logic.Script} interface which provides
- * most of the methods provided in this class.
+ * Users should however stick to the
+ * {@link de.uni_freiburg.informatik.ultimate.logic.Script} interface which
+ * provides most of the methods provided in this class.
  *
  * @author Juergen Christ
  */
@@ -124,34 +125,8 @@ public class SMTInterpol extends NoopScript {
 
 		@Override
 		public void setLogic(final Theory theory, final Logics logic) {
-			final Sort[] polySort = theory.createSortVariables("A");
-			final int leftassoc = FunctionSymbol.LEFTASSOC;
+			final Sort[] polySort = theory.createSortVariables("X");
 			final Sort bool = theory.getSort("Bool");
-			final Sort[] bool1 = { bool };
-			if (mProofMode != ProofMode.NONE) {
-				// Partial proofs.
-				// Declare all symbols needed for proof production
-				declareInternalSort(theory, ProofConstants.SORT_PROOF, 0, 0);
-				final Sort proof = theory.getSort(ProofConstants.SORT_PROOF);
-				final Sort[] proof1 = new Sort[] { proof };
-				final Sort[] proof2 = new Sort[] { proof, proof };
-				declareInternalFunction(theory, ProofConstants.FN_RES, proof2, proof, leftassoc);
-				declareInternalFunction(theory, ProofConstants.FN_LEMMA, bool1, proof, 0);
-				declareInternalFunction(theory, ProofConstants.FN_CLAUSE, proof1, proof, 0);
-				declareInternalFunction(theory, ProofConstants.FN_ASSUMPTION, bool1, proof, 0);
-				declareInternalFunction(theory, ProofConstants.FN_ASSERTED, bool1, proof, 0);
-				if (mProofMode != ProofMode.CLAUSES) {
-					// Full proofs.
-					declareInternalPolymorphicFunction(theory, ProofConstants.FN_REFL, polySort, polySort, proof, 0);
-					declareInternalFunction(theory, ProofConstants.FN_TRANS, proof2, proof, leftassoc);
-					declareInternalFunction(theory, ProofConstants.FN_CONG, proof2, proof, leftassoc);
-					declareInternalFunction(theory, ProofConstants.FN_QUANT, proof1, proof, 0);
-					declareInternalFunction(theory, ProofConstants.FN_ALLINTRO, proof1, proof, 0);
-					declareInternalFunction(theory, ProofConstants.FN_MP, proof2, proof, 0);
-					declareInternalFunction(theory, ProofConstants.FN_REWRITE, bool1, proof, 0);
-					declareInternalFunction(theory, ProofConstants.FN_TAUTOLOGY, bool1, proof, 0);
-				}
-			}
 			// the EQ function for CC interpolation
 			declareInternalPolymorphicFunction(theory, Interpolator.EQ, polySort,
 					new Sort[] { polySort[0], polySort[0] }, bool, FunctionSymbol.UNINTERPRETEDINTERNAL);
@@ -200,8 +175,8 @@ public class SMTInterpol extends NoopScript {
 	de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model mModel = null;
 
 	private final static Object NAME = new QuotedObject("SMTInterpol", true);
-	private final static Object AUTHORS =
-			new QuotedObject("Juergen Christ, Jochen Hoenicke, Alexander Nutz, and Tanja Schindler", true);
+	private final static Object AUTHORS = new QuotedObject(
+			"Juergen Christ, Jochen Hoenicke, Alexander Nutz, and Tanja Schindler", true);
 	private final static Object INTERPOLATION_METHOD = new QuotedObject("tree", true);
 	// I assume an initial check s.t. first (get-info :status) returns sat
 	private LBool mStatus = LBool.SAT;
@@ -219,22 +194,24 @@ public class SMTInterpol extends NoopScript {
 	private long mNumAsserts = 0;
 
 	/**
-	 * Delta debugger friendly version. Exits with following codes: model-check-mode fails: 1 interpolant-check-mode
-	 * fails: 2 exception during check-sat: 3 command that needed sat after last check got unsat: 4 command that needed
+	 * Delta debugger friendly version. Exits with following codes: model-check-mode
+	 * fails: 1 interpolant-check-mode fails: 2 exception during check-sat: 3
+	 * command that needed sat after last check got unsat: 4 command that needed
 	 * unsat after last check got sat: 5
 	 */
 	private ErrorCallback mErrorCallback = null;
 
 	/**
-	 * Default constructor using a default logger and no user termination request. If this constructor is used,
-	 * SMTInterpol assumes ownership of the logger.
+	 * Default constructor using a default logger and no user termination request.
+	 * If this constructor is used, SMTInterpol assumes ownership of the logger.
 	 */
 	public SMTInterpol() {
 		this(new DefaultLogger(), null);
 	}
 
 	/**
-	 * Construct SMTInterpol with a user-owned logger but without user termination request.
+	 * Construct SMTInterpol with a user-owned logger but without user termination
+	 * request.
 	 *
 	 * @param logger
 	 *            The logger owned by the caller.
@@ -244,8 +221,8 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Construct SMTInterpol with a logger but without user termination request. The logger is assumed to be configured
-	 * by the user.
+	 * Construct SMTInterpol with a logger but without user termination request. The
+	 * logger is assumed to be configured by the user.
 	 *
 	 * @param logger
 	 *            The logger owned by the caller.
@@ -259,7 +236,8 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Default constructor using a default logger and a given user termination request.
+	 * Default constructor using a default logger and a given user termination
+	 * request.
 	 *
 	 * @param cancel
 	 *            User termination request to poll during checks.
@@ -269,7 +247,8 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Construct SMTInterpol with a logger and a user termination request. This is the main constructor of SMTInterpol.
+	 * Construct SMTInterpol with a logger and a user termination request. This is
+	 * the main constructor of SMTInterpol.
 	 *
 	 * @param logger
 	 *            The logger owned by the caller.
@@ -281,7 +260,8 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Construct SMTInterpol with an option map. SMTInterpol will use the logger used to initialize the option map.
+	 * Construct SMTInterpol with an option map. SMTInterpol will use the logger
+	 * used to initialize the option map.
 	 *
 	 * @param options
 	 *            The option map used to handle all options.
@@ -291,8 +271,9 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Construct SMTInterpol with a user termination request and a user created option map. This constructor is mainly
-	 * used by the front ends to set an option map including front end options.
+	 * Construct SMTInterpol with a user termination request and a user created
+	 * option map. This constructor is mainly used by the front ends to set an
+	 * option map including front end options.
 	 *
 	 * @param cancel
 	 *            User termination request to poll during checks.
@@ -308,8 +289,8 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Construct SMTInterpol with a user-owned logger but without user termination request. Note that the logger is
-	 * assumed to be correctly set up.
+	 * Construct SMTInterpol with a user-owned logger but without user termination
+	 * request. Note that the logger is assumed to be correctly set up.
 	 *
 	 * @param logger
 	 *            The logger owned by the caller.
@@ -325,12 +306,14 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Copy the current context and modify some pre-theory options. The copy shares the push/pop stack on the symbols
-	 * but not on the assertions. Users should be careful not to mess up the push/pop stack, i.e., not to push on one
-	 * context and pop on another one.
+	 * Copy the current context and modify some pre-theory options. The copy shares
+	 * the push/pop stack on the symbols but not on the assertions. Users should be
+	 * careful not to mess up the push/pop stack, i.e., not to push on one context
+	 * and pop on another one.
 	 *
-	 * Note that this cloning does not clone the assertion stack and should not be used in multi-threaded contexts since
-	 * users cannot guarantee correct push/pop-stack treatment.
+	 * Note that this cloning does not clone the assertion stack and should not be
+	 * used in multi-threaded contexts since users cannot guarantee correct
+	 * push/pop-stack treatment.
 	 *
 	 * @param other
 	 *            The context to clone.
@@ -357,7 +340,8 @@ public class SMTInterpol extends NoopScript {
 	 * Set an error callback that will be notified about internal problems in the
 	 * solving process: failed model checks, proof checks, interrnal errors, etc.
 	 *
-	 * @param callback The error callback.
+	 * @param callback
+	 *            The error callback.
 	 */
 	public void setErrorCallback(final ErrorCallback callback) {
 		mErrorCallback = callback;
@@ -365,7 +349,8 @@ public class SMTInterpol extends NoopScript {
 
 	// Called in ctor => make it final
 	/**
-	 * Unset the logic and clear the assertion stack. This does not reset online modifiable options.
+	 * Unset the logic and clear the assertion stack. This does not reset online
+	 * modifiable options.
 	 */
 	@Override
 	public final void reset() {
@@ -541,24 +526,13 @@ public class SMTInterpol extends NoopScript {
 			}
 		} else {
 			if (mSolverOptions.isProofCheckModeActive()) {
-				if (mSolverOptions.getProofMode() == ProofMode.LOWLEVEL) {
-					final MinimalProofChecker proofchecker = new MinimalProofChecker(this, getLogger());
-					if (!proofchecker.check(getProof())) {
-						if (mErrorCallback != null) {
-							mErrorCallback.notifyError(ErrorReason.INVALID_PROOF);
-						}
-						mLogger.fatal("Proof-checker did not verify");
-						throw new SMTLIBException("Proof-check failed");
+				final MinimalProofChecker proofchecker = new MinimalProofChecker(this, getLogger());
+				if (!proofchecker.check(getProof())) {
+					if (mErrorCallback != null) {
+						mErrorCallback.notifyError(ErrorReason.INVALID_PROOF);
 					}
-				} else {
-					final ProofChecker proofchecker = new ProofChecker(this, getLogger());
-					if (!proofchecker.check(getProof())) {
-						if (mErrorCallback != null) {
-							mErrorCallback.notifyError(ErrorReason.INVALID_PROOF);
-						}
-						mLogger.fatal("Proof-checker did not verify");
-						throw new SMTLIBException("Proof-check failed");
-					}
+					mLogger.fatal("Proof-checker did not verify");
+					throw new SMTLIBException("Proof-check failed");
 				}
 			}
 		}
@@ -596,8 +570,8 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Setup the clausifier and the engine according to the logic, the current proof production mode, and some other
-	 * options.
+	 * Setup the clausifier and the engine according to the logic, the current proof
+	 * production mode, and some other options.
 	 *
 	 * @param logic
 	 *            the SMT-LIB logic to use.
@@ -785,7 +759,7 @@ public class SMTInterpol extends NoopScript {
 			assert correct;
 		}
 		try {
-			final ProofTermGenerator generator = new ProofTermGenerator(getTheory());
+			final ProofTermGenerator generator = new ProofTermGenerator(new ProofRules(getTheory()));
 			Term res = generator.convert(unsat);
 			if (proofMode == ProofMode.LOWLEVEL) {
 				res = new ProofSimplifier(this).transformProof(res);
@@ -865,15 +839,14 @@ public class SMTInterpol extends NoopScript {
 			}
 			SMTInterpol checkingSolver = null;
 			if (mSolverOptions.isInterpolantCheckModeActive()) {
-				final Map<String, Object> newOptions =
-						Collections.singletonMap(SMTLIBConstants.PRODUCE_ASSERTIONS, (Object) Boolean.TRUE);
+				final Map<String, Object> newOptions = Collections.singletonMap(SMTLIBConstants.PRODUCE_ASSERTIONS,
+						(Object) Boolean.TRUE);
 				checkingSolver = new SMTInterpol(this, newOptions, CopyMode.CURRENT_VALUE);
 			}
 			final Term[] ipls;
 			try {
-				final Interpolator interpolator =
-						new Interpolator(mLogger, checkingSolver, mAssertions, getTheory(), parts, startOfSubtree,
-								mCancel);
+				final Interpolator interpolator = new Interpolator(mLogger, checkingSolver, mAssertions, getTheory(),
+						parts, startOfSubtree, mCancel);
 				ipls = interpolator.getInterpolants(proofTree);
 			} finally {
 				if (checkingSolver != null) {
@@ -1045,7 +1018,8 @@ public class SMTInterpol extends NoopScript {
 		final int oldNumScopes = mStackLevel;
 		try {
 			mSolverOptions.setCheckType(mSolverOptions.getSimplifierCheckType());
-			return new SimplifyDDA(this, getBooleanOption(SMTInterpolConstants.SIMPLIFY_REPEATEDLY)).getSimplifiedTerm(term);
+			return new SimplifyDDA(this, getBooleanOption(SMTInterpolConstants.SIMPLIFY_REPEATEDLY))
+					.getSimplifiedTerm(term);
 		} finally {
 			mSolverOptions.setCheckType(old);
 			assert (mStackLevel == oldNumScopes);
@@ -1053,8 +1027,9 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Perform a restart and switch the decisions of all undecided literals. This method should efficiently lead the
-	 * solver to explore another path in the search tree.
+	 * Perform a restart and switch the decisions of all undecided literals. This
+	 * method should efficiently lead the solver to explore another path in the
+	 * search tree.
 	 */
 	public void flipDecisions() {
 		mEngine.flipDecisions();
@@ -1144,8 +1119,8 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Retrieve the proof in its internal format. Users should use {@link #getProof()} to retrieve the proof as a proof
-	 * term.
+	 * Retrieve the proof in its internal format. Users should use
+	 * {@link #getProof()} to retrieve the proof as a proof term.
 	 *
 	 * @return Internal proof.
 	 * @throws SMTLIBException
@@ -1168,8 +1143,9 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	/**
-	 * Get all literals currently set to true. Note that this function might also be called if SMTInterpol is currently
-	 * in an unsat state. Then, it will simply return an empty array.
+	 * Get all literals currently set to true. Note that this function might also be
+	 * called if SMTInterpol is currently in an unsat state. Then, it will simply
+	 * return an empty array.
 	 *
 	 * @return All literals currently set to true.
 	 * @throws SMTLIBException

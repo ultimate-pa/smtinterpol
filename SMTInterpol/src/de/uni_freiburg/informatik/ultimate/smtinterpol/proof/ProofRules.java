@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
@@ -174,6 +173,10 @@ public class ProofRules {
 				FunctionSymbol.RETURNOVERLOAD);
 	}
 
+	public Theory getTheory() {
+		return mTheory;
+	}
+
 	private static boolean isKeyword(final Object obj) {
 		return obj instanceof String && ((String) obj).charAt(0) == ':';
 	}
@@ -203,6 +206,7 @@ public class ProofRules {
 		}
 		return sexpr.toArray(new Object[sexpr.size()]);
 	}
+
 	public Term resolutionRule(final Term pivot, final Term proofPos, final Term proofNeg) {
 		return mTheory.term(PREFIX + RES, pivot, proofPos, proofNeg);
 	}
@@ -211,14 +215,28 @@ public class ProofRules {
 		return mTheory.term(PREFIX + ASSUME, t);
 	}
 
-	public Term oracle(final ProofLiteral[] literals, final Annotation[] annots) {
-		final Term[] atoms = new Term[literals.length];
-		final BitSet bitset = new BitSet();
+	public static Object[] convertProofLiteralsToAnnotation(final ProofLiteral[] literals) {
+		final Object[] clause = new Object[2 * literals.length];
 		for (int i = 0; i < literals.length; i++) {
-			atoms[i] = literals[i].getAtom();
-			bitset.set(i, literals[i].getPolarity());
+			clause[2 * i] = literals[i].getPolarity() ? "+" : "-";
+			clause[2 * i + 1] = literals[i].getAtom();
 		}
-		return mTheory.annotatedTerm(annotate(":" + ORACLE, new Object[] { atoms, bitset }, annots), mAxiom);
+		return clause;
+	}
+
+	public static ProofLiteral[] proofLiteralsFromAnnotation(final Object[] literals) {
+		assert literals.length % 2 == 0;
+		final ProofLiteral[] clause = new ProofLiteral[literals.length / 2];
+		for (int i = 0; i < clause.length; i++) {
+			assert literals[2 * i] == "+" || literals[2 * i] == "-";
+			clause[i] = new ProofLiteral((Term) literals[2 * i + 1], literals[2 * i] == "+");
+		}
+		return clause;
+	}
+
+	public Term oracle(final ProofLiteral[] literals, final Annotation[] annots) {
+		final Object[] clause = convertProofLiteralsToAnnotation(literals);
+		return mTheory.annotatedTerm(annotate(":" + ORACLE, clause, annots), mAxiom);
 	}
 
 	public Term choose(final TermVariable tv, final Term formula) {
@@ -362,28 +380,22 @@ public class ProofRules {
 
 	public Term forallElim(final Term[] subst, final QuantifiedFormula forallTerm) {
 		assert forallTerm.getQuantifier() == QuantifiedFormula.FORALL;
-		return mTheory.annotatedTerm(
-				annotate(":" + FORALLE,
-						new Term[] { mTheory.lambda(forallTerm.getVariables(), forallTerm.getSubformula()) },
-						new Annotation(ANNOT_VALUES, subst)),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + FORALLE,
+				new Term[] { mTheory.lambda(forallTerm.getVariables(), forallTerm.getSubformula()) },
+				new Annotation(ANNOT_VALUES, subst)), mAxiom);
 	}
 
 	public Term existsIntro(final Term[] subst, final QuantifiedFormula existsTerm) {
 		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
-		return mTheory.annotatedTerm(
-				annotate(":" + EXISTSI,
-						new Term[] { mTheory.lambda(existsTerm.getVariables(), existsTerm.getSubformula()) },
-						new Annotation(ANNOT_VALUES, subst)),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + EXISTSI,
+				new Term[] { mTheory.lambda(existsTerm.getVariables(), existsTerm.getSubformula()) },
+				new Annotation(ANNOT_VALUES, subst)), mAxiom);
 	}
 
 	public Term existsElim(final QuantifiedFormula existsTerm) {
 		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
-		return mTheory.annotatedTerm(
-				annotate(":" + EXISTSE,
-						new Term[] { mTheory.lambda(existsTerm.getVariables(), existsTerm.getSubformula()) }),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + EXISTSE,
+				new Term[] { mTheory.lambda(existsTerm.getVariables(), existsTerm.getSubformula()) }), mAxiom);
 	}
 
 	public Term equalsIntro(final Term eqTerm) {
@@ -465,8 +477,7 @@ public class ProofRules {
 		assert divisor.signum() > 0;
 		assert lhs.getSort().getName().equals(SMTLIBConstants.INT);
 		return mTheory.annotatedTerm(
-				annotate(":" + DIVISIBLEDEF, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)),
-				mAxiom);
+				annotate(":" + DIVISIBLEDEF, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)), mAxiom);
 	}
 
 	public Term gtDef(final Term greaterTerm) {
@@ -497,8 +508,10 @@ public class ProofRules {
 	 * where x is a term of sort Int and c an integer constant. Here c+1 is the
 	 * constant c increased by one.
 	 *
-	 * @param x a term of sort Int.
-	 * @param c an integer constant.
+	 * @param x
+	 *            a term of sort Int.
+	 * @param c
+	 *            an integer constant.
 	 * @return the axiom.
 	 */
 	public Term totalInt(final Term x, final BigInteger c) {
@@ -514,8 +527,10 @@ public class ProofRules {
 	 * Axiom stating `(= (+ a1... an) = result)` where result is equal to the
 	 * polynom addition of polynomials a1 ... an in standard form.
 	 *
-	 * @param plusTerm the plus term.
-	 * @param result   the result term.
+	 * @param plusTerm
+	 *            the plus term.
+	 * @param result
+	 *            the result term.
 	 * @return the axiom.
 	 */
 	public Term polyAdd(final Term plusTerm, final Term result) {
@@ -526,8 +541,10 @@ public class ProofRules {
 	 * Axiom stating `(= (+ a1... an) = result)` where result is equal to the
 	 * polynom addition of polynomials a1 ... an in standard form.
 	 *
-	 * @param mulTerm the plus term.
-	 * @param result  the result term.
+	 * @param mulTerm
+	 *            the plus term.
+	 * @param result
+	 *            the result term.
 	 * @return the axiom.
 	 */
 	public Term polyMul(final Term mulTerm, final Term result) {
@@ -538,21 +555,23 @@ public class ProofRules {
 	 * Axiom stating `(= (to_real a) = result)` where result is equal to the left
 	 * hand side in standard form.
 	 *
-	 * @param toRealTerm the to_real term.
-	 * @param result     the result term.
+	 * @param toRealTerm
+	 *            the to_real term.
+	 * @param result
+	 *            the result term.
 	 * @return the axiom.
 	 */
 	public Term toRealDef(final Term toRealTerm) {
 		assert isApplication(SMTLIBConstants.TO_REAL, toRealTerm);
-		return mTheory.annotatedTerm(annotate(":" + TOREALDEF, ((ApplicationTerm) toRealTerm).getParameters()),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + TOREALDEF, ((ApplicationTerm) toRealTerm).getParameters()), mAxiom);
 	}
 
 	/**
 	 * Axiom stating `(= (* b1 ... bn (/ a b1 ...bn)) a)` or `(= b1 0)` ... or `(=
 	 * bn 0)`.
 	 *
-	 * @param divideTerm the term `(/a b1 ... bn)`.
+	 * @param divideTerm
+	 *            the term `(/a b1 ... bn)`.
 	 * @return the axiom.
 	 */
 	public Term divideDef(final Term divTerm) {
@@ -564,7 +583,8 @@ public class ProofRules {
 	 * Axiom stating `(= (- a) (* (- 1) a)` resp. `(= (- a b1 .. bn) (+ a (* (- 1)
 	 * b1) .. (* (- 1) bn))`.
 	 *
-	 * @param minusTerm the minus term.
+	 * @param minusTerm
+	 *            the minus term.
 	 * @return the axiom.
 	 */
 	public Term minusDef(final Term minusTerm) {
@@ -575,7 +595,8 @@ public class ProofRules {
 	/**
 	 * Axiom stating `(<= (to_real (to_int arg)) arg)`.
 	 *
-	 * @param arg a term of type Real.
+	 * @param arg
+	 *            a term of type Real.
 	 * @return the axiom.
 	 */
 	public Term toIntLow(final Term arg) {
@@ -585,7 +606,9 @@ public class ProofRules {
 
 	/**
 	 * Axiom stating `(< arg (+ (to_real (to_int arg)) 1.0)`.
-	 * @param arg a term of type Real.
+	 *
+	 * @param arg
+	 *            a term of type Real.
 	 * @return the axiom.
 	 */
 	public Term toIntHigh(final Term arg) {
@@ -595,8 +618,11 @@ public class ProofRules {
 
 	/**
 	 * Axiom stating `(<= (* divisor (div arg divisor)) arg)` or `(= divisor 0)`.
-	 * @param arg a term of type Int.
-	 * @param divisor a term of type Int.
+	 *
+	 * @param arg
+	 *            a term of type Int.
+	 * @param divisor
+	 *            a term of type Int.
 	 * @return the axiom.
 	 */
 	public Term divLow(final Term arg, final Term divisor) {
@@ -609,8 +635,10 @@ public class ProofRules {
 	 * Axiom stating `(< arg (+ (* divisor (div arg divisor)) (abs divisor)))` or
 	 * `(= divisor 0)`.
 	 *
-	 * @param arg     a term of type Int.
-	 * @param divisor a term of type Int.
+	 * @param arg
+	 *            a term of type Int.
+	 * @param divisor
+	 *            a term of type Int.
 	 * @return the axiom.
 	 */
 	public Term divHigh(final Term arg, final Term divisor) {
@@ -620,9 +648,13 @@ public class ProofRules {
 	}
 
 	/**
-	 * Axiom stating `(= (+ (* divisor (div arg divisor)) (mod arg divisor)) arg` or `(= divisor 0)`.
-	 * @param arg a term of type Int.
-	 * @param divisor a term of type Int.
+	 * Axiom stating `(= (+ (* divisor (div arg divisor)) (mod arg divisor)) arg` or
+	 * `(= divisor 0)`.
+	 *
+	 * @param arg
+	 *            a term of type Int.
+	 * @param divisor
+	 *            a term of type Int.
 	 * @return the axiom.
 	 */
 	public Term modDef(final Term arg, final Term divisor) {
@@ -657,9 +689,8 @@ public class ProofRules {
 	}
 
 	public Term defineFun(final FunctionSymbol func, final Term definition, final Term subProof) {
-		return mTheory.annotatedTerm(new Annotation[] {
-				new Annotation(ANNOT_DEFINE_FUN, new Object[] { func, definition }),
-		}, subProof);
+		return mTheory.annotatedTerm(
+				new Annotation[] { new Annotation(ANNOT_DEFINE_FUN, new Object[] { func, definition }), }, subProof);
 	}
 
 	public Term declareFun(final FunctionSymbol func, final Term subProof) {
@@ -685,8 +716,7 @@ public class ProofRules {
 
 	public Term dtExhaust(final Term term) {
 		assert term.getSort().getSortSymbol() instanceof DataType;
-		return mTheory.annotatedTerm(annotate(":" + DT_EXHAUST, new Term[] { term }),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_EXHAUST, new Term[] { term }), mAxiom);
 	}
 
 	public Term dtAcyclic(final Term consTerm, final int[] positions) {
@@ -714,8 +744,10 @@ public class ProofRules {
 	 * application of `+` and that the sum of its arguments minus the results (using
 	 * polynomial addition) sums to zero.
 	 *
-	 * @param plusTerm the plus term (first argument of the poly+ axiom).
-	 * @param result   the result term (second argument of the poly+ axiom).
+	 * @param plusTerm
+	 *            the plus term (first argument of the poly+ axiom).
+	 * @param result
+	 *            the result term (second argument of the poly+ axiom).
 	 * @return true iff the parameters are wellformed.
 	 */
 	public static boolean checkPolyAdd(final Term plusTerm, final Term result) {
@@ -735,8 +767,10 @@ public class ProofRules {
 	 * application of `*` and that the product of its arguments minus the results
 	 * (using polynomial multiplication and subtraction) gives zero.
 	 *
-	 * @param mulTerm the mul term (first argument of the poly* axiom).
-	 * @param result  the result term (second argument of the poly* axiom).
+	 * @param mulTerm
+	 *            the mul term (first argument of the poly* axiom).
+	 * @param result
+	 *            the result term (second argument of the poly* axiom).
 	 * @return true iff the parameters are wellformed.
 	 */
 	public static boolean checkPolyMul(final Term mulTerm, final Term result) {
@@ -867,6 +901,10 @@ public class ProofRules {
 		return proof instanceof AnnotatedTerm && isApplication(PREFIX + AXIOM, ((AnnotatedTerm) proof).getSubterm());
 	}
 
+	public static boolean isOracle(Term proof) {
+		return isAxiom(proof) && ((AnnotatedTerm) proof).getAnnotations()[0].getKey().equals(":" + ORACLE);
+	}
+
 	public static boolean isProofRule(final String rule, final Term proof) {
 		return proof instanceof ApplicationTerm
 				&& ((ApplicationTerm) proof).getFunction().getName().equals(PREFIX + rule);
@@ -941,10 +979,7 @@ public class ProofRules {
 					switch (annots[0].getKey()) {
 					case ":" + ORACLE: {
 						assert annots.length >= 1;
-						final Object[] values = (Object[]) annots[0].getValue();
-						assert values.length == 2;
-						final Term[] atoms = (Term[]) values[0];
-						final BitSet polarities = (BitSet) values[1];
+						final Object[] clause = (Object[]) annots[0].getValue();
 						mTodo.add(")");
 						for (int i = annots.length - 1; i >= 1; i--) {
 							if (annots[i].getValue() != null) {
@@ -954,12 +989,8 @@ public class ProofRules {
 							mTodo.add(annots[i].getKey());
 							mTodo.add(" ");
 						}
-						mTodo.add(")");
-						for (int i = atoms.length - 1; i >= 0; i--) {
-							mTodo.add(atoms[i]);
-							mTodo.add(polarities.get(i) ? " + " : " - ");
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
+						mTodo.add(clause);
+						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
 					}
 					case ":" + TRUEI:

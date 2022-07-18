@@ -18,21 +18,25 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 
 /**
- * This class is used to gather the information from a proof term which is relevant for the interpolator.
+ * This class is used to gather the information from a proof term which is
+ * relevant for the interpolator.
  *
- * @author Tanja Schindler
+ * @author Tanja Schindler, Jochen Hoenicke
  */
 public class InterpolatorClauseInfo {
+	enum ClauseKind {
+		RESOLUTION, LEMMA, INPUT
+	}
 
 	/**
 	 * The literals of this clause. This may be null for resolution clauses, if the literals haven't been computed yet.
@@ -43,17 +47,12 @@ public class InterpolatorClauseInfo {
 	/**
 	 * The type of this leaf term, i.e. lemma or clause
 	 */
-	private final String mNodeKind;
+	private final ClauseKind mNodeKind;
 
 	/**
 	 * The arguments of this resolution term
 	 */
 	private Term[] mResolutionArgs;
-
-	/**
-	 * The source partition of this input term or literal
-	 */
-	private String mSource;
 
 	/**
 	 * The lemma annotation, if this is a lemma leaf node.
@@ -65,11 +64,19 @@ public class InterpolatorClauseInfo {
 	 * proof term.
 	 */
 	public InterpolatorClauseInfo(final Term term) {
-		mNodeKind = ((ApplicationTerm) term).getFunction().getName();
-		if (isResolution()) {
-			mResolutionArgs = ((ApplicationTerm) term).getParameters();
+		if (ProofRules.isProofRule(ProofRules.RES, term)) {
+			mNodeKind = ClauseKind.RESOLUTION;
 		} else {
-			computeLeafTermInfo(term);
+			final AnnotatedTerm annotTerm = (AnnotatedTerm) term;
+			mLemmaAnnotation = annotTerm.getAnnotations()[1];
+			if (mLemmaAnnotation.getKey() == ProofConstants.ANNOTKEY_RUP) {
+				mNodeKind = ClauseKind.RESOLUTION;
+			} else if (mLemmaAnnotation.getKey() == ProofConstants.ANNOTKEY_INPUTCLAUSE) {
+				mNodeKind = ClauseKind.INPUT;
+			} else {
+				mNodeKind = ClauseKind.LEMMA;
+			}
+			mLiterals = computeLiterals((Object[]) annotTerm.getAnnotations()[0].getValue());
 		}
 	}
 
@@ -79,65 +86,31 @@ public class InterpolatorClauseInfo {
 	public void computeResolutionLiterals(final Interpolator interpolator) {
 		assert isResolution();
 		final LinkedHashSet<Term> literals = new LinkedHashSet<>();
-		final InterpolatorClauseInfo primInfo = interpolator.mClauseTermInfos.get(getPrimary());
-		literals.addAll(Arrays.asList(primInfo.getLiterals()));
-		for (final AnnotatedTerm antecedent : getAntecedents()) {
-			final Term pivot = computePivot(antecedent);
-			final InterpolatorClauseInfo antecedentInfo =
-					interpolator.mClauseTermInfos.get(antecedent.getSubterm());
-			literals.remove(interpolator.mTheory.not(pivot));
-			for (final Term antLit : antecedentInfo.getLiterals()) {
-				if (antLit != pivot) {
-					literals.add(antLit);
-				}
+		final InterpolatorClauseInfo primInfo = interpolator.mClauseTermInfos.get(mResolutionArgs[1]);
+		final Term pivot = mResolutionArgs[0];
+		for (final Term primLit : primInfo.getLiterals()) {
+			if (primLit != pivot) {
+				literals.add(primLit);
+			}
+		}
+		final InterpolatorClauseInfo antecedentInfo = interpolator.mClauseTermInfos.get(mResolutionArgs[2]);
+		final Term negPivot = pivot.getTheory().term(SMTLIBConstants.NOT, pivot);
+		for (final Term antLit : antecedentInfo.getLiterals()) {
+			if (antLit != negPivot) {
+				literals.add(antLit);
 			}
 		}
 		mLiterals = literals.toArray(new Term[literals.size()]);
 	}
 
-	/**
-	 * Collect the information needed to interpolate this leaf term.
-	 */
-	private void computeLeafTermInfo(final Term leafTerm) {
-		Term clause;
-		if (mNodeKind.equals(ProofConstants.FN_LEMMA)) {
-			final AnnotatedTerm innerLemma = (AnnotatedTerm) ((ApplicationTerm) leafTerm).getParameters()[0];
-			mLemmaAnnotation = innerLemma.getAnnotations()[0];
-			clause = innerLemma.getSubterm();
-			mLiterals = computeLiterals(clause);
-		} else if (mNodeKind.equals(ProofConstants.FN_CLAUSE)) {
-			final AnnotatedTerm subProof = (AnnotatedTerm) ((ApplicationTerm) leafTerm).getParameters()[0];
-			assert subProof.getAnnotations()[0].getKey().equals(ProofConstants.ANNOTKEY_PROVES);
-			assert subProof.getAnnotations()[1].getKey().equals(ProofConstants.ANNOTKEY_INPUT);
-			mSource = (String) subProof.getAnnotations()[1].getValue();
-			mLiterals = (Term[]) subProof.getAnnotations()[0].getValue();
-		} else {
-			throw new AssertionError("Unknown leaf type");
+	private static Term[] computeLiterals(final Object[] rawLits) {
+		assert rawLits.length % 2 == 0;
+		final Term[] literals = new Term[rawLits.length / 2];
+		for (int i = 0; i < literals.length; i++) {
+			final Term atom = (Term) rawLits[2 * i + 1];
+			literals[i] = rawLits[2 * i] == "+" ? atom : atom.getTheory().term(SMTLIBConstants.NOT, atom);
 		}
-	}
-
-	/**
-	 * Compute the literals of the given clause.
-	 */
-	private Term[] computeLiterals(final Term clause) {
-		if (clause instanceof ApplicationTerm && ((ApplicationTerm) clause).getFunction().getName().equals("or")) {
-			final ApplicationTerm appLit = (ApplicationTerm) clause;
-			return appLit.getParameters();
-		} else if (clause instanceof ApplicationTerm
-				&& ((ApplicationTerm) clause).getFunction().getName().equals("false")) {
-			// empty clause
-			return new Term[0];
-		} else {
-			// singleton clause
-			return new Term[] { clause };
-		}
-	}
-
-	/**
-	 * For an antecedent of a hyper-resolution step, get the pivot term.
-	 */
-	private Term computePivot(final AnnotatedTerm term) {
-		return (Term) term.getAnnotations()[0].getValue();
+		return literals;
 	}
 
 	/**
@@ -146,7 +119,7 @@ public class InterpolatorClauseInfo {
 	 * @return true if this is a resolution node.
 	 */
 	public boolean isResolution() {
-		return mNodeKind.equals(ProofConstants.FN_RES);
+		return mNodeKind == ClauseKind.RESOLUTION;
 	}
 
 	/**
@@ -155,7 +128,7 @@ public class InterpolatorClauseInfo {
 	 * @return true if this is a leaf node.
 	 */
 	public boolean isLeaf() {
-		return !isResolution();
+		return mNodeKind != ClauseKind.RESOLUTION;
 	}
 
 	/**
@@ -163,7 +136,7 @@ public class InterpolatorClauseInfo {
 	 *
 	 * @return the leaf kind.
 	 */
-	public String getLeafKind() {
+	public ClauseKind getLeafKind() {
 		return mNodeKind;
 	}
 
@@ -200,7 +173,7 @@ public class InterpolatorClauseInfo {
 	 *
 	 * @return the primary clause.
 	 */
-	public Term getPrimary() {
+	public Term getPivotLiteral() {
 		return mResolutionArgs[0];
 	}
 
@@ -209,13 +182,12 @@ public class InterpolatorClauseInfo {
 	 *
 	 * @return the antecedents; each is annotated with the pivot literal.
 	 */
-	public AnnotatedTerm[] getAntecedents() {
-		final AnnotatedTerm[] antecedents = new AnnotatedTerm[mResolutionArgs.length - 1];
-		System.arraycopy(mResolutionArgs, 1, antecedents, 0, antecedents.length);
-		return antecedents;
+	public Term[] getResolutionArgs() {
+		return mResolutionArgs;
 	}
 
 	public String getSource() {
-		return mSource;
+		assert mNodeKind == ClauseKind.INPUT;
+		return (String) mLemmaAnnotation.getValue();
 	}
 }

@@ -56,7 +56,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.InterpolatorClauseInfo.ClauseKind;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.TerminationRequest;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.InfinitesimalNumber;
 
@@ -274,22 +274,21 @@ public class Interpolator extends NonRecursive {
 		if (mCancel.isTerminationRequested()) {
 			throw new SMTLIBException("Timeout exceeded");
 		}
-		final InterpolatorClauseInfo proofTermInfo = getClauseTermInfo(proofTerm);
 		// get primary and antecedents
-		final Term prim = proofTermInfo.getPrimary();
+		final Term resolutionTerm = proofTerm instanceof AnnotatedTerm ? ((AnnotatedTerm) proofTerm).getSubterm()
+				: proofTerm;
+		final Term[] resArgs = ((ApplicationTerm) resolutionTerm).getParameters();
+		final Term pivot = resArgs[0];
+		final Term prim = resArgs[1];
+		final Term antecedent = resArgs[2];
 
-		final AnnotatedTerm[] antecedents = proofTermInfo.getAntecedents();
-
-		enqueueWalker(new SummarizeResolution(proofTerm));
+		if (proofTerm instanceof AnnotatedTerm) {
+			enqueueWalker(new SummarizeResolution(proofTerm));
+		}
 		// enqueue walkers for primary and antecedents in reverse order
 		// alternating with Combine walkers
-		for (int i = antecedents.length - 1; i >= 0; i--) {
-			final Term pivot = (Term) antecedents[i].getAnnotations()[0].getValue();
-			final Term antecedent = antecedents[i].getSubterm();
-
-			enqueueWalker(new CombineInterpolants(pivot));
-			enqueueWalker(new ProofTreeWalker(antecedent));
-		}
+		enqueueWalker(new CombineInterpolants(pivot));
+		enqueueWalker(new ProofTreeWalker(antecedent));
 		enqueueWalker(new ProofTreeWalker(prim));
 	}
 
@@ -307,7 +306,7 @@ public class Interpolator extends NonRecursive {
 		final InterpolatorClauseInfo leafTermInfo = getClauseTermInfo(leaf);
 		final Term[] clause = leafTermInfo.getLiterals();
 		Term[] interpolants;
-		if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_CLAUSE)) {
+		if (leafTermInfo.getLeafKind() == ClauseKind.INPUT) {
 			if (isSkolemizedFormula(leaf)) {
 				throw new UnsupportedOperationException("Interpolation not supported for quantified formulae.");
 			}
@@ -317,7 +316,7 @@ public class Interpolator extends NonRecursive {
 			for (int i = 0; i < mNumInterpolants; i++) {
 				interpolants[i] = mStartOfSubtrees[i] <= partition && partition <= i ? mTheory.mFalse : mTheory.mTrue;
 			}
-		} else if (leafTermInfo.getLeafKind().equals(ProofConstants.FN_LEMMA)) {
+		} else if (leafTermInfo.getLeafKind() == ClauseKind.LEMMA) {
 			switch (leafTermInfo.getLemmaType()) {
 			case ":EQ":
 				interpolants = new EQInterpolator(this).computeInterpolants(leafTermInfo);
@@ -381,20 +380,20 @@ public class Interpolator extends NonRecursive {
 			mLogger.debug(interpolants[i]);
 		}
 
-		if (Config.DEEP_CHECK_INTERPOLANTS && mChecker != null) {
+		if ((true || Config.DEEP_CHECK_INTERPOLANTS) && mChecker != null) {
 			mChecker.checkInductivity(leafTermInfo.getLiterals(), interpolants);
 		}
 	}
 
 	private Term[] computeResolution(Term[] primary, Term[] antecedent, Term pivot) {
 		final HashSet<Term> newClause = new LinkedHashSet<>(antecedent.length + primary.length);
-		for (final Term lit : antecedent) {
+		for (final Term lit : primary) {
 			if (lit != pivot) {
 				newClause.add(lit);
 			}
 		}
 		final Term negPivot = pivot.getTheory().not(pivot);
-		for (final Term lit : primary) {
+		for (final Term lit : antecedent) {
 			if (lit != negPivot) {
 				newClause.add(lit);
 			}
@@ -408,8 +407,7 @@ public class Interpolator extends NonRecursive {
 	 * @param pivot
 	 *            the pivot of the resolution step
 	 */
-	private void combine(final Term pivot) {
-		final Term pivotAtom = getAtom(pivot);
+	private void combine(final Term pivotAtom) {
 		final LitInfo pivInfo = mAtomOccurenceInfos.get(pivotAtom);
 
 		final Term[] antecedentInterp = collectInterpolated();
@@ -418,36 +416,29 @@ public class Interpolator extends NonRecursive {
 
 		final Term[] antecedentClause = mProvedClauseStack.removeLast();
 		final Term[] primClause = mProvedClauseStack.removeLast();
-		final Term[] provedClause = computeResolution(primClause, antecedentClause, pivot);
+		final Term[] provedClause = computeResolution(primClause, antecedentClause, pivotAtom);
 
 		final InterpolantPurifier purifier = new InterpolantPurifier(this);
 		for (int i = 0; i < mNumInterpolants; i++) {
 			mLogger.debug("Pivot %3$s%4$s on interpolants %1$s and %2$s gives...", primInterp[i], antecedentInterp[i],
-					pivot, pivInfo);
+					pivotAtom, pivInfo);
 			if (pivInfo.isALocal(i)) {
 				interp[i] = mTheory.or(primInterp[i], antecedentInterp[i]);
 			} else if (pivInfo.isBLocal(i)) {
 				interp[i] = mTheory.and(primInterp[i], antecedentInterp[i]);
 			} else if (pivInfo.isAB(i)) {
-				interp[i] = mTheory.ifthenelse(pivot, primInterp[i], antecedentInterp[i]);
+				interp[i] = mTheory.ifthenelse(pivotAtom, antecedentInterp[i], primInterp[i]);
 			} else {
 				final InterpolatorAtomInfo pivotTermInfo = getAtomTermInfo(pivotAtom);
 				if (pivotTermInfo.isCCEquality() || pivotTermInfo.isLAEquality()) {
-					Term eqIpol, neqIpol;
-					if (pivot == pivotAtom) {
-						// pivot is the "eq" and occurs in antecedent
-						eqIpol = antecedentInterp[i];
-						neqIpol = primInterp[i];
-					} else {
-						// pivot is the "neq" and occurs in antecedent
-						eqIpol = primInterp[i];
-						neqIpol = antecedentInterp[i];
-					}
+					// pivot is eq and occurs in primary,
+					final Term eqIpol = primInterp[i];
+					final Term neqIpol = antecedentInterp[i];
 					interp[i] = mixedEqInterpolate(eqIpol, neqIpol, pivInfo.mMixedVar);
 				} else if (pivotTermInfo.isBoundConstraint()) {
 					interp[i] = mixedPivotLA(antecedentInterp[i], primInterp[i], pivInfo.mMixedVar);
 				} else {
-					throw new UnsupportedOperationException("Cannot handle mixed literal " + pivot);
+					throw new UnsupportedOperationException("Cannot handle mixed literal " + pivotAtom);
 				}
 			}
 			interp[i] = purifier.purify(interp[i], i);
@@ -796,21 +787,16 @@ public class Interpolator extends NonRecursive {
 			final Term proofTerm = todoStack.pop();
 			final InterpolatorClauseInfo proofTermInfo = getClauseTermInfo(proofTerm);
 			if (proofTermInfo.isResolution()) {
-				final Term primary = proofTermInfo.getPrimary();
-				if (seen.add(primary)) {
-					todoStack.add(primary);
-				}
-				final Term[] antecedents = proofTermInfo.getAntecedents();
-				for (final Term a : antecedents) {
-					assert a instanceof AnnotatedTerm;
-					final Term subterm = ((AnnotatedTerm) a).getSubterm();
-					if (seen.add(subterm)) {
-						todoStack.add(subterm);
-					}
-				}
+				final Term resolutionTerm = proofTerm instanceof AnnotatedTerm
+						? ((AnnotatedTerm) proofTerm).getSubterm()
+						: proofTerm;
+				final Term[] resArgs = ((ApplicationTerm) resolutionTerm).getParameters();
+				// recursively go through the sub proofs
+				todoStack.add(resArgs[1]);
+				todoStack.add(resArgs[2]);
 			} else {
 				assert proofTermInfo.isLeaf();
-				if (proofTermInfo.getLeafKind().equals(ProofConstants.FN_CLAUSE)) {
+				if (proofTermInfo.getLeafKind() == ClauseKind.INPUT) {
 					// Color the literals
 					final String source = proofTermInfo.getSource();
 					final Term[] lits = proofTermInfo.getLiterals();

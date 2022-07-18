@@ -29,7 +29,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -50,6 +49,7 @@ public class ProofSimplifierTest {
 	private final Theory mTheory;
 	private final Random rng = new Random(123456);
 	private final ProofSimplifier mSimplifier;
+	private final ProofTracker mProofTracker;
 	private final MinimalProofChecker mProofChecker;
 
 	public ProofSimplifierTest() {
@@ -58,6 +58,7 @@ public class ProofSimplifierTest {
 		mSmtInterpol.setOption(SMTLIBConstants.INTERACTIVE_MODE, SMTLIBConstants.TRUE);
 		mSmtInterpol.setLogic(Logics.ALL);
 		mTheory = mSmtInterpol.getTheory();
+		mProofTracker = new ProofTracker(mTheory);
 		mSimplifier = new ProofSimplifier(mSmtInterpol);
 		mProofChecker = new MinimalProofChecker(mSmtInterpol, mSmtInterpol.getLogger());
 		mSmtInterpol.declareSort("U", 0);
@@ -82,51 +83,23 @@ public class ProofSimplifierTest {
 		return terms;
 	}
 
-	public Term generateTransitivityInt(final int len, final int swapFlags) {
-		final Sort intSort = mSmtInterpol.sort("Int");
-		final Term[] terms = generateDummyTerms("x", len, intSort);
-		final Term[] eqs = new Term[len];
-		final SMTAffineTerm affine = new SMTAffineTerm();
-		affine.add((swapFlags & (1 << (len - 1))) != 0 ? Rational.ONE : Rational.MONE, terms[0]);
-		affine.add(Rational.ONE);
-		terms[len - 1] = affine.toTerm(intSort);
-		for (int i = 0; i < len; i++) {
-			if (i > 0) {
-				eqs[i - 1] = (swapFlags & (1 << (i - 1))) != 0 ? mTheory.term("=", terms[i - 1], terms[i])
-						: mTheory.term("=", terms[i], terms[i - 1]);
-			}
+	ProofLiteral termToProofLiteral(Term term) {
+		Term atom = term;
+		boolean polarity = true;
+		while (atom instanceof ApplicationTerm
+				&& ((ApplicationTerm) atom).getFunction().getName() == SMTLIBConstants.NOT) {
+			atom = ((ApplicationTerm) atom).getParameters()[0];
+			polarity = !polarity;
 		}
-		eqs[len - 1] = (swapFlags & (1 << (len - 1))) != 0 ? mTheory.term("=", terms[0], terms[len - 1])
-				: mTheory.term("=", terms[len - 1], terms[0]);
-		final Term[] orParams = new Term[len - 1];
-		for (int i = 0; i < len - 1; i++) {
-			orParams[i] = mSmtInterpol.term("not", eqs[i]);
-		}
-		final Term clause = mSmtInterpol.term("or", (Term[]) shuffle(orParams));
-		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":trans", terms) };
-		final Term lemma = mSmtInterpol.term(ProofConstants.FN_LEMMA, mSmtInterpol.annotate(clause, lemmaAnnots));
-		return lemma;
+		return new ProofLiteral(atom, polarity);
 	}
 
-	public Term generateTransitivity(final int len, final int swapFlags) {
-		final Sort U = mSmtInterpol.sort("U");
-		final Term[] terms = generateDummyTerms("x", len, U);
-		final Term[] eqs   = new Term[len];
-		for (int i = 0; i < len; i++) {
-			if (i > 0) {
-				eqs[i-1] = (swapFlags & (1<< (i-1))) != 0 ? mTheory.term("=", terms[i-1],terms[i]) : mTheory.term("=", terms[i],terms[i-1]);
-			}
+	ProofLiteral[] termArrayToProofLiterals(Term[] terms) {
+		final ProofLiteral[] lits = new ProofLiteral[terms.length];
+		for (int i = 0; i < terms.length; i++) {
+			lits[i] = termToProofLiteral(terms[i]);
 		}
-		eqs[len - 1] = (swapFlags & (1<< (len-1))) != 0 ? mTheory.term("=", terms[0],terms[len-1]) : mTheory.term("=", terms[len-1],terms[0]);
-		final Term[] orParams = new Term[len];
-		for (int i = 0; i < len; i++) {
-			orParams[i] = i == len - 1 ? eqs[i] : mSmtInterpol.term("not", eqs[i]);
-		}
-		final Term clause = mSmtInterpol.term("or", (Term[]) shuffle(orParams));
-		final Annotation[] lemmaAnnots = new Annotation[] { new Annotation(":trans", terms) };
-		final Term lemma = mSmtInterpol.term(ProofConstants.FN_LEMMA,
-				mSmtInterpol.annotate(clause, lemmaAnnots));
-		return lemma;
+		return lits;
 	}
 
 	void checkProof(final Term proofTerm, final Term[] lits) {
@@ -150,10 +123,54 @@ public class ProofSimplifierTest {
 		checkProof(mSimplifier.transform(lemma), lits);
 	}
 
-	void checkRewriteRule(final Term rewriteEquality, Annotation rewriteRule) {
-		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE,
-				mSmtInterpol.annotate(rewriteEquality, rewriteRule));
+	void checkRewriteRule(final Term lhs, final Term rhs, Annotation rewriteRule) {
+		final Term rewriteEquality = mSmtInterpol.term(SMTLIBConstants.EQUALS, lhs, rhs);
+		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE, lhs,
+				mSmtInterpol.annotate(rhs, rewriteRule));
 		checkLemmaOrRewrite(rewriteEqSimp, new Term[] { rewriteEquality });
+	}
+
+	private Term buildOracle(Term[] clause, Annotation rule) {
+		return mProofTracker.mProofRules.oracle(termArrayToProofLiterals(clause), new Annotation[] { rule });
+	}
+
+	public Term[] generateTransitivityInt(final int len, final int swapFlags, Term[] terms) {
+		final Sort intSort = mSmtInterpol.sort("Int");
+		final Term[] eqs = new Term[len];
+		final SMTAffineTerm affine = new SMTAffineTerm();
+		affine.add((swapFlags & (1 << (len - 1))) != 0 ? Rational.ONE : Rational.MONE, terms[0]);
+		affine.add(Rational.ONE);
+		terms[len - 1] = affine.toTerm(intSort);
+		for (int i = 0; i < len; i++) {
+			if (i > 0) {
+				eqs[i - 1] = (swapFlags & (1 << (i - 1))) != 0 ? mTheory.term("=", terms[i - 1], terms[i])
+						: mTheory.term("=", terms[i], terms[i - 1]);
+			}
+		}
+		eqs[len - 1] = (swapFlags & (1 << (len - 1))) != 0 ? mTheory.term("=", terms[0], terms[len - 1])
+				: mTheory.term("=", terms[len - 1], terms[0]);
+		final Term[] orParams = new Term[len - 1];
+		for (int i = 0; i < len - 1; i++) {
+			orParams[i] = mSmtInterpol.term("not", eqs[i]);
+		}
+		return (Term[]) shuffle(orParams);
+	}
+
+	public Term[] generateTransitivity(final int len, final int swapFlags, final Term[] terms) {
+		final Term[] eqs = new Term[len];
+		for (int i = 0; i < len; i++) {
+			if (i > 0) {
+				eqs[i - 1] = (swapFlags & (1 << (i - 1))) != 0 ? mTheory.term("=", terms[i - 1], terms[i])
+						: mTheory.term("=", terms[i], terms[i - 1]);
+			}
+		}
+		eqs[len - 1] = (swapFlags & (1 << (len - 1))) != 0 ? mTheory.term("=", terms[0], terms[len - 1])
+				: mTheory.term("=", terms[len - 1], terms[0]);
+		final Term[] orParams = new Term[len];
+		for (int i = 0; i < len; i++) {
+			orParams[i] = i == len - 1 ? eqs[i] : mSmtInterpol.term("not", eqs[i]);
+		}
+		return (Term[]) shuffle(orParams);
 	}
 
 	@Test
@@ -162,12 +179,12 @@ public class ProofSimplifierTest {
 			for (int flags = 0; flags < (1 << len); flags++) {
 				for (int i = 0; i < 2; i++) {
 					mSmtInterpol.push(1);
-					final Term transLemma = i == 0 ? generateTransitivity(len, flags)
-							: generateTransitivityInt(len, flags);
-					final Term clause = ((AnnotatedTerm) ((ApplicationTerm) transLemma).getParameters()[0])
-							.getSubterm();
-					final Term[] orParams = ((ApplicationTerm) clause).getParameters();
-					checkLemmaOrRewrite(transLemma, orParams);
+					final Sort sort = i == 0 ? mSmtInterpol.sort("U") : mSmtInterpol.sort(SMTLIBConstants.INT);
+					final Term[] terms = generateDummyTerms("x", len, sort);
+					final Term[] clause = i == 0 ? generateTransitivity(len, flags, terms)
+							: generateTransitivityInt(len, flags, terms);
+					final Term lemma = buildOracle(clause, new Annotation(":trans", terms));
+					checkLemmaOrRewrite(lemma, clause);
 					mSmtInterpol.pop(1);
 				}
 			}
@@ -191,8 +208,8 @@ public class ProofSimplifierTest {
 			final Term rhs = rhsTerms.length == 1 ? mSmtInterpol.term(SMTLIBConstants.TRUE)
 					: mSmtInterpol.term("=", rhsTerms);
 
-			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("=", lhsTerms), rhs);
-			checkRewriteRule(equality, rhsTerms.length == 1 ? ProofConstants.RW_EQ_SAME : ProofConstants.RW_EQ_SIMP);
+			final Term lhs = mSmtInterpol.term("=", lhsTerms);
+			checkRewriteRule(lhs, rhs, rhsTerms.length == 1 ? ProofConstants.RW_EQ_SAME : ProofConstants.RW_EQ_SIMP);
 		}
 		mSmtInterpol.pop(1);
 	}
@@ -203,9 +220,8 @@ public class ProofSimplifierTest {
 		{
 			mSmtInterpol.push(1);
 			final Term[] terms = generateDummyTerms("x", 5, mSmtInterpol.sort("Bool"));
-			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("distinct", terms),
-					mSmtInterpol.term(SMTLIBConstants.FALSE));
-			checkRewriteRule(equality, ProofConstants.RW_DISTINCT_BOOL);
+			checkRewriteRule(mSmtInterpol.term("distinct", terms), mSmtInterpol.term(SMTLIBConstants.FALSE),
+					ProofConstants.RW_DISTINCT_BOOL);
 			mSmtInterpol.pop(1);
 		}
 
@@ -213,9 +229,8 @@ public class ProofSimplifierTest {
 			mSmtInterpol.push(1);
 			final Term[] terms = generateDummyTerms("x", 5, mSmtInterpol.sort("U"));
 			terms[4] = terms[2];
-			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("distinct", terms),
-					mSmtInterpol.term(SMTLIBConstants.FALSE));
-			checkRewriteRule(equality, ProofConstants.RW_DISTINCT_SAME);
+			checkRewriteRule(mSmtInterpol.term("distinct", terms), mSmtInterpol.term(SMTLIBConstants.FALSE),
+					ProofConstants.RW_DISTINCT_SAME);
 			mSmtInterpol.pop(1);
 		}
 
@@ -230,9 +245,8 @@ public class ProofSimplifierTest {
 				}
 			}
 			final Term orTerm = orParams.length == 1 ? orParams[0] : mSmtInterpol.term(SMTLIBConstants.OR, orParams);
-			final Term equality = mSmtInterpol.term("=", mSmtInterpol.term("distinct", terms),
-					mSmtInterpol.term(SMTLIBConstants.NOT, orTerm));
-			checkRewriteRule(equality, ProofConstants.RW_DISTINCT_BINARY);
+			checkRewriteRule(mSmtInterpol.term("distinct", terms), mSmtInterpol.term(SMTLIBConstants.NOT, orTerm),
+					ProofConstants.RW_DISTINCT_BINARY);
 			mSmtInterpol.pop(1);
 		}
 	}
@@ -247,16 +261,14 @@ public class ProofSimplifierTest {
 		// negation.
 		final Term eqTerm = mSmtInterpol.term("=", terms);
 		final Term xorTerm = mSmtInterpol.term("xor", terms);
-		final Term equality = mSmtInterpol.term("=", eqTerm, mSmtInterpol.term("not", xorTerm));
-		checkRewriteRule(equality, ProofConstants.RW_EQ_TO_XOR);
+		checkRewriteRule(eqTerm, mSmtInterpol.term("not", xorTerm), ProofConstants.RW_EQ_TO_XOR);
 		mSmtInterpol.pop(1);
 	}
 
 	public void checkOneTrivialDiseq(final Term lhs, final Term rhs) {
 		for (final Term trivialDiseq : new Term[] { mSmtInterpol.term("=", lhs, rhs),
 				mSmtInterpol.term("=", rhs, lhs) }) {
-			final Term equality = mSmtInterpol.term("=", trivialDiseq, mSmtInterpol.term(SMTLIBConstants.FALSE));
-			checkRewriteRule(equality, ProofConstants.RW_INTERN);
+			checkRewriteRule(trivialDiseq, mSmtInterpol.term(SMTLIBConstants.FALSE), ProofConstants.RW_INTERN);
 		}
 	}
 
@@ -335,8 +347,7 @@ public class ProofSimplifierTest {
 	private void checkIteRewrite(final Term cond, final Term thenCase, final Term elseCase, final Annotation rule,
 			final Term rhs) {
 		final Term ite = mSmtInterpol.term("ite", cond, thenCase, elseCase);
-		final Term equality = mSmtInterpol.term("=", ite, rhs);
-		checkRewriteRule(equality, rule);
+		checkRewriteRule(ite, rhs, rule);
 	}
 
 	@Test
@@ -377,8 +388,7 @@ public class ProofSimplifierTest {
 			final Term result, final Annotation rule) {
 		final Sort sort = dividend.getSort();
 		final Term lhs = mSmtInterpol.term(divOrMod, dividend, divisor.toTerm(sort));
-		final Term equality = mSmtInterpol.term("=", lhs, result);
-		checkRewriteRule(equality, rule);
+		checkRewriteRule(lhs, result, rule);
 	}
 
 	@Test
@@ -466,8 +476,7 @@ public class ProofSimplifierTest {
 				storeEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, arrayTerm, storeTerm);
 			}
 			final Term valueEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, selectTerm, valueTerm);
-			final Term rewriteEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, storeEq, valueEq);
-			checkRewriteRule(rewriteEq, ProofConstants.RW_STORE_REWRITE);
+			checkRewriteRule(storeEq, valueEq, ProofConstants.RW_STORE_REWRITE);
 		}
 		mSmtInterpol.pop(1);
 	}
@@ -493,8 +502,7 @@ public class ProofSimplifierTest {
 			final Term innerStore = mSmtInterpol.term(SMTLIBConstants.STORE, arrayTerm, index0Term, valueTerms[0]);
 			final Term outerStore = mSmtInterpol.term(SMTLIBConstants.STORE, innerStore, index1Term, valueTerms[1]);
 			final Term resultStore = mSmtInterpol.term(SMTLIBConstants.STORE, arrayTerm, index1Term, valueTerms[1]);
-			final Term rewriteEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, outerStore, resultStore);
-			checkRewriteRule(rewriteEq, ProofConstants.RW_STORE_OVER_STORE);
+			checkRewriteRule(outerStore, resultStore, ProofConstants.RW_STORE_OVER_STORE);
 		}
 		mSmtInterpol.pop(1);
 	}
@@ -539,8 +547,7 @@ public class ProofSimplifierTest {
 			}
 			final Term storeTerm = mSmtInterpol.term(SMTLIBConstants.STORE, arrayTerm, indexStore, valueTerm);
 			final Term selectOverStore = mSmtInterpol.term(SMTLIBConstants.SELECT, storeTerm, indexSelect);
-			final Term rewriteEq = mSmtInterpol.term(SMTLIBConstants.EQUALS, selectOverStore, rhs);
-			checkRewriteRule(rewriteEq, ProofConstants.RW_SELECT_OVER_STORE);
+			checkRewriteRule(selectOverStore, rhs, ProofConstants.RW_SELECT_OVER_STORE);
 		}
 		mSmtInterpol.pop(1);
 	}
@@ -556,10 +563,9 @@ public class ProofSimplifierTest {
 			final Term p = terms[0];
 			final Term equality = mSmtInterpol.term(SMTLIBConstants.EQUALS, p, (flags & 1) != 0 ? falseTerm : trueTerm);
 			final Term litp = (flags & 1) != 0 ? p : mSmtInterpol.term(SMTLIBConstants.NOT, p);
-			final Term clause = mSmtInterpol.term(SMTLIBConstants.OR, equality, litp);
 			final Annotation rule = (flags & 1) != 0 ? ProofConstants.TAUT_EXCLUDED_MIDDLE_2
 					: ProofConstants.TAUT_EXCLUDED_MIDDLE_1;
-			final Term tautology = mSmtInterpol.term(ProofConstants.FN_TAUTOLOGY, mSmtInterpol.annotate(clause, rule));
+			final Term tautology = buildOracle(new Term[] { equality, litp }, rule);
 			checkLemmaOrRewrite(tautology, new Term[] { equality, litp });
 		}
 	}
@@ -595,8 +601,7 @@ public class ProofSimplifierTest {
 						} else {
 							rhs = mTheory.term(SMTLIBConstants.NOT, mTheory.term(SMTLIBConstants.OR, output));
 						}
-						final Term eq = mTheory.term(SMTLIBConstants.EQUALS, lhs, rhs);
-						checkRewriteRule(eq, rule);
+						checkRewriteRule(lhs, rhs, rule);
 					}
 				}
 			}
@@ -610,7 +615,7 @@ public class ProofSimplifierTest {
 		sumMin.add(Rational.MONE, iteTerm);
 		final Term leqMin = mTheory.term(SMTLIBConstants.LEQ, sumMin.toTerm(baseTerm.getSort()),
 				Rational.ZERO.toTerm(baseTerm.getSort()));
-		final Term tautologyMin = mSmtInterpol.term(ProofConstants.FN_TAUTOLOGY, mSmtInterpol.annotate(leqMin, rule));
+		final Term tautologyMin = buildOracle(new Term[] { leqMin }, rule);
 		checkLemmaOrRewrite(tautologyMin, new Term[] { leqMin });
 
 		final SMTAffineTerm sumMax = new SMTAffineTerm(iteTerm);
@@ -618,7 +623,7 @@ public class ProofSimplifierTest {
 		sumMax.add(Rational.MONE.mul(max));
 		final Term leqMax = mTheory.term(SMTLIBConstants.LEQ, sumMax.toTerm(baseTerm.getSort()),
 				Rational.ZERO.toTerm(baseTerm.getSort()));
-		final Term tautologyMax = mSmtInterpol.term(ProofConstants.FN_TAUTOLOGY, mSmtInterpol.annotate(leqMax, rule));
+		final Term tautologyMax = buildOracle(new Term[] { leqMax }, rule);
 		checkLemmaOrRewrite(tautologyMax, new Term[] { leqMax });
 	}
 

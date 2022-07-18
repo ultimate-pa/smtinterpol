@@ -36,7 +36,8 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 @RunWith(JUnit4.class)
@@ -67,7 +68,7 @@ public class InterpolatorTest {
 		mTheory = mSolver.getTheory();
 	}
 
-	public void doTestEq(final boolean ccswap, final boolean abswap, final boolean clauseswap, final boolean litswap,
+	public void doTestEq(final boolean ccswap, final boolean abswap, final boolean laIsNeg, final boolean litswap,
 			final boolean doubleab, final boolean addconst, boolean addvar) {
 		addvar = false;
 		final Term a = mA;
@@ -97,14 +98,10 @@ public class InterpolatorTest {
 		linTerm.add(Rational.MONE, bterm);
 		linTerm.mul(linTerm.getGcd().inverse());
 		final Term laeq = mTheory.term("=", linTerm.toSMTLib(mTheory, false), Rational.ZERO.toTerm(mReal));
-		final Term[] lits = clauseswap
-				? litswap ? new Term[] { mTheory.term("not", cceq), laeq }
-						: new Term[] { laeq, mTheory.term("not", cceq) }
-				: litswap ? new Term[] { mTheory.term("not", laeq), cceq }
-						: new Term[] { cceq, mTheory.term("not", laeq) };
-		final Term clause = mTheory.term("or", lits);
+		final ProofLiteral[] lits = new ProofLiteral[] { new ProofLiteral(laIsNeg ^ litswap ? laeq : cceq, !litswap),
+				new ProofLiteral(laIsNeg ^ litswap ? cceq : laeq, litswap) };
 		final Annotation[] mAnnots = new Annotation[] { new Annotation(":EQ", null) };
-		final Term lemma = mTheory.term(ProofConstants.FN_LEMMA, mTheory.annotatedTerm(mAnnots, clause));
+		final Term lemma = new ProofRules(mTheory).oracle(lits, mAnnots);
 		final Set<String> empty = Collections.emptySet();
 		@SuppressWarnings("unchecked")
 		final Set<String>[] partition = new Set[] { empty, empty };
@@ -127,7 +124,7 @@ public class InterpolatorTest {
 		final TermVariable laVar = mInterpolator.getAtomOccurenceInfo(laeq).getMixedVar();
 		Term var;
 		final InterpolatorAffineTerm summands = new InterpolatorAffineTerm();
-		if (clauseswap) {
+		if (laIsNeg) {
 			Rational factor = Rational.ONE;
 			if (doubleab) {
 				factor = Rational.TWO.inverse();
