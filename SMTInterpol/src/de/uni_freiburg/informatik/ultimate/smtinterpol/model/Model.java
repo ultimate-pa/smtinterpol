@@ -286,7 +286,7 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 
 	@Override
 	public String toString() {
-		final ModelFormatter mf = new ModelFormatter(mTheory, this);
+		final ModelFormatter mf = new ModelFormatter(mTheory);
 		for (final Map.Entry<FunctionSymbol, FunctionValue> me : mFuncVals.entrySet()) {
 			final FunctionSymbol fs = me.getKey();
 			if (!fs.isIntern() || fs.getDefinition() == null) {

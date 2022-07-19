@@ -34,7 +34,6 @@ public class ModelFormatter {
 	private int mIndent;
 
 	private final Theory mTheory;
-	private final Model mModel;
 
 	private void newline() {
 		mString.append(mLineSep);
@@ -43,12 +42,11 @@ public class ModelFormatter {
 		}
 	}
 
-	public ModelFormatter(final Theory t, final Model model) {
+	public ModelFormatter(final Theory t) {
 		mLineSep = System.getProperty("line.separator");
 		mString = new StringBuilder("(");// NOPMD
 		mIndent = 0;
 		mTheory = t;
-		mModel = model;
 	}
 
 	public void appendComment(final String comment) {
@@ -111,5 +109,4 @@ public class ModelFormatter {
 	public String finish() {
 		return mString.append(')').toString();
 	}
-
 }

@@ -24,12 +24,10 @@ import java.util.Deque;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.IParser;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Version;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTLIB2Parser;
 
 /**
  * Main class for checking lowlevel proofs.
@@ -63,7 +61,6 @@ public final class Main {
 	public static void main(final String[] param) throws Exception {
 		final DefaultLogger logger = new DefaultLogger();
 		final Deque<Option> optionList = new ArrayDeque<>();
-		final IParser parser = new SMTLIB2Parser();
 		int paramctr = 0;
 		while (paramctr < param.length
 				&& param[paramctr].startsWith("-")) {

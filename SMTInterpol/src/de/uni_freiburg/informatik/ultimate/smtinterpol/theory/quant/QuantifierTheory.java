@@ -94,7 +94,6 @@ public class QuantifierTheory implements ITheory {
 	 * becomes a conflict or unit clause.
 	 */
 	private final Map<Literal, Set<InstClause>> mPendingInstances;
-	private int mDecideLevelOfLastCheckpoint;
 
 	// Statistics
 	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedConfl, mNumInstancesProducedEM,
@@ -132,7 +131,6 @@ public class QuantifierTheory implements ITheory {
 		mQuantClauses = new ScopedArrayList<>();
 
 		mPendingInstances = new LinkedHashMap<>();
-		mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 
 		mNumInstancesOfAge = new int[Integer.SIZE];
 		mNumInstancesOfAgeEnum = new int[Integer.SIZE];
@@ -214,7 +212,6 @@ public class QuantifierTheory implements ITheory {
 			// || mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY
 			// || mEngine.getDecideLevel() <= mDecideLevelOfLastCheckpoint;
 			// }
-			mDecideLevelOfLastCheckpoint = mEngine.getDecideLevel();
 			if (!mPendingInstances.isEmpty()) {
 				return null;
 			}
@@ -713,19 +710,17 @@ public class QuantifierTheory implements ITheory {
 
 	/**
 	 * Perform destructive equality reasoning.
-	 *
-	 * @param clause     The quantified formula, annotated with its proof if proof
-	 *                   production is enabled.
 	 * @param vars       The quantified variables.
 	 * @param groundLits The ground literals of the clause.
 	 * @param quantLits  The quantified literals of the clause.
 	 * @param source     The source of the clause.
+	 *
 	 * @return the result from performing DER if something has changed, null else.
 	 */
-	public DERResult performDestructiveEqualityReasoning(final Term clause, final TermVariable[] vars,
-			final Literal[] groundLits, final QuantLiteral[] quantLits, final SourceAnnotation source) {
+	public DERResult performDestructiveEqualityReasoning(final TermVariable[] vars, final Literal[] groundLits,
+			final QuantLiteral[] quantLits, final SourceAnnotation source) {
 		final DestructiveEqualityReasoning der =
-				new DestructiveEqualityReasoning(this, vars, groundLits, quantLits, source, clause);
+				new DestructiveEqualityReasoning(this, vars, groundLits, quantLits, source);
 		if (der.applyDestructiveEqualityReasoning()) {
 			final DERResult result = der.getResult();
 			if (result.isGround() && !result.isTriviallyTrue()) {

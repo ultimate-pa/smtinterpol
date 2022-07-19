@@ -117,10 +117,8 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	private static class SMTInterpolSetup extends Theory.SolverSetup {
-		private final ProofMode mProofMode;
 
-		public SMTInterpolSetup(final ProofMode proofMode) {
-			mProofMode = proofMode;
+		public SMTInterpolSetup() {
 		}
 
 		@Override
@@ -564,7 +562,7 @@ public class SMTInterpol extends NoopScript {
 
 	@Override
 	public void setLogic(final Logics logic) throws UnsupportedOperationException, SMTLIBException {
-		mSolverSetup = new SMTInterpolSetup(getProofMode());
+		mSolverSetup = new SMTInterpolSetup();
 		super.setLogic(logic);
 		setupClausifier(logic);
 	}

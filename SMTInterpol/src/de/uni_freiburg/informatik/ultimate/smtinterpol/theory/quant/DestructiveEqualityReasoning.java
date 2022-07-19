@@ -54,7 +54,6 @@ public class DestructiveEqualityReasoning {
 	private final TermVariable[] mVars;
 	private final Literal[] mGroundLits;
 	private final QuantLiteral[] mQuantLits;
-	private final Term mProof;
 	private final SourceAnnotation mSource;
 
 	private final Map<TermVariable, Term> mSigma;
@@ -64,14 +63,13 @@ public class DestructiveEqualityReasoning {
 
 	DestructiveEqualityReasoning(final QuantifierTheory quantTheory, final TermVariable[] vars,
 			final Literal[] groundLits, final QuantLiteral[] quantLits,
-			final SourceAnnotation source, final Term proof) {
+			final SourceAnnotation source) {
 		mQuantTheory = quantTheory;
 		mClausifier = quantTheory.getClausifier();
 
 		mVars = vars;
 		mGroundLits = groundLits;
 		mQuantLits = quantLits;
-		mProof = proof;
 		mSource = source;
 
 		mSigma = new LinkedHashMap<>();

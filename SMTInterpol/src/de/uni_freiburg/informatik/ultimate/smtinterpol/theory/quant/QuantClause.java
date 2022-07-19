@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -242,20 +241,6 @@ public class QuantClause {
 		for (int i = 0; i < mVars.length; i++) {
 			mInterestingTermsForVars[i].clear();
 		}
-	}
-
-	/**
-	 * Compute the free variables in this clause. This defines an order on the variables in the clause.
-	 *
-	 * @return an array containing the free variables in this clause.
-	 */
-	private TermVariable[] computeVars() {
-		final Set<TermVariable> varSet = new LinkedHashSet<>();
-		for (final QuantLiteral lit : mQuantLits) {
-			final TermVariable[] vars = lit.getTerm().getFreeVars();
-			Collections.addAll(varSet, vars);
-		}
-		return varSet.toArray(new TermVariable[varSet.size()]);
 	}
 
 	/**

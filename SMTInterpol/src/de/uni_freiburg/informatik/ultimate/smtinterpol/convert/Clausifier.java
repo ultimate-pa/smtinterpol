@@ -732,8 +732,7 @@ public class Clausifier {
 				TermVariable[] quantVars = ((QuantifiedFormula) mTracker.getProvedTerm(quantifierWithProof))
 						.getVariables();
 				final DERResult resultFromDER =
-						mQuantTheory.performDestructiveEqualityReasoning(quantifierWithProof, quantVars, lits,
-								quantLits, mSource);
+						mQuantTheory.performDestructiveEqualityReasoning(quantVars, lits, quantLits, mSource);
 				if (resultFromDER == null) {
 					mQuantTheory.addQuantClause(quantVars, lits, quantLits, mSource, quantifierWithProof);
 				} else if (!resultFromDER.isTriviallyTrue()) { // Clauses that become trivially true can be dropped.
