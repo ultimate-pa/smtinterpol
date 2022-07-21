@@ -125,8 +125,8 @@ public class ProofSimplifierTest {
 
 	void checkRewriteRule(final Term lhs, final Term rhs, Annotation rewriteRule) {
 		final Term rewriteEquality = mSmtInterpol.term(SMTLIBConstants.EQUALS, lhs, rhs);
-		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE, lhs,
-				mSmtInterpol.annotate(rhs, rewriteRule));
+		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(lhs, rewriteRule),
+				rhs);
 		checkLemmaOrRewrite(rewriteEqSimp, new Term[] { rewriteEquality });
 	}
 

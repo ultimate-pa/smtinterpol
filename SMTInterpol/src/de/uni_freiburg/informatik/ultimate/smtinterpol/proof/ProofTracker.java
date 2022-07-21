@@ -18,13 +18,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
@@ -58,26 +57,22 @@ public class ProofTracker implements IProofTracker {
 			return;
 		}
 
-		theory.declareInternalSort(ProofConstants.SORT_EQPROOF, 0, 0);
-		final Sort proofSort = theory.getSort(ProofRules.PREFIX + ProofRules.PROOF);
-		final Sort eqProofSort = theory.getSort(ProofConstants.SORT_EQPROOF);
+		theory.declareInternalSort(ProofConstants.SORT_EQPROOF, 1, 0);
 		final Sort[] generic = theory.createSortVariables("X");
+		final Sort eqProofX = theory.getSort(ProofConstants.SORT_EQPROOF, generic[0]);
+		final Sort eqProofBool = theory.getSort(ProofConstants.SORT_EQPROOF, theory.getBooleanSort());
 		final Sort[] generic2 = new Sort[] { generic[0], generic[0] };
-
-		final Sort[] proof1 = new Sort[] { proofSort };
-		final Sort[] eqProof1 = new Sort[] { eqProofSort };
-		final Sort[] eqProof2 = new Sort[] { eqProofSort, eqProofSort };
+		final Sort[] eqProofX2 = new Sort[] { eqProofX, eqProofX };
 
 		// Rewrite proofs.
 		theory.declareInternalPolymorphicFunction(ProofConstants.FN_REFL, generic, generic,
-				eqProofSort, 0);
-		theory.declareInternalFunction(ProofConstants.FN_TRANS, eqProof2, eqProofSort,
+				eqProofX, 0);
+		theory.declareInternalPolymorphicFunction(ProofConstants.FN_REWRITE, generic, generic2, eqProofX, 0);
+		theory.declareInternalPolymorphicFunction(ProofConstants.FN_TRANS, generic, eqProofX2, eqProofX,
 				FunctionSymbol.LEFTASSOC);
-		theory.declareInternalFunction(ProofConstants.FN_CONG, eqProof2, eqProofSort,
-				FunctionSymbol.LEFTASSOC);
-		theory.declareInternalFunction(ProofConstants.FN_QUANT, eqProof1, eqProofSort, 0);
-		theory.declareInternalPolymorphicFunction(ProofConstants.FN_REWRITE, generic, generic2, eqProofSort, 0);
-		theory.declareInternalFunction(ProofConstants.FN_ALLINTRO, proof1, proofSort, 0);
+		theory.declareInternalFunctionFactory(new CongRewriteFunctionFactory());
+		theory.declareInternalFunctionFactory(new MatchRewriteFunctionFactory());
+		theory.declareInternalFunction(ProofConstants.FN_QUANT, new Sort[] { eqProofBool }, eqProofBool, 0);
 	}
 
 	public Term getProof(final Term t) {
@@ -153,25 +148,39 @@ public class ProofTracker implements IProofTracker {
 
 	@Override
 	public Term congruence(final Term a, final Term[] b) {
-		final List<Term> congProofs = new ArrayList<>();
-		congProofs.add(getProof(a));
+		final Term[] proofs = new Term[b.length];
 		final Term[] params = new Term[b.length];
+		boolean isRefl = true;
 		for (int i = 0; i < b.length; i++) {
-			final Term proofB = getProof(b[i]);
-			if (!isReflexivity(proofB)) {
-				congProofs.add(proofB);
-			}
+			proofs[i] = getProof(b[i]);
 			params[i] = getProvedTerm(b[i]);
+			if (!isReflexivity(proofs[i])) {
+				isRefl = false;
+			}
 		}
 		final Theory theory = a.getTheory();
 		final ApplicationTerm aTerm = (ApplicationTerm) getProvedTerm(a);
-		final Term proof;
-		if (congProofs.size() == 1) {
-			proof = congProofs.get(0);
+		final FunctionSymbol aFunc = aTerm.getFunction();
+		final Term provedTerm = theory.term(aFunc, params);
+		Term congProof;
+		if (isRefl) {
+			congProof = reflexivity(provedTerm);
 		} else {
-			proof = theory.term(ProofConstants.FN_CONG, congProofs.toArray(new Term[congProofs.size()]));
+			final String[] aIndices = aFunc.getIndices();
+			final String[] indices = new String[aIndices == null ? 1 : 1 + aIndices.length];
+			indices[0] = aFunc.getName();
+			if (aIndices != null) {
+				for (int i = 0; i < indices.length; i++) {
+					aIndices[i + 1] = indices[i];
+				}
+			}
+			final Sort resultSort = aFunc.isReturnOverload()
+					? theory.getSort(ProofConstants.SORT_EQPROOF, aFunc.getReturnSort())
+					: null;
+			congProof = buildProof(theory.term(ProofConstants.FN_CONG, indices, resultSort, proofs), provedTerm);
 		}
-		return buildProof(proof, theory.term(aTerm.getFunction(), params));
+		final Term proof = transitivity(a, congProof);
+		return proof;
 	}
 
 	/**
@@ -195,7 +204,7 @@ public class ProofTracker implements IProofTracker {
 				termToProofLiteral(getProvedTerm(rewrite))
 		};
 		final Annotation[] annots = new Annotation[] {
-				new Annotation(ProofConstants.ANNOTKEY_MP, getProof(rewrite))
+				new Annotation(ProofConstants.ANNOTKEY_REWRITE, getProof(rewrite))
 		};
 		return buildProof(mProofRules.oracle(lits, annots), getProvedTerm(rewrite));
 	}
@@ -258,7 +267,7 @@ public class ProofTracker implements IProofTracker {
 			return reflexivity(res);
 		}
 		final Annotation[] annot = new Annotation[] { rule };
-		final Term proof = theory.term(ProofConstants.FN_REWRITE, orig, theory.annotatedTerm(annot, res));
+		final Term proof = theory.term(ProofConstants.FN_REWRITE, theory.annotatedTerm(annot, orig), res);
 		return buildProof(proof, res);
 	}
 
@@ -297,11 +306,14 @@ public class ProofTracker implements IProofTracker {
 		final Theory theory = oldMatch.getTheory();
 		final Term[] subProofs = new Term[newCases.length + 1];
 		final Term[] newCaseTerms = new Term[newCases.length];
+		final Constructor[] constrs = oldMatch.getConstructors();
 		subProofs[0] = getProof(newData);
 		boolean isReflexivity = isReflexivity(subProofs[0]);
 		for (int i = 0; i < newCases.length; i++) {
-			final Annotation[] annot = new Annotation[] { new Annotation(":vars", oldMatch.getVariables()[i]),
-					new Annotation(":constructor", oldMatch.getConstructors()[i]) };
+			final String constructorName = constrs[i] == null ? null : constrs[i].getName();
+			final Annotation[] annot = new Annotation[] {
+					new Annotation(ProofConstants.ANNOTKEY_VARS, oldMatch.getVariables()[i]),
+					new Annotation(ProofConstants.ANNOTKEY_CONSTRUCTOR, constructorName) };
 			final Term caseProof = getProof(newCases[i]);
 			subProofs[i + 1] = theory.annotatedTerm(annot, caseProof);
 			isReflexivity &= isReflexivity(caseProof);

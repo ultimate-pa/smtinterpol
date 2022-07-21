@@ -36,13 +36,14 @@ public interface ProofConstants {
 	public static final String FN_TRANS = ".trans";
 	public static final String FN_QUANT = ".quant";
 	public static final String FN_MATCH = ".match";
-	public static final String FN_ALLINTRO = ".allIntro";
 
 	//// ==== Annotation keys for clauses and resolution steps ====
 	public static final String ANNOTKEY_INPUTCLAUSE = ":input";
-	public static final String ANNOTKEY_MP = ":mp";
+	public static final String ANNOTKEY_REWRITE = ":rewrite";
 	public static final String ANNOTKEY_PROVES = ":proves";
 	public static final String ANNOTKEY_RUP = ":rup";
+	public static final String ANNOTKEY_VARS = ":vars";
+	public static final String ANNOTKEY_CONSTRUCTOR = ":constructor";
 
 	//// ==== Rewrite ids and names ====
 	public final static Annotation RW_EXPAND = new Annotation(":expand", null);

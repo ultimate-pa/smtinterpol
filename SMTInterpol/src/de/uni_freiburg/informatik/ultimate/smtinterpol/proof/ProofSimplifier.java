@@ -1184,39 +1184,30 @@ public class ProofSimplifier extends TermTransformer {
 		return annotateProved(provedTerm, clause);
 	}
 
-	private Term convertCong(final Term[] newParams) {
+	private Term convertCong(final FunctionSymbol congSymb, final Term[] newParams) {
+		final Sort resultSort = congSymb.isReturnOverload() ? congSymb.getReturnSort() : null;
+		final FunctionSymbol func = CongRewriteFunctionFactory.getFunctionFromIndex(congSymb.getIndices(),
+				congSymb.getParameterSorts(), resultSort);
+
 		final ApplicationTerm leftEquality = (ApplicationTerm) provedTerm((AnnotatedTerm) newParams[0]);
 		final Theory t = newParams[0].getTheory();
 		assert isApplication(SMTLIBConstants.EQUALS, leftEquality);
-		final ApplicationTerm oldFunc = (ApplicationTerm) leftEquality.getParameters()[1];
-		final Term[] oldFuncParams = oldFunc.getParameters();
-		final Term[] newFuncParams = oldFuncParams.clone();
-		final Term[] newLit = new Term[oldFuncParams.length];
-		final Term[] newLitProof = new Term[oldFuncParams.length];
-		int pos = 1;
-		for (int i = 0; i < oldFuncParams.length; i++) {
-			// check if we rewrite this argument
-			if (pos < newParams.length) {
-				final ApplicationTerm provedEquality = (ApplicationTerm) provedTerm((AnnotatedTerm) newParams[pos]);
-				assert isApplication(SMTLIBConstants.EQUALS, provedEquality);
-				if (provedEquality.getParameters()[0] == oldFuncParams[i]) {
-					// we rewrite the argument
-					newFuncParams[i] = provedEquality.getParameters()[1];
-					newLit[i] = provedEquality;
-					newLitProof[i] = subproof((AnnotatedTerm) newParams[pos]);
-					pos++;
-					continue;
-				}
-			}
-			// use reflexivity by default
-			newLit[i] = t.term(SMTLIBConstants.EQUALS, oldFuncParams[i], oldFuncParams[i]);
-			newLitProof[i] = mProofRules.refl(oldFuncParams[i]);
+		final Term[] oldFuncParams = new Term[newParams.length];
+		final Term[] newFuncParams = new Term[newParams.length];
+		final Term[] newLit = new Term[newParams.length];
+		final Term[] newLitProof = new Term[newParams.length];
+		for (int i = 0; i < newFuncParams.length; i++) {
+			final ApplicationTerm provedEquality = (ApplicationTerm) provedTerm((AnnotatedTerm) newParams[i]);
+			newLit[i] = provedEquality;
+			newLitProof[i] = subproof((AnnotatedTerm) newParams[i]);
+			oldFuncParams[i] = provedEquality.getParameters()[0];
+			newFuncParams[i] = provedEquality.getParameters()[1];
 		}
-		assert pos == newParams.length;
 
-		final Term newFunc = t.term(oldFunc.getFunction(), newFuncParams);
+		final Term oldFunc = t.term(func, oldFuncParams);
+		final Term newFunc = t.term(func, newFuncParams);
 		final Term congEquality = t.term(SMTLIBConstants.EQUALS, oldFunc, newFunc);
-		Term proof = mProofRules.cong(oldFunc.getFunction(), oldFuncParams, newFuncParams);
+		Term proof = mProofRules.cong(func, oldFuncParams, newFuncParams);
 		final HashSet<Term> eliminated = new HashSet<>();
 		for (int i = 0; i < newFuncParams.length; i++) {
 			if (!eliminated.contains(newLit[i])) {
@@ -1224,13 +1215,123 @@ public class ProofSimplifier extends TermTransformer {
 				eliminated.add(newLit[i]);
 			}
 		}
-		// build transitivity with left equality, unless it is a reflexivity
-		if (leftEquality.getParameters()[0] != leftEquality.getParameters()[1]) {
-			Term transProof = mProofRules.trans(leftEquality.getParameters()[0], oldFunc, newFunc);
-			transProof = mProofRules.resolutionRule(leftEquality, subproof((AnnotatedTerm) newParams[0]), transProof);
-			proof = mProofRules.resolutionRule(congEquality, proof, transProof);
+		return annotateProved(congEquality, proof);
+	}
+
+	private Term convertMatch(final Term[] newParams) {
+		final AnnotatedTerm dataRewrite = (AnnotatedTerm) newParams[0];
+		final Theory theory = dataRewrite.getTheory();
+		final ApplicationTerm dataEquality = (ApplicationTerm) provedTerm(dataRewrite);
+		assert dataEquality.getFunction().getName().equals(SMTLIBConstants.EQUALS);
+		final Term oldData = dataEquality.getParameters()[0];
+		final Term newData = dataEquality.getParameters()[1];
+
+		final DataType dataType = (DataType) oldData.getSort().getSortSymbol();
+		final Term[] oldMatchCases = new Term[newParams.length - 1];
+		final Term[] newMatchCases = new Term[newParams.length - 1];
+		final TermVariable[][] caseVars = new TermVariable[newParams.length - 1][];
+		final Constructor[] constructors = new Constructor[newParams.length - 1];
+		final Term[] rewriteProofs = new Term[newParams.length - 1];
+		for  (int i = 1; i < newParams.length; i++) {
+			final AnnotatedTerm caseRewrite = (AnnotatedTerm) newParams[i];
+			final AnnotatedTerm rewrite = (AnnotatedTerm) caseRewrite.getSubterm();
+			final ApplicationTerm caseEquality = (ApplicationTerm) provedTerm(rewrite);
+			assert caseRewrite.getAnnotations()[0].getKey() == ProofConstants.ANNOTKEY_VARS;
+			caseVars[i-1] = (TermVariable[]) caseRewrite.getAnnotations()[0].getValue();
+			assert caseRewrite.getAnnotations()[1].getKey() == ProofConstants.ANNOTKEY_CONSTRUCTOR;
+			final String constructorName = (String) caseRewrite.getAnnotations()[1].getValue();
+			oldMatchCases[i - 1] = caseEquality.getParameters()[0];
+			newMatchCases[i - 1] = caseEquality.getParameters()[1];
+			constructors[i - 1] = constructorName == null ? null : dataType.findConstructor(constructorName);
+			rewriteProofs[i - 1] = subproof(rewrite);
 		}
-		return annotateProved(t.term(SMTLIBConstants.EQUALS, leftEquality.getParameters()[0], newFunc), proof);
+		final MatchTerm oldOldMatch = (MatchTerm) theory.match(oldData, caseVars, oldMatchCases, constructors);
+		final MatchTerm oldMatch = (MatchTerm) theory.match(newData, caseVars, oldMatchCases, constructors);
+		final MatchTerm newMatch = (MatchTerm) theory.match(newData, caseVars, newMatchCases, constructors);
+		Term oldMatchEqualityProof = null;
+		if (oldData != newData) {
+			theory.push();
+			final TermVariable dataVar = theory.createFreshTermVariable("match", oldData.getSort());
+			final TermVariable[] bodyVars = new TermVariable[] { dataVar };
+			final Term bodyDef = theory.match(dataVar, caseVars, oldMatchCases, constructors);
+			final FunctionSymbol bodyFunc = theory.declareInternalFunction("@matchbody",
+					new Sort[] { oldData.getSort() }, bodyVars, bodyDef, FunctionSymbol.UNINTERPRETEDINTERNAL);
+			final Term oldBody = theory.term(bodyFunc, oldData);
+			final Term newBody = theory.term(bodyFunc, newData);
+			final Term oldOldMatchBodyEq = res(theory.term(SMTLIBConstants.EQUALS, oldBody, oldOldMatch),
+					mProofRules.expand(oldBody), mProofRules.symm(oldOldMatch, oldBody));
+			final Term oldNewBodyEq = res(theory.term(SMTLIBConstants.EQUALS, oldData, newData),
+					subproof(dataRewrite), mProofRules.cong(oldBody, newBody));
+			oldMatchEqualityProof = res(theory.term(SMTLIBConstants.EQUALS, oldOldMatch, oldBody), oldOldMatchBodyEq,
+					res(theory.term(SMTLIBConstants.EQUALS, oldBody, newBody), oldNewBodyEq,
+							res(theory.term(SMTLIBConstants.EQUALS, newBody, oldMatch),
+									mProofRules.expand(newBody),
+									mProofRules.trans(oldOldMatch, oldBody, newBody, oldMatch))));
+			oldMatchEqualityProof = mProofRules.defineFun(bodyFunc, theory.lambda(bodyVars, bodyDef),
+					oldMatchEqualityProof);
+			theory.pop();
+		}
+
+		final Term oldIte = MinimalProofChecker.buildIteForMatch(oldMatch);
+		final Term newIte = MinimalProofChecker.buildIteForMatch(newMatch);
+		Term iteEqualsProof = null;
+		boolean needReflData = false;
+		Term oldSub = oldIte;
+		Term newSub = newIte;
+		for (int i = 0; i < constructors.length; i++) {
+			Term oldCase, newCase;
+			if (constructors[i] == null || i == newParams.length - 1) {
+				oldCase = oldSub;
+				newCase = newSub;
+			} else {
+				assert ((ApplicationTerm) oldSub).getFunction().getName().equals("ite");
+				assert ((ApplicationTerm) newSub).getFunction().getName().equals("ite");
+				oldCase = ((ApplicationTerm) oldSub).getParameters()[1];
+				newCase = ((ApplicationTerm) newSub).getParameters()[1];
+				iteEqualsProof = res(theory.term(SMTLIBConstants.EQUALS, oldSub, newSub),
+						mProofRules.cong(oldSub, newSub), iteEqualsProof);
+
+				final Term oldCond = ((ApplicationTerm) oldSub).getParameters()[0];
+				final Term newCond = ((ApplicationTerm) newSub).getParameters()[0];
+				iteEqualsProof = res(theory.term(SMTLIBConstants.EQUALS, oldCond, newCond),
+						mProofRules.cong(oldCond, newCond), iteEqualsProof);
+				needReflData = true;
+			}
+			Term[] selectors;
+			if (constructors[i] == null) {
+				selectors = new Term[] { newData };
+			} else {
+				selectors = new Term[constructors[i].getSelectors().length];
+				for (int j = 0; j < selectors.length; j++) {
+					selectors[j] = theory.term(constructors[i].getSelectors()[j], newData);
+				}
+			}
+			iteEqualsProof = res(theory.term(SMTLIBConstants.EQUALS, oldCase, newCase),
+					theory.let(caseVars[i], selectors, rewriteProofs[i]), iteEqualsProof);
+			if (constructors[i] == null) {
+				break;
+			} else if (i < newParams.length - 1) {
+				oldSub = ((ApplicationTerm) oldSub).getParameters()[2];
+				newSub = ((ApplicationTerm) newSub).getParameters()[2];
+			}
+		}
+		iteEqualsProof = new FormulaUnLet().unlet(iteEqualsProof);
+		if (needReflData) {
+			iteEqualsProof = res(theory.term(SMTLIBConstants.EQUALS, newData, newData),
+					mProofRules.refl(newData), iteEqualsProof);
+		}
+		final Term iteEquality = theory.term(SMTLIBConstants.EQUALS, oldIte, newIte);
+		Term proof = res(iteEquality, iteEqualsProof, mProofRules.trans(oldMatch, oldIte, newIte, newMatch));
+		proof = res(theory.term(SMTLIBConstants.EQUALS, oldMatch, oldIte), mProofRules.dtMatch(oldMatch), proof);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, newMatch, newIte), mProofRules.dtMatch(newMatch),
+				res(theory.term(SMTLIBConstants.EQUALS, newIte, newMatch), mProofRules.symm(newIte, newMatch), proof));
+		if (oldData != newData) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, oldOldMatch, oldMatch), oldMatchEqualityProof,
+					res(theory.term(SMTLIBConstants.EQUALS, oldMatch, newMatch), proof,
+							mProofRules.trans(oldOldMatch, oldMatch, newMatch)));
+		}
+
+		return annotateProved(theory.term(SMTLIBConstants.EQUALS, oldOldMatch, newMatch), proof);
 	}
 
 	private Term convertRewriteIntern(final Term lhs, final Term rhs) {
@@ -4232,7 +4333,7 @@ public class ProofSimplifier extends TermTransformer {
 			setResult(convertTautology(clause, annots[1]));
 			break;
 
-		case ProofConstants.ANNOTKEY_MP:
+		case ProofConstants.ANNOTKEY_REWRITE:
 			enqueueWalker((NonRecursive engine) -> ((ProofSimplifier) engine).convertMP(clause));
 			convert((Term) annots[1].getValue());
 			break;
@@ -4258,7 +4359,11 @@ public class ProofSimplifier extends TermTransformer {
 				return;
 			}
 			case ProofConstants.FN_CONG: {
-				setResult(convertCong(newParams));
+				setResult(convertCong(old.getFunction(), newParams));
+				return;
+			}
+			case ProofConstants.FN_MATCH: {
+				setResult(convertMatch(newParams));
 				return;
 			}
 			case ProofConstants.FN_QUANT: {
@@ -4289,10 +4394,11 @@ public class ProofSimplifier extends TermTransformer {
 				return;
 			}
 			case ProofConstants.FN_REWRITE: {
-				final Term lhs = rewriteProof.getParameters()[0];
-				final AnnotatedTerm rhsAnnot = (AnnotatedTerm) rewriteProof.getParameters()[1];
-				final Annotation annot = rhsAnnot.getAnnotations()[0];
-				setResult(convertRewrite(lhs, rhsAnnot.getSubterm(), annot));
+				final AnnotatedTerm lhsAnnot = (AnnotatedTerm) rewriteProof.getParameters()[0];
+				final Annotation annot = lhsAnnot.getAnnotations()[0];
+				final Term lhs = lhsAnnot.getSubterm();
+				final Term rhs = rewriteProof.getParameters()[1];
+				setResult(convertRewrite(lhs, rhs, annot));
 				return;
 			}
 			default:
