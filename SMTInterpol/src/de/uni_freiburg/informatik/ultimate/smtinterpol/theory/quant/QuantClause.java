@@ -508,7 +508,8 @@ public class QuantClause {
 				// Add all select terms on arrays in the weak equivalence class of this array
 				for (final CCTerm sel : allSelects) {
 					final CCTerm selArr = ArrayTheory.getArrayFromSelect((CCAppTerm) sel);
-					if (weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(selArr)) {
+					if (weakRep == null ? selArr.getFlatTerm().getSort() == array.getSort()
+							: weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(selArr)) {
 						interestingTerms.add(sel.getFlatTerm());
 					}
 				}
