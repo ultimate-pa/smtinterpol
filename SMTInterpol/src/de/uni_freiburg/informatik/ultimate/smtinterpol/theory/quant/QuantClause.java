@@ -462,67 +462,70 @@ public class QuantClause {
 			final String funcName = func.getName();
 			final Term[] args = arrayFuncTerm.getParameters();
 			final Term array = args[0];
-			if (array.getFreeVars().length == 0) {
-				final CCTerm arrayCC = mQuantTheory.getCClosure().getCCTermRep(array);
-				final CCTerm weakRep = mQuantTheory.getClausifier().getArrayTheory().getWeakRep(arrayCC);
-				if (args[1] == var) { // The variable is an array index
-					// Get all store terms of the appropriate sort
-					final Sort[] storeSorts;
-					if (funcName == "store") {
-						storeSorts = func.getParameterSorts();
-					} else {
-						storeSorts = new Sort[3];
-						storeSorts[0] = func.getParameterSorts()[0];
-						storeSorts[1] = func.getParameterSorts()[1];
-						storeSorts[2] = func.getReturnSort();
-					}
-					final FunctionSymbol storeFun = mQuantTheory.getTheory().getFunction("store", storeSorts);
-					final List<CCTerm> allStores = mQuantTheory.getCClosure().getAllFuncApps(storeFun);
+			final CCTerm arrayCC = mQuantTheory.getCClosure().getCCTermRep(array);
+			final CCTerm weakRep = arrayCC == null ? null
+					: mQuantTheory.getClausifier().getArrayTheory().getWeakRep(arrayCC);
+			if (args[1] == var) { // The variable is an array index
+				// Get all store terms of the appropriate sort
+				final Sort[] storeSorts;
+				if (funcName == "store") {
+					storeSorts = func.getParameterSorts();
+				} else {
+					storeSorts = new Sort[3];
+					storeSorts[0] = func.getParameterSorts()[0];
+					storeSorts[1] = func.getParameterSorts()[1];
+					storeSorts[2] = func.getReturnSort();
+				}
+				final FunctionSymbol storeFun = mQuantTheory.getTheory().getFunction("store", storeSorts);
+				final List<CCTerm> allStores = mQuantTheory.getCClosure().getAllFuncApps(storeFun);
 
-					// Add all indices of store terms in the weak equivalence class of this array
-					for (final CCTerm st : allStores) {
-						final CCTerm stArr = ArrayTheory.getArrayFromStore((CCAppTerm) st);
-						if (weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(stArr)) {
-							final Term indexTerm = ArrayTheory.getIndexFromStore((CCAppTerm) st).getFlatTerm();
-							interestingTerms.add(indexTerm);
-							if (funcName == "select" && var.getSort().getName() == "Int"
-									&& !QuantUtil.isLambda(indexTerm)) {
-								// For integers, add store indices +-1
-								for (final Rational offset : new Rational[] { Rational.ONE, Rational.MONE }) {
-									final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(indexTerm);
-									idxPlusMinusOneAff.add(offset);
-									final Term shared = idxPlusMinusOneAff.toTerm(
-											mQuantTheory.getClausifier().getTermCompiler(), indexTerm.getSort());
-									interestingTerms.add(shared);
-								}
+				// Add all indices of store terms in the weak equivalence class of this array
+				for (final CCTerm st : allStores) {
+					final CCTerm stArr = ArrayTheory.getArrayFromStore((CCAppTerm) st);
+					if (weakRep == null ? stArr.getFlatTerm().getSort() == array.getSort()
+							: weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(stArr)) {
+						final Term indexTerm = ArrayTheory.getIndexFromStore((CCAppTerm) st).getFlatTerm();
+						interestingTerms.add(indexTerm);
+						if (funcName == "select" && var.getSort().getName() == "Int"
+								&& !QuantUtil.isLambda(indexTerm)) {
+							// For integers, add store indices +-1
+							for (final Rational offset : new Rational[] { Rational.ONE, Rational.MONE }) {
+								final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(indexTerm);
+								idxPlusMinusOneAff.add(offset);
+								final Term shared = idxPlusMinusOneAff.toTerm(
+										mQuantTheory.getClausifier().getTermCompiler(), indexTerm.getSort());
+								interestingTerms.add(shared);
 							}
 						}
 					}
-					if (funcName == "select") {
-						// Get all select terms of the appropriate sort
-						final Sort[] selectSorts = func.getParameterSorts();
-						final FunctionSymbol selectFun = mQuantTheory.getTheory().getFunction("select", selectSorts);
-						final List<CCTerm> allSelects = mQuantTheory.getCClosure().getAllFuncApps(selectFun);
-						// Add all select indices of select terms on arrays in the weak equivalence class of this array
-						for (final CCTerm sel : allSelects) {
-							final CCTerm selArr = ArrayTheory.getArrayFromSelect((CCAppTerm) sel);
-							if (weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(selArr)) {
-								final CCTerm index = ArrayTheory.getIndexFromSelect((CCAppTerm) sel);
-								interestingTerms.add(index.getFlatTerm());
-							}
-						}
-					}
-				} else if (funcName == "store" && args[2] == var) { // The variable is an array value
+				}
+				if (funcName == "select") {
 					// Get all select terms of the appropriate sort
-					final Sort[] selectSorts = Arrays.copyOf(func.getParameterSorts(), 2);
+					final Sort[] selectSorts = func.getParameterSorts();
 					final FunctionSymbol selectFun = mQuantTheory.getTheory().getFunction("select", selectSorts);
 					final List<CCTerm> allSelects = mQuantTheory.getCClosure().getAllFuncApps(selectFun);
-					// Add all select terms on arrays in the weak equivalence class of this array
+					// Add all select indices of select terms on arrays in the weak equivalence class of this array
 					for (final CCTerm sel : allSelects) {
 						final CCTerm selArr = ArrayTheory.getArrayFromSelect((CCAppTerm) sel);
-						if (weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(selArr)) {
-							interestingTerms.add(sel.getFlatTerm());
+						if (weakRep == null ? selArr.getFlatTerm().getSort() == array.getSort()
+								: weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(selArr)) {
+							final CCTerm index = ArrayTheory.getIndexFromSelect((CCAppTerm) sel);
+							interestingTerms.add(index.getFlatTerm());
 						}
+					}
+				}
+			}
+			if (funcName == "store" && args[2] == var) { // The variable is an array value
+				// Get all select terms of the appropriate sort
+				final Sort[] selectSorts = Arrays.copyOf(func.getParameterSorts(), 2);
+				final FunctionSymbol selectFun = mQuantTheory.getTheory().getFunction("select", selectSorts);
+				final List<CCTerm> allSelects = mQuantTheory.getCClosure().getAllFuncApps(selectFun);
+				// Add all select terms on arrays in the weak equivalence class of this array
+				for (final CCTerm sel : allSelects) {
+					final CCTerm selArr = ArrayTheory.getArrayFromSelect((CCAppTerm) sel);
+					if (weakRep == null ? selArr.getFlatTerm().getSort() == array.getSort()
+							: weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(selArr)) {
+						interestingTerms.add(sel.getFlatTerm());
 					}
 				}
 			}
