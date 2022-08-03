@@ -612,14 +612,13 @@ public class DataTypeTheory implements ITheory {
 			if (prevAsParent == null) {
 				// there is no constructor for the previous step. So lastCt should be a selector
 				// for which the corresponding tester is true or does not exist.
-				final CCTerm trueTester = trueTesters.get(prevAsChild);
+				final CCAppTerm trueTester = trueTesters.get(prevAsChild.getRepresentative());
 
 				if (trueTester != null) {
 					// trueTester is a is_cons term on prevChild that is true. It is part of the
 					// conflict.
-					final CCAppTerm tester = trueTesters.get(prevAsChild);
-					reason.add(new SymmetricPair<>(tester, trueCC));
-					final CCTerm testerArg = tester.getArg();
+					reason.add(new SymmetricPair<>(trueTester, trueCC));
+					final CCTerm testerArg = trueTester.getArg();
 					assert prevAsChild.getRepresentative() == testerArg.getRepresentative();
 					if (testerArg != prevAsChild) {
 						reason.add(new SymmetricPair<>(prevAsChild, testerArg));
@@ -1065,8 +1064,9 @@ public class DataTypeTheory implements ITheory {
 			boolean undefined = false;
 			boolean hasHole = false;
 			for (int i = 0; i < argModels.length; i++) {
-				final CCTerm arg = constrTerm.mArguments[i];
+				CCTerm arg = constrTerm.mArguments[i];
 				if (arg != null) {
+					arg = arg.getRepresentative();
 					argModels[i] = modelBuilder.getModelValue(arg);
 					if (argModels[i] == null) {
 						assert valueMap.containsKey(arg);
