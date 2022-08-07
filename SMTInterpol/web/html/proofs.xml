@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<page id="proofs">
+  <name>Proofs</name>
+  <content>
+    <head1>Proofs</head1>
+    <txt>SMTInterpol uses its own proof format RESOLUTE to represent proofs.  This is a simple proof format based on resolution.
+    </txt>
+
+    <list>
+      <item>See the <link url="proof-format.html">online documentation of RESOLUTE</link>.</item>
+      <item>We have a web demo for the <link url="online/proof.html">proof generator/verifier</link>.</item>
+    </list>
+
+    <head1>Publication</head1>
+    <list>
+      <paper conf="SMT 2022">
+    <authors>Jochen Hoenicke and Tanja Schindler</authors>
+    <title>A Simple Proof Format for SMT</title>
+    <pdf>https://ultimate.informatik.uni-freiburg.de/smtinterpol/smt2022.pdf</pdf>
+      </paper>
+    </list>
+  </content>
+</page>

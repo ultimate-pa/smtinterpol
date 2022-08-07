@@ -268,6 +268,12 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
     </ul>
   </xsl:template>
 
+  <xsl:template match="item">
+    <li>
+      <xsl:apply-templates />
+    </li>
+  </xsl:template>
+
   <xsl:template match="paper">
     <xsl:element name="li">
       <xsl:apply-templates select="authors" />
