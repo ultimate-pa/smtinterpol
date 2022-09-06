@@ -286,77 +286,89 @@ public class ProofRules {
 	}
 
 	public Term notIntro(final Term notTerm) {
-		assert ((ApplicationTerm) notTerm).getFunction().getName() == SMTLIBConstants.NOT;
-		return mTheory.annotatedTerm(annotate(":" + NOTI, ((ApplicationTerm) notTerm).getParameters()), mAxiom);
+		assert notTerm instanceof TermVariable
+				|| ((ApplicationTerm) notTerm).getFunction().getName() == SMTLIBConstants.NOT;
+		return mTheory.annotatedTerm(annotate(":" + NOTI, notTerm), mAxiom);
 	}
 
 	public Term notElim(final Term notTerm) {
-		assert ((ApplicationTerm) notTerm).getFunction().getName() == SMTLIBConstants.NOT;
-		return mTheory.annotatedTerm(annotate(":" + NOTE, ((ApplicationTerm) notTerm).getParameters()), mAxiom);
+		assert notTerm instanceof TermVariable
+				|| ((ApplicationTerm) notTerm).getFunction().getName() == SMTLIBConstants.NOT;
+		return mTheory.annotatedTerm(annotate(":" + NOTE, notTerm), mAxiom);
 	}
 
 	public Term orIntro(final int pos, final Term orTerm) {
-		assert ((ApplicationTerm) orTerm).getFunction().getName() == SMTLIBConstants.OR;
+		assert orTerm instanceof TermVariable
+				|| ((ApplicationTerm) orTerm).getFunction().getName() == SMTLIBConstants.OR;
 		return mTheory.annotatedTerm(
-				annotate(":" + ORI, ((ApplicationTerm) orTerm).getParameters(), new Annotation(ANNOT_POS, pos)),
+				annotate(":" + ORI, orTerm, new Annotation(ANNOT_POS, pos)),
 				mAxiom);
 	}
 
 	public Term orElim(final Term orTerm) {
-		assert ((ApplicationTerm) orTerm).getFunction().getName() == SMTLIBConstants.OR;
-		return mTheory.annotatedTerm(annotate(":" + ORE, ((ApplicationTerm) orTerm).getParameters()), mAxiom);
+		assert orTerm instanceof TermVariable
+				|| ((ApplicationTerm) orTerm).getFunction().getName() == SMTLIBConstants.OR;
+		return mTheory.annotatedTerm(annotate(":" + ORE, orTerm), mAxiom);
 	}
 
 	public Term andIntro(final Term andTerm) {
-		assert ((ApplicationTerm) andTerm).getFunction().getName() == SMTLIBConstants.AND;
-		return mTheory.annotatedTerm(annotate(":" + ANDI, ((ApplicationTerm) andTerm).getParameters()), mAxiom);
+		assert andTerm instanceof TermVariable
+				|| ((ApplicationTerm) andTerm).getFunction().getName() == SMTLIBConstants.AND;
+		return mTheory.annotatedTerm(annotate(":" + ANDI, andTerm), mAxiom);
 	}
 
 	public Term andElim(final int pos, final Term andTerm) {
-		assert ((ApplicationTerm) andTerm).getFunction().getName() == SMTLIBConstants.AND;
+		assert andTerm instanceof TermVariable
+				|| ((ApplicationTerm) andTerm).getFunction().getName() == SMTLIBConstants.AND;
 		return mTheory.annotatedTerm(
-				annotate(":" + ANDE, ((ApplicationTerm) andTerm).getParameters(), new Annotation(ANNOT_POS, pos)),
+				annotate(":" + ANDE, andTerm, new Annotation(ANNOT_POS, pos)),
 				mAxiom);
 	}
 
 	public Term impIntro(final int pos, final Term impTerm) {
-		assert ((ApplicationTerm) impTerm).getFunction().getName() == SMTLIBConstants.IMPLIES;
+		assert impTerm instanceof TermVariable
+				|| ((ApplicationTerm) impTerm).getFunction().getName() == SMTLIBConstants.IMPLIES;
 		return mTheory.annotatedTerm(
-				annotate(":" + IMPI, ((ApplicationTerm) impTerm).getParameters(), new Annotation(ANNOT_POS, pos)),
+				annotate(":" + IMPI, impTerm, new Annotation(ANNOT_POS, pos)),
 				mAxiom);
 	}
 
 	public Term impElim(final Term impTerm) {
-		assert ((ApplicationTerm) impTerm).getFunction().getName() == SMTLIBConstants.IMPLIES;
-		return mTheory.annotatedTerm(annotate(":" + IMPE, ((ApplicationTerm) impTerm).getParameters()), mAxiom);
+		assert impTerm instanceof TermVariable
+				|| ((ApplicationTerm) impTerm).getFunction().getName() == SMTLIBConstants.IMPLIES;
+		return mTheory.annotatedTerm(annotate(":" + IMPE, impTerm), mAxiom);
 	}
 
 	public Term iffIntro1(final Term iffTerm) {
-		assert ((ApplicationTerm) iffTerm).getFunction().getName() == SMTLIBConstants.EQUALS;
-		assert ((ApplicationTerm) iffTerm).getParameters().length == 2;
-		assert ((ApplicationTerm) iffTerm).getParameters()[0].getSort().getName() == SMTLIBConstants.BOOL;
-		return mTheory.annotatedTerm(annotate(":" + IFFI1, ((ApplicationTerm) iffTerm).getParameters()), mAxiom);
+		assert iffTerm instanceof TermVariable
+				|| (((ApplicationTerm) iffTerm).getFunction().getName() == SMTLIBConstants.EQUALS
+						&& ((ApplicationTerm) iffTerm).getParameters().length == 2
+						&& ((ApplicationTerm) iffTerm).getParameters()[0].getSort().getName() == SMTLIBConstants.BOOL);
+		return mTheory.annotatedTerm(annotate(":" + IFFI1, iffTerm), mAxiom);
 	}
 
 	public Term iffIntro2(final Term iffTerm) {
-		assert ((ApplicationTerm) iffTerm).getFunction().getName() == SMTLIBConstants.EQUALS;
-		assert ((ApplicationTerm) iffTerm).getParameters().length == 2;
-		assert ((ApplicationTerm) iffTerm).getParameters()[0].getSort().getName() == SMTLIBConstants.BOOL;
-		return mTheory.annotatedTerm(annotate(":" + IFFI2, ((ApplicationTerm) iffTerm).getParameters()), mAxiom);
+		assert iffTerm instanceof TermVariable
+				|| (((ApplicationTerm) iffTerm).getFunction().getName() == SMTLIBConstants.EQUALS
+						&& ((ApplicationTerm) iffTerm).getParameters().length == 2
+						&& ((ApplicationTerm) iffTerm).getParameters()[0].getSort().getName() == SMTLIBConstants.BOOL);
+		return mTheory.annotatedTerm(annotate(":" + IFFI2, iffTerm), mAxiom);
 	}
 
 	public Term iffElim1(final Term iffTerm) {
-		assert ((ApplicationTerm) iffTerm).getFunction().getName() == SMTLIBConstants.EQUALS;
-		assert ((ApplicationTerm) iffTerm).getParameters().length == 2;
-		assert ((ApplicationTerm) iffTerm).getParameters()[0].getSort().getName() == SMTLIBConstants.BOOL;
-		return mTheory.annotatedTerm(annotate(":" + IFFE1, ((ApplicationTerm) iffTerm).getParameters()), mAxiom);
+		assert iffTerm instanceof TermVariable
+				|| (((ApplicationTerm) iffTerm).getFunction().getName() == SMTLIBConstants.EQUALS
+						&& ((ApplicationTerm) iffTerm).getParameters().length == 2
+						&& ((ApplicationTerm) iffTerm).getParameters()[0].getSort().getName() == SMTLIBConstants.BOOL);
+		return mTheory.annotatedTerm(annotate(":" + IFFE1, iffTerm), mAxiom);
 	}
 
 	public Term iffElim2(final Term iffTerm) {
-		assert ((ApplicationTerm) iffTerm).getFunction().getName() == SMTLIBConstants.EQUALS;
-		assert ((ApplicationTerm) iffTerm).getParameters().length == 2;
-		assert ((ApplicationTerm) iffTerm).getParameters()[0].getSort().getName() == SMTLIBConstants.BOOL;
-		return mTheory.annotatedTerm(annotate(":" + IFFE2, ((ApplicationTerm) iffTerm).getParameters()), mAxiom);
+		assert iffTerm instanceof TermVariable
+				|| (((ApplicationTerm) iffTerm).getFunction().getName() == SMTLIBConstants.EQUALS
+						&& ((ApplicationTerm) iffTerm).getParameters().length == 2
+						&& ((ApplicationTerm) iffTerm).getParameters()[0].getSort().getName() == SMTLIBConstants.BOOL);
+		return mTheory.annotatedTerm(annotate(":" + IFFE2, iffTerm), mAxiom);
 	}
 
 	private Term xorAxiom(final String name, final Term[]... xorArgs) {
@@ -374,53 +386,49 @@ public class ProofRules {
 
 	public Term forallIntro(final QuantifiedFormula forallTerm) {
 		assert forallTerm.getQuantifier() == QuantifiedFormula.FORALL;
-		return mTheory.annotatedTerm(annotate(":" + FORALLI,
-				new Term[] { mTheory.lambda(forallTerm.getVariables(), forallTerm.getSubformula()) }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + FORALLI, forallTerm), mAxiom);
 	}
 
 	public Term forallElim(final Term[] subst, final QuantifiedFormula forallTerm) {
 		assert forallTerm.getQuantifier() == QuantifiedFormula.FORALL;
-		return mTheory.annotatedTerm(annotate(":" + FORALLE,
-				new Term[] { mTheory.lambda(forallTerm.getVariables(), forallTerm.getSubformula()) },
+		return mTheory.annotatedTerm(annotate(":" + FORALLE, forallTerm,
 				new Annotation(ANNOT_VALUES, subst)), mAxiom);
 	}
 
 	public Term existsIntro(final Term[] subst, final QuantifiedFormula existsTerm) {
 		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
-		return mTheory.annotatedTerm(annotate(":" + EXISTSI,
-				new Term[] { mTheory.lambda(existsTerm.getVariables(), existsTerm.getSubformula()) },
+		return mTheory.annotatedTerm(annotate(":" + EXISTSI, existsTerm,
 				new Annotation(ANNOT_VALUES, subst)), mAxiom);
 	}
 
 	public Term existsElim(final QuantifiedFormula existsTerm) {
 		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
-		return mTheory.annotatedTerm(annotate(":" + EXISTSE,
-				new Term[] { mTheory.lambda(existsTerm.getVariables(), existsTerm.getSubformula()) }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + EXISTSE, existsTerm), mAxiom);
 	}
 
 	public Term equalsIntro(final Term eqTerm) {
 		assert ((ApplicationTerm) eqTerm).getFunction().getName() == SMTLIBConstants.EQUALS;
-		return mTheory.annotatedTerm(annotate(":" + EQI, ((ApplicationTerm) eqTerm).getParameters()), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + EQI, eqTerm), mAxiom);
 	}
 
 	public Term equalsElim(final int pos1, final int pos2, final Term eqTerm) {
 		assert ((ApplicationTerm) eqTerm).getFunction().getName() == SMTLIBConstants.EQUALS;
 		assert 0 <= pos1 && pos1 < ((ApplicationTerm) eqTerm).getParameters().length;
 		assert 0 <= pos2 && pos2 < ((ApplicationTerm) eqTerm).getParameters().length;
-		return mTheory.annotatedTerm(annotate(":" + EQE, ((ApplicationTerm) eqTerm).getParameters(),
+		return mTheory.annotatedTerm(annotate(":" + EQE, eqTerm,
 				new Annotation(ANNOT_POS, new Integer[] { pos1, pos2 })), mAxiom);
 	}
 
 	public Term distinctIntro(final Term disTerm) {
 		assert ((ApplicationTerm) disTerm).getFunction().getName() == SMTLIBConstants.DISTINCT;
-		return mTheory.annotatedTerm(annotate(":" + DISTINCTI, ((ApplicationTerm) disTerm).getParameters()), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DISTINCTI, disTerm), mAxiom);
 	}
 
 	public Term distinctElim(final int pos1, final int pos2, final Term disTerm) {
 		assert ((ApplicationTerm) disTerm).getFunction().getName() == SMTLIBConstants.DISTINCT;
 		assert 0 <= pos1 && pos1 < ((ApplicationTerm) disTerm).getParameters().length;
 		assert 0 <= pos2 && pos2 < ((ApplicationTerm) disTerm).getParameters().length;
-		return mTheory.annotatedTerm(annotate(":" + DISTINCTE, ((ApplicationTerm) disTerm).getParameters(),
+		return mTheory.annotatedTerm(annotate(":" + DISTINCTE, disTerm,
 				new Annotation(ANNOT_POS, new Integer[] { pos1, pos2 })), mAxiom);
 	}
 
@@ -458,13 +466,15 @@ public class ProofRules {
 	}
 
 	public Term ite1(final Term iteTerm) {
-		assert ((ApplicationTerm) iteTerm).getFunction().getName() == SMTLIBConstants.ITE;
-		return mTheory.annotatedTerm(annotate(":" + ITE1, ((ApplicationTerm) iteTerm).getParameters()), mAxiom);
+		assert iteTerm instanceof TermVariable
+				|| ((ApplicationTerm) iteTerm).getFunction().getName() == SMTLIBConstants.ITE;
+		return mTheory.annotatedTerm(annotate(":" + ITE1, iteTerm), mAxiom);
 	}
 
 	public Term ite2(final Term iteTerm) {
-		assert ((ApplicationTerm) iteTerm).getFunction().getName() == SMTLIBConstants.ITE;
-		return mTheory.annotatedTerm(annotate(":" + ITE2, ((ApplicationTerm) iteTerm).getParameters()), mAxiom);
+		assert iteTerm instanceof TermVariable
+				|| ((ApplicationTerm) iteTerm).getFunction().getName() == SMTLIBConstants.ITE;
+		return mTheory.annotatedTerm(annotate(":" + ITE2, iteTerm), mAxiom);
 	}
 
 	public Term delAnnot(final Term annotTerm) {
@@ -1011,11 +1021,19 @@ public class ProofRules {
 					case ":" + IFFE2:
 					case ":" + ITE1:
 					case ":" + ITE2:
+					case ":" + EQI:
+					case ":" + DISTINCTI: {
+						assert annots.length == 1;
+						final Term param = (Term) annots[0].getValue();
+						mTodo.add(")");
+						mTodo.add(param);
+						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
+						return;
+					}
+
 					case ":" + REFL:
 					case ":" + SYMM:
 					case ":" + TRANS:
-					case ":" + EQI:
-					case ":" + DISTINCTI:
 					case ":" + GTDEF:
 					case ":" + GEQDEF:
 					case ":" + TRICHOTOMY:
@@ -1052,29 +1070,25 @@ public class ProofRules {
 					case ":" + ORI:
 					case ":" + ANDE:
 					case ":" + IMPI: {
-						final Term[] params = (Term[]) annots[0].getValue();
+						final Term param = (Term) annots[0].getValue();
 						assert annots.length == 2;
 						assert annots[1].getKey() == ANNOT_POS;
 						mTodo.add(")");
-						for (int i = params.length - 1; i >= 0; i--) {
-							mTodo.add(params[i]);
-							mTodo.add(" ");
-						}
+						mTodo.add(param);
+						mTodo.add(" ");
 						mTodo.add(annots[1].getValue());
 						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
 					}
 					case ":" + EQE:
 					case ":" + DISTINCTE: {
-						final Term[] params = (Term[]) annots[0].getValue();
+						final Term param = (Term) annots[0].getValue();
 						assert annots.length == 2;
 						assert annots[1].getKey() == ANNOT_POS;
 						final Integer[] positions = (Integer[]) annots[1].getValue();
 						mTodo.add(")");
-						for (int i = params.length - 1; i >= 0; i--) {
-							mTodo.add(params[i]);
-							mTodo.add(" ");
-						}
+						mTodo.add(param);
+						mTodo.add(" ");
 						mTodo.add(positions[0] + " " + positions[1]);
 						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
@@ -1144,20 +1158,17 @@ public class ProofRules {
 					case ":" + FORALLE:
 					case ":" + EXISTSI: {
 						assert annots.length == 2;
-						final Term[] params = (Term[]) annots[0].getValue();
-						final LambdaTerm lambda = (LambdaTerm) params[0];
-						final TermVariable[] termVars = lambda.getVariables();
+						final Term quant = (Term) annots[0].getValue();
 						assert annots[1].getKey() == ANNOT_VALUES;
 						final Term[] values = (Term[]) annots[1].getValue();
 						mTodo.add(")");
-						mTodo.add(lambda.getSubterm());
+						mTodo.add(quant);
 						mTodo.add(") ");
-						for (int i = termVars.length - 1; i >= 0; i--) {
-							mTodo.add(")");
+						for (int i = values.length - 1; i >= 0; i--) {
 							mTodo.add(values[i]);
-							mTodo.add(" ");
-							mTodo.add(termVars[i]);
-							mTodo.add(i == 0 ? "(" : " (");
+							if (i > 0) {
+								mTodo.add(" ");
+							}
 						}
 						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
 						return;
@@ -1165,21 +1176,11 @@ public class ProofRules {
 					case ":" + FORALLI:
 					case ":" + EXISTSE: {
 						assert annots.length == 1;
-						final Term[] params = (Term[]) annots[0].getValue();
-						final LambdaTerm lambda = (LambdaTerm) params[0];
-						final TermVariable[] termVars = lambda.getVariables();
+						final Term quant = (Term) annots[0].getValue();
 
 						mTodo.add(")");
-						mTodo.add(lambda.getSubterm());
-						mTodo.add(") ");
-						for (int i = termVars.length - 1; i >= 0; i--) {
-							mTodo.add(")");
-							mTodo.add(termVars[i].getSort());
-							mTodo.add(" ");
-							mTodo.add(termVars[i]);
-							mTodo.add(i == 0 ? "(" : " (");
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
+						mTodo.add(quant);
+						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
 					}
 					case ":" + DELANNOT: {

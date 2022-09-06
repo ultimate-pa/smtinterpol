@@ -82,8 +82,8 @@ parser code {:
 :}
 
 action code {:
-	ScopedHashMap<String,TermVariable> localVars =
-		new ScopedHashMap<String, TermVariable>(false);
+	ScopedHashMap<String,Term> localVars =
+		new ScopedHashMap<String, Term>(false);
 	Sort[] mSortParams = null;
 	static Sort[] emptySortArray = new Sort[0];
 	Sort mMatchSort = null;
@@ -404,6 +404,18 @@ action code {:
 		throw new AssertionError();
 	}
 
+	public TermVariable createTermVariableBinding(String name, Term term) {
+		if (term == null)
+			return null;
+		try {
+			TermVariable tv = parser.getScript().variable(name, term.getSort());
+			localVars.put(tv.getName(), term);
+			return tv;
+		} catch (SMTLIBException cannotHappen) {}
+		// Actually unreachable
+		throw new AssertionError();
+	}
+
 	private Term getTermVariable(String name) {
 		return localVars.get(name);
 	}
@@ -575,7 +587,7 @@ varBinding ::= LPAR symbol:sym term:t RPAR
          {: if (hasError()) {
                 RESULT = null;
             } else {
-                TermVariable tv = createTermVariable(sym, t.getSort());
+                TermVariable tv = createTermVariableBinding(sym, t);
                 RESULT = new Binding(tv, t);
             }
           :};
@@ -687,7 +699,7 @@ varBindingProof ::= LPAR symbol:sym proof:t RPAR
          {: if (hasError()) {
                 RESULT = null;
             } else {
-                TermVariable tv = createTermVariable(sym, t.getSort());
+                TermVariable tv = createTermVariableBinding(sym, t);
                 RESULT = new Binding(tv, t);
             }
           :};
@@ -698,23 +710,18 @@ integer ::= NUMERAL:n
 
 axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
         | TRUEI {: RESULT = parser.getProofRules().trueIntro(); :}
-        | LPAR NOTI term:t RPAR {: RESULT = parser.getProofRules().notIntro(parser.getScript().term(SMTLIBConstants.NOT, t)); :}
-        | LPAR NOTE term:t RPAR {: RESULT = parser.getProofRules().notElim(parser.getScript().term(SMTLIBConstants.NOT, t)); :}
-        | LPAR ORI NUMERAL:n term*:t RPAR {: RESULT = parser.getProofRules().orIntro(n.intValue(), parser.getScript().term(SMTLIBConstants.OR, t)); :}
-        | LPAR ORE term*:t RPAR {: RESULT = parser.getProofRules().orElim(parser.getScript().term(SMTLIBConstants.OR, t)); :}
-        | LPAR IMPI NUMERAL:n term*:t RPAR {: RESULT = parser.getProofRules().impIntro(n.intValue(), parser.getScript().term(SMTLIBConstants.IMPLIES, t)); :}
-        | LPAR IMPE term*:t RPAR {: RESULT = parser.getProofRules().impElim(parser.getScript().term(SMTLIBConstants.IMPLIES, t)); :}
-        | LPAR ANDI term*:t RPAR {: RESULT = parser.getProofRules().andIntro(parser.getScript().term(SMTLIBConstants.AND, t)); :}
-        | LPAR ANDE NUMERAL:n term*:t RPAR
-          {: RESULT = parser.getProofRules().andElim(n.intValue(), parser.getScript().term(SMTLIBConstants.AND, t)); :}
-        | LPAR IFFI1 term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().iffIntro1(parser.getScript().term(SMTLIBConstants.EQUALS, t1, t2)); :}
-        | LPAR IFFI2 term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().iffIntro2(parser.getScript().term(SMTLIBConstants.EQUALS, t1, t2)); :}
-        | LPAR IFFE1 term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().iffElim1(parser.getScript().term(SMTLIBConstants.EQUALS, t1, t2)); :}
-        | LPAR IFFE2 term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().iffElim2(parser.getScript().term(SMTLIBConstants.EQUALS, t1, t2)); :}
+        | LPAR NOTI term:t RPAR {: RESULT = parser.getProofRules().notIntro(t); :}
+        | LPAR NOTE term:t RPAR {: RESULT = parser.getProofRules().notElim(t); :}
+        | LPAR ORI NUMERAL:n term:t RPAR {: RESULT = parser.getProofRules().orIntro(n.intValue(), t); :}
+        | LPAR ORE term:t RPAR {: RESULT = parser.getProofRules().orElim(t); :}
+        | LPAR IMPI NUMERAL:n term:t RPAR {: RESULT = parser.getProofRules().impIntro(n.intValue(), t); :}
+        | LPAR IMPE term:t RPAR {: RESULT = parser.getProofRules().impElim(t); :}
+        | LPAR ANDI term:t RPAR {: RESULT = parser.getProofRules().andIntro(t); :}
+        | LPAR ANDE NUMERAL:n term:t RPAR {: RESULT = parser.getProofRules().andElim(n.intValue(), t); :}
+        | LPAR IFFI1 term:t RPAR {: RESULT = parser.getProofRules().iffIntro1(t); :}
+        | LPAR IFFI2 term:t RPAR {: RESULT = parser.getProofRules().iffIntro2(t); :}
+        | LPAR IFFE1 term:t RPAR {: RESULT = parser.getProofRules().iffElim1(t); :}
+        | LPAR IFFE2 term:t RPAR {: RESULT = parser.getProofRules().iffElim2(t); :}
         | LPAR XORI LPAR term*:ts1 RPAR LPAR term*:ts2 RPAR LPAR term*:ts3 RPAR RPAR
           {: RESULT = parser.getProofRules().xorIntro(ts1, ts2, ts3); :}
         | LPAR XORE LPAR term*:ts1 RPAR LPAR term*:ts2 RPAR LPAR term*:ts3 RPAR RPAR
@@ -747,14 +754,12 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
         | LPAR EXISTSE {: localVars.beginScope(); :} LPAR sortedVar+:vars RPAR term:t RPAR
           {: localVars.endScope();
              RESULT = parser.getProofRules().existsElim((QuantifiedFormula) parser.getScript().quantifier(Script.EXISTS, vars, t)); :}
-        | LPAR EQI term*:ts RPAR
-          {: RESULT = parser.getProofRules().equalsIntro(parser.getScript().term(SMTLIBConstants.EQUALS, ts)); :}
-        | LPAR EQE NUMERAL:i NUMERAL:j term*:ts RPAR
-          {: RESULT = parser.getProofRules().equalsElim(i.intValue(), j.intValue(), parser.getScript().term(SMTLIBConstants.EQUALS, ts)); :}
-        | LPAR DISTINCTI term*:ts RPAR
-          {: RESULT = parser.getProofRules().distinctIntro(parser.getScript().term(SMTLIBConstants.DISTINCT, ts)); :}
-        | LPAR DISTINCTE NUMERAL:i NUMERAL:j term*:ts RPAR
-          {: RESULT = parser.getProofRules().distinctElim(i.intValue(), j.intValue(), parser.getScript().term(SMTLIBConstants.DISTINCT, ts)); :}
+        | LPAR EQI term:t RPAR {: RESULT = parser.getProofRules().equalsIntro(t); :}
+        | LPAR EQE NUMERAL:i NUMERAL:j term:t RPAR
+          {: RESULT = parser.getProofRules().equalsElim(i.intValue(), j.intValue(), t); :}
+        | LPAR DISTINCTI term:t RPAR {: RESULT = parser.getProofRules().distinctIntro(t); :}
+        | LPAR DISTINCTE NUMERAL:i NUMERAL:j term:t RPAR
+          {: RESULT = parser.getProofRules().distinctElim(i.intValue(), j.intValue(), t); :}
         | LPAR REFL term:t RPAR
           {: RESULT = parser.getProofRules().refl(t); :}
         | LPAR SYMM term:t1 term:t2 RPAR
@@ -766,10 +771,8 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
              RESULT = parser.getProofRules().cong(fsym, args1, args2); :}
         | LPAR EXPAND term:t RPAR
           {: RESULT = parser.getProofRules().expand(t); :}
-        | LPAR ITE1 term:t1 term:t2 term:t3 RPAR
-          {: RESULT = parser.getProofRules().ite1(parser.getScript().term(SMTLIBConstants.ITE, t1, t2, t3)); :}
-        | LPAR ITE2 term:t1 term:t2 term:t3 RPAR
-          {: RESULT = parser.getProofRules().ite2(parser.getScript().term(SMTLIBConstants.ITE, t1, t2, t3)); :}
+        | LPAR ITE1 term:t RPAR {: RESULT = parser.getProofRules().ite1(t); :}
+        | LPAR ITE2 term:t RPAR {: RESULT = parser.getProofRules().ite2(t); :}
         | LPAR DELANNOT term:t RPAR
           {: RESULT = parser.getProofRules().delAnnot((AnnotatedTerm) t); :}
         | LPAR DIVISIBLEDEF NUMERAL:d term:t RPAR
