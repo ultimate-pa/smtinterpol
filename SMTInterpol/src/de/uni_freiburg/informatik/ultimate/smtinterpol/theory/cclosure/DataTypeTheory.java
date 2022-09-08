@@ -1054,36 +1054,73 @@ public class DataTypeTheory implements ITheory {
 			}
 		}
 		final ArrayDeque<CCTerm> todoStack = new ArrayDeque<>(valueMap.keySet());
+		final ArrayDeque<CCTerm> path = new ArrayDeque<>();
+		final HashSet<CCTerm> visited = new HashSet<>();
 		while (!todoStack.isEmpty()) {
-			final CCTerm ct = todoStack.removeLast();
-			if (modelBuilder.getModelValue(ct) != null) {
-				continue;
-			}
-			final ConstrTerm constrTerm = valueMap.get(ct);
-			final Term[] argModels = new Term[constrTerm.mArguments.length];
-			boolean undefined = false;
-			boolean hasHole = false;
-			for (int i = 0; i < argModels.length; i++) {
-				CCTerm arg = constrTerm.mArguments[i];
-				if (arg != null) {
-					arg = arg.getRepresentative();
-					argModels[i] = modelBuilder.getModelValue(arg);
-					if (argModels[i] == null) {
-						assert valueMap.containsKey(arg);
-						if (!undefined) {
+			final ArrayDeque<CCTerm> delayed = new ArrayDeque<>();
+			CCTerm nextHole = null;
+			Term[] nextHoleArgs = null;
+			visited.clear();
+			while (!todoStack.isEmpty()) {
+				final CCTerm ct = todoStack.removeLast();
+				if (modelBuilder.getModelValue(ct) != null) {
+					// already has a model
+					continue;
+				}
+				if (!visited.add(ct)) {
+					// already visited but obviously delayed.
+					delayed.addAll(path);
+					path.clear();
+					continue;
+				}
+				final ConstrTerm constrTerm = valueMap.get(ct);
+				final Term[] argModels = new Term[constrTerm.mArguments.length];
+				boolean undefined = false;
+				boolean hasHole = false;
+				for (int i = 0; i < argModels.length; i++) {
+					CCTerm arg = constrTerm.mArguments[i];
+					if (arg != null) {
+						arg = arg.getRepresentative();
+						argModels[i] = modelBuilder.getModelValue(arg);
+						if (argModels[i] == null) {
+							assert valueMap.containsKey(arg);
+							path.add(ct);
+							todoStack.addLast(arg);
 							undefined = true;
-							todoStack.addLast(ct);
+							break;
 						}
-						todoStack.addLast(arg);
+					} else {
+						hasHole = true;
 					}
-				} else {
-					hasHole = true;
+				}
+				if (!undefined) {
+					if (hasHole) {
+						delayed.addAll(path);
+						if (nextHole == null) {
+							nextHole = ct;
+							nextHoleArgs = argModels;
+						} else {
+							delayed.add(ct);
+						}
+						path.clear();
+					} else {
+						final Term modelTerm = mTheory.term(constrTerm.mConstr, argModels);
+						modelBuilder.setModelValue(ct, modelTerm);
+						if (!path.isEmpty()) {
+							final CCTerm nextFromPath = path.removeLast();
+							visited.remove(nextFromPath);
+							todoStack.addLast(nextFromPath);
+						}
+					}
 				}
 			}
-			if (!undefined) {
-				final Term modelTerm = hasHole ? createUniqueValue(modelBuilder, constrTerm.mConstr, argModels)
-						: mTheory.term(constrTerm.mConstr, argModels);
-				modelBuilder.setModelValue(ct, modelTerm);
+			if (nextHole != null) {
+				final ConstrTerm constrTerm = valueMap.get(nextHole);
+				final Term modelTerm = createUniqueValue(modelBuilder, constrTerm.mConstr, nextHoleArgs);
+				modelBuilder.setModelValue(nextHole, modelTerm);
+				todoStack.addAll(delayed);
+			} else {
+				assert delayed.isEmpty();
 			}
 		}
 	}
