@@ -726,34 +726,14 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
           {: RESULT = parser.getProofRules().xorIntro(ts1, ts2, ts3); :}
         | LPAR XORE LPAR term*:ts1 RPAR LPAR term*:ts2 RPAR LPAR term*:ts3 RPAR RPAR
           {: RESULT = parser.getProofRules().xorElim(ts1, ts2, ts3); :}
-        | LPAR FORALLI {: localVars.beginScope(); :} LPAR sortedVar+:vars RPAR term:t RPAR
-          {: localVars.endScope();
-             RESULT = parser.getProofRules().forallIntro((QuantifiedFormula) parser.getScript().quantifier(Script.FORALL, vars, t)); :}
-        | LPAR FORALLE {: localVars.beginScope(); :} LPAR varBinding+:bindings RPAR term:t RPAR
-          {: TermVariable[] vars = new TermVariable[bindings.length];
-             Term[] terms = new Term[bindings.length];
-             for (int i = 0; i < bindings.length; i++) {
-                 if (bindings[i] != null) {
-                     vars[i] = bindings[i].getVar();
-                     terms[i] = bindings[i].getTerm();
-                 }
-             }
-             localVars.endScope();
-             RESULT = parser.getProofRules().forallElim(terms, (QuantifiedFormula) parser.getScript().quantifier(Script.FORALL, vars, t)); :}
-        | LPAR EXISTSI {: localVars.beginScope(); :} LPAR varBinding+:bindings RPAR term:t RPAR
-          {: TermVariable[] vars = new TermVariable[bindings.length];
-             Term[] terms = new Term[bindings.length];
-             for (int i = 0; i < bindings.length; i++) {
-                 if (bindings[i] != null) {
-                     vars[i] = bindings[i].getVar();
-                     terms[i] = bindings[i].getTerm();
-                 }
-             }
-             localVars.endScope();
-             RESULT = parser.getProofRules().existsIntro(terms, (QuantifiedFormula) parser.getScript().quantifier(Script.EXISTS, vars, t)); :}
-        | LPAR EXISTSE {: localVars.beginScope(); :} LPAR sortedVar+:vars RPAR term:t RPAR
-          {: localVars.endScope();
-             RESULT = parser.getProofRules().existsElim((QuantifiedFormula) parser.getScript().quantifier(Script.EXISTS, vars, t)); :}
+        | LPAR FORALLI term:t RPAR
+          {: RESULT = parser.getProofRules().forallIntro((QuantifiedFormula) t); :}
+        | LPAR FORALLE LPAR term*:terms RPAR term:t RPAR
+          {: RESULT = parser.getProofRules().forallElim(terms, (QuantifiedFormula) t); :}
+        | LPAR EXISTSI LPAR term*:terms RPAR term:t RPAR
+          {: RESULT = parser.getProofRules().existsIntro(terms, (QuantifiedFormula) t); :}
+        | LPAR EXISTSE term:t RPAR
+          {: RESULT = parser.getProofRules().existsElim((QuantifiedFormula) t); :}
         | LPAR EQI term:t RPAR {: RESULT = parser.getProofRules().equalsIntro(t); :}
         | LPAR EQE NUMERAL:i NUMERAL:j term:t RPAR
           {: RESULT = parser.getProofRules().equalsElim(i.intValue(), j.intValue(), t); :}
