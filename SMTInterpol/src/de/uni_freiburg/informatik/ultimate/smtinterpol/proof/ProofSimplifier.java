@@ -1674,7 +1674,7 @@ public class ProofSimplifier extends TermTransformer {
 					if (xorAll == null) {
 						proofStep = proofXor;
 					} else {
-						proofStep = xorAllNegated ? mProofRules.xorElim(xorArgs, xorAllArgs, xorAllNextArgs)
+						proofStep = xorAllNegated ? mProofRules.xorIntro(xorArgs, xorAllNextArgs, xorAllArgs)
 								: mProofRules.xorIntro(xorArgs, xorAllArgs, xorAllNextArgs);
 						proofStep = mProofRules.resolutionRule(xorTerm, proofStep, proofXor);
 					}
