@@ -505,7 +505,6 @@ public class CCInterpolator {
 										atomInfo.isInt() ? InfinitesimalNumber.ONE : InfinitesimalNumber.EPSILON;
 								if (!mInterpolator.isNegatedTerm(lits[i])) {
 									aPart.mul(Rational.MONE);
-									aPart.add(epsilon);
 								}
 								terms.add(LAInterpolator.createLATerm(aPart, epsilon.negate(), aPart.toLeq0(mInterpolator.mTheory)));
 							}
