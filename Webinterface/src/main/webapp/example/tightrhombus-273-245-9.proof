@@ -48,35 +48,35 @@ unsat
       (ineq4 (<= (- x2 y2) 10000000000)))
 (let ((F (and ineq1 ineq2 ineq3 ineq4)))
 (let-proof ((C0 (assume F)))
-(let-proof ((C1 (res F C0 (and- 0 ineq1 ineq2 ineq3 ineq4)))
-            (C2 (res F C0 (and- 1 ineq1 ineq2 ineq3 ineq4)))
-	    (C3 (res F C0 (and- 2 ineq1 ineq2 ineq3 ineq4)))
-	    (C4 (res F C0 (and- 3 ineq1 ineq2 ineq3 ineq4))))
+(let-proof ((C1 (res F C0 (and- 0 F)))
+            (C2 (res F C0 (and- 1 F)))
+	    (C3 (res F C0 (and- 2 F)))
+	    (C4 (res F C0 (and- 3 F))))
 ; now prove the inequalities with rewritten minus application
 (let-proof ((C1_
   (res ineq1 C1
     (res (= ineq1 ineq1_)
       (res (= 0 0) (refl 0) (res (= (- x1 y1) (+ x1 my1)) eq1
         (cong (<= 0 (- x1 y1)) (<= 0 (+ x1 my1)))))
-      (=-2 ineq1 ineq1_))))
+      (=-2 (= ineq1 ineq1_)))))
             (C2_
   (res ineq2 C2
     (res (= ineq2 ineq2_)
       (res (= 9999999999 9999999999) (refl 9999999999) (res (= (- x1 y1) (+ x1 my1)) eq1
         (cong (<= (- x1 y1) 9999999999) (<= (+ x1 my1) 9999999999))))
-      (=-2 ineq2 ineq2_))))
+      (=-2 (= ineq2 ineq2_)))))
             (C3_
   (res ineq3 C3
     (res (= ineq3 ineq3_)
       (res (= 1 1) (refl 1) (res (= (- x2 y2) (+ x2 my2)) eq2
         (cong (<= 1 (- x2 y2)) (<= 1 (+ x2 my2)))))
-      (=-2 ineq3 ineq3_))))
+      (=-2 (= ineq3 ineq3_)))))
             (C4_
   (res ineq4 C4
     (res (= ineq4 ineq4_)
       (res (= 10000000000 10000000000) (refl 10000000000) (res (= (- x2 y2) (+ x2 my2)) eq2
         (cong (<= (- x2 y2) 10000000000) (<= (+ x2 my2) 10000000000))))
-      (=-2 ineq4 ineq4_)))))
+      (=-2 (= ineq4 ineq4_))))))
 ; finally resolve the proved inequalities with the core lemma.
 (res ineq1_ C1_
 (res ineq2_ C2_

@@ -55,14 +55,14 @@ def create_input_clauses(n, f, assertcmd="assert"):
     print("(let-proof (", file=f)
     for i in range(0, n + 1):
         clause = clause_A(n,i)
-        print(f"  (A_{n}_{i} (let ((cl (or {clause}))) (res cl ({assertcmd} cl) (or- {clause}))))", file=f)
+        print(f"  (A_{n}_{i} (let ((cl (or {clause}))) (res cl ({assertcmd} cl) (or- cl))))", file=f)
 
     for i in range(0, n + 1):
         for j in range(i + 1, n + 1):
              for k in range(1, n + 1):
                  p1=f"p_{n}_{i}_{k}"
                  p2=f"p_{n}_{j}_{k}"
-                 print(f"  (B_{n}_{i}_{j}_{k} (let ((np1 (not {p1})) (np2 (not {p2}))) (let ((cl (or np1 np2))) (res np1 (res np2 (res cl ({assertcmd} cl) (or- np1 np2)) (not- {p2})) (not- {p1})))))", file=f)
+                 print(f"  (B_{n}_{i}_{j}_{k} (let ((np1 (not {p1})) (np2 (not {p2}))) (let ((cl (or np1 np2))) (res np1 (res np2 (res cl ({assertcmd} cl) (or- cl)) (not- np2)) (not- np1)))))", file=f)
     print (f"  )", file=f)
 
 def create_layer(l, f):
@@ -79,8 +79,8 @@ def create_layer(l, f):
     print("(let-proof (", file=f)
     for i in range(0, l):
         for k in range(1, l):
-            print(f"  (C1_{l}_{i}_{k} (res q_{l}_{i}_{k} (or- p_{l}_{i}_{k} q_{l}_{i}_{k}) (and- 1 p_{l}_{i}_{l} p_{l}_{l}_{k})))", file=f)
-            print(f"  (C2_{l}_{i}_{k} (res p_{l}_{i}_{k} (res q_{l}_{i}_{k} (or- p_{l}_{i}_{k} q_{l}_{i}_{k}) (and- 0 p_{l}_{i}_{l} p_{l}_{l}_{k})) B_{l}_{i}_{l}_{k}))", file=f)
+            print(f"  (C1_{l}_{i}_{k} (res q_{l}_{i}_{k} (or- p_{l-1}_{i}_{k}) (and- 1 q_{l}_{i}_{k})))", file=f)
+            print(f"  (C2_{l}_{i}_{k} (res p_{l}_{i}_{k} (res q_{l}_{i}_{k} (or- p_{l-1}_{i}_{k}) (and- 0 q_{l}_{i}_{k})) B_{l}_{i}_{l}_{k}))", file=f)
     print("  )", file=f)
     print("(let-proof (", file=f)
     for i in range(0, l):
@@ -96,11 +96,11 @@ def create_layer(l, f):
     for i in range(0, l):
         proof = f"(res p_{l}_{l}_{l} A_{l}_{l} B_{l}_{i}_{l}_{l})"
         for j in range(l-1, 0, -1):
-            proof = f"(res p_{l}_{l}_{j} {proof} (and+ p_{l}_{i}_{l} p_{l}_{l}_{j}))"
+            proof = f"(res p_{l}_{l}_{j} {proof} (and+ q_{l}_{i}_{j}))"
         proof = f"(res p_{l}_{i}_{l} A_{l}_{i} {proof})";
         for j in range(l-1, 0, -1):
-            proof = f"(res p_{l}_{i}_{j} {proof} (or+ 0 p_{l}_{i}_{j} q_{l}_{i}_{j}))"
-            proof = f"(res q_{l}_{i}_{j} {proof} (or+ 1 p_{l}_{i}_{j} q_{l}_{i}_{j}))"
+            proof = f"(res p_{l}_{i}_{j} {proof} (or+ 0 p_{l-1}_{i}_{j}))"
+            proof = f"(res q_{l}_{i}_{j} {proof} (or+ 1 p_{l-1}_{i}_{j}))"
         print(f"  (A_{l-1}_{i} {proof})", file=f);
     print("  )", file=f)
 

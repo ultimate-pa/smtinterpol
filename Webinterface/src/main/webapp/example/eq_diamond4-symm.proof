@@ -14,18 +14,20 @@
 ; transitivity.
 
 unsat
+(let ((faorsymm (forall ((x Bool) (y Bool)) (= (or x y) (or y x)))))
 (let-proof ((orsymm
   (let ((skx (choose (x Bool) (not (forall ((y Bool)) (= (or x y) (or y x)))))))
   (let ((sky (choose (y Bool) (not (= (or skx y) (or y skx))))))
-  (res (= (or skx sky) (or sky skx))
-    (res (or skx sky)
-      (res (or sky skx)
-        (=+1 (or skx sky) (or sky skx))
-	(res skx (res sky (or- sky skx) (or+ 1 skx sky)) (or+ 0 skx sky)))
-      (res (or sky skx)
-	(res skx (res sky (or- skx sky) (or+ 0 sky skx)) (or+ 1 sky skx))
-        (=+2 (or skx sky) (or sky skx))))
-    (forall+ ((x Bool) (y Bool)) (= (or x y) (or y x))))))))
+  (let ((orxy (or skx sky)) (oryx (or sky skx)))
+  (res (= orxy oryx)
+    (res orxy
+      (res oryx
+        (=+1 (= orxy oryx))
+	(res skx (res sky (or- oryx) (or+ 1 orxy)) (or+ 0 orxy)))
+      (res oryx
+	(res skx (res sky (or- orxy) (or+ 0 oryx)) (or+ 1 oryx))
+        (=+2 (= orxy oryx))))
+    (forall+ faorsymm)))))))
 
 (let ((t00 (= x0 y0))
       (t01 (= y0 x1))
@@ -114,10 +116,10 @@ unsat
 (let-proof ((Ct05- (!
        (res (= t00_ t00)
         (res (= x0 x0) (refl x0)
-          (res (= y0_ y0) (ite1 t05 y0 z0)
+          (res (= y0_ y0) (ite1 y0_)
             (cong (= x0 y0_) (= x0 y0))))
        (res (= t01_ t01)
-	(res (= y0_ y0) (ite1 t05 y0 z0)
+	(res (= y0_ y0) (ite1 y0_)
           (res (= x1 x1) (refl x1)
             (cong (= y0_ x1) (= y0 x1))))
        (cong (and t00_ t01_) (and t00 t01))))
@@ -125,10 +127,10 @@ unsat
       (Ct06- (!
        (res (= t02_ t02)
         (res (= x0 x0) (refl x0)
-	(res (= z0_ z0) (ite1 t05 z0 y0)
+	(res (= z0_ z0) (ite1 z0_)
           (cong (= x0 z0_) (= x0 z0))))
        (res (= t03_ t03)
-	(res (= z0_ z0) (ite1 t05 z0 y0)
+	(res (= z0_ z0) (ite1 z0_)
         (res (= x1 x1) (refl x1)
           (cong (= z0_ x1) (= z0 x1))))
        (cong (and t02_ t03_) (and t02 t03))))
@@ -136,10 +138,10 @@ unsat
       (Ct05+ (!
        (res (= t02_ t00)
         (res (= x0 x0) (refl x0)
-	(res (= z0_ y0) (ite2 t05 z0 y0)
+	(res (= z0_ y0) (ite2 z0_)
           (cong (= x0 z0_) (= x0 y0))))
        (res (= t03_ t01)
-	(res (= z0_ y0) (ite2 t05 z0 y0)
+	(res (= z0_ y0) (ite2 z0_)
         (res (= x1 x1) (refl x1)
           (cong (= z0_ x1) (= y0 x1))))
        (cong (and t02_ t03_) (and t00 t01))))
@@ -147,10 +149,10 @@ unsat
       (Ct06+ (!
        (res (= t00_ t02)
         (res (= x0 x0) (refl x0)
-	(res (= y0_ z0) (ite2 t05 y0 z0)
+	(res (= y0_ z0) (ite2 y0_)
           (cong (= x0 y0_) (= x0 z0))))
        (res (= t01_ t03)
-	(res (= y0_ z0) (ite2 t05 y0 z0)
+	(res (= y0_ z0) (ite2 y0_)
         (res (= x1 x1) (refl x1)
           (cong (= y0_ x1) (= z0 x1))))
        (cong (and t00_ t01_) (and t02 t03))))
@@ -161,10 +163,10 @@ unsat
 (let-proof ((Ct15- (!
        (res (= t10_ t10)
         (res (= x1 x1) (refl x1)
-	(res (= y1_ y1) (ite1 t15 y1 z1)
+	(res (= y1_ y1) (ite1 y1_)
           (cong (= x1 y1_) (= x1 y1))))
        (res (= t11_ t11)
-	(res (= y1_ y1) (ite1 t15 y1 z1)
+	(res (= y1_ y1) (ite1 y1_)
         (res (= x2 x2) (refl x2)
           (cong (= y1_ x2) (= y1 x2))))
        (cong (and t10_ t11_) (and t10 t11))))
@@ -172,10 +174,10 @@ unsat
       (Ct16- (!
        (res (= t12_ t12)
         (res (= x1 x1) (refl x1)
-	(res (= z1_ z1) (ite1 t15 z1 y1)
+	(res (= z1_ z1) (ite1 z1_)
           (cong (= x1 z1_) (= x1 z1))))
        (res (= t13_ t13)
-	(res (= z1_ z1) (ite1 t15 z1 y1)
+	(res (= z1_ z1) (ite1 z1_)
         (res (= x2 x2) (refl x2)
           (cong (= z1_ x2) (= z1 x2))))
        (cong (and t12_ t13_) (and t12 t13))))
@@ -183,10 +185,10 @@ unsat
       (Ct15+ (!
        (res (= t12_ t10)
         (res (= x1 x1) (refl x1)
-	(res (= z1_ y1) (ite2 t15 z1 y1)
+	(res (= z1_ y1) (ite2 z1_)
           (cong (= x1 z1_) (= x1 y1))))
        (res (= t13_ t11)
-	(res (= z1_ y1) (ite2 t15 z1 y1)
+	(res (= z1_ y1) (ite2 z1_)
         (res (= x2 x2) (refl x2)
           (cong (= z1_ x2) (= y1 x2))))
        (cong (and t12_ t13_) (and t10 t11))))
@@ -194,10 +196,10 @@ unsat
       (Ct16+ (!
        (res (= t10_ t12)
         (res (= x1 x1) (refl x1)
-	(res (= y1_ z1) (ite2 t15 y1 z1)
+	(res (= y1_ z1) (ite2 y1_)
           (cong (= x1 y1_) (= x1 z1))))
        (res (= t11_ t13)
-	(res (= y1_ z1) (ite2 t15 y1 z1)
+	(res (= y1_ z1) (ite2 y1_)
         (res (= x2 x2) (refl x2)
           (cong (= y1_ x2) (= z1 x2))))
        (cong (and t10_ t11_) (and t12 t13))))
@@ -206,10 +208,10 @@ unsat
 (let-proof ((Ct25- (!
        (res (= t20_ t20)
         (res (= x2 x2) (refl x2)
-	(res (= y2_ y2) (ite1 t25 y2 z2)
+	(res (= y2_ y2) (ite1 y2_)
           (cong (= x2 y2_) (= x2 y2))))
        (res (= t21_ t21)
-	(res (= y2_ y2) (ite1 t25 y2 z2)
+	(res (= y2_ y2) (ite1 y2_)
         (res (= x3 x3) (refl x3)
           (cong (= y2_ x3) (= y2 x3))))
        (cong (and t20_ t21_) (and t20 t21))))
@@ -217,10 +219,10 @@ unsat
       (Ct26- (!
        (res (= t22_ t22)
         (res (= x2 x2) (refl x2)
-	(res (= z2_ z2) (ite1 t25 z2 y2)
+	(res (= z2_ z2) (ite1 z2_)
           (cong (= x2 z2_) (= x2 z2))))
        (res (= t23_ t23)
-	(res (= z2_ z2) (ite1 t25 z2 y2)
+	(res (= z2_ z2) (ite1 z2_)
         (res (= x3 x3) (refl x3)
           (cong (= z2_ x3) (= z2 x3))))
        (cong (and t22_ t23_) (and t22 t23))))
@@ -228,10 +230,10 @@ unsat
       (Ct25+ (!
        (res (= t22_ t20)
         (res (= x2 x2) (refl x2)
-	(res (= z2_ y2) (ite2 t25 z2 y2)
+	(res (= z2_ y2) (ite2 z2_)
           (cong (= x2 z2_) (= x2 y2))))
        (res (= t23_ t21)
-	(res (= z2_ y2) (ite2 t25 z2 y2)
+	(res (= z2_ y2) (ite2 z2_)
         (res (= x3 x3) (refl x3)
           (cong (= z2_ x3) (= y2 x3))))
        (cong (and t22_ t23_) (and t20 t21))))
@@ -239,10 +241,10 @@ unsat
       (Ct26+ (!
        (res (= t20_ t22)
         (res (= x2 x2) (refl x2)
-	(res (= y2_ z2) (ite2 t25 y2 z2)
+	(res (= y2_ z2) (ite2 y2_)
           (cong (= x2 y2_) (= x2 z2))))
        (res (= t21_ t23)
-	(res (= y2_ z2) (ite2 t25 y2 z2)
+	(res (= y2_ z2) (ite2 y2_)
         (res (= x3 x3) (refl x3)
           (cong (= y2_ x3) (= z2 x3))))
        (cong (and t20_ t21_) (and t22 t23))))
@@ -256,9 +258,7 @@ unsat
        (res (= (or t06_ t05_) (or t05 t06))
          (cong (or t06_ t05_) (or t05 t06))
        (res (= (or t05_ t06_) (or t06_ t05_))
-         (res (forall ((x Bool) (y Bool)) (= (or x y) (or y x)))
-	   orsymm
-           (forall- ((x t05_) (y t06_)) (= (or x y) (or y x))))
+         (res faorsymm orsymm (forall- (t05_ t06_) faorsymm))
        (trans (or t05_ t06_) (or t06_ t05_) (or t05 t06))))))
      (res (= t05_ t05) Ct05-
      (res (= t06_ t06) Ct06-
@@ -273,8 +273,7 @@ unsat
        (res (= (or t16_ t15_) (or t15 t16))
          (cong (or t16_ t15_) (or t15 t16))
        (res (= (or t15_ t16_) (or t16_ t15_))
-         (res (forall ((x Bool) (y Bool)) (= (or x y) (or y x)))
-           orsymm (forall- ((x t15_) (y t16_)) (= (or x y) (or y x))))
+         (res faorsymm orsymm (forall- (t15_ t16_) faorsymm))
        (trans (or t15_ t16_) (or t16_ t15_) (or t15 t16))))))
      (res (= t15_ t15) Ct15-
      (res (= t16_ t16) Ct16-
@@ -288,8 +287,7 @@ unsat
        (res (= (or t26_ t25_) (or t25 t26))
          (cong (or t26_ t25_) (or t25 t26))
        (res (= (or t25_ t26_) (or t26_ t25_))
-         (res (forall ((x Bool) (y Bool)) (= (or x y) (or y x)))
-           orsymm (forall- ((x t25_) (y t26_)) (= (or x y) (or y x))))
+         (res faorsymm orsymm (forall- (t25_ t26_) faorsymm))
        (trans (or t25_ t26_) (or t26_ t25_) (or t25 t26))))))
      (res (= t25_ t25) Ct25-
      (res (= t26_ t26) Ct26-
@@ -312,25 +310,25 @@ unsat
         (res (= t27_ t27) Ct27
          (res (= t31 t31) (refl t31)
           (cong (and t07_ t17_ t27_ t31) (and t07 t17 t27 t31))))))
-      (res F (assume F) (=-1 F_ F)))
+      (res F (assume F) (=-1 (= F_ F))))
       :proves ( + F_ ))))
 
 ;; prove symmetry breaking clauses ( - ti6_ + ti5_ )
 ;; these are now tautologies, thanks to our definition of yi_, zi_
 (let-proof ((Ct05_ (!
    (res t05
-     (res (= t06_ t05) Ct05+ (=-2 t06_ t05))
-     (res (= t05_ t05) Ct05- (=-1 t05_ t05)))
+     (res (= t06_ t05) Ct05+ (=-2 (= t06_ t05)))
+     (res (= t05_ t05) Ct05- (=-1 (= t05_ t05))))
    :proves ( - t06_ t05_ )))
       (Ct15_ (!
    (res t15
-     (res (= t16_ t15) Ct15+ (=-2 t16_ t15))
-     (res (= t15_ t15) Ct15- (=-1 t15_ t15)))
+     (res (= t16_ t15) Ct15+ (=-2 (= t16_ t15)))
+     (res (= t15_ t15) Ct15- (=-1 (= t15_ t15))))
    :proves ( - t16_ t15_ )))
       (Ct25_ (!
    (res t25
-     (res (= t26_ t25) Ct25+ (=-2 t26_ t25))
-     (res (= t25_ t25) Ct25- (=-1 t25_ t25)))
+     (res (= t26_ t25) Ct25+ (=-2 (= t26_ t25)))
+     (res (= t25_ t25) Ct25- (=-1 (= t25_ t25))))
    :proves ( - t26_ t25_ ))))
 
 ; final proof using symmetry breaking clauses.
@@ -338,22 +336,22 @@ unsat
 ; Note that this only uses the primed formulas.
 
   (res F_ CF_
-  (res t07_ (and- 0 t07_ t17_ t27_ t31)
-  (res t05_ (res t06_ (or- t05_ t06_) Ct05_)
-  (res t00_ (and- 0 t00_ t01_)
-  (res t01_ (and- 1 t00_ t01_)
-  (res t17_ (and- 1 t07_ t17_ t27_ t31)
-  (res t15_ (res t16_ (or- t15_ t16_) Ct15_)
-  (res t10_ (and- 0 t10_ t11_)
-  (res t11_ (and- 1 t10_ t11_)
-  (res t27_ (and- 2 t07_ t17_ t27_ t31)
-  (res t25_ (res t26_ (or- t25_ t26_) Ct25_)
-  (res t20_ (and- 0 t20_ t21_)
-  (res t21_ (and- 1 t20_ t21_)
+  (res t07_ (and- 0 F_)
+  (res t05_ (res t06_ (or- t07_) Ct05_)
+  (res t00_ (and- 0 t05_)
+  (res t01_ (and- 1 t05_)
+  (res t17_ (and- 1 F_)
+  (res t15_ (res t16_ (or- t17_) Ct15_)
+  (res t10_ (and- 0 t15_)
+  (res t11_ (and- 1 t15_)
+  (res t27_ (and- 2 F_)
+  (res t25_ (res t26_ (or- t27_) Ct25_)
+  (res t20_ (and- 0 t25_)
+  (res t21_ (and- 1 t25_)
   (res t30
     (trans x0 y0_ x1 y1_ x2 y2_ x3)
     (res t31
-      (and- 3 t07_ t17_ t27_ t31)
-      (not- t30))))))))))))))))
+      (and- 3 F_)
+      (not- t31))))))))))))))))
 
-))))))))))))))))))
+)))))))))))))))))))
