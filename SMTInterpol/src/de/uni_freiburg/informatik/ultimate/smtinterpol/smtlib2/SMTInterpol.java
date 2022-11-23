@@ -846,9 +846,11 @@ public class SMTInterpol extends NoopScript {
 				final Interpolator interpolator = new Interpolator(mLogger, checkingSolver, mAssertions, getTheory(),
 						parts, startOfSubtree, mCancel);
 				ipls = interpolator.getInterpolants(proofTree);
-			} finally {
 				if (checkingSolver != null) {
 					mLogger.info("FOUND VALID INTERPOLANT");
+				}
+			} finally {
+				if (checkingSolver != null) {
 					checkingSolver.exit();
 					checkingSolver = null;
 				}
