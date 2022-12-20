@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <project default="all" name="Create Project SMTInterpol" xmlns:jacoco="antlib:org.jacoco.ant" xmlns:resolver="antlib:org.apache.maven.resolver.ant" xmlns:sonar="antlib:org.sonar.ant">
+    <property name="java.target" value="8"/>
     <property name="javacup.jar" value="jh-javacup-1.2.jar"/>
     <target name="help">
         <echo>
@@ -128,10 +129,10 @@ stage:             Upload new version to Maven Central (owner only)
     <target name="compile" depends="prepare">
         <mkdir dir="${dir.workspace}/Library-SMTLIB/release"/>
         <mkdir dir="${dir.workspace}/SMTInterpol/release"/>
-        <javac srcdir="${dir.workspace}/Library-SMTLIB/src" destdir="${dir.workspace}/Library-SMTLIB/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+        <javac srcdir="${dir.workspace}/Library-SMTLIB/src" destdir="${dir.workspace}/Library-SMTLIB/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}" source="${java.target}" target="${java.target}">
         </javac>
         <echo message="Build SMTLIB library finished"/>
-        <javac srcdir="${dir.workspace}/SMTInterpol/src" destdir="${dir.workspace}/SMTInterpol/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+        <javac srcdir="${dir.workspace}/SMTInterpol/src" destdir="${dir.workspace}/SMTInterpol/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}" source="${java.target}" target="${java.target}">
             <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/test_generator/**"/>
             <exclude name="de/uni_freiburg/informatik/ultimate/smtinterpol/smtcomp/**"/>
             <classpath>
@@ -143,7 +144,7 @@ stage:             Upload new version to Maven Central (owner only)
     <!-- Compile Deltadebugger -->
     <target name="compiledd" depends="compile">
         <mkdir dir="${dir.workspace}/DeltaDebugger/release"/>
-        <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}">
+        <javac srcdir="${dir.workspace}/DeltaDebugger/src" destdir="${dir.workspace}/DeltaDebugger/release" optimize="${optimize}" includeAntRuntime="false" debug="${debug}" source="${java.target}" target="${java.target}">
             <classpath>
                 <pathelement location="${dir.workspace}/SMTInterpol/lib/${javacup.jar}"/>
                 <pathelement path="${dir.workspace}/Library-SMTLIB/release"/>
