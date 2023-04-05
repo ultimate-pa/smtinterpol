@@ -1494,7 +1494,8 @@ public class DPLLEngine {
 			Antecedent[] ants = isProofGenerationEnabled() ? new Antecedent[c.getSize() - 1] : null;
 			int i = 0;
 			for (final Literal l : lits) {
-				if (mAssumptionLiterals.contains(l.negate())) {
+				if (l.getAtom().mExplanation == null) {
+					assert mAssumptionLiterals.contains(l.negate());
 					clauseLits.add(l);
 				} else if (l != lit) {
 					final Clause lc = getLevel0(l.negate());
