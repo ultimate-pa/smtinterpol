@@ -420,12 +420,11 @@ public class InstantiationManager {
 					if (mClauseInstances.containsKey(clause) && mClauseInstances.get(clause).containsKey(subs)) {
 						continue; // Checked in the first loop over the quant clauses.
 					}
-					final Pair<InstanceValue, Boolean> candVal = evaluateNewClauseInstanceFinalCheck(clause, subs);
-					if (candVal.getFirst() == InstanceValue.TRUE) {
+					final InstanceValue candVal = evaluateNewClauseInstanceFinalCheck(clause, subs);
+					if (candVal == InstanceValue.TRUE) {
 						continue;
-					} else if (candVal.getFirst() == InstanceValue.FALSE || candVal.getFirst() == InstanceValue.UNIT) {
+					} else if (candVal == InstanceValue.FALSE || candVal == InstanceValue.UNIT) {
 						// Always build conflict or unit clauses on known terms
-						assert candVal.getSecond().booleanValue();
 						final InstClause unitClause = computeClauseInstance(clause, subs, InstanceOrigin.ENUMERATION);
 						if (unitClause != null) { // TODO Some true literals are not detected at the moment.
 							final int numUndef = unitClause.countAndSetUndefLits();
@@ -437,17 +436,13 @@ public class InstantiationManager {
 						}
 					} else {
 						final Pair<QuantClause, List<Term>> clauseSubsPair = new Pair<>(clause, subs);
-						if (candVal.getFirst() == InstanceValue.UNIT_UNKNOWN_TERM) {
-							assert !candVal.getSecond().booleanValue();
+						if (candVal == InstanceValue.UNIT_UNKNOWN_TERM) {
 							unitValueInstancesNewTerms.add(clauseSubsPair);
+						} else if (candVal == InstanceValue.OTHER) {
+							otherValueInstancesOnKnownTerms.add(clauseSubsPair);
 						} else {
-							assert candVal.getFirst() == InstanceValue.OTHER
-									|| candVal.getFirst() == InstanceValue.OTHER_UNKNOWN_TERM;
-							if (candVal.getSecond().booleanValue()) {
-								otherValueInstancesOnKnownTerms.add(clauseSubsPair);
-							} else {
-								otherValueInstancesNewTerms.add(clauseSubsPair);
-							}
+							assert candVal == InstanceValue.OTHER_UNKNOWN_TERM;
+							otherValueInstancesNewTerms.add(clauseSubsPair);
 						}
 					}
 				}
@@ -1273,7 +1268,7 @@ public class InstantiationManager {
 	 * @return a pair containing the InstanceValue of the potential instance and a Boolean which is true iff the
 	 *         instance contains only known terms.
 	 */
-	private Pair<InstanceValue, Boolean> evaluateNewClauseInstanceFinalCheck(final QuantClause quantClause,
+	private InstanceValue evaluateNewClauseInstanceFinalCheck(final QuantClause quantClause,
 			final List<Term> substitution) {
 		assert !mClauseInstances.containsKey(quantClause)
 				|| !mClauseInstances.get(quantClause).containsKey(substitution);
@@ -1283,24 +1278,20 @@ public class InstantiationManager {
 		for (final Literal groundLit : quantClause.getGroundLits()) {
 			assert groundLit.getAtom().getDecideStatus() != null;
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
-				return new Pair<>(InstanceValue.TRUE, null);
+				return InstanceValue.TRUE;
 			}
 		}
 
 		// Check quantified literals. TODO: Use SubstitutionHelper
-		boolean hasOnlyKnownTerms = true;
 		for (final QuantLiteral quantLit : quantClause.getQuantLits()) {
 			final InstanceValue litValue = evaluateLitInstance(quantLit, substitution);
 			// TODO evaluateLitInstanceFinalCheck
-			if (litValue == InstanceValue.UNIT_UNKNOWN_TERM) {
-				hasOnlyKnownTerms = false;
-			}
 			clauseValue = clauseValue.combine(litValue);
 			if (clauseValue == InstanceValue.TRUE) {
-				return new Pair<>(clauseValue, null);
+				return InstanceValue.TRUE;
 			}
 		}
-		return new Pair<>(clauseValue, hasOnlyKnownTerms);
+		return clauseValue;
 	}
 
 	/**
@@ -1713,11 +1704,16 @@ public class InstantiationManager {
 	}
 
 	/**
-	 * For pre-evaluation of QuantLiteral and QuantClause instances, we define the following values: TRUE if at least
-	 * one literal evaluates to true, FALSE if all literals evaluate to false, ONE_UNDEF if all but one literal evaluate
-	 * to false, and for this one all terms are known but not the value, UNKNOWN similarly but the terms are not known,
-	 * OTHER for all other cases. An additional value IRRELEVANT can be used to mark instances that are not useful for a
-	 * certain purpose. TODO update
+	 * For pre-evaluation of QuantLiteral and QuantClause instances, we define the following values:
+	 * <ul>
+	 * <li>TRUE if at least one literal evaluates to true,</li>
+	 * <li>FALSE if all literals evaluate to false,</li>
+	 * <li>UNIT if all but one literal evaluate to false, and for this one all terms are known but not the value,</li>
+	 * <li>UNIT_UNKNOWN_TERM similarly but the terms are not known,</li>
+	 * <li>OTHER for all other cases where the terms are known,</li>
+	 * <li>OTHER_UNKNOWN_TERM similarly but the terms are not known.</li>
+	 * <li>IRRELEVANT can be used to mark instances that are not useful for a certain purpose.</li>
+	 * </ul>
 	 */
 	private enum InstanceValue {
 		TRUE, FALSE, UNIT, UNIT_UNKNOWN_TERM, OTHER, OTHER_UNKNOWN_TERM, IRRELEVANT;
