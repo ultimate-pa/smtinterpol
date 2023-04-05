@@ -43,10 +43,11 @@ public interface SMTInterpolConstants {
 	public String SIMPLIFY_INTERPOLANTS = ":simplify-interpolants";
 	public String CHECK_TYPE = ":check-type";
 	public String SIMPLIFY_CHECK_TYPE = ":simplify-check-type";
+	public String SIMPLIFY_REPEATEDLY = ":simplify-repeatedly";
+
 	public String EPR = ":epr";
 	public String INSTANTIATION_METHOD = ":instantiation-method";
 	public String UNKNOWN_TERM_DAWGS = ":unknown-term-dawgs";
-	public String PROPAGATE_UNKNOWN_TERMS = ":propagate-unknown-terms";
-	public String PROPAGATE_UNKNOWN_AUX = ":propagate-unknown-aux";
-	public String SIMPLIFY_REPEATEDLY = ":simplify-repeatedly";
+	public String CONFLICT_SEARCH_MODE = ":conflict-search-mode";
+	public String INSTANTIATE_NEW_TERMS_MODE = ":instantiate-new-terms-mode";
 }

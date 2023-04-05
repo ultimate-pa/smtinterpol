@@ -93,6 +93,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantAuxEqua
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.ConflictSearchMode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiateNewTermsMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
@@ -1333,12 +1335,13 @@ public class Clausifier {
 	 */
 	private boolean mIsRunning = false;
 
+	// Quantifier options
 	// TODO: make map or use option map
 	private boolean mIsEprEnabled;
 	private InstantiationMethod mInstantiationMethod;
+	private ConflictSearchMode mConflictSearchMode;
+	private InstantiateNewTermsMode mInstantiateNewTermsMode;
 	private boolean mIsUnknownTermDawgsEnabled;
-	private boolean mPropagateUnknownTerms;
-	private boolean mPropagateUnknownAux;
 
 	/**
 	 * Mapping from quantified subterms to their aux function application.
@@ -2136,20 +2139,20 @@ public class Clausifier {
 	private void setupQuantifiers() {
 		if (mQuantTheory == null) {
 			mQuantTheory =
-					new QuantifierTheory(mTheory, mEngine, this, mInstantiationMethod, mIsUnknownTermDawgsEnabled,
-							mPropagateUnknownTerms, mPropagateUnknownAux);
+					new QuantifierTheory(mTheory, mEngine, this, mInstantiationMethod, mConflictSearchMode,
+							mInstantiateNewTermsMode, mIsUnknownTermDawgsEnabled);
 			mEngine.addTheory(mQuantTheory);
 		}
 	}
 
 	public void setQuantifierOptions(final boolean isEprEnabled, final InstantiationMethod instMethod,
-			final boolean enableUnknownTermDawgs, final boolean propagateUnknownTerm,
-			final boolean propagateUnknownAux) {
+			final ConflictSearchMode conflictSearchMode, final InstantiateNewTermsMode instNewTermsMode,
+			final boolean enableUnknownTermDawgs) {
 		mIsEprEnabled = isEprEnabled;
 		mInstantiationMethod = instMethod;
 		mIsUnknownTermDawgsEnabled = enableUnknownTermDawgs;
-		mPropagateUnknownTerms = propagateUnknownTerm;
-		mPropagateUnknownAux = propagateUnknownAux;
+		mConflictSearchMode = conflictSearchMode;
+		mInstantiateNewTermsMode = instNewTermsMode;
 	}
 
 	public void setLogic(final Logics logic) {

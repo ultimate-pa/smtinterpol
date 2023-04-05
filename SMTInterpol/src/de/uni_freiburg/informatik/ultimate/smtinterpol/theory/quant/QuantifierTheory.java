@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 University of Freiburg
+ * Copyright (C) 2023 Tanja Schindler
  *
  * This file is part of SMTInterpol.
  *
@@ -104,22 +105,22 @@ public class QuantifierTheory implements ITheory {
 
 	// Options
 	InstantiationMethod mInstantiationMethod;
+	final ConflictSearchMode mConflictSearchMode;
+	final InstantiateNewTermsMode mInstNewTermsMode;
 	boolean mUseUnknownTermValueInDawgs;
-	boolean mPropagateNewAux;
-	boolean mPropagateNewTerms;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier,
-			final InstantiationMethod instMethod, final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
-			final boolean propagateNewAux) {
+			final InstantiationMethod instMethod, final ConflictSearchMode conflictSearchMode,
+			final InstantiateNewTermsMode instNewTermsMode, final boolean useUnknownTermDawgs) {
 		mClausifier = clausifier;
 		mLogger = clausifier.getLogger();
 		mTheory = th;
 		mEngine = engine;
 
 		mInstantiationMethod = instMethod;
+		mConflictSearchMode = conflictSearchMode;
+		mInstNewTermsMode = instNewTermsMode;
 		mUseUnknownTermValueInDawgs = useUnknownTermDawgs;
-		mPropagateNewTerms = propagateNewTerms;
-		mPropagateNewAux = propagateNewAux;
 
 		mCClosure = clausifier.getCClosure();
 		mLinArSolve = clausifier.getLASolver();
@@ -974,5 +975,13 @@ public class QuantifierTheory implements ITheory {
 		 * In final check, build potential conflict and unit instances found by E-matching.
 		 */
 		E_MATCHING_CONFLICT_LAZY;
+	}
+
+	public static enum ConflictSearchMode {
+		CONFLICT, UNIT, ONE_FALSE, ANY_NONSAT;
+	}
+
+	public static enum InstantiateNewTermsMode {
+		AUX_ALWAYS, ALWAYS, FINAL_CHECK;
 	}
 }

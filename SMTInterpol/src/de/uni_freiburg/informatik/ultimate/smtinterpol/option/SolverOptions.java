@@ -24,6 +24,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.Transformations.AvailableTransformations;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.CheckType;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.ConflictSearchMode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiateNewTermsMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
 
 /**
@@ -46,7 +48,11 @@ public class SolverOptions {
 	private final BooleanOption mProofCheckMode;
 	private final EnumOption<CheckType> mSimpCheckType;
 	private final EnumOption<ProofMode> mProofLevel;
+
 	private final EnumOption<InstantiationMethod> mInstantiationMethod;
+	private final EnumOption<ConflictSearchMode> mConflictSearchMode;
+	private final EnumOption<InstantiateNewTermsMode> mInstantiateNewTermsMode;
+
 	private final OptionMap mOptions;
 
 	SolverOptions(final OptionMap options, final LogProxy logger) {
@@ -77,9 +83,14 @@ public class SolverOptions {
 		mSimpCheckType = new EnumOption<>(CheckType.QUICK, true,
 				CheckType.class, "Strength of checks used by the strong context"
 				+ " simplifier used in the simplify command");
+		mProofLevel = new EnumOption<>(ProofMode.NONE, false, ProofMode.class, "Proof level.");
+
 		mInstantiationMethod = new EnumOption<>(InstantiationMethod.E_MATCHING_CONFLICT, false,
 				InstantiationMethod.class, "Quantifier Theory: Method to instantiate quantified formulas.");
-		mProofLevel = new EnumOption<>(ProofMode.NONE, false, ProofMode.class, "Proof level.");
+		mConflictSearchMode = new EnumOption<>(ConflictSearchMode.UNIT, false, ConflictSearchMode.class,
+				"Quantifier Theory: Mode for conflict search.");
+		mInstantiateNewTermsMode = new EnumOption<>(InstantiateNewTermsMode.FINAL_CHECK, false,
+				InstantiateNewTermsMode.class, "Quantifier Theory: Mode for instantiation of new terms.");
 
 		// general standard compliant options
 		options.addOption(SMTLIBConstants.VERBOSITY, new VerbosityOption(logger));
@@ -122,24 +133,24 @@ public class SolverOptions {
 
 		// general non-standard options
 		options.addOption(SMTInterpolConstants.CHECK_TYPE, mCheckType);
-		options.addOption(SMTInterpolConstants.EPR, new BooleanOption(false, false,
-				"Assume formula is in EPR fragment. This give an error if the formula is outside EPR."));
-		options.addOption(SMTInterpolConstants.INSTANTIATION_METHOD, mInstantiationMethod);
-		options.addOption(SMTInterpolConstants.UNKNOWN_TERM_DAWGS, new BooleanOption(true, false,
-				"Quantifier Theory: Use fourth instance value UNKNOWN_TERM as default in literal dawgs."));
-		options.addOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_TERMS, new BooleanOption(false, false,
-				"Quantifier Theory: Allow propagation on atoms with non-existing term."));
-		options.addOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_AUX, new BooleanOption(false, false,
-				"Quantifier Theory: Allow propagation on atoms with non-existing @AUX applications."));
 
 		// simplifier options
 		options.addOption(SMTInterpolConstants.SIMPLIFY_CHECK_TYPE, mSimpCheckType);
-		options.addOption(SMTInterpolConstants.SIMPLIFY_REPEATEDLY, new BooleanOption(true, true,
-				"Simplify until the fixpoint is reached."));
+		options.addOption(SMTInterpolConstants.SIMPLIFY_REPEATEDLY,
+				new BooleanOption(true, true, "Simplify until the fixpoint is reached."));
 
 		options.addOption(SMTLIBConstants.GLOBAL_DECLARATIONS, new BooleanOption(false, false,
 				"Make all declared and defined symbols global.  Global symbols survive pop operations."));
 		mOptions = options;
+
+		// quantifier options
+		options.addOption(SMTInterpolConstants.EPR, new BooleanOption(false, false,
+				"Assume formula is in EPR fragment. This give an error if the formula is outside EPR."));
+		options.addOption(SMTInterpolConstants.INSTANTIATION_METHOD, mInstantiationMethod);
+		options.addOption(SMTInterpolConstants.CONFLICT_SEARCH_MODE, mConflictSearchMode);
+		options.addOption(SMTInterpolConstants.INSTANTIATE_NEW_TERMS_MODE, mInstantiateNewTermsMode);
+		options.addOption(SMTInterpolConstants.UNKNOWN_TERM_DAWGS, new BooleanOption(true, false,
+				"Quantifier Theory: Use fourth instance value UNKNOWN_TERM as default in literal dawgs."));
 	}
 
 	@SuppressWarnings("unchecked")
@@ -159,6 +170,10 @@ public class SolverOptions {
 		mProofLevel = (EnumOption<ProofMode>) options.getOption(SMTInterpolConstants.PROOF_LEVEL);
 		mInstantiationMethod =
 				(EnumOption<InstantiationMethod>) options.getOption(SMTInterpolConstants.INSTANTIATION_METHOD);
+		mConflictSearchMode =
+				(EnumOption<ConflictSearchMode>) options.getOption(SMTInterpolConstants.CONFLICT_SEARCH_MODE);
+		mInstantiateNewTermsMode =
+				(EnumOption<InstantiateNewTermsMode>) options.getOption(SMTInterpolConstants.INSTANTIATE_NEW_TERMS_MODE);
 		mOptions = options;
 	}
 
@@ -230,4 +245,11 @@ public class SolverOptions {
 		return mInstantiationMethod.getValue();
 	}
 
+	public ConflictSearchMode getConflictSearchMode() {
+		return mConflictSearchMode.getValue();
+	}
+
+	public InstantiateNewTermsMode getInstantiateNewTermsMode() {
+		return mInstantiateNewTermsMode.getValue();
+	}
 }
