@@ -82,6 +82,8 @@ public class InstantiationManager {
 
 	private int mSubsAgeForFinalCheck = 0;
 
+	private final boolean mCollectInstantiationInfoDetails = true; // TODO
+
 	public InstantiationManager(final QuantifierTheory quantTheory) {
 		mQuantTheory = quantTheory;
 		mClausifier = quantTheory.getClausifier();
@@ -99,7 +101,7 @@ public class InstantiationManager {
 			mRelevantValuesForCheckpoint.add(InstanceValue.UNIT_UNKNOWN_TERM);
 		}
 		if (mQuantTheory.mInstantiationMethod != InstantiationMethod.AUF_CONFLICT) {
-			mIrrelevantInstantiationInfo = new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<Term>());
+			mIrrelevantInstantiationInfo = new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<Term>(), null);
 		}
 	}
 
@@ -290,7 +292,7 @@ public class InstantiationManager {
 
 			// Intersect the literal dawgs to find out for which substitutions all triggers were matched.
 			Dawg<Term, InstantiationInfo> clauseDawg = Dawg.createConst(clause.getVars().length,
-					new InstantiationInfo(InstanceValue.FALSE, new ArrayList<>()));
+					new InstantiationInfo(InstanceValue.FALSE, new ArrayList<>(), null));
 			for (final QuantLiteral lit : clause.getQuantLits()) {
 				if (mQuantTheory.getEngine().isTerminationRequested()) {
 					return Collections.emptySet();
@@ -303,7 +305,7 @@ public class InstantiationManager {
 							&& QuantUtil.isAuxApplication(((QuantEquality) atom).getLhs())) {
 						// If this option is set, don't treat aux-terms as new terms.
 						instDawg = Dawg.createConst(clause.getVars().length,
-								new InstantiationInfo(InstanceValue.UNIT, new ArrayList<>()));
+								new InstantiationInfo(InstanceValue.UNIT, new ArrayList<>(), null));
 					}
 					if (instDawg == null) {
 						final Dawg<Term, SubstitutionInfo> subsDawg = mEMatching.getSubstitutionInfos(atom);
@@ -311,11 +313,11 @@ public class InstantiationManager {
 						final Dawg<Term, SubstitutionInfo> representativeSubsDawg = getRepresentativeSubsDawg(subsDawg);
 						instDawg = representativeSubsDawg.map(v -> v.equals(mEMatching.getEmptySubs()) && !QuantUtil.isVarEq(lit.getAtom())
 								? mIrrelevantInstantiationInfo
-								: new InstantiationInfo(InstanceValue.UNIT, getTermSubsFromSubsInfo(lit, v)));
+								: new InstantiationInfo(InstanceValue.UNIT, getTermSubsFromSubsInfo(lit, v), null));
 					}
 				} else if (lit.mIsArithmetical) {
 					instDawg = Dawg.createConst(clause.getVars().length,
-							new InstantiationInfo(InstanceValue.UNIT, new ArrayList<>()));
+							new InstantiationInfo(InstanceValue.UNIT, new ArrayList<>(), null));
 				}
 				// TODO Should we do something for the other literals, similar to "otherlits" in computeClauseDawg for
 				// E-matching based conflict and unit search?
@@ -584,22 +586,28 @@ public class InstantiationManager {
 		InstanceValue clauseValue = InstanceValue.FALSE;
 
 		// Check ground literals first
+		int nUndefGroundLits = 0;
 		for (final Literal groundLit : qClause.getGroundLits()) {
+			final InstanceValue litValue;
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
-				clauseValue = combineForCheckpoint(clauseValue, InstanceValue.TRUE);
+				litValue = InstanceValue.TRUE;
 			} else if (groundLit.getAtom().getDecideStatus() == groundLit.negate()) {
-				clauseValue = combineForCheckpoint(clauseValue, InstanceValue.FALSE);
+				litValue = InstanceValue.FALSE;
 			} else {
-				clauseValue = combineForCheckpoint(clauseValue, InstanceValue.UNIT);
+				nUndefGroundLits += 1;
+				litValue = InstanceValue.UNIT;
 			}
+			clauseValue = combineForCheckpoint(clauseValue, litValue);
 			if (clauseValue == InstanceValue.IRRELEVANT) {
 				return constIrrelDawg;
 			}
 		}
 
 		// Create the partial clause dawg.
+		final InstantiationInfoDetails details =
+				mCollectInstantiationInfoDetails ? new InstantiationInfoDetails(nUndefGroundLits, 0, false) : null;
 		Dawg<Term, InstantiationInfo> clauseDawg =
-				Dawg.createConst(numVars, new InstantiationInfo(clauseValue, emptySubs));
+				Dawg.createConst(numVars, new InstantiationInfo(clauseValue, emptySubs, details));
 
 		// Only check quant literals for clauses where all or all but one ground literals are false.
 		if (clauseValue != InstanceValue.IRRELEVANT) {
@@ -644,7 +652,7 @@ public class InstantiationManager {
 						return constIrrelDawg;
 					}
 					clauseDawg = clauseDawg.mapWithKey((key, value) -> (combineForCheckpoint(value,
-							new InstantiationInfo(evaluateLitInstance(lit, key), value.getSubs()))));
+							buildInstantiationInfoForLit(lit, evaluateLitInstance(lit, key), value.getSubs()))));
 				}
 					}
 			if (clauseDawg != constIrrelDawg && !arithLits.isEmpty()) {
@@ -661,6 +669,17 @@ public class InstantiationManager {
 					}
 		}
 		return clauseDawg;
+	}
+
+	private InstantiationInfo buildInstantiationInfoForLit(final QuantLiteral lit, final InstanceValue val,
+			final List<Term> subs) {
+		InstantiationInfoDetails details = null;
+		if (mCollectInstantiationInfoDetails) {
+			final boolean hasUnknownTerms = val == InstanceValue.UNIT_UNKNOWN_TERM;
+			final int nUndef = hasUnknownTerms || val == InstanceValue.UNIT ? 1 : 0;
+			details = new InstantiationInfoDetails(0, nUndef, hasUnknownTerms);
+		}
+		return new InstantiationInfo(val, subs, details);
 	}
 
 	/**
@@ -689,12 +708,22 @@ public class InstantiationManager {
 	 *         InstantiationInfo with empty substitution else.
 	 */
 	private InstantiationInfo combineForCheckpoint(final InstantiationInfo first, final InstantiationInfo second) {
-		final InstanceValue combinedValue = combineForCheckpoint(first.getInstValue(), second.getInstValue());
-		if (combinedValue == InstanceValue.IRRELEVANT) {
+		final InstanceValue combValue = combineForCheckpoint(first.getInstValue(), second.getInstValue());
+		if (combValue == InstanceValue.IRRELEVANT) {
 			return mIrrelevantInstantiationInfo;
 		}
-		final List<Term> combinedSubs = combineSubs(first.getSubs(), second.getSubs());
-		return new InstantiationInfo(combinedValue, combinedSubs);
+		final List<Term> combSubs = combineSubs(first.getSubs(), second.getSubs());
+		InstantiationInfoDetails combDetails = null;
+		if (mCollectInstantiationInfoDetails) {
+			final InstantiationInfoDetails firstDetails = first.getDetails();
+			final InstantiationInfoDetails secondDetails = second.getDetails();
+			final int combNumUndefGroundLits = firstDetails.mNumUndefGroundLits + secondDetails.mNumUndefGroundLits;
+			final int combNumUndefInstLits = firstDetails.mNumUndefInstLits + secondDetails.mNumUndefInstLits;
+			final boolean combHasUnknownTerms = firstDetails.mHasUnknownTerms || secondDetails.mHasUnknownTerms;
+			combDetails =
+					new InstantiationInfoDetails(combNumUndefGroundLits, combNumUndefInstLits, combHasUnknownTerms);
+		}
+		return new InstantiationInfo(combValue, combSubs, combDetails);
 	}
 
 	private List<Term> combineSubs(final List<Term> firstSubs, final List<Term> secondSubs) {
@@ -745,7 +774,7 @@ public class InstantiationManager {
 		final Dawg<Term, SubstitutionInfo> representativeSubsDawg = getRepresentativeSubsDawg(atomSubsDawg);
 		// Then evaluate
 		final Function<SubstitutionInfo, InstantiationInfo> evaluationMap =
-				v1 -> new InstantiationInfo(evaluateLitForEMatchingSubsInfo(qLit, v1),
+				v1 -> buildInstantiationInfoForLit(qLit, evaluateLitForEMatchingSubsInfo(qLit, v1),
 						getTermSubsFromSubsInfo(qLit, v1));
 		return representativeSubsDawg.map(evaluationMap);
 	}
@@ -864,6 +893,7 @@ public class InstantiationManager {
 				final QuantEquality qEq = (QuantEquality) atom;
 				val = evaluateCCEqualityKnownShared(qEq, equivalentTerms);
 
+				// assert val != InstanceValue.UNIT_UNKNOWN_TERM; TODO
 				// If the eq value is unknown in CC, and the terms are numeric, check for equality in LinAr.
 				if ((val == InstanceValue.UNIT || val == InstanceValue.UNIT_UNKNOWN_TERM)
 						&& qEq.getLhs().getSort().isNumericSort()) {
@@ -875,8 +905,13 @@ public class InstantiationManager {
 				val = val.negate();
 			}
 		}
-		return val == InstanceValue.IRRELEVANT ? mIrrelevantInstantiationInfo
-				: new InstantiationInfo(val, getTermSubsFromSubsInfo(lit, litSubsInfo));
+		if (val == InstanceValue.IRRELEVANT) {
+			return mIrrelevantInstantiationInfo;
+		}
+		final InstantiationInfoDetails details = mCollectInstantiationInfoDetails
+				? new InstantiationInfoDetails(0, val == InstanceValue.UNIT ? 1 : 0, false)
+				: null;
+		return new InstantiationInfo(val, getTermSubsFromSubsInfo(lit, litSubsInfo), details);
 	}
 
 	/**
@@ -978,15 +1013,18 @@ public class InstantiationManager {
 					partialSubs.set(varPosInClause, subs);
 					final Dawg<Term, InstantiationInfo> remainderDawgForVarSub =
 							Dawg.createConst(remainderDawgLengthForVar,
-									new InstantiationInfo(val, new ArrayList<>(partialSubs)));
+									buildInstantiationInfoForLit(qAtom, val, new ArrayList<>(partialSubs)));
 					transitionsFromVar.put(subs, remainderDawgForVarSub);
 				}
 				mQuantTheory.addDawgTime(System.nanoTime() - time);
 			}
 			final long time = System.nanoTime();
+			final InstantiationInfoDetails details = mCollectInstantiationInfoDetails
+					? new InstantiationInfoDetails(0, 1, false)
+					: null;
 			final Dawg<Term, InstantiationInfo> dawgForVar =
 					Dawg.createDawg(transitionsFromVar, Dawg.createConst(remainderDawgLengthForVar,
-							new InstantiationInfo(mDefaultValueForLitDawgs, new ArrayList<>())));
+							new InstantiationInfo(mDefaultValueForLitDawgs, new ArrayList<>(), details)));
 			if (otherVar != null) {
 				transitionsFromOtherVar.put(otherSubs,
 						createAncestorDawg(dawgForVar, varPosInClause - firstVarPosInClause - 1));
@@ -997,9 +1035,11 @@ public class InstantiationManager {
 		}
 		final long time = System.nanoTime();
 		if (otherVar != null) {
+			final InstantiationInfoDetails details =
+					mCollectInstantiationInfoDetails ? new InstantiationInfoDetails(0, 1, false) : null;
 			remainderDawgAllVars = Dawg.createDawg(transitionsFromOtherVar, Dawg.createConst(
 					arLit.getClause().getVars().length - firstVarPosInClause - 1,
-					new InstantiationInfo(mDefaultValueForLitDawgs, new ArrayList<>())));
+					new InstantiationInfo(mDefaultValueForLitDawgs, new ArrayList<>(), details)));
 		}
 		final Dawg<Term, InstantiationInfo> litDawg =
 				createAncestorDawg(remainderDawgAllVars, firstVarPosInClause);
@@ -1669,10 +1709,12 @@ public class InstantiationManager {
 	private class InstantiationInfo {
 		private final InstanceValue mValue;
 		private final List<Term> mSubs;
+		private final InstantiationInfoDetails mDetails;
 
-		private InstantiationInfo(final InstanceValue val, final List<Term> subs) {
+		private InstantiationInfo(final InstanceValue val, final List<Term> subs, final InstantiationInfoDetails details) {
 			mValue = val;
 			mSubs = subs;
+			mDetails = details;
 		}
 
 		InstanceValue getInstValue() {
@@ -1683,9 +1725,13 @@ public class InstantiationManager {
 			return mSubs;
 		}
 
+		private InstantiationInfoDetails getDetails() {
+			return mDetails;
+		}
+
 		@Override
 		public String toString() {
-			return "InstInfo: [" + mValue + mSubs + "]";
+			return "InstInfo: [" + mValue + mSubs + mDetails.toString() + "]";
 		}
 
 		@Override
@@ -1700,6 +1746,32 @@ public class InstantiationManager {
 				return mValue == otherInfo.getInstValue() && mSubs.equals(otherInfo.getSubs());
 			}
 			return false;
+		}
+	}
+
+	private class InstantiationInfoDetails {
+
+		private final int mNumUndefGroundLits;
+		private final int mNumUndefInstLits;
+		private final boolean mHasUnknownTerms;
+
+		private InstantiationInfoDetails(final int numUndefGroundLits, final int numUndefInstLits,
+				final boolean hasUnknownTerms) {
+			mNumUndefGroundLits = numUndefGroundLits;
+			mNumUndefInstLits = numUndefInstLits;
+			mHasUnknownTerms = hasUnknownTerms;
+		}
+
+		int getNumUndefGroundLits() {
+			return mNumUndefGroundLits;
+		}
+
+		int getNumUndefInstLits() {
+			return mNumUndefInstLits;
+		}
+
+		boolean hasUnknownTerms() {
+			return mHasUnknownTerms;
 		}
 	}
 
