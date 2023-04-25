@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -50,6 +51,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.Infinitesima
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.ConflictSearchMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiateNewTermsMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
@@ -77,12 +79,12 @@ public class InstantiationManager {
 	private final Map<QuantClause, Map<List<Term>, InstClause>> mClauseInstances;
 
 	private final InstanceValue mDefaultValueForLitDawgs;
-	private final List<InstanceValue> mRelevantValuesForCheckpoint;
+	private final Set<InstanceValue> mRelevantValuesForCheckpoint;
 	private InstantiationInfo mIrrelevantInstantiationInfo;
 
 	private int mSubsAgeForFinalCheck = 0;
 
-	private final boolean mCollectInstantiationInfoDetails = true; // TODO
+	private final boolean mCollectInstantiationInfoDetails;
 
 	public InstantiationManager(final QuantifierTheory quantTheory) {
 		mQuantTheory = quantTheory;
@@ -91,18 +93,46 @@ public class InstantiationManager {
 		mClauseInstances = new HashMap<>();
 		mDefaultValueForLitDawgs =
 				mQuantTheory.mUseUnknownTermValueInDawgs ? InstanceValue.UNIT_UNKNOWN_TERM : InstanceValue.UNIT;
-		mRelevantValuesForCheckpoint = new ArrayList<>();
-		mRelevantValuesForCheckpoint.add(InstanceValue.FALSE);
-		mRelevantValuesForCheckpoint.add(InstanceValue.UNIT);
-		if (mQuantTheory.mInstantiationMethod == InstantiationMethod.E_MATCHING_EAGER
-				|| mQuantTheory.mInstantiationMethod == InstantiationMethod.E_MATCHING_LAZY) {
-			mRelevantValuesForCheckpoint.add(InstanceValue.OTHER);
-		} else if (mQuantTheory.mInstNewTermsMode == InstantiateNewTermsMode.ALWAYS) {
-			mRelevantValuesForCheckpoint.add(InstanceValue.UNIT_UNKNOWN_TERM);
-		}
+
+		mRelevantValuesForCheckpoint = new HashSet<>();
+		setRelevantInstanceValuesForConflictSearch();
+
 		if (mQuantTheory.mInstantiationMethod != InstantiationMethod.AUF_CONFLICT) {
 			mIrrelevantInstantiationInfo = new InstantiationInfo(InstanceValue.IRRELEVANT, new ArrayList<Term>(), null);
 		}
+
+		mCollectInstantiationInfoDetails = mQuantTheory.mInstantiationMethod != InstantiationMethod.E_MATCHING_EAGER
+				&& mQuantTheory.mInstantiationMethod != InstantiationMethod.E_MATCHING_LAZY; // TODO
+	}
+
+	private void setRelevantInstanceValuesForConflictSearch() {
+		// false instances are always relevant
+		mRelevantValuesForCheckpoint.add(InstanceValue.FALSE);
+
+		final InstantiationMethod method = mQuantTheory.mInstantiationMethod;
+		if (method == InstantiationMethod.E_MATCHING_EAGER || method == InstantiationMethod.E_MATCHING_LAZY) {
+			// we do not evaluate instances in E-matching-based instantiation
+			// TODO at the moment, E-matching is only used when all terms are known
+			mRelevantValuesForCheckpoint.add(InstanceValue.UNIT);
+			mRelevantValuesForCheckpoint.add(InstanceValue.OTHER);
+		}
+
+		final ConflictSearchMode searchMode = mQuantTheory.mConflictSearchMode;
+		final InstantiateNewTermsMode newTermMode = mQuantTheory.mInstNewTermsMode;
+
+		if (searchMode != ConflictSearchMode.CONFLICT) {
+			mRelevantValuesForCheckpoint.add(InstanceValue.UNIT);
+			if (newTermMode == InstantiateNewTermsMode.ALWAYS) {
+				mRelevantValuesForCheckpoint.add(InstanceValue.UNIT_UNKNOWN_TERM);
+			}
+		}
+		if (searchMode == ConflictSearchMode.ONE_FALSE || searchMode == ConflictSearchMode.ANY_NONSAT) {
+			mRelevantValuesForCheckpoint.add(InstanceValue.OTHER);
+			if (newTermMode == InstantiateNewTermsMode.ALWAYS) {
+				mRelevantValuesForCheckpoint.add(InstanceValue.OTHER_UNKNOWN_TERM);
+			}
+		}
+
 	}
 
 	/**
@@ -183,7 +213,8 @@ public class InstantiationManager {
 						conflictAndUnitClauses.add(inst);
 					}
 				} else {
-					assert val == InstanceValue.UNIT || val == InstanceValue.UNIT_UNKNOWN_TERM;
+					assert mQuantTheory.mConflictSearchMode != ConflictSearchMode.CONFLICT;
+					// assert val == InstanceValue.UNIT || val == InstanceValue.UNIT_UNKNOWN_TERM;
 					if (!unitSubs.containsKey(qClause)) {
 						unitSubs.put(qClause, new ArrayList<List<Term>>());
 					}
@@ -243,7 +274,7 @@ public class InstantiationManager {
 							conflictAndUnitClauses.add(inst);
 						}
 					} else {
-						assert clauseValue == InstanceValue.UNIT || clauseValue == InstanceValue.UNIT_UNKNOWN_TERM;
+						// assert clauseValue == InstanceValue.UNIT || clauseValue == InstanceValue.UNIT_UNKNOWN_TERM;
 						if (!unitSubs.containsKey(quantClause)) {
 							unitSubs.put(quantClause, new ArrayList<List<Term>>());
 						}
@@ -749,15 +780,7 @@ public class InstantiationManager {
 	}
 
 	private boolean isUsedValueForCheckpoint(final InstanceValue value) {
-		if (value == InstanceValue.IRRELEVANT) {
-			return true;
-		}
-		for (final InstanceValue relVal : mRelevantValuesForCheckpoint) {
-			if (value == relVal) {
-				return true;
-			}
-		}
-		return false;
+		return value == InstanceValue.IRRELEVANT || mRelevantValuesForCheckpoint.contains(value);
 	}
 
 	/**
@@ -1086,8 +1109,21 @@ public class InstantiationManager {
 			}
 			final List<Term> subs = info.getSubs();
 			final InstanceValue val = info.getInstValue();
-			assert !Config.EXPENSIVE_ASSERTS || isUsedValueForCheckpoint(val);
+			assert isUsedValueForCheckpoint(val);
 			if (val != InstanceValue.IRRELEVANT && !subs.isEmpty()) {
+				if (mQuantTheory.mConflictSearchMode == ConflictSearchMode.ONE_FALSE) {
+					final InstantiationInfoDetails details = info.getDetails();
+					final int numUndefLits = details.getNumUndefGroundLits() + details.getNumUndefInstLits();
+					if (numUndefLits == qClause.getLength()) {
+						// we only want instances where at least one literal is false
+						continue;
+					}
+					mQuantTheory.getLogger()
+							.info("QUANT: Potential instance of clause of length " + qClause.getLength() + " has "
+									+ numUndefLits + " undefined literals, thereof " + details.getNumUndefGroundLits()
+									+ " ground.");
+				}
+
 				boolean isComplete = true;
 				for (int i = 0; i < subs.size(); i++) {
 					if (subs.get(i) == null) {
@@ -1824,11 +1860,9 @@ public class InstantiationManager {
 		 *            the relevant values.
 		 * @return the InstanceValue itself, if contained in the relevant values, or IRRELEVANT else.
 		 */
-		private InstanceValue keepOnlyRelevant(final List<InstanceValue> values) {
-			for (final InstanceValue val : values) {
-				if (this == val) {
-					return this;
-				}
+		private InstanceValue keepOnlyRelevant(final Set<InstanceValue> values) {
+			if (values.contains(this)) {
+				return this;
 			}
 			return IRRELEVANT;
 		}

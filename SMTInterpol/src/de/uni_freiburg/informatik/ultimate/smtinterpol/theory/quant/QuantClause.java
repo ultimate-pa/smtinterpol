@@ -143,6 +143,10 @@ public class QuantClause {
 		return mQuantTheory;
 	}
 
+	public int getLength() {
+		return mGroundLits.length + mQuantLits.length;
+	}
+
 	public Literal[] getGroundLits() {
 		return mGroundLits;
 	}
