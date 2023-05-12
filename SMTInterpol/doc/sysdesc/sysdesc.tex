@@ -13,11 +13,10 @@
 
 \title{\SI with resolution proofs\\{\large Version \version}}
 
-\author{Jochen Hoenicke \and Tanja Schindler}
+\author{Jochen Hoenicke\inst{1} \and Tanja Schindler\inst{2}}
 \institute{
-  University of Freiburg\\
-  \email{\{hoenicke,schindle\}@informatik.uni-freiburg.de}\\[1ex]
-  \today
+  Certora, \email{jochen@certora.com} \and
+  University of Li\`{e}ge, \email{tanja.schindler@uliege.be}
 }
 \titlerunning{\SI with resolution proofs \version}
 \authorrunning{Hoenicke and Schindler}
@@ -120,8 +119,8 @@ Since a bug is very unlikely to cancel all terms, this method is more likely to 
 Note that since our term generator only produces well-typed terms, we do not need to typecheck the terms when checking an axiom.
 
 
-\section*{Authors, Logics, Tracks and Magic Number}
-The code was written by J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
+\section*{Authors, Logics, and Tracks}
+The code was written by J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Elisabeth Henkel, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
 Further information about \SI can be found at
 \begin{center}
   \url{https://ultimate.informatik.uni-freiburg.de/smtinterpol/}
@@ -141,10 +140,6 @@ in the incremental track in the logics
 \verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL][IR]*A)!,
 and in the model validation track in the logics matched by
 \verb!(QF_)(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)!.
-
-
-Magic Number: ******
-
 
 \bibliography{sysdesc}
 \bibliographystyle{alpha}
