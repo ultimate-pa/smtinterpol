@@ -274,11 +274,9 @@ java -Xms1536m -Xmx50g -da -dsa -cp smtinterpol.jar de.uni_freiburg.informatik.u
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/proof/checker" files="ProofParser.java,ProofLexer.java,ProofSymbols.java"/>
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/dimacs" files="Parser.java,Lexer.java,LexerSymbols.java"/>
             <filelist dir="${dir.workspace}/SMTInterpol/src/de/uni_freiburg/informatik/ultimate/smtinterpol/" files="Version.java"/>
+            <fileset dir="${dir.workspace}/Webinterface/target"/>
         </delete>
         <exec executable="make" dir="SMTInterpol/web/html">
-            <arg line="clean"/>
-        </exec>
-        <exec executable="mvn" dir="Webinterface">
             <arg line="clean"/>
         </exec>
     </target>
