@@ -1548,6 +1548,8 @@ public class ArrayTheory implements ITheory {
 	 * need to create diff terms to ensure extensionality is handled correctly.
 	 */
 	public void setNeedDiffIndices() {
-		mNeedDiffIndexLevel = mPushPopLevel;
+		if (mNeedDiffIndexLevel < 0) {
+			mNeedDiffIndexLevel = mPushPopLevel;
+		}
 	}
 }
