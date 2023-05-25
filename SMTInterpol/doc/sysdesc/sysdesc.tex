@@ -135,11 +135,11 @@ It supports all combinations of uninterpreted functions, linear arithmetic, arra
 However, the model generator currently supports neither quantifiers nor datatypes.
 
 In the single query track, the unsat core track, and the proof track \SI participates in the logics matched by
-\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)|QF_(A|UF)+N[IR]*A!\footnote{\SI does not support non-linear arithmetic, but it supports modulo and division by constants.  Since several of these benchmarks are marked as non-linear, we also participate in these logics}, 
+\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)?|QF_(A|UF)+N[IR]*A!\footnote{\SI does not support non-linear arithmetic, but it supports modulo and division by constants.  Since several of these benchmarks are marked as non-linear, we also participate in these logics}, 
 in the incremental track in the logics
-\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL][IR]*A)!,
+\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL][IR]*A)?!,
 and in the model validation track in the logics matched by
-\verb!(QF_)(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)!.
+\verb!(QF_)(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)?!.
 
 \bibliography{sysdesc}
 \bibliographystyle{alpha}
