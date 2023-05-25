@@ -975,10 +975,24 @@ public class ArrayTheory implements ITheory {
 					todoQueue.addFirst(parent);
 					continue;
 				}
+				final Term secondParentTerm;
+				if (node.mSecondaryEdge != null) {
+					secondParentTerm = builder.getModelValue(node.mSecondaryEdge.mTerm);
+					if (secondParentTerm == null) {
+						// secondary parent wasn't visited yet; it must be visited first
+						// enqueue the node again and its parent.
+						todoQueue.addFirst(node);
+						todoQueue.addFirst(node.mSecondaryEdge);
+						continue;
+					}
+				} else {
+					secondParentTerm = null;
+				}
 				final CCTerm ccIndex = getIndexFromStore(node.mPrimaryStore).getRepresentative();
 				final CCTerm ccValue = node.mSelects.get(ccIndex);
 				final Term index = builder.getModelValue(ccIndex);
-				final Term value = ccValue == null ? model.extendFresh(valueSort) : builder.getModelValue(ccValue);
+				final Term value = secondParentTerm != null ? arraySortInterpretation.getSelect(secondParentTerm, index)
+						: ccValue == null ? model.extendFresh(valueSort) : builder.getModelValue(ccValue);
 				Term nodeValue = t.term("store", parentTerm, index, value);
 				nodeValue = arraySortInterpretation.normalizeStoreTerm(nodeValue);
 				builder.setModelValue(node.mTerm, nodeValue);
