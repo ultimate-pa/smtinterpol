@@ -1119,7 +1119,7 @@ public class InstantiationManager {
 						continue;
 					}
 					mQuantTheory.getLogger()
-							.info("QUANT: Potential instance of clause of length " + qClause.getLength() + " has "
+							.debug("QUANT: Potential instance of clause of length " + qClause.getLength() + " has "
 									+ numUndefLits + " undefined literals, thereof " + details.getNumUndefGroundLits()
 									+ " ground.");
 				}
