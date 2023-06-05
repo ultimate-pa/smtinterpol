@@ -369,7 +369,7 @@ public class APITest {
 	}
 
 	@Test
-	public void testRreproducibleResourceLimit() {
+	public void testReproducibleResourceLimit() {
 		long[] limits = {100, 10000, 0};
 		LBool[] expected = {LBool.UNKNOWN, LBool.UNSAT, LBool.UNSAT};
 		for (int i = 0; i < limits.length; i++) {
@@ -384,7 +384,7 @@ public class APITest {
 	}
 
 	@Test
-	public void testRreproducibleResourceLimitChange() {
+	public void testReproducibleResourceLimitChange() {
 		final SMTInterpol solver = new SMTInterpol(new DefaultLogger());
 		solver.setLogic(Logics.QF_LIA);
 		randomWalk(solver, 5);
