@@ -1356,6 +1356,7 @@ public class SMTInterpol extends NoopScript {
 	 * Use with caution.
 	 */
 	public void setTerminationRequest(final TerminationRequest request) {
+		mCancel = request;
 		mTimeout = new TimeoutHandler(request);
 		mResourceLimit = new ResourceLimit(mTimeout);
 	}
@@ -1364,6 +1365,6 @@ public class SMTInterpol extends NoopScript {
 	 * Use with caution.
 	 */
 	public TerminationRequest getTerminationRequest() {
-		return mResourceLimit;
+		return mCancel;
 	}
 }
