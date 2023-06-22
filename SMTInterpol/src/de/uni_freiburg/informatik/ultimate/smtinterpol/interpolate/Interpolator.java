@@ -362,6 +362,11 @@ public class Interpolator extends NonRecursive {
 				}
 				break;
 			}
+			case ":DT_CYCLE": {
+				final DatatypeInterpolator ipolator = new DatatypeInterpolator(this);
+				interpolants = ipolator.computeDatatypeInterpolants(leafTermInfo);
+				break;
+			}
 			default:
 				throw new UnsupportedOperationException("Unknown lemma type!");
 			}
