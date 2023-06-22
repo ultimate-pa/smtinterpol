@@ -614,7 +614,7 @@ public class DatatypeInterpolator {
 			else {
 				assert(isSelParentOf(right, nextTerm));
 				// store 
-				addSelToAPath((ApplicationTerm) nextTerm, i / 2);
+				addSelToAPath(right, (ApplicationTerm) nextTerm, i / 2);
 				// close and open A-paths after the literal where the tester occurrence forces a switch
 				closeAPathsForTesters((ApplicationTerm) nextTerm, i / 2);
 				openAPathsForTesters((ApplicationTerm) nextTerm, i / 2);
@@ -688,13 +688,13 @@ public class DatatypeInterpolator {
 	}
 	
 	// 
-	private void addSelToAPath(final ApplicationTerm term, int litIndex) {
-		FunctionSymbol functionSymbol = term.getFunction();
+	private void addSelToAPath(final Term parentTerm, final ApplicationTerm childTerm, int litIndex) {
+		FunctionSymbol functionSymbol = childTerm.getFunction();
 		// store the selector and tester function
 		assert(functionSymbol.isSelector());
 		mStartSelectors[litIndex * 3 + 2] = functionSymbol.getName();
 		// String testerFunction = mTestersFunctions.get(((ApplicationTerm) term).getParameters()[0]);
-		FunctionSymbol testerFunction = mTestersFunctions.get(((ApplicationTerm) term).getFunction());
+		FunctionSymbol testerFunction = mTestersFunctions.get(parentTerm);
 		mStartTesters[litIndex * 3 + 2] = testerFunction;
 	}
 
@@ -713,8 +713,6 @@ public class DatatypeInterpolator {
 			if (literalInfo.isMixed(color)) {
 				break;
 			}
-			// TODO: check if correct to clear
-			mAllInA.clear();
 			// switch from shared (open A path) to B
 			if (literalInfo.isBLocal(color)) {
 				if (mStart[color] != null) {
@@ -772,7 +770,6 @@ public class DatatypeInterpolator {
 			if (literalInfo.isAorShared(color)) {
 				break;
 			}
-			mAllInA.clear();
 			if (literalInfo.isMixed(color)) {
 				// close the A-Path
 				mEnd[color] = literalInfo.getMixedVar();
@@ -823,7 +820,6 @@ public class DatatypeInterpolator {
 			if (testerOcc.isAorShared(color)) {
 				break;
 			}
-			mAllInA.clear();
 			// testers can't be mixed
 			assert(testerOcc.isBLocal(color));
 			// close the A-Path
@@ -875,6 +871,7 @@ public class DatatypeInterpolator {
 		Term left = mStart[color];
 		Term right = mEnd[color];
 		// TODO: check if modulo iss set correctly
+		right = right;
 		for (int i = mStartIndices[color]; i != mEndIndices[color]; i = (i + 1) % ((mPath.length - 1) / 2 * 3)) {
 			if (mStartSelectors[i] != null) {
 				if (mStartTesters[i] != null) {
