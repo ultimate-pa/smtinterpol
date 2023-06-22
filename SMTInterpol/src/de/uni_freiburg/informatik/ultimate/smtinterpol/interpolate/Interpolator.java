@@ -362,7 +362,14 @@ public class Interpolator extends NonRecursive {
 				}
 				break;
 			}
-			case ":DT_CYCLE": {
+			case ":dt-project":
+			case ":dt-cases":
+			case ":dt-cycle":
+			case ":dt-disjoint":
+			case ":dt-injective": 
+			case ":dt-constructor":
+			case ":dt-tester":
+			case ":dt-unique": {
 				final DatatypeInterpolator ipolator = new DatatypeInterpolator(this);
 				interpolants = ipolator.computeDatatypeInterpolants(leafTermInfo);
 				break;

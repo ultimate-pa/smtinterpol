@@ -3921,7 +3921,7 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Convert a data type dt-injective lemma to a minimal proof. This lemma has the
+	 * Convert a data type dt-disjoint lemma to a minimal proof. This lemma has the
 	 * form {@code (cons a1 ... an) != (cons' b1 ... bn')}, where cons and cons' are
 	 * different constructors.
 	 *

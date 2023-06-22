@@ -1,6 +1,11 @@
 (set-option :produce-interpolants true)
 (set-option :interpolant-check-mode true)
-(set-logic QF_UF)
+
+(set-info :smt-lib-version 2.6)
+(set-logic QF_DT)
+
+(set-info :category "crafted")
+(set-info :status unsat)
 
 
 (declare-datatypes ( (List 0) (Nat 0) ) (
@@ -10,13 +15,12 @@
 
 (declare-const u List)
 (declare-const v List)
+(declare-const w List)
 
-;; simple cycle
 
-(assert (= u (cons zero (cons zero v))) :named A) 
-(assert (= v (cons (succ zero) u)) :named B)
-
+(assert (! (= u (cons zero w)) :named A ))
+(assert (! (not (= (cdr u ) w)):named B ))
 
 (check-sat)
-(get-interpolants B A)
+(get-interpolants A B)
 (exit)
