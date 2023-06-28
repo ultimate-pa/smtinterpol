@@ -1114,8 +1114,10 @@ public class InstantiationManager {
 				if (mQuantTheory.mConflictSearchMode == ConflictSearchMode.ONE_FALSE) {
 					final InstantiationInfoDetails details = info.getDetails();
 					final int numUndefLits = details.getNumUndefGroundLits() + details.getNumUndefInstLits();
-					if (numUndefLits == qClause.getLength()) {
-						// we only want instances where at least one literal is false
+					final int clauseLength = qClause.getLength();
+					if (clauseLength > 1 && numUndefLits == clauseLength) {
+						// we only want instances where at least one literal is false or the clause consists of a single
+						// quantified literal
 						continue;
 					}
 					mQuantTheory.getLogger()

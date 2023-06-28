@@ -978,7 +978,22 @@ public class QuantifierTheory implements ITheory {
 	}
 
 	public static enum ConflictSearchMode {
-		CONFLICT, UNIT, ONE_FALSE, ANY_NONSAT;
+		/**
+		 * Only conflicting instances.
+		 */
+		CONFLICT,
+		/**
+		 * Conflicting + unit-propagating instances.
+		 */
+		UNIT,
+		/**
+		 * Instances with at least one false literal or non-satisfied instances of one-literal clauses.
+		 */
+		ONE_FALSE,
+		/**
+		 * Any non-satisfied instance.
+		 */
+		ANY_NONSAT;
 	}
 
 	public static enum InstantiateNewTermsMode {
