@@ -20,8 +20,9 @@
 ;; tester
 
 (assert (! (= u (cons (car u) (cdr u))) :named A ))
-(assert (! (not ((_ is cons) u)) :named B )
+(assert (! (not ((_ is cons) u)) :named B ))
 
 (check-sat)
 (get-interpolants A B)
+(get-interpolants B A)
 (exit)

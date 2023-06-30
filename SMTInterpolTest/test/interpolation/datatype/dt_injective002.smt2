@@ -25,4 +25,5 @@
 
 (check-sat)
 (get-interpolants A B)
+(get-interpolants B A)
 (exit)

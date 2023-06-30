@@ -17,6 +17,7 @@
 (declare-const v List)
 (declare-const w List)
 
+;; unique
 
 (assert (! (= u v) :named A ))
 (assert (! (and ((_ is cons) u) ((_ is cons2) v) ) :named B )) 

@@ -20,11 +20,14 @@
 (declare-const v List)
 (declare-const w List)
 
-(assert (! (and (= t u) (= u (cons zero w))) :named A ))
-(assert (! (and (= s t) (not (= (cdr s ) r))) :named C ))
-(assert (! (= r w) :named B ))
-(assert (! (= u s) :named D ))
+(assert (! (= t u) :named D ))
+(assert (! (and (= s t) (not (= (cdr (cons zero w) ) r))) :named B ))
+(assert (! (= r w) :named C ))
+(assert (! (= u s) :named A ))
 
 (check-sat)
 (get-interpolants A B C D)
+(get-interpolants D A C B)
+(get-interpolants A C D B)
+(get-interpolants C D B A)
 (exit)
