@@ -27,6 +27,7 @@
 (get-interpolants A B C)
 (get-interpolants C B A)
 (get-interpolants B C A)
-
+(get-interpolants C A B)
+(get-interpolants A C B)
 
 (exit)

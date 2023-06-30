@@ -1,32 +1,44 @@
-// TODO: copyright
+/*
+ * Copyright (C) 2023 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 package de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate;
 
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
-import java.util.Vector;
 
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.LitInfo;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator.Occurrence;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
  * The interpolator for the Theory of datatypes.
+ * @author Leon Cacace
  */
 public class DatatypeInterpolator {
 	
@@ -48,15 +60,14 @@ public class DatatypeInterpolator {
 	private Term[] mPath;
 	private Term mGoalEq;
 	
-	// the LitInfo for the literal currently working on
-	private LitInfo mLitInfo;
-	
 	// the partitions for which every literal so far was shared
 	BitSet mAllInA;
 	
 	private int mMaxColor;
-	private int mHeadColor;
 	private int mLastColor;
+	
+	// stores for cycles if the recent relation between literals was a select or a construct
+	private boolean mIsSelectRel;
 	
 	// for each partition, the boundery terms thats start the A Path
 	private Term[] mStart;
@@ -73,18 +84,10 @@ public class DatatypeInterpolator {
 	
 	// array to store select functions later applied to the start of the a path
 	private String[] mStartSelectors;
-	// array to store select functions later applied to the end of the a path
-	// private String[] mEndSelectors;
 	// array to store constructor names for testers
 	private String[] mStartConstructors;
-	// array to store constructor names for testers
-	// private String[] mEndConstructors;
 	// array to store tester functions
 	private FunctionSymbol[] mStartTesters;
-	// array to store tester functions
-	// private String[] mEndTesters;
-
-	
 	
 	@SuppressWarnings("unchecked")
 	public DatatypeInterpolator(final Interpolator interpolator) {
@@ -134,7 +137,6 @@ public class DatatypeInterpolator {
 			
 		}
 		Object[] obj = ((Object[]) clauseInfo.getLemmaAnnotation());
-		// assert(obj[0] == ":cycle");
 		
 		switch (clauseInfo.getLemmaType()) {
 		case ":dt-project":
@@ -181,28 +183,188 @@ public class DatatypeInterpolator {
 	}
 	
 	private Term[] interpolateDTUnique() {
-		
 		final ApplicationTerm firstTester = (ApplicationTerm) mPath[0];
 		final Term firstSymbol = firstTester.getParameters()[0];
 		LitInfo firstTesterInfo = mEqualityLiterals.get(new SymmetricPair<>(mTheory.mTrue, firstTester));
 		final ApplicationTerm secondTester = (ApplicationTerm) mPath[1];
 		final Term secondSymbol = secondTester.getParameters()[0];
 		LitInfo secondTesterInfo = mEqualityLiterals.get(new SymmetricPair<>(mTheory.mTrue, secondTester));
-		for (int color = 0; color < mNumInterpolants; color++) {
-			if (firstSymbol.equals(secondSymbol)) {
+		if (firstSymbol.equals(secondSymbol)) {
+			for (int color = 0; color < mNumInterpolants; color++) {
 				if (firstTesterInfo.isALocal(color)) {
-					// Term build = mTheory.term(firstTester.getFunction(), firstSymbol);
-					Term build = mTheory.term("=", firstTester, mTheory.mTrue);
-					mInterpolants[color].add(build);
+					if (secondTesterInfo.isALocal(color)) {
+						mInterpolants[color].add(mTheory.mFalse);
+					} else {
+						// Term build = mTheory.term(firstTester.getFunction(), firstSymbol);
+						Term build = mTheory.term("=", firstTester, mTheory.mTrue);
+						mInterpolants[color].add(build);
+					}
 				} else if (secondTesterInfo.isALocal(color)) {
 					// Term build = mTheory.term(secondTester.getFunction(), secondSymbol);
 					Term build = mTheory.term("=", secondTester, mTheory.mTrue);
 					mInterpolants[color].add(build);
+				} else {
+					mInterpolants[color].add(mTheory.mTrue);
 				}
 			}
 		}
-		// TODO: missing... check git
-		
+		else {
+			assert(mEqualityLiterals.size() == 3);
+			LitInfo equalityInfo = mEqualityLiterals.get(new SymmetricPair<>(firstSymbol, secondSymbol));
+			for (int color = 0; color < mNumInterpolants; color++) {
+				// handle mixed the possible mixed literal seperatly
+				if (equalityInfo.isMixed(color)) {
+					if (firstTesterInfo.isALocal(color)) {
+						Term build = mTheory.term(firstTester.getFunction(), equalityInfo.getMixedVar());
+						build = mTheory.term("=", build, mTheory.mTrue);
+						mInterpolants[color].add(build);
+					}
+					else {
+						assert (secondTesterInfo.isALocal(color));
+						Term build = mTheory.term(secondTester.getFunction(), equalityInfo.getMixedVar());
+						build = mTheory.term("=", build, mTheory.mTrue);
+						mInterpolants[color].add(build);
+					}
+				}
+				else if (firstTesterInfo.isALocal(color)) {
+					if (equalityInfo.isALocal(color)) {
+						if (secondTesterInfo.isAorShared(color)) {
+							mInterpolants[color].add(mTheory.mFalse);
+						}
+						else {
+							Term build = mTheory.term(firstTester.getFunction(), secondSymbol);
+							build = mTheory.term("=", build, mTheory.mTrue);
+							mInterpolants[color].add(build);
+						}
+					}
+					else if (equalityInfo.isAorShared(color)) {
+						if (secondTesterInfo.isAorShared(color)) {
+							mInterpolants[color].add(mTheory.mFalse);
+						}
+						else {
+							Term build = mTheory.term("=", firstTester, mTheory.mTrue);
+							mInterpolants[color].add(build);
+						}
+					}
+					else if (equalityInfo.isBLocal(color)) {
+						Term build = mTheory.term("=", firstTester, mTheory.mTrue);
+						mInterpolants[color].add(build);
+						// only A-local testers relevant for the interpolant
+						if (secondTesterInfo.isALocal(color)) {
+							build = mTheory.term("=", secondTester, mTheory.mTrue);
+							mInterpolants[color].add(build);
+						}
+					}
+				}
+				else if (firstTesterInfo.isBLocal(color)) {
+					if (equalityInfo.isBorShared(color)) {
+						if (secondTesterInfo.isBorShared(color)) {
+							// everything in B
+							mInterpolants[color].add(mTheory.mTrue);
+						}
+						else {
+							// second Tester A Lokal
+							Term build = mTheory.term("=", secondTester, mTheory.mTrue);
+							mInterpolants[color].add(build);
+						}
+					}
+					else if (equalityInfo.isALocal(color)) {
+						if (secondTesterInfo.isALocal(color)) {
+							Term build = mTheory.term(secondTester.getFunction(), firstSymbol);
+							build = mTheory.term("=", build, mTheory.mTrue);
+							mInterpolants[color].add(build);
+						}
+						else {
+							Term build = mTheory.term("=", firstSymbol, secondSymbol);
+							mInterpolants[color].add(build);
+						}
+					}
+				}
+				else if (firstTesterInfo.isAorShared(color)) {
+					if (equalityInfo.isALocal(color)) {
+						if (secondTesterInfo.isAorShared(color)) {
+							// everything in A
+							mInterpolants[color].add(mTheory.mFalse);
+						}
+						else {
+							Term build = mTheory.term(firstTester.getFunction(), secondSymbol);
+							build = mTheory.term("=", build, mTheory.mTrue);
+							mInterpolants[color].add(build);
+						}
+					}
+					else if (equalityInfo.isBLocal(color)) {
+						if (secondTesterInfo.isALocal(color)) {
+							Term build = mTheory.term("=", secondTester, mTheory.mTrue);
+							mInterpolants[color].add(build);
+						}
+						else {
+							mInterpolants[color].add(mTheory.mTrue);
+						}
+					}
+					else if (equalityInfo.isAorShared(color)) {
+						if (secondTesterInfo.isALocal(color)) {
+							mInterpolants[color].add(mTheory.mFalse);
+						}
+						else {
+							mInterpolants[color].add(mTheory.mTrue);
+						}
+					}
+				}
+				
+				
+			/*
+				if (equalityInfo.isBLocal(color)) {
+					if (firstTesterInfo.isALocal(color)) {
+						// Term build = mTheory.term(firstTester.getFunction(), firstSymbol);
+						Term build = mTheory.term("=", firstTester, mTheory.mTrue);
+						mInterpolants[color].add(build);
+					}
+					if (secondTesterInfo.isALocal(color)) {
+						// Term build = mTheory.term(secondTester.getFunction(), secondSymbol);
+						Term build = mTheory.term("=", secondTester, mTheory.mTrue);
+						mInterpolants[color].add(build);
+					}
+					if (mInterpolants[color].isEmpty()){
+						mInterpolants[color].add(mTheory.mTrue);
+					}
+				}
+				// TODO: ...
+				else if (equalityInfo.isALocal(color)) {
+					if (firstTesterInfo.isBLocal(color)) {
+						if (secondTesterInfo.isALocal(color)) {
+							Term build = mTheory.term(firstTester.getFunction(), firstSymbol);
+							build = mTheory.term("=", build, mTheory.mTrue);
+							mInterpolants[color].add(build);
+						}
+						else {
+							mInterpolants[color].add(mTheory.term("=", firstSymbol, secondSymbol));
+						}
+					} //TODO: else??
+					else if (secondTesterInfo.isBLocal(color)) {
+						// Term build = mTheory.term(secondTester.getFunction(), secondSymbol);
+						Term build = mTheory.term("=", secondTester, mTheory.mTrue);
+						mInterpolants[color].add(build);
+					}
+					if (mInterpolants[color].isEmpty()){
+						mInterpolants[color].add(mTheory.mTrue);
+					}
+				}
+				else if (equalityInfo.isMixed(color)) {
+					if (firstTesterInfo.isALocal(color)) {
+						Term build = mTheory.term(firstTester.getFunction(), equalityInfo.getMixedVar());
+						build = mTheory.term("=", build, mTheory.mTrue);
+						mInterpolants[color].add(build);
+					}
+					else {
+						assert (secondTesterInfo.isALocal(color));
+						Term build = mTheory.term(secondTester.getFunction(), equalityInfo.getMixedVar());
+						build = mTheory.term("=", build, mTheory.mTrue);
+						mInterpolants[color].add(build);
+					}
+				}
+				*/
+			}
+		}
 		Term[] interpolants = new Term[mNumInterpolants];
 		for (int color = 0; color < mNumInterpolants; color++) {
 			interpolants[color] = mTheory.and(mInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
@@ -315,28 +477,51 @@ public class DatatypeInterpolator {
 
 	private Term[] interpolateDTConstructor() {
 		Term[] interpolants = new Term[mNumInterpolants];
-		
-		SymmetricPair<Term> eqLit = mEqualityLiterals.keySet().iterator().next();
-		LitInfo eqInfo = mEqualityLiterals.get(eqLit);		
+		// constructor
 		SymmetricPair<Term> diseqLit = mDisequalityLiterals.keySet().iterator().next();
-		LitInfo diseqInfo = mDisequalityLiterals.get(diseqLit);
+		LitInfo diseqInfo = mDisequalityLiterals.get(diseqLit);	
+		// tester
+		SymmetricPair<Term> eqLit = mEqualityLiterals.keySet().iterator().next();
+		LitInfo eqInfo = mEqualityLiterals.get(eqLit);
+		
+		ApplicationTerm testerTerm = null;
+		if (eqLit.getSecond().equals(mTheory.mTrue)) {
+			testerTerm = (ApplicationTerm) eqLit.getFirst();
+		} else {
+			assert(eqLit.getFirst().equals(mTheory.mTrue));
+			testerTerm = (ApplicationTerm) eqLit.getSecond();
+		}
+		ApplicationTerm consTerm = null;
+		if (diseqLit.getFirst().equals(testerTerm.getParameters()[0])) {
+			consTerm = (ApplicationTerm) diseqLit.getSecond();
+		} else {
+			assert(diseqLit.getSecond().equals(testerTerm.getParameters()[0]));
+			consTerm = (ApplicationTerm) diseqLit.getFirst();
+		}
 		
 		for (int color = 0; color < mNumInterpolants; color ++) {
-			if (diseqInfo.isBLocal(color)) {
-				if (eqInfo.isALocal(color)) {
-					interpolants[color] = mTheory.term("=", eqLit.getFirst(), eqLit.getSecond());
-				} else {
+			if (eqInfo.isBLocal(color)) {
+				if (diseqInfo.isBorShared(color)) {
 					interpolants[color] = mTheory.mTrue;
+				} else if (diseqInfo.isALocal(color)) {
+					interpolants[color] = mTheory.term(SMTLIBConstants.IS, new String[] { getConstructorName(consTerm.getFunction())}, null, testerTerm.getParameters()[0]);
+				} else {
+					// assumed to not be able to be mixed
+					assert(false);
 				}
 			}
-			else if (diseqInfo.isALocal(color)) {
-				if (eqInfo.isBLocal(color)) {
-					interpolants[color] = mTheory.term("not", mTheory.term("=", diseqLit.getFirst(), diseqLit.getSecond()));
+			else if (eqInfo.isALocal(color)) {
+				if (diseqInfo.isBLocal(color)) {
+					interpolants[color] = mTheory.term("not", mTheory.term("=", eqLit.getFirst(), eqLit.getSecond()));
+				} else if (diseqInfo.isAorShared(color)) {
+					interpolants[color] = mTheory.mFalse;
 				} else {
-					interpolants[color] = mTheory.mTrue;
+					// assumed to not be able to be mixed
+					assert(false);
 				}
 			} else {
-				if (eqInfo.isBLocal(color)) {
+				// diseq is shared
+				if (diseqInfo.isBLocal(color)) {
 					interpolants[color] = mTheory.mTrue;
 				} else {
 					interpolants[color] = mTheory.mFalse;
@@ -380,8 +565,23 @@ public class DatatypeInterpolator {
 				} else {
 					// can not be mixed as it is always (... != true/false)
 					assert(diseqInfo.isBLocal(color));
-					// can be used as shared
-					interpolants[color] = mTheory.term("=", diseqLit.getFirst(), diseqLit.getSecond());
+					Term constructor = null;
+					Term var = null;
+					if (eqLit.getFirst() instanceof ApplicationTerm) {
+						if (((ApplicationTerm) eqLit.getFirst()).getFunction().isConstructor()) {
+							constructor = eqLit.getFirst();
+							var = eqLit.getSecond();
+						}
+						else {
+							constructor = eqLit.getSecond();
+							var = eqLit.getFirst();
+						}
+					}
+					else {
+						constructor = eqLit.getSecond();
+						var = eqLit.getFirst();
+					}
+					interpolants[color] = mTheory.term(SMTLIBConstants.IS, new String[] { getConstructorName(((ApplicationTerm) constructor).getFunction())}, null, var);
 				}
 			}
 			else if (eqInfo.isBLocal(color)) {
@@ -392,12 +592,31 @@ public class DatatypeInterpolator {
 					// can not be mixed as it is always (... != true/false)
 					assert(diseqInfo.isALocal(color));
 					// can be used as shared
-					interpolants[color] = mTheory.term("=", diseqLit.getFirst(), diseqLit.getSecond());
+					interpolants[color] = mTheory.term("not", mTheory.term("=", diseqLit.getFirst(), diseqLit.getSecond()));
+				}
+			} else if (eqInfo.isAorShared(color)) {
+				assert(eqInfo.isBorShared(color));
+				if (diseqInfo.isAorShared(color)) {
+					interpolants[color] = mTheory.mFalse;
+				}
+				else {
+					assert(diseqInfo.isBLocal(color));
+					interpolants[color] = mTheory.mTrue;
 				}
 			} else {
 				assert(eqInfo.isMixed(color));
 				if (diseqInfo.isALocal(color)) {
-					interpolants[color] = mTheory.not(mTheory.term("=", eqInfo.getMixedVar(), ((ApplicationTerm) mGoalEq).getParameters()[1]));
+					Term build = null;
+					Term bool = null;
+					if (diseqLit.getFirst().equals(mTheory.mTrue) || diseqLit.getFirst().equals(mTheory.mFalse)) {
+						build = diseqLit.getSecond();
+						bool = diseqLit.getFirst();
+					} else {
+						build = diseqLit.getFirst();
+						bool = diseqLit.getSecond();
+					}
+					build = mTheory.term(((ApplicationTerm) build).getFunction(), eqInfo.getMixedVar());
+					interpolants[color] = mTheory.not(mTheory.term("=", build, bool));
 				}
 				else {
 					assert(diseqInfo.isBLocal(color));
@@ -418,25 +637,20 @@ public class DatatypeInterpolator {
 				}
 			}
 		}
-		
-		
 		return interpolants;
 	}
 
 	private Term[] interpolateDTCycle() {
-		mLastColor = mNumInterpolants - 1;
-		mMaxColor = mNumInterpolants - 1;
-		mHeadColor = mNumInterpolants - 1;
+		mLastColor = mNumInterpolants;
+		mMaxColor = mNumInterpolants;
 		mAllInA.set(0, mNumInterpolants);
-		mStartSelectors = new String[(mPath.length - 1) / 2 * 3];
-		// mEndSelectors = new String[mPath.length];
-		mStartConstructors = new String[(mPath.length - 1) / 2 * 3];
-		// mEndConstructors = new String[mPath.length];
-		mStartTesters = new FunctionSymbol[(mPath.length - 1) / 2 * 3];
-		// mEndTesters = new String[mPath.length];
+		mStartSelectors = new String[(mPath.length - 1) / 2 * 3 + 1];
+		mStartConstructors = new String[(mPath.length - 1) / 2 * 3 + 1];
+		mStartTesters = new FunctionSymbol[(mPath.length - 1) / 2 * 3 + 1];
+		mIsSelectRel =  false;
 		
-		traverseLemma();
-		
+		traverseCycleLemma();
+		collectCycleInterpolants();
 		
 		Term[] interpolants = new Term[mNumInterpolants];
 		for (int color = 0; color < mNumInterpolants; color++) {
@@ -511,6 +725,7 @@ public class DatatypeInterpolator {
 					interpolants[color] = mTheory.term(Interpolator.EQ, diseqInfo.getMixedVar(), selTerm);
 				}
 				else if (diseqInfo.isALocal(color)) {
+					// TODO: [0] correct?
 					Term selTerm = mTheory.term(((ApplicationTerm) ((ApplicationTerm) mGoalEq).getParameters()[0]).getFunction(), eqInfo.getMixedVar());
 					interpolants[color] = mTheory.term("=", selTerm, ((ApplicationTerm) mGoalEq).getParameters()[1]);
 							// ((ApplicationTerm) diseqLit.getFirst()).getFunction().isSelector()
@@ -541,7 +756,7 @@ public class DatatypeInterpolator {
 		
 		final ApplicationTerm firstTerm = (ApplicationTerm) mPath[0];
 		final Term firstSymbol = firstTerm.getParameters()[0];
-		LitInfo firstTesterInfo = mEqualityLiterals.get(new SymmetricPair<>(mTheory.mFalse, firstSymbol));
+		LitInfo firstTesterInfo = mEqualityLiterals.get(new SymmetricPair<>(mTheory.mFalse, firstTerm));
 		// TODO: missing: if (firstTesterInfo.isALocal()) and else part
 		// option 1: as Alocal but negate at the end
 		// option 2: use an other tester as baseline
@@ -553,50 +768,91 @@ public class DatatypeInterpolator {
 			FunctionSymbol funcSymbol = ((ApplicationTerm) term).getFunction();
 			
 			for (int color = 0; color < mNumInterpolants; color++) {
-				if (testerInfo.isALocal(color)) {
-					if (eqInfo.isAorShared(color)) {
-						Term build = mTheory.term(funcSymbol, firstSymbol);
-						build = mTheory.term("=", build, mTheory.mFalse);
-						mInterpolants[color].add(build);
-					} else if (eqInfo.isBLocal(color)) {
-						// Term build = mTheory.term(fs, term);
-						Term build = mTheory.term("=", term, mTheory.mFalse);
-						mInterpolants[color].add(build);
-					} else if (eqInfo.isMixed(color)) {
-						Term build = mTheory.term(funcSymbol, eqInfo.getMixedVar());
-						build = mTheory.term("=", build, mTheory.mFalse);
-						mInterpolants[color].add(build);
+				if (firstTesterInfo.isBorShared(color)) {
+					if (testerInfo.isALocal(color)) {
+						if (symbol.equals(firstSymbol) || eqInfo.isBLocal(color)) {
+							// Term build = mTheory.term(fs, term);
+							Term build = mTheory.term("=", term, mTheory.mFalse);
+							mInterpolants[color].add(build);
+						} else if (eqInfo.isAorShared(color)) {
+							Term build = mTheory.term(funcSymbol, firstSymbol);
+							build = mTheory.term("=", build, mTheory.mFalse);
+							mInterpolants[color].add(build);
+						} else if (eqInfo.isMixed(color)) {
+							Term build = mTheory.term(funcSymbol, eqInfo.getMixedVar());
+							build = mTheory.term("=", build, mTheory.mFalse);
+							mInterpolants[color].add(build);
+						}
+					} else {
+						assert(testerInfo.isBLocal(color));
+						if (!symbol.equals(firstSymbol) && eqInfo.isALocal(color)) {
+							Term build = mTheory.term("=", symbol, firstSymbol);
+							mInterpolants[color].add(build);
+							continue;
+						}
+						if (eqInfo != null) {
+							assert(eqInfo.isBorShared(color));
+						}
 					}
 				} else {
-					assert(testerInfo.isBLocal(color));
-					if (eqInfo.isALocal(color) && !symbol.equals(firstSymbol)) {
-						Term build = mTheory.term("=", symbol, firstSymbol);
-						mInterpolants[color].add(build);
-						continue;
+					assert(firstTesterInfo.isALocal(color));
+					if (testerInfo.isBLocal(color)) {
+						if (symbol.equals(firstSymbol) || eqInfo.isALocal(color)) {
+							// Term build = mTheory.term(fs, term);
+							Term build = mTheory.term("not", mTheory.term("=", term, mTheory.mFalse));
+							mInterpolants[color].add(build);
+						} else if (eqInfo.isBorShared(color)) {
+								Term build = mTheory.term(funcSymbol, firstSymbol);
+								build = mTheory.term("not", mTheory.term("=", build, mTheory.mFalse));
+								mInterpolants[color].add(build);
+						} else if (eqInfo.isMixed(color)) {
+							// TODO: 
+							Term build = mTheory.term(funcSymbol, eqInfo.getMixedVar());
+							build = mTheory.term("not", mTheory.term("=", build, mTheory.mFalse));
+							mInterpolants[color].add(build);
+						}
+					} else {
+						assert(testerInfo.isALocal(color));
+						if (!symbol.equals(firstSymbol) && eqInfo.isBLocal(color)) {
+							Term build = mTheory.term("not", mTheory.term("=", symbol, firstSymbol));
+							mInterpolants[color].add(build);
+							continue;
+						}
+						if (eqInfo != null) {
+							assert(eqInfo.isAorShared(color));
+						}
 					}
-					assert(eqInfo.isBorShared(color));
 				}
 			}
 			
 		}
 		
 		for (int color = 0; color < mNumInterpolants; color++) {
-			interpolants[color] = mTheory.and(mInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
+			if (firstTesterInfo.isBorShared(color)) {
+				if (mInterpolants[color].isEmpty()) {
+					interpolants[color] = mTheory.mTrue;
+				} else {
+					interpolants[color] = mTheory.and(mInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
+				}
+			} else {
+				if (mInterpolants[color].isEmpty()) {
+					interpolants[color] = mTheory.mFalse;
+				} else {
+					interpolants[color] = mTheory.or(mInterpolants[color].toArray(new Term[mInterpolants[color].size()]));
+				}			}
 		}
 		
 		return interpolants;
 	}
 	
-	
-	private void traverseLemma() {
+	// goes through the literals for a cycle lemma
+	private void traverseCycleLemma() {
 		for (int i = 0; i < mPath.length - 2; i += 2) {
 			Term left = mPath[i];
 			Term right = mPath[i+1];
 			if (!left.equals(right)) {
 				LitInfo literalInfo = mEqualityLiterals.get(new SymmetricPair<>(left, right));
-				
-				// TODO : lastcolor / maxcolor
-				// TODO: check if mInA is correct / get Occ
+
 				mAllInA.and(literalInfo.mInA);
 				// close and open A-paths before the literal when switches happen
 				closeAPaths(literalInfo, i /2);
@@ -608,61 +864,38 @@ public class DatatypeInterpolator {
 			
 			Term nextTerm = mPath[i+2];
 			if (isConsParentOf(right, nextTerm)) {
+				mIsSelectRel = false;
 				// store
-				addConsToAPath((ApplicationTerm) right, i / 2);
-			}
+				addConsToAPath((ApplicationTerm) right, i / 2);			}
 			else {
 				assert(isSelParentOf(right, nextTerm));
+				mIsSelectRel = true;
 				// store 
 				addSelToAPath(right, (ApplicationTerm) nextTerm, i / 2);
 				// close and open A-paths after the literal where the tester occurrence forces a switch
 				closeAPathsForTesters((ApplicationTerm) nextTerm, i / 2);
 				openAPathsForTesters((ApplicationTerm) nextTerm, i / 2);
-			}
-			
+			}	
 		}
-		/*
-		if (!mAllInA.isEmpty()) {
-			// TODO: set interpolants to false / true
-		} 
-		*/
+	}
+	
+	//
+	private void collectCycleInterpolants() {
 		for (int color = 0; color < mNumInterpolants; color++) {
 			if (mAllInA.get(color)) {
 				assert(mInterpolants[color].isEmpty());
 				mInterpolants[color].add(mTheory.mFalse);
+				continue;
 			}
-			
-			
-			/* // int color = mLastColor;
-			while (color <= mNumInterpolants + 1) {
-				if (mInterpolator.mStartOfSubtrees[mHeadColor] == mInterpolator.mStartOfSubtrees[color]) {
-					break;
-				}
-				mEnd[color] = mPath[-1];
-				color = getParent(color);
-			}
-			// TODO: build occ
-			Occurrence occ = mInterpolator.new Occurrence();
-			while (color > mHeadColor) {
-				mStart[color] = mPath[-1];
-				color = getALocalChild(color, occ);
-			}
-			*/
-			
 			// APath was closed at the beginning and needs to be conected to the start of the APath
 			if (mHead[color] != null) {
 				assert(mEnd[color] == null);
-				if (mStart[color] != null) {
-					mEnd[color] = mHead[color];
-					mEndIndices[color] = mHeadIndices[color];
-				}
-				else {
-					// TODO:
+				if (mStart[color] == null) {
 					mStart[color] = mPath[0];
 					mStartIndices[color] = 0;
-					mEnd[color] = mHead[color];
-					mEndIndices[color] = mHeadIndices[color];
 				}
+				mEnd[color] = mHead[color];
+				mEndIndices[color] = mHeadIndices[color];
 				addCompletedAPath(color);
 			}
 			// APath was opend before but still needs to be closed
@@ -682,9 +915,9 @@ public class DatatypeInterpolator {
 		// store the correspondng selector and tester function
 		FunctionSymbol functionSymbol = consTerm.getFunction();
 		assert(functionSymbol.isConstructor());
-		mStartSelectors[litIndex * 3 + 2] = getSelector((ApplicationTerm) mPath[litIndex * 2 + 1], mPath[litIndex * 2 + 2]);
+		mStartSelectors[litIndex * 3 + 1] = getSelector((ApplicationTerm) mPath[litIndex * 2 + 1], mPath[litIndex * 2 + 2]);
 		DataType dataType = (DataType) consTerm.getSort().getSortSymbol();
-		mStartConstructors[litIndex * 3 + 2] = dataType.findConstructor(functionSymbol.getName()).getName();
+		mStartConstructors[litIndex * 3 + 1] = dataType.findConstructor(functionSymbol.getName()).getName();
 	}
 	
 	// 
@@ -692,7 +925,7 @@ public class DatatypeInterpolator {
 		FunctionSymbol functionSymbol = childTerm.getFunction();
 		// store the selector and tester function
 		assert(functionSymbol.isSelector());
-		mStartSelectors[litIndex * 3 + 2] = functionSymbol.getName();
+		mStartSelectors[litIndex * 3 + 3] = functionSymbol.getName();
 		// String testerFunction = mTestersFunctions.get(((ApplicationTerm) term).getParameters()[0]);
 		FunctionSymbol testerFunction = mTestersFunctions.get(parentTerm);
 		mStartTesters[litIndex * 3 + 2] = testerFunction;
@@ -716,16 +949,24 @@ public class DatatypeInterpolator {
 			// switch from shared (open A path) to B
 			if (literalInfo.isBLocal(color)) {
 				if (mStart[color] != null) {
-					mEnd[color] = mPath[litIndex * 2];
+					if (mIsSelectRel) {
+						mEnd[color] = mPath[litIndex * 2 - 1];
+					} else {
+						mEnd[color] = mPath[litIndex * 2];
+					}
 					mEndIndices[color] = litIndex * 3;
 					addCompletedAPath(color);
 				} else {
-					mHead[color] = mPath[litIndex * 2];
+					if (mIsSelectRel) {
+						mHead[color] = mPath[litIndex * 2 - 1];
+					} else {
+						mHead[color] = mPath[litIndex * 2];
+					}
 					mHeadIndices[color] = litIndex * 3;
 				}
 			}
-			mLastColor = color;
 			color = getParent(color);
+			mLastColor = color;
 		}
 		if (color > mMaxColor) {
 			mMaxColor = color;
@@ -740,22 +981,27 @@ public class DatatypeInterpolator {
 		// assert(mLastColor == 0 || literalInfo.isAorShared(mLastColor));
 		
 		int color = mLastColor;
+		color = getALocalChild(color, literalInfo);
 		// decrease the color to go down the Tree, while the occurrence is in A, and open the A Paths for those partitions
 		while (color >= 0) {
 			if (mAllInA.get(color)) {
 				mMaxColor = color;
 				mLastColor = color;
-				mHeadColor = color;
 			} else {
 				// stop on the partition that doesn't see a switch anymore
 				if (literalInfo.isBorShared(color)) {
+					assert(false);
 					break;
 				}
 				// switch from B to A
 				if (literalInfo.isALocal(color)) {
-					mStart[color] = mPath[litIndex * 2];
+					if (mIsSelectRel) {
+						mStart[color] = mPath[litIndex * 2 - 1];
+					} else {
+						mStart[color] = mPath[litIndex * 2];
+					}
 					mStartIndices[color] = litIndex * 3;
-				}				
+				}
 			}
 			mLastColor = color;
 			color = getALocalChild(color, literalInfo);
@@ -785,8 +1031,8 @@ public class DatatypeInterpolator {
 				}
 			}
 			// go up the tree
-			mLastColor = color;
 			color = getParent(color);
+			mLastColor = color;
 		}
 		if (color > mMaxColor) {
 			mMaxColor = color;
@@ -795,7 +1041,7 @@ public class DatatypeInterpolator {
 	
 	private void openAPathsOnMixedLiterals(LitInfo literalInfo, int litIndex) {
 		int color = mLastColor;
-		
+		color = getMixedChild(color, literalInfo);
 		while (color <= mNumInterpolants - 1 && color >= 0) {
 			if (literalInfo.isBorShared(color)) {
 				break;
@@ -804,6 +1050,7 @@ public class DatatypeInterpolator {
 				mStart[color] = literalInfo.getMixedVar();
 				mStartIndices[color] = litIndex * 3 + 1;
 			}
+			mLastColor = color;
 			color = getMixedChild(color, literalInfo);
 		}
 	}
@@ -831,9 +1078,9 @@ public class DatatypeInterpolator {
 				mHead[color] = selTerm.getParameters()[0];
 				mHeadIndices[color] = litIndex * 3 + 2;
 			}
-			mLastColor = color;
 			// go up the tree
 			color = getParent(color);
+			mLastColor = color;
 		}
 		if (color > mMaxColor) {
 			mMaxColor = color;
@@ -844,12 +1091,12 @@ public class DatatypeInterpolator {
 	private void openAPathsForTesters(ApplicationTerm selTerm, int litIndex) {
 		Occurrence testerOcc = mTestersOccurrence.get(selTerm.getParameters()[0]);
 		int color = mLastColor;
+		color = getALocalChild(color, testerOcc);
 		// decrease the color to go down the Tree, while the occurrence is in A, and open the A Paths for those partitions
 		while (color >= 0) {
 			if (mAllInA.get(color)) {
 				mMaxColor = color;
 				mLastColor = color;
-				mHeadColor = color;
 			} else {
 				// stop on the partition that doesn't see a switch anymore
 				if (testerOcc.isBorShared(color)) {
@@ -857,8 +1104,9 @@ public class DatatypeInterpolator {
 				}
 				// switch from B to A
 				if (testerOcc.isALocal(color)) {
-					mStart[color] = mPath[litIndex * 2];
-					mStartIndices[color] = litIndex * 3;
+					// mStart[color] = mPath[litIndex * 2];
+					mStart[color] = selTerm.getParameters()[0];
+					mStartIndices[color] = litIndex * 3 + 2;
 				}				
 			}
 			mLastColor = color;
@@ -870,18 +1118,16 @@ public class DatatypeInterpolator {
 	private void addCompletedAPath(int color) {
 		Term left = mStart[color];
 		Term right = mEnd[color];
-		// TODO: check if modulo iss set correctly
-		right = right;
-		for (int i = mStartIndices[color]; i != mEndIndices[color]; i = (i + 1) % ((mPath.length - 1) / 2 * 3)) {
+		for (int i = mStartIndices[color]; i != mEndIndices[color]; i = (i + 1) % ((mPath.length - 1) / 2 * 3 + 1)) {
+			if (mStartTesters[i] != null) {
+				// String s = mStartTesters[i];
+				mInterpolants[color].add(mTheory.term(mStartTesters[i], left));
+			}
+			if (mStartConstructors[i] != null) {
+				mInterpolants[color].add(mTheory.term(SMTLIBConstants.IS, new String[] { mStartConstructors[i] },
+						null, left));
+			}
 			if (mStartSelectors[i] != null) {
-				if (mStartTesters[i] != null) {
-					// String s = mStartTesters[i];
-					mInterpolants[color].add(mTheory.term(mStartTesters[i], left));
-				}
-				if (mStartConstructors[i] != null) {
-					mInterpolants[color].add(mTheory.term(SMTLIBConstants.IS, new String[] { mStartConstructors[i] },
-							null, left));
-				}
 				left = mTheory.term(mStartSelectors[i], left);
 			}
 		}
@@ -980,7 +1226,6 @@ public class DatatypeInterpolator {
 	private int getALocalChild(int color, Occurrence occ) {
 		int child = color - 1;
 		while (child >= mInterpolator.mStartOfSubtrees[color]) {
-			// TODO: 
 			if (occ.isALocal(child)) {
 				return child;
 			}
@@ -994,15 +1239,12 @@ public class DatatypeInterpolator {
 	private int getMixedChild(int color, Occurrence occ) {
 		int child = color - 1;
 		while (child >= mInterpolator.mStartOfSubtrees[color]) {
-			// TODO: 
 			if (occ.isMixed(child)) {
 				return child;
 			}
 			child = mInterpolator.mStartOfSubtrees[child] - 1;
 		}
 		return -1;
-	}
-	
+	}	
 }
-
 // TODO: getReturnSort on functionsymbol as for dataType???
