@@ -1820,6 +1820,9 @@ public class Theory {
 				it.remove();
 			}
 		}
+		while (mFunFactory.getActiveScopeNum() > 1) {
+			mFunFactory.endScope();
+		}
 		while (mDeclaredSorts.getActiveScopeNum() > 1) {
 			mDeclaredSorts.endScope();
 		}
