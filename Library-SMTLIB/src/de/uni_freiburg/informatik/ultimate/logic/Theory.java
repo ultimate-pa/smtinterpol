@@ -856,6 +856,32 @@ public class Theory {
 				return paramSorts[0];
 			}
 		}
+		class Bv2IntFunction extends FunctionSymbolFactory {
+			public Bv2IntFunction(final String name) {
+				super(name);
+				assert name.equals("bv2int") : "Wrong name: " + name;
+			}
+
+			@Override
+			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
+				return mNumericSort;
+			}
+		}
+		class Int2BvFunction extends FunctionSymbolFactory {
+			public Int2BvFunction(final String name) {
+				super(name);
+				assert name.equals("int2bv") : "Wrong name: " + name;
+			}
+
+			@Override
+			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
+				assert indices.length == 1;
+				assert paramSorts.length == 1 && paramSorts[0].isNumericSort();
+				assert paramSorts[0].getName().equals("Int");
+				assert resultSort == null;
+				return mBitVecSort.getSort(indices);
+			}
+		}
 		declareInternalFunctionFactory(new FunctionSymbolFactory("concat") {
 			@Override
 			public int getFlags(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
@@ -951,6 +977,12 @@ public class Theory {
 				FunctionSymbol.INTERNAL | FunctionSymbol.CHAINABLE));
 		declareInternalFunctionFactory(new RegularBitVecFunction("bvsge", 2, mBooleanSort,
 				FunctionSymbol.INTERNAL | FunctionSymbol.CHAINABLE));
+
+		declareInternalFunctionFactory(new Bv2IntFunction("bv2int"));
+		declareInternalFunctionFactory(new Int2BvFunction("int2bv"));
+
+
+
 	}
 
 	private void createFloatingPointOperators() {
