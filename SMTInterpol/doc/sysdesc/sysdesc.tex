@@ -13,11 +13,10 @@
 
 \title{\SI with resolution proofs\\{\large Version \version}}
 
-\author{Jochen Hoenicke \and Tanja Schindler}
+\author{Jochen Hoenicke\inst{1} \and Tanja Schindler\inst{2}}
 \institute{
-  University of Freiburg\\
-  \email{\{hoenicke,schindle\}@informatik.uni-freiburg.de}\\[1ex]
-  \today
+  Certora, \email{jochen@certora.com} \and
+  University of Li\`{e}ge, \email{tanja.schindler@uliege.be}
 }
 \titlerunning{\SI with resolution proofs \version}
 \authorrunning{Hoenicke and Schindler}
@@ -41,14 +40,15 @@ Theory combination is performed based on partial models produced by the theory s
 
 The main focus of \SI is the incremental track.
 This track simulates the typical application of \SI where a user asks multiple queries.
-As an extension, \SI supports quantifier-free interpolation for all supported theories except for datatypes~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19}.
+As an extension, \SI supports interpolation for all supported theories except for datatypes~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19,DBLP:conf/smt/HenkelHS21}.  It computes quantifier-free interpolants for quantifier-free input formulas.
 This makes it useful as a backend for software verification tools.
-In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2021, used \SI.
+In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2022, used \SI.
+\SI comes with a proof production~\cite{DBLP:conf/smt/HoenickeS22} that is based on resolution using a minimal set of axioms.
 
-This year, \SI comes with a new proof production~\cite{DBLP:conf/smt/HoenickeS22} that is based on resolution using a minimal set of axioms.  This is described in more detail below.
+ This year, only a few minor things were improved.  We now generate models for the theory of datatypes.  The proof format was slightly changed to avoid quadratic blow-up in when dealing with logical operators with many arguments.  And an unsoundness when combining extensionality on arrays with quantifiers was fixed.
 
 \section*{Competition Version}
-The version of \SI submitted to the SMT-COMP 2022 contains the new proof production module.
+The version of \SI submitted to the SMT-COMP 2023 contains the new proof production module.
 \SI can produce complete proofs for all supported logics.
 In the single query, incremental, and unsat core track \SI runs with its internal proof checker enabled such that all proofs of unsatisfiability are checked before an unsat result is output.
 Only if the check succeeds, \SI returns \texttt{unsatisfiable}.
@@ -71,7 +71,6 @@ The term \smtlib{(res $p$ $\prf_1$ $\prf_2$)} is then a proof of the clause $(C_
 Terms and subproofs can be bound to variables using the \smtlib{let}-binder from SMT-LIB for terms and a new \smtlib{let-proof} binder with the same syntax for subproofs.
 Two terms are considered equal, if they are identical after expanding all \smtlib{let}-binders.
 These binders are important to express the proof succinctly, but can also be used to express the proof in a trace form, where each clause proved by the solver is bound to an identifier to be used later in the proof of other clauses.
-
 
 \section*{Proof Checker}
 
@@ -96,7 +95,7 @@ Thus the type checker, which is built into the term factory, does not need to ha
 Since the type checker is part of the term factory, all created terms are always well-typed and there is no danger of accidentally skipping a type checking step.
 
 We support \smtlib{let} terms directly in our term AST structure.
-However, when working with terms, the \smtlib{let} binders are usually removed before.
+However, when working with terms, the \smtlib{let} binders are usually removed.
 This is achieved by a term transformer that removes all applications of \smtlib{let} and replaces the term variables bound by a let with the terms that they are bound to.
 This term transformer will also handle safe bounded renaming to ensure that inserting a term containing term variables will not accidentally bind the term variables to the wrong quantifier.
 This renaming is done in a deterministic way to ensure that terms that are identical up to let expansion will expand into identical terms.
@@ -120,8 +119,8 @@ Since a bug is very unlikely to cancel all terms, this method is more likely to 
 Note that since our term generator only produces well-typed terms, we do not need to typecheck the terms when checking an axiom.
 
 
-\section*{Authors, Logics, Tracks and Magic Number}
-The code was written by J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
+\section*{Authors, Logics, and Tracks}
+The code was written by J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Elisabeth Henkel, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
 Further information about \SI can be found at
 \begin{center}
   \url{https://ultimate.informatik.uni-freiburg.de/smtinterpol/}
@@ -133,21 +132,16 @@ The sources are available via GitHub
 
 \SI participates in the single query track, the incremental track, the unsat core track, the model validation track, and the proof exhibition track.
 It supports all combinations of uninterpreted functions, linear arithmetic, arrays, datatypes, and quantified formulas.
-However, the model generator currently supports neither quantifiers nor datatypes.
+However, the model generator currently does not support quantifiers.
 
-\newpage
 In the single query track, the unsat core track, and the proof track \SI participates in the logics matched by
-\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)|QF_(A|UF)+N[IR]*A!\footnote{\SI does not support non-linear arithmetic, but it supports modulo and division by constants.  Since several of these benchmarks are marked as non-linear, we also participate in these logics}, 
+\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)?|QF_(A|UF)+N[IR]*A!\footnote{\SI does not support non-linear arithmetic, but it supports modulo and division by constants.  Since several of these benchmarks are marked as non-linear, we also participate in these logics}, 
 in the incremental track in the logics
-\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL][IR]*A)!,
+\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL][IR]*A)?!,
 and in the model validation track in the logics matched by
-\verb!(QF_)(AX?)?(UF)?([IR]DL|L[IR]*A)!.
+\verb!(QF_)(AX?)?(UF)?(DT)?([IR]DL|L[IR]*A)?!.
 
-
-Magic Number: 945345692
-
-
-\bibliography{sysdec}
+\bibliography{sysdesc}
 \bibliographystyle{alpha}
 \end{document}
 
