@@ -1767,7 +1767,7 @@ public class Theory {
 	 */
 	public DataType createDatatypes(final String name, final int numParams) {
 		if (mDeclaredSorts.containsKey(name)) {
-			throw new IllegalArgumentException("Datatype " + name + " already exists.");
+			throw new SMTLIBException("Datatype " + name + " already exists.");
 		}
 		final DataType datatype = new DataType(this, name, numParams);
 		mDeclaredSorts.put(name, datatype);
