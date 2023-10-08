@@ -17,7 +17,7 @@
 (declare-const v List)
 (declare-const w List)
 (declare-const t List)
-(declare-const s List
+(declare-const s List)
 
 ;;cycle
 (assert (! (and (and (= u (cons (cons s v) nil)) (= (cdr w) t)) ((_ is cons) w)) :named A))
