@@ -1,6 +1,6 @@
 (set-option :produce-interpolants true)
 (set-option :interpolant-check-mode true)
-(set-logic QF_UF)
+(set-logic QF_UFDT)
 
 
 (declare-datatypes ( (List 0) (Nat 0) ) (
@@ -13,8 +13,8 @@
 
 ;; simple cycle
 
-(assert (= u (cons zero (cons zero v))) :named A) 
-(assert (= v (cons (succ zero) u)) :named B)
+(assert (! (= u (cons zero (cons zero v))) :named A))
+(assert (! (= v (cons (succ zero) u)) :named B))
 
 
 (check-sat)
