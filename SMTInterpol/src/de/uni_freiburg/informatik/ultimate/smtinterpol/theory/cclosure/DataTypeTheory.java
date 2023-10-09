@@ -741,33 +741,27 @@ public class DataTypeTheory implements ITheory {
 			if (selectorOrTester.isSelector()) {
 				final String selName = selectorOrTester.getName();
 				final Constructor c = getConstructor(selectorOrTester);
-				if (c.getName().equals(constructor.getFunction().getName())) {
-					for (int i = 0; i < c.getSelectors().length; i++) {
-						if (selName.equals(c.getSelectors()[i])) {
-							final CCTerm arg = mClausifier.getCCTerm(constructor.getParameters()[i]);
-							if (arg.mRepStar != checkTerm.mRepStar) {
-								final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm, arg);
-								final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, provedEq, reason,
-										constructorCCTerm);
-								addPendingLemma(lemma);
-							}
+				assert c.getName().equals(constructor.getFunction().getName());
+				for (int i = 0; i < c.getSelectors().length; i++) {
+					if (selName.equals(c.getSelectors()[i])) {
+						final CCTerm arg = mClausifier.getCCTerm(constructor.getParameters()[i]);
+						if (arg.mRepStar != checkTerm.mRepStar) {
+							final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm, arg);
+							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, provedEq, reason,
+									constructorCCTerm);
+							addPendingLemma(lemma);
 						}
 					}
-				} else {
-					iter.remove();
 				}
 			} else {
-				if (constructor.getFunction().getName().equals(selectorOrTester.getIndices()[0])) {
-					final CCTerm ccTrue = mClausifier.getCCTerm(mTheory.mTrue);
-					if (ccTrue.mRepStar != checkTerm.mRepStar) {
-						final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm,
-								mClausifier.getCCTerm(mTheory.mTrue));
-						final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, provedEq, reason,
-								constructorCCTerm);
-						addPendingLemma(lemma);
-					}
-				} else {
-					iter.remove();
+				assert constructor.getFunction().getName().equals(selectorOrTester.getIndices()[0]);
+				final CCTerm ccTrue = mClausifier.getCCTerm(mTheory.mTrue);
+				if (ccTrue.mRepStar != checkTerm.mRepStar) {
+					final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm,
+							mClausifier.getCCTerm(mTheory.mTrue));
+					final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, provedEq, reason,
+							constructorCCTerm);
+					addPendingLemma(lemma);
 				}
 			}
 		}
