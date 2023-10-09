@@ -49,7 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAnnotation.RuleKind;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
@@ -86,7 +86,7 @@ public class DataTypeTheory implements ITheory {
 	/**
 	 * Collect all created terms to check after a backtrack if their equalities are still valid.
 	 */
-	private ArrayQueue<CCAppTerm> mRecheckOnBacktrack = new ArrayQueue<>();
+	private final ScopedArrayList<CCAppTerm> mRecheckOnBacktrack = new ScopedArrayList<>();
 	/**
 	 * This a cache for {@link #isInfinite(Sort, LinkedHashSet)}
 	 */
@@ -711,15 +711,12 @@ public class DataTypeTheory implements ITheory {
 	}
 
 	@SuppressWarnings("unchecked")
-	@Override
-	public Clause backtrackComplete() {
-		// if we constructed new terms, their equalities have been removed in the backtracking process,
-		// so we need to check if they are still valid.
-		final ArrayQueue<CCAppTerm> newRecheckOnBacktrack = new ArrayQueue<>();
-		while (!mRecheckOnBacktrack.isEmpty()) {
+	public void recheckTrigger() {
+		final Iterator<CCAppTerm> iter = mRecheckOnBacktrack.iterator();
+		while (iter.hasNext()) {
 			CCTerm constructorCCTerm = null;
 			ApplicationTerm constructor = null;
-			final CCAppTerm checkTerm = mRecheckOnBacktrack.poll();
+			final CCAppTerm checkTerm = iter.next();
 			final ApplicationTerm selectOrIsTerm = (ApplicationTerm) checkTerm.mFlatTerm;
 			final FunctionSymbol selectorOrTester = selectOrIsTerm.getFunction();
 			final CCTerm selectOrIsArg = checkTerm.getArg();
@@ -732,6 +729,7 @@ public class DataTypeTheory implements ITheory {
 				}
 			}
 			if (constructor == null) {
+				iter.remove();
 				continue;
 			}
 			SymmetricPair<CCTerm>[] reason;
@@ -753,9 +751,10 @@ public class DataTypeTheory implements ITheory {
 										constructorCCTerm);
 								addPendingLemma(lemma);
 							}
-							newRecheckOnBacktrack.add(checkTerm);
 						}
 					}
+				} else {
+					iter.remove();
 				}
 			} else {
 				if (constructor.getFunction().getName().equals(selectorOrTester.getIndices()[0])) {
@@ -767,11 +766,18 @@ public class DataTypeTheory implements ITheory {
 								constructorCCTerm);
 						addPendingLemma(lemma);
 					}
-					newRecheckOnBacktrack.add(checkTerm);
+				} else {
+					iter.remove();
 				}
 			}
 		}
-		mRecheckOnBacktrack = newRecheckOnBacktrack;
+	}
+
+	@Override
+	public Clause backtrackComplete() {
+		// if we constructed new terms, their equalities have been removed in the backtracking process,
+		// so we need to check if they are still valid.
+		recheckTrigger();
 		return processPendingLemmas();
 	}
 
@@ -789,11 +795,16 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public void push() {
+		mRecheckOnBacktrack.beginScope();
 	}
 
 	@Override
 	public void pop() {
+		mPendingLemmas.clear();
+		mPendingEqualities.clear();
 		mInfinityMap.clear();
+		mRecheckOnBacktrack.endScope();
+		recheckTrigger();
 	}
 
 	@Override
