@@ -16,11 +16,12 @@
 (declare-const u List)
 (declare-const v List)
 (declare-const w List)
+(declare-const b Nat)
 
 ;; injective
 
-(assert (! (not(= u v)) :named A ))
-(assert (! (and (= (cons zero v) w) (= (cons zero u) w)) :named B )) 
+(assert (! (not (= u v)) :named A ))
+(assert (! (= (cons b u) (cons b v)) :named B )) 
 
 (check-sat)
 (get-interpolants A B)

@@ -9,19 +9,19 @@
 
 
 (declare-datatypes ( (List 0) (Nat 0) ) (
- ( (nil) (cons (car Nat) (cdr List) ))
+ ( (nil) (cons2 (car2 Nat) (cdr2 Nat)) (cons (car Nat) (cdr List) ))
  ( (zero) (succ (pred Nat)) )
 ))
 
+(declare-const a Nat)
 (declare-const u List)
 (declare-const v List)
 (declare-const w List)
-(declare-const t List)
 
-;; injective
+;; tester
 
-(assert (! (and (not (= u t)) (= (cons zero u) w)) :named A ))
-(assert (! (and (= t v) (= (cons zero v) w)) :named B )) 
+(assert (! true :named A ))
+(assert (! (not ((_ is cons) (cons a u))) :named B )) 
 
 (check-sat)
 (get-interpolants A B)

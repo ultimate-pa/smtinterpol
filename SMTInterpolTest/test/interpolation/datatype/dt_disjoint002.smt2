@@ -17,10 +17,15 @@
 (declare-const v List)
 (declare-const w List)
 
+(declare-const a1 Nat)
+(declare-const a2 List)
+(declare-const b1 Nat)
+(declare-const b2 List)
+
 ;; disjoint
 
-(assert (! (= u (cons zero nil)) :named A ))
-(assert (! (= v nil) :named B )) 
+(assert (! (= u (cons a1 a2)) :named A ))
+(assert (! (= v (cons2 b1 b2)) :named B )) 
 (assert (! (= u v) :named C ))
 
 (check-sat)

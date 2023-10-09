@@ -20,9 +20,13 @@
 ;; constructor
 
 (assert (! (not (= (cons (car v) (cdr u)) u)) :named A ))
-(assert (! ((_ is cons) u)  :named B )) 
+(assert (! ((_ is cons) u) :named B ))
 (assert (! (= u v) :named C ))
 
 (check-sat)
 (get-interpolants A B)
+(get-interpolants B A)
+(get-interpolants A B C)
+(get-interpolants B C A)
+(get-interpolants C A B)
 (exit)
