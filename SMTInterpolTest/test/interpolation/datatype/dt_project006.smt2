@@ -2,7 +2,7 @@
 (set-option :interpolant-check-mode true)
 
 (set-info :smt-lib-version 2.6)
-(set-logic QF_DT)
+(set-logic QF_UFDT)
 
 (set-info :category "crafted")
 (set-info :status unsat)
@@ -13,17 +13,23 @@
  ( (zero) (succ (pred Nat)) )
 ))
 
+(declare-const a Nat)
 (declare-const u List)
 (declare-const v List)
 (declare-const w List)
-(declare-const t List)
+(declare-fun p (List) Bool)
 
-;; injective
 
-(assert (! (and (not (= u t)) (= (cons zero u) w)) :named A ))
-(assert (! (and (= t v) (= (cons zero v) w)) :named B )) 
+(assert (! (= v (cons a w)) :named A))
+(assert (! (p (cdr v)) :named B))
+(assert (! (not (p w)) :named C))
 
 (check-sat)
-(get-interpolants A B)
-(get-interpolants B A)
+(get-interpolants A B C)
+(get-interpolants B C A)
+(get-interpolants C A B)
+(get-interpolants C B A)
+(get-interpolants A C B)
+(get-interpolants B A C)
+
 (exit)

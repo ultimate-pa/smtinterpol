@@ -14,20 +14,16 @@
 ))
 
 (declare-const a Nat)
-(declare-const b Nat)
-(declare-const z Nat)
 (declare-const u List)
 (declare-const v List)
 (declare-const w List)
-(declare-const t List)
-(declare-fun f (List) Nat)
+(declare-fun p (List) Bool)
 
-;; injective
 
-(assert (! (= (cons a u) w) :named A ))
-(assert (! (not (= (f u) z)) :named B ))
-(assert (! (= z (f v)) :named C ))
-(assert (! (= (cons b v) w) :named D )) 
+(assert (! (= u (cons a w)) :named A))
+(assert (! (= u v) :named B))
+(assert (! (p (cdr v)) :named C))
+(assert (! (not (p w)) :named D))
 
 (check-sat)
 (get-interpolants A B C D)
@@ -38,4 +34,13 @@
 (get-interpolants A D C B)
 (get-interpolants B A D C)
 (get-interpolants C B A D)
+(get-interpolants A C B D)
+(get-interpolants D A C B)
+(get-interpolants B D A C)
+(get-interpolants C B D A)
+(get-interpolants D B C A)
+(get-interpolants A D B C)
+(get-interpolants C A D B)
+(get-interpolants B C A D)
+
 (exit)

@@ -21,7 +21,7 @@
 
 (assert (! (= u v) :named A ))
 (assert (! (= u w) :named B )) 
-(assert (! ((_ is nil) v) :named C ))
+(assert (! ((_ is cons) v) :named C ))
 (assert (! ((_ is cons2) w) :named D ))  
 
 (check-sat)
@@ -29,4 +29,6 @@
 (get-interpolants D A C B)
 (get-interpolants C D A B)
 (get-interpolants B C D A)
+(get-interpolants C A B D)
+(get-interpolants D B A C)
 (exit)
