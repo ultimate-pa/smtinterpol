@@ -74,7 +74,6 @@ public class DatatypeInterpolator {
 			} else {
 				mDisequalityInfos.put(pair, atomOccurenceInfo);
 			}
-
 		}
 		final Object[] annot = ((Object[]) clauseInfo.getLemmaAnnotation());
 
@@ -516,6 +515,7 @@ public class DatatypeInterpolator {
 	private Term[] interpolateDTCycle(Object[] annot) {
 		assert (annot[0] == ":cycle");
 		final Term[] path = (Term[]) annot[1];
-		return new DatatypeCycleInterpolator(mInterpolator, mEqualityInfos, mDisequalityInfos).interpolateCycle(path);
+		assert mDisequalityInfos.isEmpty();
+		return new DatatypeCycleInterpolator(mInterpolator, mEqualityInfos).interpolateCycle(path);
 	}
 }

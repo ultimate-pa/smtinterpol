@@ -46,48 +46,56 @@ public class DatatypeCycleInterpolator {
 	private final Interpolator mInterpolator;
 	private final Theory mTheory;
 	private final int mNumInterpolants;
-	// a set for each Interpolant, to be filled with the literals of the interpolant
+	/**
+	 * a set for each Interpolant, to be filled with the literals of the
+	 * interpolant.
+	 */
 	private final Set<Term>[] mInterpolants;
-	// the equalities of the lemma
+	/** the equalities of the lemma. */
 	private final HashMap<SymmetricPair<Term>, LitInfo> mEqualityInfos;
-	// the testers as a map from their inner Term to their Occurrence
+	/** the testers as a map from their inner Term to their Occurrence. */
 	private final HashMap<Term, LitInfo> mTestersOccurrence;
-	// the testers as a map from their inner Term to their function name
+	/** the testers as a map from their inner Term to their function name. */
 	private final HashMap<Term, FunctionSymbol> mTestersFunctions;
-	// the ordered literals of the lemma
+	/** the ordered terms of the lemma building the cycle */
 	private Term[] mPath;
 
-	// the partitions for which every literal so far was shared
+	/** The partitions for which every literal so far is in A. */
 	BitSet mAllInA;
 
-	private int mMaxColor;
+	/**
+	 * The target partition of the last considered term in the path. Only for
+	 * ancestors of this partition (including lastColor itself) an A path can be
+	 * open. For all other nodes, the current term is considered as B-local.
+	 */
 	private int mLastColor;
 
-	// for each partition, the boundary terms thats start the A Path
+	/** for each partition, the boundary terms thats start the A Path. */
 	private final Term[] mStart;
-	// for each partition, the boundary terms thats end the A Path
-	private final Term[] mEnd;
-	//
+	/**
+	 * for each partition, the end of the first A-Path, if it was never started
+	 * before.
+	 */
 	private final Term[] mHead;
-	// for each partition, the indices of the literals where the current A-path started (-1 if there is none for that partition)
+	/**
+	 * for each partition, the indices of the literals where the current A-path
+	 * started (-1 if there is none for that partition)
+	 */
 	private final int[] mStartIndices;
-	// for each partition, the indices of the literals where the A-path was closed
-	// but not opened (-1 if there is none for this partition)
-	private final int[] mEndIndices;
-	//
+	/**
+	 * for each partition, the ending index of the first A-Path, if it was never
+	 * started before.
+	 */
 	private final int[] mHeadIndices;
 
-	// array to store select functions later applied to the start of the a path
-	private String[] mStartSelectors;
-	// array to store constructor names for testers
-	private String[] mStartConstructors;
-	// array to store tester functions
-	private FunctionSymbol[] mStartTesters;
+	/** array to store select functions later applied to the start of the a path. */
+	private FunctionSymbol[] mSelectorOnPath;
+	/** array to store tester functions. */
+	private FunctionSymbol[] mTesterOnPath;
 
 	@SuppressWarnings("unchecked")
 	public DatatypeCycleInterpolator(final Interpolator interpolator,
-			final HashMap<SymmetricPair<Term>, LitInfo> equalityInfos,
-			final HashMap<SymmetricPair<Term>, LitInfo> disequalityInfos) {
+			final HashMap<SymmetricPair<Term>, LitInfo> equalityInfos) {
 		mInterpolator = interpolator;
 		mTheory = interpolator.mTheory;
 		mNumInterpolants = interpolator.mNumInterpolants;
@@ -96,31 +104,41 @@ public class DatatypeCycleInterpolator {
 			mInterpolants[i] = new HashSet<>();
 		}
 		mStart = new Term[mNumInterpolants];
-		mEnd = new Term[mNumInterpolants];
 		mHead = new Term[mNumInterpolants];
 		mStartIndices = new int[mNumInterpolants];
-		mEndIndices = new int[mNumInterpolants];
 		mHeadIndices = new int[mNumInterpolants];
 		mAllInA = new BitSet(mNumInterpolants);
 		mEqualityInfos = equalityInfos;
 		mTestersOccurrence = new HashMap<>();
 		mTestersFunctions = new HashMap<>();
 		collectTesterInfo(equalityInfos);
-		collectTesterInfo(disequalityInfos);
 	}
 
+	/**
+	 * Collect all the info for all testers in the current conflict clause.
+	 *
+	 * @param atomInfo the map containing all infos for the equality literals of the
+	 *                 clause.
+	 */
 	private void collectTesterInfo(Map<SymmetricPair<Term>, LitInfo> atomInfo) {
 		for (final Map.Entry<SymmetricPair<Term>, LitInfo> entry : atomInfo.entrySet()) {
 			final SymmetricPair<Term> key = entry.getKey();
-			final LitInfo atomOccurenceInfo = entry.getValue();
+			final LitInfo atomOccurrenceInfo = entry.getValue();
 			final Term left = key.getFirst();
 			final Term right = key.getSecond();
-			if (left instanceof ApplicationTerm && ((ApplicationTerm) left).getFunction().getName().equals(SMTLIBConstants.IS)) {
-				mTestersFunctions.put(((ApplicationTerm) left).getParameters()[0], ((ApplicationTerm) left).getFunction());
-				mTestersOccurrence.put(((ApplicationTerm) left).getParameters()[0], atomOccurenceInfo);
-			} else if (right instanceof ApplicationTerm && ((ApplicationTerm) left).getFunction().getName().equals(SMTLIBConstants.IS)) {
-				mTestersFunctions.put(((ApplicationTerm) right).getParameters()[0], ((ApplicationTerm) right).getFunction());
-				mTestersOccurrence.put(((ApplicationTerm) right).getParameters()[0], atomOccurenceInfo);
+			collectSingleTesterInfo(left, atomOccurrenceInfo);
+			collectSingleTesterInfo(right, atomOccurrenceInfo);
+
+		}
+	}
+
+	private void collectSingleTesterInfo(Term term, LitInfo atomOccurrenceInfo) {
+		if (term instanceof ApplicationTerm) {
+			final ApplicationTerm testerTerm = (ApplicationTerm) term;
+			if (testerTerm.getFunction().getName().equals(SMTLIBConstants.IS)) {
+				final Term testerArg = testerTerm.getParameters()[0];
+				mTestersFunctions.put(testerArg, testerTerm.getFunction());
+				mTestersOccurrence.put(testerArg, atomOccurrenceInfo);
 			}
 		}
 	}
@@ -141,11 +159,9 @@ public class DatatypeCycleInterpolator {
 	public Term[] interpolateCycle(Term[] path) {
 		mPath = path;
 		mLastColor = mNumInterpolants;
-		mMaxColor = mNumInterpolants;
 		mAllInA.set(0, mNumInterpolants);
-		mStartSelectors = new String[mPath.length];
-		mStartConstructors = new String[mPath.length];
-		mStartTesters = new FunctionSymbol[mPath.length];
+		mSelectorOnPath = new FunctionSymbol[mPath.length];
+		mTesterOnPath = new FunctionSymbol[mPath.length];
 
 		traverseCycleLemma();
 		collectCycleInterpolants();
@@ -157,30 +173,36 @@ public class DatatypeCycleInterpolator {
 		return interpolants;
 	}
 
-	// goes through the literals for a cycle lemma
+	/**
+	 * Traverse the path of the cycle lemma and collect all A-paths. As soon as an
+	 * A-path is closed the corresponding interpolant is computed and added to the
+	 * interpolants arrays.
+	 */
 	private void traverseCycleLemma() {
+		final Occurrence firstOccurrence = mInterpolator.getOccurrence(mPath[0]);
+		closeAPaths(firstOccurrence, mPath[0], 0);
+		openAPaths(firstOccurrence, mPath[0], 0);
 		for (int i = 0; i < mPath.length - 2; i += 2) {
 			final Term left = mPath[i];
-			final Term right = mPath[i+1];
+			final Term right = mPath[i + 1];
 			if (!left.equals(right)) {
 				final LitInfo literalInfo = mEqualityInfos.get(new SymmetricPair<>(left, right));
 
-				mAllInA.and(literalInfo.mInA);
 				// close and open A-paths before the literal when switches happen
 				closeAPaths(literalInfo, mPath[i], i);
 				openAPaths(literalInfo, mPath[i], i);
 				// close and open A-paths in the middle of mixed literals
-				if (literalInfo.isMixed(mLastColor)) {
+				if (literalInfo.getMixedVar() != null) {
 					final Occurrence rightOccurrence = mInterpolator.getOccurrence(right);
 					closeAPaths(rightOccurrence, literalInfo.getMixedVar(), i);
 					openAPaths(rightOccurrence, literalInfo.getMixedVar(), i);
 				}
 			}
 
-			final Term nextTerm = mPath[i+2];
+			final Term nextTerm = mPath[i + 2];
 			if (isConsParentOf(right, nextTerm)) {
 				// generate selector for child step
-				addConsToAPath((ApplicationTerm) right, i + 1);
+				addConsToAPath((ApplicationTerm) right, nextTerm, i + 1);
 			} else {
 				assert(isSelParentOf(right, nextTerm));
 				// close and open A-paths after the literal where the tester occurrence forces a switch
@@ -193,58 +215,64 @@ public class DatatypeCycleInterpolator {
 		}
 	}
 
-	//
+	/**
+	 * Handle all unclosed paths at the beginning or the end of the path. Also adds
+	 * the false interpolants for A-local conflicts.
+	 */
 	private void collectCycleInterpolants() {
 		for (int color = 0; color < mNumInterpolants; color++) {
 			if (mAllInA.get(color)) {
+				// For this partition the conflict is completely in A.
 				assert(mInterpolants[color].isEmpty());
 				mInterpolants[color].add(mTheory.mFalse);
-				continue;
-			}
-			// APath was closed at the beginning and needs to be connected to the start of
-			// the APath
-			if (mHead[color] != null) {
-				assert(mEnd[color] == null);
+			} else if (mHead[color] != null) {
+				// The APath was closed at the beginning and needs to be connected to the start
+				// of the APath. If it didn't start, the index 0 is the boundaryTerm.
 				if (mStart[color] == null) {
 					mStart[color] = mPath[0];
 					mStartIndices[color] = 0;
 				}
-				mEnd[color] = mHead[color];
-				mEndIndices[color] = mHeadIndices[color];
-				addCompletedAPath(color);
-			}
-			// APath was opened before but still needs to be closed
-			else if (mStart[color] != null) {
-				assert(mEnd[color] == null);
-				// TODO:
-				mEnd[color] = mPath[0];
-				mEndIndices[color] = 0;
-				addCompletedAPath(color);
+				addCompletedAPath(color, mHead[color], mHeadIndices[color]);
+			} else if (mStart[color] != null) {
+				// APath was opened before but still needs to be closed
+				addCompletedAPath(color, mPath[0], 0);
 			}
 		}
 
 	}
 
-	// store the function symbol, and needed testers to later add to the
-	// interpolation term
-	private void addConsToAPath(final ApplicationTerm consTerm, int litIndex) {
+	/**
+	 * Add the selector/tester for a cons step ({@code parent = cons(...child...)}).
+	 *
+	 * @param consTerm  the parent term.
+	 * @param childTerm the child term.
+	 * @param litIndex  the index into the path.
+	 */
+	private void addConsToAPath(final ApplicationTerm consTerm, Term childTerm, int litIndex) {
 		// store the corresponding selector and tester function
 		final FunctionSymbol functionSymbol = consTerm.getFunction();
 		assert(functionSymbol.isConstructor());
-		mStartSelectors[litIndex] = getSelector((ApplicationTerm) mPath[litIndex], mPath[litIndex + 1]);
-		final DataType dataType = (DataType) consTerm.getSort().getSortSymbol();
-		mStartConstructors[litIndex] = dataType.findConstructor(functionSymbol.getName()).getName();
+		final String selectorName = getSelector(consTerm, childTerm);
+		mSelectorOnPath[litIndex] = mTheory.getFunction(selectorName, consTerm.getSort());
+		mTesterOnPath[litIndex] = mTheory.getFunctionWithResult(SMTLIBConstants.IS,
+				new String[] { functionSymbol.getName() }, null, consTerm.getSort());
 	}
 
-	//
+	/**
+	 * Add the selector/tester for a selector step
+	 * ({@code selector(parent) = child}).
+	 *
+	 * @param parentTerm the parent term.
+	 * @param childTerm  the child term.
+	 * @param litIndex   the index into the path.
+	 */
 	private void addSelToAPath(final Term parentTerm, final ApplicationTerm childTerm, int litIndex) {
 		final FunctionSymbol functionSymbol = childTerm.getFunction();
 		// store the selector and tester function
 		assert(functionSymbol.isSelector());
-		mStartSelectors[litIndex] = functionSymbol.getName();
-		// String testerFunction = mTestersFunctions.get(((ApplicationTerm) term).getParameters()[0]);
+		mSelectorOnPath[litIndex] = functionSymbol;
 		final FunctionSymbol testerFunction = mTestersFunctions.get(parentTerm);
-		mStartTesters[litIndex] = testerFunction;
+		mTesterOnPath[litIndex] = testerFunction;
 	}
 
 
@@ -265,18 +293,13 @@ public class DatatypeCycleInterpolator {
 		while (color < top && occurrence.isBLocal(color)) {
 			// switch from shared (open A path) to B
 			if (mStart[color] != null) {
-				mEnd[color] = boundaryTerm;
-				mEndIndices[color] = litIndex;
-				addCompletedAPath(color);
+				addCompletedAPath(color, boundaryTerm, litIndex);
 			} else {
 				mHead[color] = boundaryTerm;
 				mHeadIndices[color] = litIndex;
 			}
 			color = getParent(color);
 			mLastColor = color;
-		}
-		if (color > mMaxColor) {
-			mMaxColor = color;
 		}
 	}
 
@@ -297,9 +320,7 @@ public class DatatypeCycleInterpolator {
 		// decrease the color to go down the Tree, while the occurrence is in A, and open the A Paths for those partitions
 		while (color >= 0) {
 			assert occurrence.isALocal(color);
-			if (mAllInA.get(color)) {
-				mMaxColor = color;
-			} else {
+			if (!mAllInA.get(color)) {
 				// stop on the partition that doesn't see a switch anymore
 				// switch from B to A
 				mStart[color] = boundaryTerm;
@@ -310,28 +331,30 @@ public class DatatypeCycleInterpolator {
 		}
 	}
 
-	// adds the completed A path to the interpolant of the given interpolant (color)
-	private void addCompletedAPath(int color) {
+	/**
+	 * Compute the interpolant for a commpleted A-Path and adds them to the set of
+	 * interpolants for the given partition.
+	 *
+	 * @param color    The index into the interpolation partition.
+	 * @param right    The right boundary term of the A-Path (the left is stored in
+	 *                 mStart).
+	 * @param endIndex The end index (the start index is stored in mStartIndices).
+	 */
+	private void addCompletedAPath(int color, Term right, int endIndex) {
 		Term left = mStart[color];
-		final Term right = mEnd[color];
-		for (int i = mStartIndices[color]; i != mEndIndices[color]; i = (i + 1) % mStartTesters.length) {
-			if (mStartTesters[i] != null) {
-				// String s = mStartTesters[i];
-				mInterpolants[color].add(mTheory.term(mStartTesters[i], left));
+		for (int i = mStartIndices[color]; i != endIndex; i = (i + 1) % mTesterOnPath.length) {
+			if (mTesterOnPath[i] != null) {
+				mInterpolants[color].add(mTheory.term(mTesterOnPath[i], left));
 			}
-			if (mStartConstructors[i] != null) {
-				mInterpolants[color].add(mTheory.term(SMTLIBConstants.IS, new String[] { mStartConstructors[i] },
-						null, left));
-			}
-			if (mStartSelectors[i] != null) {
-				left = mTheory.term(mStartSelectors[i], left);
+			if (mSelectorOnPath[i] != null) {
+				left = mTheory.term(mSelectorOnPath[i], left);
 			}
 		}
-		mInterpolants[color].add(mTheory.term("=", left, right));
+		if (left != right) {
+			mInterpolants[color].add(mTheory.term(SMTLIBConstants.EQUALS, left, right));
+		}
 
-		mEndIndices[color] = -1;
 		mStartIndices[color] = -1;
-		mEnd[color] = null;
 		mStart[color] = null;
 	}
 
@@ -377,7 +400,14 @@ public class DatatypeCycleInterpolator {
 		return false;
 	}
 
-	// returns the selector that would give the "childTerm" when applied to the "consTerm"
+	/**
+	 * Computes the selector that would give the childTerm when applied to the
+	 * consTerm
+	 *
+	 * @param consTerm  The parent term, which must be a cons term.
+	 * @param childTerm The child term, which must be a parameter of consTerm.
+	 * @return The name of the selector to apply.
+	 */
 	private String getSelector(ApplicationTerm consTerm, Term childTerm) {
 		final FunctionSymbol constructorSymbol = consTerm.getFunction();
 		assert(constructorSymbol.getReturnSort().getSortSymbol().isDatatype());
