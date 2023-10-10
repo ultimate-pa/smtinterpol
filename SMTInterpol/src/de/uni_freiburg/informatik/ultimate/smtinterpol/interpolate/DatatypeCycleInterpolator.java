@@ -167,11 +167,14 @@ public class DatatypeCycleInterpolator {
 
 				mAllInA.and(literalInfo.mInA);
 				// close and open A-paths before the literal when switches happen
-				closeAPaths(literalInfo, i);
-				openAPaths(literalInfo, i);
+				closeAPaths(literalInfo, mPath[i], i);
+				openAPaths(literalInfo, mPath[i], i);
 				// close and open A-paths in the middle of mixed literals
-				closeAPathsOnMixedLiterals(literalInfo, i);
-				openAPathsOnMixedLiterals(literalInfo, i);
+				if (literalInfo.isMixed(mLastColor)) {
+					final Occurrence rightOccurrence = mInterpolator.getOccurrence(right);
+					closeAPaths(rightOccurrence, literalInfo.getMixedVar(), i);
+					openAPaths(rightOccurrence, literalInfo.getMixedVar(), i);
+				}
 			}
 
 			final Term nextTerm = mPath[i+2];
@@ -181,8 +184,9 @@ public class DatatypeCycleInterpolator {
 			} else {
 				assert(isSelParentOf(right, nextTerm));
 				// close and open A-paths after the literal where the tester occurrence forces a switch
-				closeAPathsForTesters(right, i + 1);
-				openAPathsForTesters(right, i + 1);
+				final Occurrence testerOccurrence = mTestersOccurrence.get(right);
+				closeAPaths(testerOccurrence, right, i + 1);
+				openAPaths(testerOccurrence, right, i + 1);
 				// generate selector for child step
 				addSelToAPath(right, (ApplicationTerm) nextTerm, i + 1);
 			}
@@ -244,124 +248,22 @@ public class DatatypeCycleInterpolator {
 	}
 
 
-	// closes the A Paths where the switch occurred
-	private void closeAPaths(LitInfo literalInfo, int litIndex) {
+	/**
+	 * Closes all A paths and goes up the tree until the occurrence is in A or
+	 * mixed.
+	 *
+	 * @param occurence    the occurrence of the term/literal that we use
+	 * @param boundaryTerm the boundary term
+	 * @param litIndex     the index into the mPath.
+	 */
+	private void closeAPaths(Occurrence occurrence, Term boundaryTerm, int litIndex) {
+		mAllInA.and(occurrence.mInA);
 		int color = mLastColor;
-		final int top = mNumInterpolants - 1;
+		final int top = mNumInterpolants;
 
 		// increase the color to go up the Tree, while the occurrence is in B, and close the A-Paths for those partitions
-		while (color <= top) {
-			// stop on the partition that doesn't see a switch anymore
-			if (literalInfo.isAorShared(color)) {
-				break;
-			}
-			if (literalInfo.isMixed(color)) {
-				break;
-			}
+		while (color < top && occurrence.isBLocal(color)) {
 			// switch from shared (open A path) to B
-			assert literalInfo.isBLocal(color);
-			if (mStart[color] != null) {
-				mEnd[color] = mPath[litIndex];
-				mEndIndices[color] = litIndex;
-				addCompletedAPath(color);
-			} else {
-				mHead[color] = mPath[litIndex];
-				mHeadIndices[color] = litIndex;
-			}
-			color = getParent(color);
-			mLastColor = color;
-		}
-		if (color > mMaxColor) {
-			mMaxColor = color;
-		}
-	}
-
-	// opens the A Path where the switch occurred
-	// mLastColor has to be set correctly
-	// TODO : use closeAPaths() first to set mLastColor correctly
-	private void openAPaths(LitInfo literalInfo, int litIndex) {
-		// TODO: check for mixed lits
-		// assert(mLastColor == 0 || literalInfo.isAorShared(mLastColor));
-
-		int color = mLastColor;
-		color = getALocalChild(color, literalInfo);
-		// decrease the color to go down the Tree, while the occurrence is in A, and open the A Paths for those partitions
-		while (color >= 0) {
-			if (mAllInA.get(color)) {
-				mMaxColor = color;
-				mLastColor = color;
-			} else {
-				// stop on the partition that doesn't see a switch anymore
-				assert !literalInfo.isBorShared(color);
-				// switch from B to A
-				if (literalInfo.isALocal(color)) {
-					mStart[color] = mPath[litIndex];
-					mStartIndices[color] = litIndex;
-				}
-			}
-			mLastColor = color;
-			color = getALocalChild(color, literalInfo);
-		}
-	}
-
-	private void closeAPathsOnMixedLiterals(LitInfo literalInfo, int litIndex) {
-		int color = mLastColor;
-		// move up the tree and close A-paths for partitions that need to see a switch
-		while (color <= mNumInterpolants - 1) {
-			// stop as soon as no closing is needed (path can stay in A)
-			if (literalInfo.isAorShared(color)) {
-				break;
-			}
-			assert literalInfo.isMixed(color);
-			// close the A-Path
-			if (mStart[color] != null) {
-				mEnd[color] = literalInfo.getMixedVar();
-				mEndIndices[color] = litIndex;
-				addCompletedAPath(color);
-			} else {
-				mHead[color] = literalInfo.getMixedVar();
-				mHeadIndices[color] = litIndex;
-			}
-			// go up the tree
-			color = getParent(color);
-			mLastColor = color;
-		}
-		if (color > mMaxColor) {
-			mMaxColor = color;
-		}
-	}
-
-	private void openAPathsOnMixedLiterals(LitInfo literalInfo, int litIndex) {
-		int color = mLastColor;
-		color = getMixedChild(color, literalInfo);
-		while (color <= mNumInterpolants - 1 && color >= 0) {
-			if (literalInfo.isBorShared(color)) {
-				break;
-			}
-			if (literalInfo.isMixed(color) ) {
-				mStart[color] = literalInfo.getMixedVar();
-				mStartIndices[color] = litIndex;
-			}
-			mLastColor = color;
-			color = getMixedChild(color, literalInfo);
-		}
-	}
-
-	//
-	private void closeAPathsForTesters(Term boundaryTerm, int litIndex) {
-		// get the occurrence of the tester
-		final Occurrence testerOcc = mTestersOccurrence.get(boundaryTerm);
-		mAllInA.and(testerOcc.mInA);
-		int color = mLastColor;
-		// move up the tree and close A-paths for partitions that need to see a switch
-		while (color <= mNumInterpolants - 1) {
-			// stop as soon as no closing is needed (path can stay in A)
-			if (testerOcc.isAorShared(color)) {
-				break;
-			}
-			// testers can't be mixed
-			assert(testerOcc.isBLocal(color));
-			// close the A-Path
 			if (mStart[color] != null) {
 				mEnd[color] = boundaryTerm;
 				mEndIndices[color] = litIndex;
@@ -370,7 +272,6 @@ public class DatatypeCycleInterpolator {
 				mHead[color] = boundaryTerm;
 				mHeadIndices[color] = litIndex;
 			}
-			// go up the tree
 			color = getParent(color);
 			mLastColor = color;
 		}
@@ -379,30 +280,33 @@ public class DatatypeCycleInterpolator {
 		}
 	}
 
-	//
-	private void openAPathsForTesters(Term boundaryTerm, int litIndex) {
-		final Occurrence testerOcc = mTestersOccurrence.get(boundaryTerm);
+	/**
+	 * Open A-paths (or close B-Paths) with the boundary term until there is no
+	 * A-local child for occur. This means that we go down the tree until the
+	 * corresponding literal/term occurs in this partition. For mixed literals we do
+	 * nothing, since we are already at the occurrence of one of the literals.
+	 *
+	 * @param occurence    the occurrence of the term/literal that we use
+	 * @param boundaryTerm the boundary term
+	 * @param litIndex     the index into the mPath.
+	 */
+	private void openAPaths(Occurrence occurrence, Term boundaryTerm, int litIndex) {
+
 		int color = mLastColor;
-		color = getALocalChild(color, testerOcc);
+		color = getALocalChild(color, occurrence);
 		// decrease the color to go down the Tree, while the occurrence is in A, and open the A Paths for those partitions
 		while (color >= 0) {
+			assert occurrence.isALocal(color);
 			if (mAllInA.get(color)) {
 				mMaxColor = color;
-				mLastColor = color;
 			} else {
 				// stop on the partition that doesn't see a switch anymore
-				if (testerOcc.isBorShared(color)) {
-					break;
-				}
 				// switch from B to A
-				if (testerOcc.isALocal(color)) {
-					// mStart[color] = mPath[litIndex];
-					mStart[color] = boundaryTerm;
-					mStartIndices[color] = litIndex;
-				}
+				mStart[color] = boundaryTerm;
+				mStartIndices[color] = litIndex;
 			}
 			mLastColor = color;
-			color = getALocalChild(color, testerOcc);
+			color = getALocalChild(color, occurrence);
 		}
 	}
 
@@ -489,7 +393,10 @@ public class DatatypeCycleInterpolator {
 		throw new AssertionError("child term not found in constructors");
 	}
 
-	// returns the parent partition for the given partition (color)
+	/**
+	 * Compute the parent partition. This is the next partition, whose subtree
+	 * includes color.
+	 */
 	private int getParent(int color) {
 		int parent = color + 1;
 		while (mInterpolator.mStartOfSubtrees[parent] > color) {
@@ -498,26 +405,14 @@ public class DatatypeCycleInterpolator {
 		return parent;
 	}
 
-	// returns for the given occurrence an A-local child partition of the given partition (color)
-	// returns -1 if there is none
+	/**
+	 * Compute the A-local child partition. This is the child, that is A-local to
+	 * the occurrence. This function returns -1 if all children are in B.
+	 */
 	private int getALocalChild(int color, Occurrence occ) {
 		int child = color - 1;
 		while (child >= mInterpolator.mStartOfSubtrees[color]) {
 			if (occ.isALocal(child)) {
-				return child;
-			}
-			child = mInterpolator.mStartOfSubtrees[child] - 1;
-		}
-		return -1;
-	}
-
-	// returns for the given occurrence a child partition of the given partition
-	// (color) where the occurrence is mixed
-	// returns -1 if there is none
-	private int getMixedChild(int color, Occurrence occ) {
-		int child = color - 1;
-		while (child >= mInterpolator.mStartOfSubtrees[color]) {
-			if (occ.isMixed(child)) {
 				return child;
 			}
 			child = mInterpolator.mStartOfSubtrees[child] - 1;
