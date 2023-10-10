@@ -63,9 +63,6 @@ public class DatatypeCycleInterpolator {
 	private int mMaxColor;
 	private int mLastColor;
 
-	// stores for cycles if the recent relation between literals was a select or a construct
-	private boolean mIsSelectRel;
-
 	// for each partition, the boundary terms thats start the A Path
 	private final Term[] mStart;
 	// for each partition, the boundary terms thats end the A Path
@@ -146,10 +143,9 @@ public class DatatypeCycleInterpolator {
 		mLastColor = mNumInterpolants;
 		mMaxColor = mNumInterpolants;
 		mAllInA.set(0, mNumInterpolants);
-		mStartSelectors = new String[(mPath.length - 1) / 2 * 3 + 1];
-		mStartConstructors = new String[(mPath.length - 1) / 2 * 3 + 1];
-		mStartTesters = new FunctionSymbol[(mPath.length - 1) / 2 * 3 + 1];
-		mIsSelectRel =  false;
+		mStartSelectors = new String[mPath.length];
+		mStartConstructors = new String[mPath.length];
+		mStartTesters = new FunctionSymbol[mPath.length];
 
 		traverseCycleLemma();
 		collectCycleInterpolants();
@@ -171,26 +167,24 @@ public class DatatypeCycleInterpolator {
 
 				mAllInA.and(literalInfo.mInA);
 				// close and open A-paths before the literal when switches happen
-				closeAPaths(literalInfo, i /2);
-				openAPaths(literalInfo, i / 2);
+				closeAPaths(literalInfo, i);
+				openAPaths(literalInfo, i);
 				// close and open A-paths in the middle of mixed literals
-				closeAPathsOnMixedLiterals(literalInfo, i / 2);
-				openAPathsOnMixedLiterals(literalInfo, i / 2);
+				closeAPathsOnMixedLiterals(literalInfo, i);
+				openAPathsOnMixedLiterals(literalInfo, i);
 			}
 
 			final Term nextTerm = mPath[i+2];
 			if (isConsParentOf(right, nextTerm)) {
-				mIsSelectRel = false;
-				// store
-				addConsToAPath((ApplicationTerm) right, i / 2);
+				// generate selector for child step
+				addConsToAPath((ApplicationTerm) right, i + 1);
 			} else {
 				assert(isSelParentOf(right, nextTerm));
-				mIsSelectRel = true;
-				// store
-				addSelToAPath(right, (ApplicationTerm) nextTerm, i / 2);
 				// close and open A-paths after the literal where the tester occurrence forces a switch
-				closeAPathsForTesters((ApplicationTerm) nextTerm, i / 2);
-				openAPathsForTesters((ApplicationTerm) nextTerm, i / 2);
+				closeAPathsForTesters(right, i + 1);
+				openAPathsForTesters(right, i + 1);
+				// generate selector for child step
+				addSelToAPath(right, (ApplicationTerm) nextTerm, i + 1);
 			}
 		}
 	}
@@ -233,9 +227,9 @@ public class DatatypeCycleInterpolator {
 		// store the corresponding selector and tester function
 		final FunctionSymbol functionSymbol = consTerm.getFunction();
 		assert(functionSymbol.isConstructor());
-		mStartSelectors[litIndex * 3 + 1] = getSelector((ApplicationTerm) mPath[litIndex * 2 + 1], mPath[litIndex * 2 + 2]);
+		mStartSelectors[litIndex] = getSelector((ApplicationTerm) mPath[litIndex], mPath[litIndex + 1]);
 		final DataType dataType = (DataType) consTerm.getSort().getSortSymbol();
-		mStartConstructors[litIndex * 3 + 1] = dataType.findConstructor(functionSymbol.getName()).getName();
+		mStartConstructors[litIndex] = dataType.findConstructor(functionSymbol.getName()).getName();
 	}
 
 	//
@@ -243,10 +237,10 @@ public class DatatypeCycleInterpolator {
 		final FunctionSymbol functionSymbol = childTerm.getFunction();
 		// store the selector and tester function
 		assert(functionSymbol.isSelector());
-		mStartSelectors[litIndex * 3 + 3] = functionSymbol.getName();
+		mStartSelectors[litIndex] = functionSymbol.getName();
 		// String testerFunction = mTestersFunctions.get(((ApplicationTerm) term).getParameters()[0]);
 		final FunctionSymbol testerFunction = mTestersFunctions.get(parentTerm);
-		mStartTesters[litIndex * 3 + 2] = testerFunction;
+		mStartTesters[litIndex] = testerFunction;
 	}
 
 
@@ -265,23 +259,14 @@ public class DatatypeCycleInterpolator {
 				break;
 			}
 			// switch from shared (open A path) to B
-			if (literalInfo.isBLocal(color)) {
-				if (mStart[color] != null) {
-					if (mIsSelectRel) {
-						mEnd[color] = mPath[litIndex * 2 - 1];
-					} else {
-						mEnd[color] = mPath[litIndex * 2];
-					}
-					mEndIndices[color] = litIndex * 3;
-					addCompletedAPath(color);
-				} else {
-					if (mIsSelectRel) {
-						mHead[color] = mPath[litIndex * 2 - 1];
-					} else {
-						mHead[color] = mPath[litIndex * 2];
-					}
-					mHeadIndices[color] = litIndex * 3;
-				}
+			assert literalInfo.isBLocal(color);
+			if (mStart[color] != null) {
+				mEnd[color] = mPath[litIndex];
+				mEndIndices[color] = litIndex;
+				addCompletedAPath(color);
+			} else {
+				mHead[color] = mPath[litIndex];
+				mHeadIndices[color] = litIndex;
 			}
 			color = getParent(color);
 			mLastColor = color;
@@ -307,18 +292,11 @@ public class DatatypeCycleInterpolator {
 				mLastColor = color;
 			} else {
 				// stop on the partition that doesn't see a switch anymore
-				if (literalInfo.isBorShared(color)) {
-					assert(false);
-					break;
-				}
+				assert !literalInfo.isBorShared(color);
 				// switch from B to A
 				if (literalInfo.isALocal(color)) {
-					if (mIsSelectRel) {
-						mStart[color] = mPath[litIndex * 2 - 1];
-					} else {
-						mStart[color] = mPath[litIndex * 2];
-					}
-					mStartIndices[color] = litIndex * 3;
+					mStart[color] = mPath[litIndex];
+					mStartIndices[color] = litIndex;
 				}
 			}
 			mLastColor = color;
@@ -334,17 +312,15 @@ public class DatatypeCycleInterpolator {
 			if (literalInfo.isAorShared(color)) {
 				break;
 			}
-			if (literalInfo.isMixed(color)) {
-				// close the A-Path
-				if (mStart[color] != null) {
-					mEnd[color] = literalInfo.getMixedVar();
-					mEndIndices[color] = litIndex * 3 + 1;
-					addCompletedAPath(color);
-				}
-				else {
-					mHead[color] = literalInfo.getMixedVar();
-					mHeadIndices[color] = litIndex * 3 + 1;
-				}
+			assert literalInfo.isMixed(color);
+			// close the A-Path
+			if (mStart[color] != null) {
+				mEnd[color] = literalInfo.getMixedVar();
+				mEndIndices[color] = litIndex;
+				addCompletedAPath(color);
+			} else {
+				mHead[color] = literalInfo.getMixedVar();
+				mHeadIndices[color] = litIndex;
 			}
 			// go up the tree
 			color = getParent(color);
@@ -364,7 +340,7 @@ public class DatatypeCycleInterpolator {
 			}
 			if (literalInfo.isMixed(color) ) {
 				mStart[color] = literalInfo.getMixedVar();
-				mStartIndices[color] = litIndex * 3 + 1;
+				mStartIndices[color] = litIndex;
 			}
 			mLastColor = color;
 			color = getMixedChild(color, literalInfo);
@@ -372,9 +348,9 @@ public class DatatypeCycleInterpolator {
 	}
 
 	//
-	private void closeAPathsForTesters(ApplicationTerm selTerm, int litIndex) {
+	private void closeAPathsForTesters(Term boundaryTerm, int litIndex) {
 		// get the occurrence of the tester
-		final Occurrence testerOcc = mTestersOccurrence.get(selTerm.getParameters()[0]);
+		final Occurrence testerOcc = mTestersOccurrence.get(boundaryTerm);
 		mAllInA.and(testerOcc.mInA);
 		int color = mLastColor;
 		// move up the tree and close A-paths for partitions that need to see a switch
@@ -387,12 +363,12 @@ public class DatatypeCycleInterpolator {
 			assert(testerOcc.isBLocal(color));
 			// close the A-Path
 			if (mStart[color] != null) {
-				mEnd[color] = selTerm.getParameters()[0];
-				mEndIndices[color] = litIndex * 3 + 2;
+				mEnd[color] = boundaryTerm;
+				mEndIndices[color] = litIndex;
 				addCompletedAPath(color);
 			} else {
-				mHead[color] = selTerm.getParameters()[0];
-				mHeadIndices[color] = litIndex * 3 + 2;
+				mHead[color] = boundaryTerm;
+				mHeadIndices[color] = litIndex;
 			}
 			// go up the tree
 			color = getParent(color);
@@ -404,8 +380,8 @@ public class DatatypeCycleInterpolator {
 	}
 
 	//
-	private void openAPathsForTesters(ApplicationTerm selTerm, int litIndex) {
-		final Occurrence testerOcc = mTestersOccurrence.get(selTerm.getParameters()[0]);
+	private void openAPathsForTesters(Term boundaryTerm, int litIndex) {
+		final Occurrence testerOcc = mTestersOccurrence.get(boundaryTerm);
 		int color = mLastColor;
 		color = getALocalChild(color, testerOcc);
 		// decrease the color to go down the Tree, while the occurrence is in A, and open the A Paths for those partitions
@@ -420,9 +396,9 @@ public class DatatypeCycleInterpolator {
 				}
 				// switch from B to A
 				if (testerOcc.isALocal(color)) {
-					// mStart[color] = mPath[litIndex * 2];
-					mStart[color] = selTerm.getParameters()[0];
-					mStartIndices[color] = litIndex * 3 + 2;
+					// mStart[color] = mPath[litIndex];
+					mStart[color] = boundaryTerm;
+					mStartIndices[color] = litIndex;
 				}
 			}
 			mLastColor = color;
