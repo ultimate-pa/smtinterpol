@@ -104,6 +104,7 @@ public class TermCompiler extends TermTransformer {
 			case "Int":
 			case "Real":
 			case "Array":
+			case "String":
 				/* okay */
 				break;
 			default:
