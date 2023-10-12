@@ -71,7 +71,7 @@ Special Skolem Variables: (_ skolem NUM VarDecl Term)
 Terms, Literal, Clause
 
 A Term is an SMT-LIB term, the sort can be annotated in brackets, e.g.
-with Term[bool] we describe the type off all SMT-LIB terms with sort Bool.
+with Term[bool] we describe the type of all SMT-LIB terms with sort Bool.
 
 A Literal is either a positive or a negative SMT-LIB term of sort Bool:
 

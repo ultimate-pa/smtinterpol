@@ -114,7 +114,7 @@ itself or the transformation of the input formula into clauses can be
 omitted and replaced by oracle steps.
 
 An input clause is represented by an annotated term with the annotation
-\verb+:cnf+.  This annotation can be followed by the name of the input
+\verb+:input+.  This annotation can be followed by the name of the input
 formula, provided the input formula has the \verb+:named+ attribute
 annotated.  In the simplest form, the clause is proved by a oracle
 axiom, and the annotation is put directly into the axiom.  When
@@ -135,10 +135,16 @@ via a resolution chain into simple lemmas.
 \subsection{Formula Transformation and Simplification}
 \label{simplayer}
 
-This section describes the intermediate proof format describing how
-input formulas are normalized based on equality rewrites.  This proof
-shows the equivalence of an input formula with a simpler formula.  These
+This section describes the intermediate proof format for rewrite proofs.
+Rewrite proofs proof an equality or equivalence, e.g., the equivalance
+of the input formula and the simplified formula. These
 kind of proofs are only present with proof-level equal to full.
+
+We use a special type \verb+.EqProof+ for equivalence proof.
+The base case is a rewrite proof that shows the equivalence of
+two terms based on syntactic patterns.  These equivalence proofs
+can then be combined by the transitivity or the congruence rule
+to produce large equivalence proofs.
 
 \paragraph{Lifting equalities.}  To recursively rewrite a formula
 \si uses the \textsc{congruence} and \textsc{quant} rule to lift
@@ -160,38 +166,39 @@ transitivity.
 
 These rules are represented in SMTLIB as functions
 \begin{verbatim}
-:funs ((@trans @Proof @Proof @Proof :left-assoc)
-       (@cong  @Proof @Proof @Proof :left-assoc)
-       (@exists @Proof @Proof)
-       (par (A) @refl A @Proof))
+:funs ((.trans .EqProof .EqProof .EqProof :left-assoc)
+       (.cong  .EqProof .EqProof .EqProof :left-assoc)
+       (.quant .EqProof .EqProof)
+       (par (A) .refl A .EqProof))
 \end{verbatim}
 
-The function \verb+@refl+ takes as argument a term $t$ and returns a
+The function \verb+.refl+ takes as argument a term $t$ and returns a
 proof for $t=t$.  It is mainly used in the first argument of
-\verb+@cong+ to indicate the rewritten function application.  The
-functions \verb+@trans+ and \verb+@cong+ take as arguments two proofs
+\verb+.cong+ to indicate the rewritten function application.  The
+functions \verb+.trans+ and \verb+.cong+ take as arguments two proofs
 for the terms as specified in the rules above and return a proof for
 the resulting goal, which can easily be computed.  The function
-\verb+@quant+ takes a proof for $F=G$.  To reconstruct the quantifier
+\verb+.quant+ takes a proof for $F=G$.  To reconstruct the quantifier
 and the variables \verb+((Sort x_1) ... (Sort x_n))+ they are added as
 an annotation to the argument.  It returns the proof for the exists
 equality.
 
 \paragraph{Rewrite axioms.}  The \textsc{rewrite} axiom introduces a
-new equality $t_1=t_2$ where side conditions for $t_1$ and $t_2$
+new equality $t_1=t_2$ proving that some term $t_1$ can be equivalently
+rewritten to the term $t_2$.  Side conditions for $t_1$ and $t_2$
 ensure that the equality is true.  They are introduced by a function
-\verb+@rewrite+ that takes the equality $t_1=t_2$ and
-returns a proof of the equality.
+\verb+.rewrite+ that takes the original term $t_1$ and the rewritten
+term $t_2$ and returns a proof of the equality.
 
 \begin{verbatim}
-:funs ((@rewrite bool @Proof))
+:funs ((par (A) .rewrite A A .EqProof))
 \end{verbatim}
 
-The equality is annotated by the rewrite rule, which explains why
+The original term $t_1$ is annotated by the rewrite rule, which explains why
 $t_1$ and $t_2$ should be equal. In the proof tree they appear as
 
 \begin{verbatim}
-  (@rewrite (! (= t1 t2) :rewrite-rule))
+  (@rewrite (! t1:rewrite-rule) t2)
 \end{verbatim}
 
 where \texttt{:rewrite-rule} is the name of one of the rules listed in
@@ -213,8 +220,7 @@ f(\overline{t}) = d[\overline{t}]
 Some internal functions are also defined as defined functions,
 e.\,g., the $abs\ x$ function is defined as $(ite\ (<\ x\ 0)\ (-\ x)\ x)$. Below is an example proof using this definition.
 \begin{verbatim}
-(@rewrite (! (= (abs (- z)) (ite (< (- z) 0) (- (- z) (- z))))
-             :expandDef))
+(@rewrite (! (abs (- z)) :expandDef) (ite (< (- z) 0) (- (- z)) (- z)))
 \end{verbatim}
 
 \paragraph{Expanding $n$-ary function applications.}  \si expands function
@@ -290,7 +296,7 @@ Equality simplification is split into several rules to ease proof validation.
   \quad\text{\begin{tabular}{l}where $t_{i'}$ are the terms in the same\\
       order with repeated terms removed\end{tabular}}
   \tag{eqSame}\\
-  (=\ t_1 \cdots t_n) &= (not\ (or\ (not\ (=\ t_1\ t_2)\dots(not\ (t_{n-1}\ t_n))
+  (=\ t_1 \cdots t_n) &= (not\ (or\ (not\ (=\ t_1\ t_2)) \dots (not\ (t_{n-1}\ t_n))))
   \quad\text{where $n > 2$}
   \tag{eqBinary}\\
   (=\ t_1\ t_2) &= (not\ (xor\ t_1\ t_2)) \quad\text{where $t_1,t_2$ are Boolean}
@@ -582,7 +588,7 @@ be converted separately into CNF.  Othere solvers use splitting rules to
 explain these steps, e.g.,
 
 \begin{mathpar}
-  \inferrule*[left=and-,right={$0\leq j\leq n$}]{(\smtlib{and}\ t_0\ldots t_n))}{t_j)}
+  \inferrule*[left=and-,right={$0\leq j\leq n$}]{(\smtlib{and}\ t_0\ldots t_n)}{t_j}
 \end{mathpar}
 
 We prefer to stick to resolution calculus, since then we can just
@@ -669,7 +675,7 @@ equality can be simplified to false, if $c_0/gcd$ is not an integer.
     (=\ \cf(-t/gcd)\ 0)
   \end{cases}
   \tag{intern}\\
-  (<=\ t\ 0) &= \begin{cases} 
+  (<=\ t\ 0) &= \begin{cases}
     (<=\ \cf(t/gcd)\ 0) \\
     (not\ (<\ \cf(-t/gcd)\ 0)) &\text{(real case)}\\
     (not\ (<=\ \cf(-t/gcd + 1)\ 0))& \text{(integer case)}
@@ -681,14 +687,12 @@ equality can be simplified to false, if $c_0/gcd$ is not an integer.
 \paragraph{Tautologies.}
 For some introduced terms or literals a corresponding tautology is
 created during the transformation into CNF.  These tautologies are
-clauses that are annotated with the kind of the tautology.
+clauses that are annotated with the kind of the tautology.  These
+are the same tautologies that were used to split input formulas into
+clauses.
 
 Table~\ref{tab:tautforms} lists the different kinds of tautologies present
-in \si.  Here $F$ denotes formulas, $t$ denotes terms,
-and $t_F$ denotes the term corresponding to $F$\footnote{In the proof returned
-  by \si, $t_F$ and $F$ are equal.  The distinction is only done internally
-  since $F$ is a Boolean term handled by the DPLL core and $t_F$ is the term
-  used by congruence closure.}.
+in \si.  Here $ F_1,\dots, F_n$ denote formulas, i.e., boolean SMT-LIB terms.
 \si internally collects the disjunctive parts of the individual formulas.
 
 The \texttt{termITE} tautology defines the meaning of non-boolean
@@ -755,12 +759,9 @@ arithmetic.
 
 In low-level proofs a lemma is indicated by annotating its proof with
 the lemma annoation and the proved clause.  If low-level proofs are
-not active, a lemma is created by the \verb+@lemma+ function, which
+not active, a lemma is created by the \verb+oracle+ axiom, which
 takes as argument the proved clause that is annotated with some theory
 specific annotations.
-\begin{verbatim}
-:funs ((@lemma bool @Proof))
-\end{verbatim}
 
 \paragraph{Congruence Closure}
 
@@ -770,47 +771,45 @@ and congruence.  A transitivity proves a lemma of the form ${t_1 = t_2}
 represented by an SMTLIB term as follows:
 
 \begin{verbatim}
-(@lemma (! (or (= t1 tn)
-               (not (= t1 t2)) ... (not (= tn-1 tn)))
-           :trans (t1 t2 ... tn))))
+(oracle (+(= t1 tn)
+         -(= t1 t2) ... -(= tn-1 tn))
+        :trans (t1 t2 ... tn))
 \end{verbatim}
 
 The annotation \verb+:trans+ marks this as a transitivity lemma.  Its
-annotation is the path of terms the transitivity traverses.  The
+annotation is the path of the terms the transitivity traverses.  The
 equality proved by the transitivity is between the end points of this
-path.  This equality should occur positively in the clause, unless it
-is trivially false, e.g. $x = x+1$ or $2x = 2y+1$ where $x,y$ are
-integer.  The annotaion explains why the proved equality follows from
-the other equalities and for each adjacent terms in the path the
-corresponding negated equality must exists in the clause.  The
-literals in the clause can appear in any order, and the arguments of
-the equality literals can be swapped.
+path.  This equality should occur positively in the clause.
+For each adjacent pair of terms in the annotation, the
+corresponding negated equality must occur in the clause.  The
+literals in the clause can appear in any order, and the two sides of
+the equality can be swapped.
 
 The other type of lemma proves a congruence of the form $f(t_1, \dots,
 t_n)\neq f(t'_1,\dots,t'_n) \lor t_1=t_1' \lor \cdots \lor t_n=t_n'$.
 It is represented very similarly by the following SMTLIB term.
 
 \begin{verbatim}
-(@lemma (! (or (= (f t1...tn) (f t'1...t'n))
-               (not (= t1 t'1)) ... (not (= tn t'n)))
-           :cong ((f t1...tn) (f t'1...t'n))
+(oracle (+(= (f t1...tn) (f t'1...t'n))
+         -(= t1 t'1) ... -(= tn t'n))
+        :cong ((f t1...tn) (f t'1...t'n)))
 \end{verbatim}
 
 The argument of the annotation is the proved congruence, which should
 occur as an equality in the clause.  For each argument of the
 congruent terms the equality between $t_i$ and $t'_i$ should appear
 negatively in the clause, unless they are identical.  Again, the
-literals in the clause can appear in any order, and the arguments of
-the equality literals can be swapped.
+literals in the clause can appear in any order, and the sides of
+the equality can be swapped.
 
 \paragraph{Array Lemma}
 \todo{cite weak equivalence paper, and const, present rules}
 
 \begin{verbatim}
-(@lemma (! (or (= (select a i) (select b j))
-               (not (= i j)) ...)
+(oracle (+(= (select a i) (select b j)))
+         -(= i j) ...
   :read-over-weakeq ((= (select a i) (select b j))
-                     :weakpath (i (a ... b)))))
+                     :weakpath (i (a ... b))))
 \end{verbatim}
 The negated equality $i\neq j$ is omitted if $i$ and $j$ are identical.
 For any two adjacent terms in the weak path of this lemma, there must be either
@@ -820,9 +819,9 @@ a (non-negated) equality $i=k$ in the clause (i.e., the conflict guarantees $i\n
 The equality $i=k$ is omitted if it is trivially false, e.g., for $k = i+1$.
 
 \begin{verbatim}
-(@lemma (! (or (= (select a i) v) ...)
+(oracle (+ (= (select a i) v) ...)
   :read-const-weakeq ((= (select a i) v)
-                      :weakpath (i (a ... const v)))))
+                      :weakpath (i (a ... const v))))
 \end{verbatim}
 Again, for any two adjacent terms in the weak path of this lemma, there must be either
 (1) a corresponding negated equality in the clause, or (2) one of the term must be of
@@ -833,22 +832,22 @@ Note: For \verb+:read-const-weakeq+, if $a = (const\ v)$, the weak path
 contains only one element.  This is the only reason why one can have a
 path of length one.
 \begin{verbatim}
-(@lemma (! (or (= a b) ...)
+(oracle (+ (= a b) ...)
   :weakeq-ext ((= a b)
                :subpath (a ... b)
                :weakpath (i1 (a ... b))...
-               :weakpath (in (a ... b)))))
+               :weakpath (in (a ... b))))
 \end{verbatim}
 For any two adjacent terms in the sub path of this lemma, there must be either
 (1) a corresponding negated equality in the clause, or (2) one of the term must be of
-the form $(store\ a i_j \cdot)$ where $a$ is the other term and there is a corresponding
-weak path on index $i_j$.  For each adjecent terms $t_1,t_2$ in the weak path, there must be
+the form $(store\ a\ i_j\ \cdot)$ where $a$ is the other term and there is a corresponding
+weak path on index $i_j$.  For each adjacent terms $t_1,t_2$ in the weak path, there must be
 (1) a corresponding negated equality in the clause, or (2) one of the term must be of
-the form $(store\ a k \cdot)$ where $a$ is the other term and there is a
+the form $(store\ a\ k\ \cdot)$ where $a$ is the other term and there is a
 (non-negated) equality $i_j=k$ in the clause (i.e., the conflict guarantees $i_j\neq k$),
 (3) some $i,j$ exists such that the clause contains the negated equalities
 $i_k\neq i$, $i_k\neq j$, and $(select\ t_1\ i) \neq (select\ t_2\ j)$, or
-(4) $t_2 = (const\ v)$ and $i$ exists such that the clause contains
+(4) $t_2$ is the term $(const\ v)$ and $i$ exists such that the clause contains
 $i_k\neq i$ and $(select\ t_1\ i) \neq v$ (or analogously for $t_1=(const\ v)$.
 Note that in case (3) and (4) the term for which $(select t i)$ should exists, can itself
 be a const term.  There is no annotation giving the terms $i,j$ in case (3) or (4); these
@@ -857,9 +856,9 @@ Again, the equality $i=k$ is omitted if it is trivially false, e.g., for $k = i+
 disequality $i_k \neq i$ is omitted if the indices are identical.
 
 \begin{verbatim}
-(@lemma (! (or (= (const v) (const v')) ...)
+(oracle (+(= (const v) (const v')) ...)
   :const-weakeq ((= (const v) (const v'))
-                 :subpath ((const v) ... (const v')))))
+                 :subpath ((const v) ... (const v'))))
 \end{verbatim}
 For any two adjacent terms in the subpath of this lemma, there must be either
 a corresponding negated equality in the clause, or one of the term must be of
@@ -892,7 +891,7 @@ order as the literals in the lemma.  For example if $t_1 + t_2 - t_3 =
 0$, the following lemma explains why $t_1 < 0 \land t_2 = 0 \land t_3
 >= 0$ is unsatisifiable.
 \begin{verbatim}
-(@lemma (! (or (not (< t1 0)) (not (= t2 0)) (< t3 0))
+(oracle (- (< t1 0) -(= t2 0) +(< t3 0))
   :LA (1 1 (- 1))))))
 \end{verbatim}
 
@@ -905,12 +904,12 @@ if the literal contains only integer variables.
 A positive equality literal can only appear in a trichotomy lemma.
 This lemma explains $t \leq 0 \rightarrow t < 0 \lor t=0$ and has the form
 \begin{verbatim}
-(@lemma (! (or (< t 0) (= t 0) (not (<= t 0))) :trichotomy))
+(oracle (+(< t 0) +(= t 0) -(<= t 0)) :trichotomy)
 \end{verbatim}
 The literals may appear in any order in the clause.  For integer
 arithmetic the literals never use $<$ and the lemma has the form.
 \begin{verbatim}
-(@lemma (! (or (<= "t+1" 0) (= t 0) (not (<= t 0))) :trichotomy))
+(oracle (+(<= "t+1" 0) +(= t 0) -(<= t 0)) :trichotomy)
 \end{verbatim}
 Here \verb|"t+1"| stands for the canonical form of $t+1$.
 
@@ -918,22 +917,33 @@ There are no cut lemmas in \si.  Instead \si uses extended branches on
 linear integer terms.  Branching is not part of any theory lemma and
 is handled by the resolution proof.
 
-\paragraph{Nelson-Oppen Combination}
+\paragraph{Nelson--Oppen Combination}
 
-These lemmas are a bit special as they are created by linear
-arithmetic and by congruence closure to propagate equalities to the
-other theory.  We use slightly different representation of equalities
-in these theories.  As explained earlier in congruence closure an
-equality $t_1=t_2$ is represented as $(=\ t_1\ t_2)$,
-while in linear arithmetic it is $(=\ \cf_{gcd}(t_1-t_2)\ 0)$.
-To connect these literals, we use Nelson-Oppen theory lemmas of the form.
+Internally the solver distinguishes between equalities in LA and CC.
+In an LA equality the right hand-side is always normalized to 0 and
+the left-hand side is in canonical form.  In CC equalities can be
+between arbitrary terms and we can even have multiple equivalent equalities
+like \verb|(= a (+ b c))|  and \verb|(= (+ a (- c)) b)|.   Also to distinguish
+CC equalities from LA equalities, CC equalities can have the term 0 only
+on the left-hand side.  We never generate reflexive equalities \verb|(= x x)| and
+we treat equality as symmetric in all lemmas.
+
+To propagate CC equalities to LA or vice versa, we generate Nelson--Oppen
+lemmas of the form
 \begin{verbatim}
-(@lemma (! (or (= t1 t2) (not (= "t1-t2" 0))) :EQ))
+(oracle (+ (= (* 2 a) (*4 b))  - (= (+ a (* (- 2) b)) 0)) :EQ)
 \end{verbatim}
 This propagates an equality from linear arithmetic to congruence
 closure.  A similar lemma where the literals occur in the opposite
 polarity is created to propagate an equality from congruence closure
 to linear arithmetic.
+
+In some cases the congruence closure equality is equivalent to false
+in linear arithmetic, especially in integer arithmetic. In that case the
+lemma contains only the negated CC literal:
+\begin{verbatim}
+(oracle (- (= (+ a (* 2 b) 1) a)) :EQ)
+\end{verbatim}
 
 \section{Implementation}
 After presenting the set of rules used by \si, we now describe some
@@ -959,7 +969,7 @@ sugar and consider different let terms that expand to the same proof
 DAG to be identical.  The expansion process simply replaces any
 reference to the let variable to the reference of the term that is
 bound to it.  This does not create more terms, as all previous
-occurences of references to the let variable are only changed to
+occurrences of references to the let variable are only changed to
 references to the shared term.
 
 When working on term DAGs, it is very important to keep a cache of
@@ -979,17 +989,24 @@ important to not iterate them more than once.
 
 
 \section{Proof Terms in \si}
-Proofs are represented as terms of sort \verb+@Proof+ in \si.  Note that the
-\verb+@+ is part of the name of the sort to prevent unintentional clashes with
+Proofs are represented as terms and can be seen as a term of sort
+\verb+.Proof+ in \si.  Note that the
+\verb+.+ is part of the name of the sort to prevent unintentional clashes with
 user-defined sorts since \verb+@+ and \verb+.+ are reserved for solvers in the
 SMTLIB standard.
 
+Clauses are a list of positive or negated atoms $p$ or $\lnot p$, where $p$ is
+an SMT-LIB term of sort \verb+Bool+.  In the proof format they can be
+proved from the ground axioms or -- depending on proof level -- asserted
+as oracles
+\verb|(oracle (+ p1 - p2) :explanation)|
+If the lemmas were explained by ground axioms, the lemma explanation and
+the result of the CNF conversion is still appended as annotation to the subproof
+\verb|(! subproof :proves (+ p1 - p2) :explanation)|.
+This simplifies the work for the interpolator.
+
 There are several rules to convert a Boolean formula into a proof.  In the
 following we will show these rules and discuss their annotations.
-
-\paragraph{Showing Results.}  The rules in SMTLIB format produce an implicit
-result.  To simplify the work for the interpolator, \si appends the
-results of CNF conversion and lemmas to their proof.
 
 \section{Example Proof}
 In this section, we show the proof produced by \si for the
@@ -1000,23 +1017,23 @@ On the clauses level, the proof just gives the results of the CNF
 conversion and the produced theory lemmas.  The result of the CNF
 conversion are two unit clauses:
 \begin{verbatim}
-(@clause (! (@asserted (= (+ z (* (- 2) x)) 0)) :input))
-(@clause (! (@asserted (= (+ (* 2 y) (* (- 1) z) 1) 0)) :input))
+(oracle (+ (= (+ z (* (- 2) x)) 0)) :input)
+(oracle (+ (= (+ (* 2 y) (* (- 1) z) 1) 0)) :input)
 \end{verbatim}
 
-The solver internally generates a cut on $y-x +1 \leq 0$ and uses two
+The solver internally generates a cut on $y - x +1 \leq 0$ and uses two
 theory lemmas that show that both the cut and its negation are
 inconsistent with the input clauses.  The annotation gives the
 Farka\'{s} coefficients for each literal.
 \begin{verbatim}
-(@lemma (! (or (not (= (+ z (* (- 2) x)) 0))
-               (not (= (+ (* 2 y) (* (- 1) z) 1) 0))
-               (<= (+ y (* (- 1) x) 1) 0))
-               :LA (1 1 (- 2))))
-(@lemma (! (or (not (<= (+ y (* (- 1) x) 1) 0))
-               (not (= (+ z (* (- 2) x)) 0))
-               (not (= (+ (* 2 y) (* (- 1) z) 1) 0)))
-               :LA (2 (- 1) (- 1))))
+(oracle (- (= (+ z (* (- 2) x)) 0)
+         - (= (+ (* 2 y) (* (- 1) z) 1) 0)
+         + (<= (+ y (* (- 1) x) 1) 0))
+         :LA (1 1 (- 2)))
+(oracle (- (<= (+ y (* (- 1) x) 1) 0)
+         - (= (+ z (* (- 2) x)) 0)
+         - (= (+ (* 2 y) (* (- 1) z) 1) 0))
+        :LA (2 (- 1) (- 1)))
 \end{verbatim}
 
 The two input clauses and the two lemma clauses are then just combined by
@@ -1024,7 +1041,7 @@ three application of the resolution rule to obtain the clause level proof.
 For brevity, we omit the pivot literals here.
 
 \begin{verbatim}
-  (@res (@res .lemma1 .lemma2) .cnf1 .cnf2)
+  (res (res (res .lemma1 .lemma2) .cnf1) .cnf2)
 \end{verbatim}
 
 If proof-level is set to full, the cnf conversion is explained in more
@@ -1037,17 +1054,15 @@ these terms is used and then the \textsc{iff-} tautology is used
 together with the intern rule to prove the clause $z-2x=0$ from the
 input.
 
+Here is an example CNF conversion of the input $2x=z$:
 \begin{verbatim}
-(@clause (!
- (@res 
-   (@res (@asserted (and (= (* 2 x) z) (= (+ (* 2 y) 1) z)))
-         (@tautology (! (or (not (and (= (* 2 x) z) (= (+ (* 2 y) 1) z)))
-                            (= (* 2 x) z)) :and-)))
-
-   (@tautology (! (or (not (= (= (* 2 x) z) (= (+ z (* (- 2) x)) 0)))
-                      (not (= (* 2 x) z)) (= (+ z (* (- 2) x)) 0)) :=-2))
-   (@rewrite (! (= (= (* 2 x) z) (= (+ z (* (- 2) x)) 0)) :intern)))
- :proves ((= (+ z (* (- 2) x)) 0)) :input))
+(! (res (= (* 2 x) z)
+     (res (and (= (* 2 x) z) (= (+ (* 2 y) 1) z))
+       (assume (and (= (* 2 x) z) (= (+ (* 2 y) 1) z)))
+       (oracle (- (and (= (* 2 x) z) (= (+ (* 2 y) 1) z)) + (= (* 2 x) z)) :and-))
+     (oracle (- (= (* 2 x) z) + (= (+ z (* (- 2) x)) 0))
+       :rewrite (.rewrite (! (= (* 2 x) z) :intern) (= (+ z (* (- 2) x)) 0))))
+  :proves (+ (= (+ z (* (- 2) x)) 0)) :input)
 \end{verbatim}
 
 \end{document}
