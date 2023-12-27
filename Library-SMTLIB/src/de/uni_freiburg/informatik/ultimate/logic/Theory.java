@@ -879,10 +879,10 @@ public class Theory {
 
 			@Override
 			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
-				assert indices.length == 1;
-				assert paramSorts.length == 1 && paramSorts[0].isNumericSort();
-				assert paramSorts[0].getName().equals("Int");
-				assert resultSort == null;
+				if (indices == null || indices.length != 1 || paramSorts.length != 1
+						|| !paramSorts[0].getName().equals("Int") || resultSort != null) {
+					return null;
+				}
 				return mBitVecSort.getSort(indices);
 			}
 		}
