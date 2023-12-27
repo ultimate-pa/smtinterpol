@@ -864,7 +864,7 @@ public class Theory {
 
 			@Override
 			public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
-				if (indices != null || paramSorts.length != 1 || !paramSorts[0].getName() != "BitVec" || resultSort != null) {
+				if (indices != null || paramSorts.length != 1 || paramSorts[0].getName() != "BitVec" || resultSort != null) {
 					return null;
 				}
 				return mNumericSort;				
