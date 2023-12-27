@@ -856,10 +856,10 @@ public class Theory {
 				return paramSorts[0];
 			}
 		}
-		class Bv2IntFunction extends FunctionSymbolFactory {
-			public Bv2IntFunction(final String name) {
+		class Bv2NatFunction extends FunctionSymbolFactory {
+			public Bv2NatFunction(final String name) {
 				super(name);
-				assert name.equals("bv2int") : "Wrong name: " + name;
+				assert name.equals("bv2nat") : "Wrong name: " + name;
 			}
 
 			@Override
@@ -871,10 +871,10 @@ public class Theory {
 				return mNumericSort;
 			}
 		}
-		class Int2BvFunction extends FunctionSymbolFactory {
-			public Int2BvFunction(final String name) {
+		class Nat2BvFunction extends FunctionSymbolFactory {
+			public Nat2BvFunction(final String name) {
 				super(name);
-				assert name.equals("int2bv") : "Wrong name: " + name;
+				assert name.equals("nat2bv") : "Wrong name: " + name;
 			}
 
 			@Override
@@ -982,8 +982,8 @@ public class Theory {
 		declareInternalFunctionFactory(new RegularBitVecFunction("bvsge", 2, mBooleanSort,
 				FunctionSymbol.INTERNAL | FunctionSymbol.CHAINABLE));
 
-		declareInternalFunctionFactory(new Bv2IntFunction("bv2int"));
-		declareInternalFunctionFactory(new Int2BvFunction("int2bv"));
+		declareInternalFunctionFactory(new Bv2NatFunction("bv2nat"));
+		declareInternalFunctionFactory(new Nat2BvFunction("nat2bv"));
 
 
 
