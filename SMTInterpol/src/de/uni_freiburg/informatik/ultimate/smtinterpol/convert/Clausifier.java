@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
+import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1064,6 +1065,10 @@ public class Clausifier {
 					} else if (fs.getName().equals(SMTInterpolConstants.DIFF)) {
 						addDiffAxiom(at, source);
 						mArrayTheory.notifyDiff((CCAppTerm) ccTerm);
+					} else if (fs.getName().equals("bv2nat")) {
+						addBitvectorBoundAxioms(at, ccTerm);
+					} else if (fs.getName().equals("nat2bv")) {
+						addNat2BvAxiom(at, ccTerm);									
 					}
 				}
 
@@ -1130,6 +1135,36 @@ public class Clausifier {
 		if (!mIsRunning) {
 			run();
 		}
+	}
+	
+	/*
+	 * Adds the Axiom that nat2bv(x) equals x mod width
+	 * Thereby gives an interpretation for nat2bv
+	 */
+	private void addNat2BvAxiom(ApplicationTerm at, CCTerm ccTerm) {
+		final int width = Integer.valueOf(at.getSort().getIndices()[0]);	
+		final BigInteger two = BigInteger.valueOf(2);
+		// maximal representable number by a bit-vector of width "width"
+		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE), mTheory.getSort(SMTLIBConstants.INT));
+		
+		//TODO add Axiom: at =  mTheory.term("mod", at.getParameters()[0], maxNumber ))  ; 
+	}
+
+	/*
+	 * These method adds Axiom to the Clausifier of the form
+	 * 0 leq ccTerm leq maxNumber
+	 * 
+	 *  At this point, we assume that the parameter of bv2nat can only be an uninterpreted function symbol.
+	 */
+	private void addBitvectorBoundAxioms(ApplicationTerm at, CCTerm ccTerm) {
+		final int width = Integer.valueOf(at.getParameters()[0].getSort().getIndices()[0]);	
+		final BigInteger two = BigInteger.valueOf(2);
+		// maximal representable number by a bit-vector of width "width"
+		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE), mTheory.getSort(SMTLIBConstants.INT));
+		
+		
+		//TODO add Axiom
+		
 	}
 
 	/**
@@ -1269,6 +1304,8 @@ public class Clausifier {
 			case SMTLIBConstants.CONST:
 			case "@EQ":
 			case "is":
+			case "bv2nat":
+			case "nat2bv":
 				return true;
 			case "div":
 			case "mod":
@@ -2252,6 +2289,9 @@ public class Clausifier {
 			setupDataTypeTheory();
 		}
 		if (logic.isArithmetic()) {
+			setupLinArithmetic();
+		}
+		if (logic.isBitVector()) {
 			setupLinArithmetic();
 		}
 		if (logic.isQuantified()) {

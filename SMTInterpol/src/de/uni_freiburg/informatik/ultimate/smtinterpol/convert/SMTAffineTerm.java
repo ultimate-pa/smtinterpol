@@ -194,7 +194,7 @@ public final class SMTAffineTerm {
 	public static Rational convertConstant(final ConstantTerm term) {
 		Rational constant;
 		final Object value = term.getValue();
-		if (value instanceof BigInteger) {
+		if (value instanceof BigInteger) { //TODO value of bitvec constant can be String!
 			constant = Rational.valueOf((BigInteger) value, BigInteger.ONE);
 		} else if (value instanceof BigDecimal) {
 			final BigDecimal decimal = (BigDecimal) value;

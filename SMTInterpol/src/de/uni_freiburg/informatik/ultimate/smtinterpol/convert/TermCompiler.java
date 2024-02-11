@@ -45,6 +45,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvToIntUtils;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
@@ -63,6 +65,7 @@ public class TermCompiler extends TermTransformer {
 
 	private IProofTracker mTracker;
 	private LogicSimplifier mUtils;
+	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -105,6 +108,7 @@ public class TermCompiler extends TermTransformer {
 			case "Int":
 			case "Real":
 			case "Array":
+			case "BitVec":
 				/* okay */
 				break;
 			default:
@@ -194,9 +198,13 @@ public class TermCompiler extends TermTransformer {
 	public void convertApplicationTerm(final ApplicationTerm appTerm, final Term[] args) {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
-
+		final BvUtils bvUtils = new BvUtils(theory, mUtils);
+		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
+		//TODO make it an option
+		final boolean eagerMod = false;		
+		
 		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
-		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {
+		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {		
 			setResult(convertedApp);
 			return;
 		}
@@ -220,6 +228,10 @@ public class TermCompiler extends TermTransformer {
 		}
 
 		if (fsym.isIntern()) {
+			if (fsym.getName().matches(BITVEC_CONST_PATTERN)) {
+				setResult(bvToIntUtils.translateBvConstant(fsym, convertedApp, eagerMod));
+				return;
+			}
 			switch (fsym.getName()) {
 			case "not":
 				setResult(mUtils.convertNot(convertedApp));
@@ -240,6 +252,12 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
+				if(params[0].getSort().isBitVecSort()) { //TODO probably doesnt work for nested =
+					final boolean eagerModulo = false; //TODO deal with eagerModulo and lazyModulo		
+					setResult(mUtils.convertEq(theory.term("=", bvToIntUtils.bv2nat(params[0], eagerModulo) , bvToIntUtils.bv2nat(params[1], eagerModulo) )));
+					//TODO proof tracker
+					return;				
+				}
 				setResult(mUtils.convertEq(convertedApp));
 				return;
 			case "distinct":
@@ -524,6 +542,143 @@ public class TermCompiler extends TermTransformer {
 					throw new SMTLIBException("Const is only supported for infinite index sort");
 				}
 				break;
+			}
+			case "concat": {
+				setResult(bvUtils.transformConcat(params, fsym, convertedApp));
+				return;
+			}
+			case "bvsub":
+				// pushTerm(theory.term("bvadd", params[0], theory.term("bvneg", params[1])));
+			case "bvudiv":
+			case "bvurem": {
+				setResult(bvUtils.transformBvArithmetic(params, fsym, convertedApp));
+				return;
+			}
+			case "bvadd":{
+				//Hilfsfuktion für theory.term"bv2nat" die in dn parameter schaut und gegebenfalls simpifiziert
+				final Term transformedBvadd = 
+						bvToIntUtils.nat2bv(theory.term("+", bvToIntUtils.bv2nat(params[0],eagerMod), 
+								bvToIntUtils.bv2nat(params[1],eagerMod)), params[0].getSort().getIndices(),  eagerMod); 				
+				bvToIntUtils.trackBvToIntProof(appTerm, (ApplicationTerm) convertedApp, transformedBvadd, false,
+						mTracker, "+", ProofConstants.RW_BVADD2INT);
+				
+//				setResult(bvUtils.transformBvaddBvmul(params, fsym));
+				setResult(transformedBvadd); //psuhterm?
+				return ;
+			}
+			
+			
+
+
+			
+			case "bvmul": {				
+				setResult(bvUtils.transformBvaddBvmul(params, fsym));
+				return;
+			}
+			case "bvand":
+			case "bvor": {
+				setResult(bvUtils.transformBitwise(params, fsym));
+				return;
+			}
+			case "bvlshr":
+			case "bvshl": {
+				setResult(bvUtils.transformShift(params, fsym, convertedApp));
+				return;
+			}
+			case "bvneg": {
+				setResult(bvUtils.transformBvneg(params, fsym, convertedApp));
+				return;				
+			}
+			case "bvnot": {
+				setResult(bvUtils.transformBvnot(params, fsym, convertedApp));
+				return;
+			}
+			case "bvuge":
+			case "bvslt":
+			case "bvule":
+			case "bvsle":
+			case "bvugt":
+			case "bvsgt":
+			case "bvsge":
+			case "bvult": {
+				setResult(bvUtils.transformInequality(params, fsym, convertedApp));
+				return;
+			}
+			case "extract": {
+				setResult(bvUtils.transformExtract(params, fsym));
+				return;
+			}
+			case "bvnand":{
+				// (bvnand s t) abbreviates (bvnot (bvand s t))
+				pushTerm(theory.term("bvnot", theory.term("bvand", params)));
+				return;
+			}
+			case "bvnor": {
+				// (bvnor s t) abbreviates (bvnot (bvor s t))
+				pushTerm(theory.term("bvnot", theory.term("bvor", params)));
+				return;
+			}
+			case "bvxor": {
+				assert params.length == 2;
+				pushTerm(bvUtils.transformBvxor(params));
+				return;
+			}
+			case "bvxnor": {
+				assert params.length == 2;
+				pushTerm(bvUtils.transformBvxnor(params));
+				return;
+			}
+			case "bvcomp": {
+				pushTerm(bvUtils.transformBvcomp(params));
+				return;	
+			}
+
+			case "bvsdiv": {
+				pushTerm(bvUtils.transformBvsdiv(params));
+				return;	
+			}
+			case "bvsrem": {
+				pushTerm(bvUtils.transformBvsrem(params));
+				return;	
+			}
+			case "bvsmod": {
+				pushTerm(bvUtils.transformBvsmod(params));
+				return;	
+			}
+			case "bvashr": {
+				pushTerm(bvUtils.transformBvashr(params));
+				return;	
+			}
+			case "repeat": {
+				setResult(bvUtils.transformRepeat(params, fsym, convertedApp));
+				return;	
+			}
+			case "zero_extend": {
+				// abbreviates (concat ((_ repeat i) #b0) t)
+				if (fsym.getIndices()[0].equals("0")) {
+					setResult(params[0]);
+					return;
+				} else {
+					String repeat = "#b0";
+					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
+						repeat = repeat + "0";
+					}
+					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
+					return;
+				}
+			}
+			case "sign_extend": {
+				setResult(bvUtils.transformSignExtend(params, fsym, convertedApp));
+				return;	
+			}
+
+			case "rotate_left": {
+				setResult(bvUtils.transformRotateleft(params, fsym, convertedApp));
+				return;	
+			}
+			case "rotate_right": {		
+				setResult(bvUtils.transformRotateright(params, fsym, convertedApp));
+				return;				
 			}
 			case "true":
 			case "false":
