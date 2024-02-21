@@ -185,19 +185,28 @@ public class TermCompiler extends TermTransformer {
 				pushTerms(conjs);
 				return;
 			}
+			if(term.getSort().isBitVecSort() && appTerm.getParameters().length == 0 && !fsym.isIntern()) {
+//				final Theory theory = appTerm.getTheory();
+//				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
+//				final Term rhs = bvToIntUtils.bv2nat(appTerm, mEagerMod);
+//				final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
+//				setResult(rewrite);
+//				return;
+				//TODO we just do nothing here?
+			}
 		} else if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
 			final Term res = SMTAffineTerm.convertConstant((ConstantTerm) term).toTerm(term.getSort());
 			setResult(mTracker.buildRewrite(term, res, ProofConstants.RW_CANONICAL_SUM));
 			return;
 		} else if (term instanceof ConstantTerm && term.getSort().isBitVecSort()) {
 			final Theory theory = term.getTheory();
-			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
+			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null);
 			setResult(bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod));
 			return;
 		} else if (term instanceof TermVariable) {
 			if (term.getSort().isBitVecSort()) {
 				final Theory theory = term.getTheory();
-				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
+				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null);
 				setResult(bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod));
 			} else {
 				setResult(mTracker.reflexivity(term));
@@ -212,7 +221,8 @@ public class TermCompiler extends TermTransformer {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
 		final BvUtils bvUtils = new BvUtils(theory, mUtils);
-		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
+		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils);
+
 		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
 		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {
 			setResult(convertedApp);
@@ -566,38 +576,20 @@ public class TermCompiler extends TermTransformer {
 				setResult(bvUtils.transformBvArithmetic(params, fsym, convertedApp));
 				return;
 			}
+			case "bvmul":
 			case "bvadd": {
-				// Hilfsfuktion für theory.term"bv2nat" die in dn parameter schaut und
-				// gegebenfalls simpifiziert
-				final Term transformedBvadd = bvToIntUtils.nat2bv(
-						theory.term("+", bvToIntUtils.bv2nat(params[0], mEagerMod),
-								bvToIntUtils.bv2nat(params[1], mEagerMod)),
-						params[0].getSort().getIndices(), mEagerMod);
-				// Term transformedBvadd = theory.term("nat2bv", appTerm.getSort().getIndices(), null,
-				// theory.term("+", theory.term("bv2nat",params[0]),
-				// theory.term("bv2nat",params[1])) );
-				final Term profedTransformedBvadd = bvToIntUtils.trackBvToIntProof(appTerm, (ApplicationTerm) convertedApp,
-						transformedBvadd, false, mTracker, "+", ProofConstants.RW_BVADD2INT);
-
-				// setResult(bvUtils.transformBvaddBvmul(params, fsym));
-				pushTerm(profedTransformedBvadd); // psuhterm?
+				setResult(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
-			case "bv2nat": {				
+			case "bv2nat": {
+				//Term should only contain bv2nat around uninterpreted functions / constants
 				setResult(bvToIntUtils.bv2nat(params[0], mEagerMod));
 				return;
-				
-//				throw new UnsupportedOperationException("Should be dealt with directly");
 			}
 			case "nat2bv": {
-				setResult(bvToIntUtils.nat2bv(params[0],appTerm.getSort().getIndices(), mEagerMod));
-				return;
-//				throw new UnsupportedOperationException("Should be dealt with directly");
+				throw new UnsupportedOperationException("Should be dealt with directly");
 			}
-			case "bvmul": {
-				setResult(bvUtils.transformBvaddBvmul(params, fsym));
-				return;
-			}
+		
 			case "bvand":
 			case "bvor": {
 				setResult(bvUtils.transformBitwise(params, fsym));

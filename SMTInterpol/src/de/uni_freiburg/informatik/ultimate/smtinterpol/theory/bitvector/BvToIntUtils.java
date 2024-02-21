@@ -21,10 +21,11 @@ public class BvToIntUtils {
 	
 	private final Theory mTheory;
 	private final LogicSimplifier mUtils;
-
-	public BvToIntUtils(final Theory theory, final LogicSimplifier utils) {
+	private final BvUtils mBvUtils;
+	public BvToIntUtils(final Theory theory, final LogicSimplifier utils, BvUtils bvutils) {
 		mTheory = theory;
 		mUtils = utils;
+		mBvUtils = bvutils;
 	}
 	
 	
@@ -145,6 +146,37 @@ public class BvToIntUtils {
 	public Term translateTermVariable(TermVariable term, boolean mEagerMod) {
 		throw new UnsupportedOperationException("TODO: translate TermVariable");
 	}
+	
+
+	public Term translateBvArithmetic(IProofTracker tracker, final ApplicationTerm appTerm, Term convertedApp, boolean eagerMod) {
+		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
+		if (mBvUtils.isConstRelation(params[0], params[1])) {
+			return mBvUtils.simplifyArithmeticConst(appTerm.getFunction(), params[0], params[1]);
+		}	
+		String integerFunctionSymbol = "";
+		switch (appTerm.getFunction().getName()) {
+		case "bvadd": {
+			integerFunctionSymbol = "+";
+			break;
+		}
+		case "bvmul":{
+			integerFunctionSymbol = "*";
+			break;
+		}
+		default:{
+			throw new UnsupportedOperationException("Not an artihmetic BitVector Function: " + appTerm.getFunction().getName());	
+			}
+		}	
+		Term transformedBvadd = nat2bv(
+				mTheory.term(integerFunctionSymbol, bv2nat(params[0], eagerMod),
+						bv2nat(params[1], eagerMod)),
+				params[0].getSort().getIndices(), eagerMod);
+		Term profedTransformedBvadd = trackBvToIntProof(appTerm, (ApplicationTerm) convertedApp,
+				transformedBvadd, false, tracker, integerFunctionSymbol, ProofConstants.RW_BVMUL2INT);
+		return profedTransformedBvadd;
+		
+	}
+	
 }
 
 

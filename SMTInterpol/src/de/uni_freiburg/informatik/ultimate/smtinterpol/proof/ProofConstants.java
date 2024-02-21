@@ -142,6 +142,8 @@ public interface ProofConstants {
 	public final static  Annotation TAUT_NAT2BV = null; //TODO create annotation
 	public static final Annotation TAUT_BV2NATLOW = null;
 	public static final Annotation TAUT_BV2NATUP = null;
+	public static final Annotation RW_BVTOINT_CONST = null;
+	public static final Annotation RW_BVMUL2INT = null;
 
 	//// ==== Annotations with non-null value ====
 	public static Annotation getTautForallPos(final Term[] skolemFuns) {
