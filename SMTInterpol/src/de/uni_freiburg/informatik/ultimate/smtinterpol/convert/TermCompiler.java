@@ -66,6 +66,8 @@ public class TermCompiler extends TermTransformer {
 	private IProofTracker mTracker;
 	private LogicSimplifier mUtils;
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
+	// TODO make it an option
+	boolean mEagerMod = true;
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -187,9 +189,20 @@ public class TermCompiler extends TermTransformer {
 			final Term res = SMTAffineTerm.convertConstant((ConstantTerm) term).toTerm(term.getSort());
 			setResult(mTracker.buildRewrite(term, res, ProofConstants.RW_CANONICAL_SUM));
 			return;
-		} else if (term instanceof TermVariable) {
-			setResult(mTracker.reflexivity(term));
+		} else if (term instanceof ConstantTerm && term.getSort().isBitVecSort()) {
+			final Theory theory = term.getTheory();
+			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
+			setResult(bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod));
 			return;
+		} else if (term instanceof TermVariable) {
+			if (term.getSort().isBitVecSort()) {
+				final Theory theory = term.getTheory();
+				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
+				setResult(bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod));
+			} else {
+				setResult(mTracker.reflexivity(term));
+				return;
+			}
 		}
 		super.convert(term);
 	}
@@ -200,11 +213,8 @@ public class TermCompiler extends TermTransformer {
 		final Theory theory = appTerm.getTheory();
 		final BvUtils bvUtils = new BvUtils(theory, mUtils);
 		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
-		//TODO make it an option
-		final boolean eagerMod = false;		
-		
 		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
-		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {		
+		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {
 			setResult(convertedApp);
 			return;
 		}
@@ -229,7 +239,7 @@ public class TermCompiler extends TermTransformer {
 
 		if (fsym.isIntern()) {
 			if (fsym.getName().matches(BITVEC_CONST_PATTERN)) {
-				setResult(bvToIntUtils.translateBvConstant(fsym, convertedApp, eagerMod));
+				setResult(bvToIntUtils.translateBvConstant(fsym, convertedApp, mEagerMod));
 				return;
 			}
 			switch (fsym.getName()) {
@@ -252,11 +262,13 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
-				if(params[0].getSort().isBitVecSort()) { //TODO probably doesnt work for nested =
-					final boolean eagerModulo = false; //TODO deal with eagerModulo and lazyModulo		
-					setResult(mUtils.convertEq(theory.term("=", bvToIntUtils.bv2nat(params[0], eagerModulo) , bvToIntUtils.bv2nat(params[1], eagerModulo) )));
-					//TODO proof tracker
-					return;				
+				if (params[0].getSort().isBitVecSort()) { // TODO probably doesnt work for nested =
+					final boolean eagerModulo = false; // TODO deal with eagerModulo and lazyModulo
+					final Term convertedEQ = mUtils.convertEq(theory.term("=", bvToIntUtils.bv2nat(params[0], eagerModulo),
+							bvToIntUtils.bv2nat(params[1], eagerModulo)));
+					pushTerm(convertedEQ);
+					// TODO proof tracker
+					return;
 				}
 				setResult(mUtils.convertEq(convertedApp));
 				return;
@@ -554,24 +566,35 @@ public class TermCompiler extends TermTransformer {
 				setResult(bvUtils.transformBvArithmetic(params, fsym, convertedApp));
 				return;
 			}
-			case "bvadd":{
-				//Hilfsfuktion für theory.term"bv2nat" die in dn parameter schaut und gegebenfalls simpifiziert
-				final Term transformedBvadd = 
-						bvToIntUtils.nat2bv(theory.term("+", bvToIntUtils.bv2nat(params[0],eagerMod), 
-								bvToIntUtils.bv2nat(params[1],eagerMod)), params[0].getSort().getIndices(),  eagerMod); 				
-				bvToIntUtils.trackBvToIntProof(appTerm, (ApplicationTerm) convertedApp, transformedBvadd, false,
-						mTracker, "+", ProofConstants.RW_BVADD2INT);
-				
-//				setResult(bvUtils.transformBvaddBvmul(params, fsym));
-				setResult(transformedBvadd); //psuhterm?
-				return ;
+			case "bvadd": {
+				// Hilfsfuktion für theory.term"bv2nat" die in dn parameter schaut und
+				// gegebenfalls simpifiziert
+				final Term transformedBvadd = bvToIntUtils.nat2bv(
+						theory.term("+", bvToIntUtils.bv2nat(params[0], mEagerMod),
+								bvToIntUtils.bv2nat(params[1], mEagerMod)),
+						params[0].getSort().getIndices(), mEagerMod);
+				// Term transformedBvadd = theory.term("nat2bv", appTerm.getSort().getIndices(), null,
+				// theory.term("+", theory.term("bv2nat",params[0]),
+				// theory.term("bv2nat",params[1])) );
+				final Term profedTransformedBvadd = bvToIntUtils.trackBvToIntProof(appTerm, (ApplicationTerm) convertedApp,
+						transformedBvadd, false, mTracker, "+", ProofConstants.RW_BVADD2INT);
+
+				// setResult(bvUtils.transformBvaddBvmul(params, fsym));
+				pushTerm(profedTransformedBvadd); // psuhterm?
+				return;
 			}
-			
-			
-
-
-			
-			case "bvmul": {				
+			case "bv2nat": {				
+				setResult(bvToIntUtils.bv2nat(params[0], mEagerMod));
+				return;
+				
+//				throw new UnsupportedOperationException("Should be dealt with directly");
+			}
+			case "nat2bv": {
+				setResult(bvToIntUtils.nat2bv(params[0],appTerm.getSort().getIndices(), mEagerMod));
+				return;
+//				throw new UnsupportedOperationException("Should be dealt with directly");
+			}
+			case "bvmul": {
 				setResult(bvUtils.transformBvaddBvmul(params, fsym));
 				return;
 			}
@@ -587,7 +610,7 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "bvneg": {
 				setResult(bvUtils.transformBvneg(params, fsym, convertedApp));
-				return;				
+				return;
 			}
 			case "bvnot": {
 				setResult(bvUtils.transformBvnot(params, fsym, convertedApp));
@@ -608,7 +631,7 @@ public class TermCompiler extends TermTransformer {
 				setResult(bvUtils.transformExtract(params, fsym));
 				return;
 			}
-			case "bvnand":{
+			case "bvnand": {
 				// (bvnand s t) abbreviates (bvnot (bvand s t))
 				pushTerm(theory.term("bvnot", theory.term("bvand", params)));
 				return;
@@ -630,28 +653,28 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "bvcomp": {
 				pushTerm(bvUtils.transformBvcomp(params));
-				return;	
+				return;
 			}
 
 			case "bvsdiv": {
 				pushTerm(bvUtils.transformBvsdiv(params));
-				return;	
+				return;
 			}
 			case "bvsrem": {
 				pushTerm(bvUtils.transformBvsrem(params));
-				return;	
+				return;
 			}
 			case "bvsmod": {
 				pushTerm(bvUtils.transformBvsmod(params));
-				return;	
+				return;
 			}
 			case "bvashr": {
 				pushTerm(bvUtils.transformBvashr(params));
-				return;	
+				return;
 			}
 			case "repeat": {
 				setResult(bvUtils.transformRepeat(params, fsym, convertedApp));
-				return;	
+				return;
 			}
 			case "zero_extend": {
 				// abbreviates (concat ((_ repeat i) #b0) t)
@@ -669,16 +692,16 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "sign_extend": {
 				setResult(bvUtils.transformSignExtend(params, fsym, convertedApp));
-				return;	
+				return;
 			}
 
 			case "rotate_left": {
 				setResult(bvUtils.transformRotateleft(params, fsym, convertedApp));
-				return;	
+				return;
 			}
-			case "rotate_right": {		
+			case "rotate_right": {
 				setResult(bvUtils.transformRotateright(params, fsym, convertedApp));
-				return;				
+				return;
 			}
 			case "true":
 			case "false":

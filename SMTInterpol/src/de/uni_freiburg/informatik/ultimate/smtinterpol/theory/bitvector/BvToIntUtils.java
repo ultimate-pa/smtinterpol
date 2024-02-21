@@ -4,11 +4,13 @@ import java.math.BigInteger;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.LogicSimplifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
@@ -41,16 +43,20 @@ public class BvToIntUtils {
 	 * 
 	 */
 	public Term bv2nat(Term param, boolean eagerMod) {
-		
+		assert param.getSort().isBitVecSort();
 		// width of the first argument
 		final int width = Integer.valueOf(param.getSort().getIndices()[0]);	
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
 		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE), mTheory.getSort(SMTLIBConstants.INT));
 	
-		
-		//TODO case switch for simplifications
-		
+	
+		if(param instanceof ApplicationTerm) { //TODO doesnt work somehow, reason probably clausifier
+			ApplicationTerm apParam = (ApplicationTerm) param;
+			if(apParam.getFunction().getName().equals("nat2bv")) {
+				return apParam.getParameters()[0]; //Needs to be eliminated here, otherwise we need axtioms to deal with it in the clausifier
+			} 
+		}
 		return  mTheory.term("bv2nat", param);
 	}
 	
@@ -59,9 +65,15 @@ public class BvToIntUtils {
 	 * TODO RangeBased "nat2bv""bv2nat" -> mod,
 	 */
 	public Term nat2bv(Term param, String[] width,  boolean eagerMod)  {
-		
+		assert param.getSort().isNumericSort();
 		//TODO case switch for simplifications
-		
+		// width of the first argument
+		final int widthInt = Integer.valueOf(width[0]);	
+		final BigInteger two = BigInteger.valueOf(2);
+		// maximal representable number by a bit-vector of width "width"
+		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(widthInt), BigInteger.ONE), mTheory.getSort(SMTLIBConstants.INT));
+	
+
 		return  mTheory.term("nat2bv", width, null, param);
 	}
 	
@@ -73,7 +85,7 @@ public class BvToIntUtils {
 	 * TODO return void or ergebnissimplify?
 	 */
 	
-	public void trackBvToIntProof(ApplicationTerm original, ApplicationTerm convertedApp, Term translationResult, 
+	public Term trackBvToIntProof(ApplicationTerm original, ApplicationTerm convertedApp, Term translationResult, 
 			boolean eagerMod, IProofTracker tracker, String integerFsym, Annotation functionAnnotation){		
 		Term[] params = original.getParameters();		
 		Term originalRW = tracker.buildRewrite(tracker.getProvedTerm(convertedApp), translationResult, functionAnnotation);		
@@ -89,12 +101,16 @@ public class BvToIntUtils {
 		//tracker.buildRewrite(mTheory.term("nat2bv", functionRW), nat2bv(functionRW,eagerMod), ProofConstants.RW_NAT2BV );
 				
 		Term ergebnissimplify = tracker.congruence(originalRW, new Term[] {functionRW} );	
-		tracker.transitivity(convertedApp, ergebnissimplify);
+		Term proofed = tracker.transitivity(convertedApp, ergebnissimplify);
+		return proofed;
 	}
 	
 	public Term trackBv2NatProof(Term bv2nat, boolean eagerMod, IProofTracker tracker ){
-		assert bv2nat instanceof ApplicationTerm;		
+		assert bv2nat instanceof ApplicationTerm;	
+		//TODO
 		return tracker.buildRewrite(bv2nat, bv2nat(((ApplicationTerm) bv2nat).getParameters()[0],eagerMod), ProofConstants.RW_BV2NAT );
+
+		 
 	}
 
 
@@ -106,13 +122,29 @@ public class BvToIntUtils {
 				BigInteger value = new BigInteger(fsym.getName().substring(2));
 				return nat2bv(mTheory.rational(Rational.valueOf(value, BigInteger.ONE), 
 						mTheory.getSort(SMTLIBConstants.INT)), convertedApp.getSort().getIndices(), eagerMod);
-				
 			} else{
 				throw new UnsupportedOperationException("Can't convert bv constant: " + fsym.getName());
-			}
-			
+			}			
 		}
-	
+	/*
+	 * transforms a bitvector constant c to nat2bv(c')
+	 */
+	public Term translateBvConstantTerm(ConstantTerm term, boolean  eagerMod) {
+			if (term.getSort().isBitVecSort()) {
+				String valueAsString = (String) term.getValue();				
+				BigInteger value = new BigInteger(valueAsString.substring(2), 2);
+				return nat2bv(mTheory.rational(Rational.valueOf(value, BigInteger.ONE), 
+						mTheory.getSort(SMTLIBConstants.INT)), term.getSort().getIndices(), eagerMod);
+			} else{
+				throw new UnsupportedOperationException("Can't convert bv constant: " + term);
+			}			
+		}
+
+
+
+	public Term translateTermVariable(TermVariable term, boolean mEagerMod) {
+		throw new UnsupportedOperationException("TODO: translate TermVariable");
+	}
 }
 
 

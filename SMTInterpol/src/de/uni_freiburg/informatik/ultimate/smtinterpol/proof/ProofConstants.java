@@ -139,6 +139,9 @@ public interface ProofConstants {
 	public final static Annotation TAUT_ARRAY_DIFF = new Annotation(":diff", null);
 	public final static Annotation TAUT_MATCH_CASE = new Annotation(":matchCase", null);
 	public final static Annotation TAUT_MATCH_DEFAULT = new Annotation(":matchDefault", null);
+	public final static  Annotation TAUT_NAT2BV = null; //TODO create annotation
+	public static final Annotation TAUT_BV2NATLOW = null;
+	public static final Annotation TAUT_BV2NATUP = null;
 
 	//// ==== Annotations with non-null value ====
 	public static Annotation getTautForallPos(final Term[] skolemFuns) {

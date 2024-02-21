@@ -1020,6 +1020,7 @@ public class Clausifier {
 	}
 
 	public void shareLATerm(final Term term, final LASharedTerm laTerm) {
+		System.out.println(term);
 		assert !mLATerms.containsKey(term);
 		mLATerms.put(term, laTerm);
 		final CCTerm ccTerm = getCCTerm(term);
@@ -1066,9 +1067,10 @@ public class Clausifier {
 						addDiffAxiom(at, source);
 						mArrayTheory.notifyDiff((CCAppTerm) ccTerm);
 					} else if (fs.getName().equals("bv2nat")) {
-						addBitvectorBoundAxioms(at, ccTerm);
+						System.out.println("need constraint? + " +at);
+						addBitvectorBoundAxioms(at, ccTerm, source);
 					} else if (fs.getName().equals("nat2bv")) {
-						addNat2BvAxiom(at, ccTerm);									
+						addNat2BvAxiom(at, ccTerm, source);									
 					}
 				}
 
@@ -1141,13 +1143,20 @@ public class Clausifier {
 	 * Adds the Axiom that nat2bv(x) equals x mod width
 	 * Thereby gives an interpretation for nat2bv
 	 */
-	private void addNat2BvAxiom(ApplicationTerm at, CCTerm ccTerm) {
+	private void addNat2BvAxiom(ApplicationTerm at, CCTerm ccTerm, SourceAnnotation source) {
 		final int width = Integer.valueOf(at.getSort().getIndices()[0]);	
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
 		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE), mTheory.getSort(SMTLIBConstants.INT));
+
 		
-		//TODO add Axiom: at =  mTheory.term("mod", at.getParameters()[0], maxNumber ))  ; 
+		//vlt bv2nat nat2bv a = mod a
+		
+		//Endlos schleife!
+//		Term axiom = mTheory.term("=", at,  mTheory.term("nat2bv", at.getSort().getIndices(), null, mTheory.term("mod", at.getParameters()[0], maxNumber )));
+		Term axiom = mTheory.term("=", mTheory.term("bv2nat", at),   mTheory.term("mod", at.getParameters()[0], maxNumber ));
+		
+		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 	}
 
 	/*
@@ -1156,15 +1165,23 @@ public class Clausifier {
 	 * 
 	 *  At this point, we assume that the parameter of bv2nat can only be an uninterpreted function symbol.
 	 */
-	private void addBitvectorBoundAxioms(ApplicationTerm at, CCTerm ccTerm) {
+	private void addBitvectorBoundAxioms(ApplicationTerm at, CCTerm ccTerm, SourceAnnotation source) {
 		final int width = Integer.valueOf(at.getParameters()[0].getSort().getIndices()[0]);	
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
-		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE), mTheory.getSort(SMTLIBConstants.INT));
-		
+		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE).sub(Rational.ONE), mTheory.getSort(SMTLIBConstants.INT));
+		final Term zero = Rational.ZERO.toTerm(mTheory.getSort(SMTLIBConstants.INT));
 		
 		//TODO add Axiom
-		
+		Term axiomLowerBound = mTheory.term(">=" , at, zero);
+		Term axiomUpperBound = mTheory.term("<=" , at, maxNumber);
+	
+		//Ptoblem, 2mal für sum?
+		Term leq0LowerBound = mTheory.term("<=" , mTheory.term("-" , at), zero);
+		Term leq0UpperBound = mTheory.term("<=" , mTheory.term("-" , at, maxNumber), zero);
+	
+		buildClause( mTracker.tautology(leq0LowerBound, ProofConstants.TAUT_BV2NATLOW), source); //TODO Proof
+		buildClause( mTracker.tautology(leq0UpperBound, ProofConstants.TAUT_BV2NATUP) , source);
 	}
 
 	/**
@@ -1556,6 +1573,7 @@ public class Clausifier {
 	public void buildClause(final Term term, final SourceAnnotation source) {
 		final BuildClause bc = new BuildClause(term, source);
 		pushOperation(bc);
+		Term test = mTracker.getProvedTerm(term);
 		bc.collectLiteral(mTracker.getProvedTerm(term));
 	}
 
