@@ -200,7 +200,8 @@ public class TermCompiler extends TermTransformer {
 			return;
 		} else if (term instanceof ConstantTerm && term.getSort().isBitVecSort()) {
 			final Theory theory = term.getTheory();
-			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null);
+			final BvUtils bvUtils = new BvUtils(theory, mUtils);
+			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils);
 			setResult(bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod));
 			return;
 		} else if (term instanceof TermVariable) {
@@ -272,17 +273,21 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
-				if (params[0].getSort().isBitVecSort()) { // TODO probably doesnt work for nested =
-					final boolean eagerModulo = false; // TODO deal with eagerModulo and lazyModulo
-					final Term convertedEQ = mUtils.convertEq(theory.term("=", bvToIntUtils.bv2nat(params[0], eagerModulo),
-							bvToIntUtils.bv2nat(params[1], eagerModulo)));
-					pushTerm(convertedEQ);
-					// TODO proof tracker
+				if (params[0].getSort().isBitVecSort()) {
+					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, true)); 
+					//TODO setResult or PushTerm? see other bv relations too
+					//VLT wegen nested eq
 					return;
 				}
 				setResult(mUtils.convertEq(convertedApp));
 				return;
 			case "distinct":
+				if (params[0].getSort().isBitVecSort()) {
+					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, true)); 
+					//TODO setResult or PushTerm? see other bv relations too
+					//VLT wegen nested eq
+					return;
+				}
 				setResult(mUtils.convertDistinct(convertedApp));
 				return;
 			case "<=": {
@@ -565,48 +570,48 @@ public class TermCompiler extends TermTransformer {
 				}
 				break;
 			}
-			case "concat": {
-				setResult(bvUtils.transformConcat(params, fsym, convertedApp));
+			case "bvmul": {
+				pushTerm(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
-			case "bvsub":
-				// pushTerm(theory.term("bvadd", params[0], theory.term("bvneg", params[1])));
-			case "bvudiv":
-			case "bvurem": {
-				setResult(bvUtils.transformBvArithmetic(params, fsym, convertedApp));
-				return;
-			}
-			case "bvmul":
+			case "bvsub":			
 			case "bvadd": {
 				setResult(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
-			case "bv2nat": {
-				//Term should only contain bv2nat around uninterpreted functions / constants
-				setResult(bvToIntUtils.bv2nat(params[0], mEagerMod));
-				return;
-			}
-			case "nat2bv": {
-				throw new UnsupportedOperationException("Should be dealt with directly");
-			}
-		
-			case "bvand":
-			case "bvor": {
-				setResult(bvUtils.transformBitwise(params, fsym));
-				return;
-			}
-			case "bvlshr":
-			case "bvshl": {
-				setResult(bvUtils.transformShift(params, fsym, convertedApp));
-				return;
-			}
 			case "bvneg": {
-				setResult(bvUtils.transformBvneg(params, fsym, convertedApp));
+				setResult(bvToIntUtils.translateBvNeg(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
 			case "bvnot": {
-				setResult(bvUtils.transformBvnot(params, fsym, convertedApp));
+				setResult(bvToIntUtils.translateBvNot(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
+			}
+			case "concat": {
+				pushTerm(bvToIntUtils.translateConcat(mTracker, appTerm, convertedApp,  mEagerMod));
+				return;
+			}
+			case "bvudiv": {				
+				pushTerm(bvToIntUtils.translateBvudiv(mTracker, appTerm, convertedApp,  mEagerMod));
+				return;
+			}
+			case "bvurem": {
+				pushTerm(bvToIntUtils.translateBvurem(mTracker, appTerm, convertedApp,  mEagerMod));
+				return;
+			}
+			case "bvlshr": {
+				setResult(bvToIntUtils.translateBvlshr(mTracker, appTerm, convertedApp,  mEagerMod));
+				return;
+			}
+			case "bvshl": {
+				setResult(bvToIntUtils.translateBvshl(mTracker, appTerm, convertedApp,  mEagerMod));
+				return;
+			}
+			case "bvand":
+			case "bvor": {
+				throw new UnsupportedOperationException("Bit-Wise Operations not supported" + appTerm.getFunction().getName());			
+//				setResult(bvUtils.transformBitwise(params, fsym));
+//				return;
 			}
 			case "bvuge":
 			case "bvslt":
@@ -616,13 +621,46 @@ public class TermCompiler extends TermTransformer {
 			case "bvsgt":
 			case "bvsge":
 			case "bvult": {
-				setResult(bvUtils.transformInequality(params, fsym, convertedApp));
+				pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, true));
 				return;
 			}
 			case "extract": {
-				setResult(bvUtils.transformExtract(params, fsym));
+				setResult(bvToIntUtils.translateExtract(mTracker, appTerm, convertedApp, true));
 				return;
 			}
+			case "repeat": {
+				setResult(bvUtils.transformRepeat(params, fsym, convertedApp));
+				return;
+			}
+			case "zero_extend": {
+				// abbreviates (concat ((_ repeat i) #b0) t)
+//				if (fsym.getIndices()[0].equals("0")) {
+//					setResult(params[0]);
+//					return;
+//				} else {
+//					String repeat = "#b0";
+//					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
+//						repeat = repeat + "0";
+//					}
+//					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
+//					return;
+//				}				
+				setResult(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(convertedApp, mEagerMod), appTerm.getSort().getIndices(), mEagerMod));
+				return;
+			}
+			case "sign_extend": {
+				setResult(bvUtils.transformSignExtend(params, fsym, convertedApp));
+				return;
+			}
+			case "rotate_left": {
+				setResult(bvUtils.transformRotateleft(params, fsym, convertedApp));
+				return;
+			}
+			case "rotate_right": {
+				setResult(bvUtils.transformRotateright(params, fsym, convertedApp));
+				return;
+			}
+			//From here on all bv function do pushTerm
 			case "bvnand": {
 				// (bvnand s t) abbreviates (bvnot (bvand s t))
 				pushTerm(theory.term("bvnot", theory.term("bvand", params)));
@@ -664,36 +702,15 @@ public class TermCompiler extends TermTransformer {
 				pushTerm(bvUtils.transformBvashr(params));
 				return;
 			}
-			case "repeat": {
-				setResult(bvUtils.transformRepeat(params, fsym, convertedApp));
+			case "bv2nat": {
+				//Term should only contain bv2nat around uninterpreted functions / constants
+				setResult(bvToIntUtils.bv2nat(params[0], mEagerMod));
 				return;
 			}
-			case "zero_extend": {
-				// abbreviates (concat ((_ repeat i) #b0) t)
-				if (fsym.getIndices()[0].equals("0")) {
-					setResult(params[0]);
-					return;
-				} else {
-					String repeat = "#b0";
-					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
-						repeat = repeat + "0";
-					}
-					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
-					return;
-				}
-			}
-			case "sign_extend": {
-				setResult(bvUtils.transformSignExtend(params, fsym, convertedApp));
+			case "nat2bv": {
+				setResult(bvToIntUtils.nat2bv(params[0],appTerm.getSort().getIndices(), mEagerMod));
 				return;
-			}
-
-			case "rotate_left": {
-				setResult(bvUtils.transformRotateleft(params, fsym, convertedApp));
-				return;
-			}
-			case "rotate_right": {
-				setResult(bvUtils.transformRotateright(params, fsym, convertedApp));
-				return;
+//				throw new UnsupportedOperationException("Should be dealt with directly");
 			}
 			case "true":
 			case "false":

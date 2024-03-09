@@ -39,7 +39,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 public class BvUtils {
 	private final Theory mTheory;
 	private final LogicSimplifier mUtils;
-
+	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
+	
 	public BvUtils(final Theory theory, final LogicSimplifier utils) {
 		mTheory = theory;
 		mUtils = utils;
@@ -50,21 +51,44 @@ public class BvUtils {
 	 * this function to false, will deactivate all BV constant optimizations
 	 */
 	public boolean isConstRelation(final Term lhs, final Term rhs) {
-		if ((lhs instanceof ConstantTerm)) {
+		if (isConstRelation(lhs)) {
 			if (rhs == null) {
 				return true;
-			} else if (rhs instanceof ConstantTerm) {
+			} else if (isConstRelation(rhs)) {
 				return true;
 			}
 		}
 		return false;
 	}
 
+	public boolean isConstRelation(final Term term) {
+		if (term instanceof ConstantTerm) {
+				return true;		
+		}
+		if (term instanceof ApplicationTerm) {
+			if (((ApplicationTerm)term).getFunction().getName().matches(BITVEC_CONST_PATTERN)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	/**
 	 * returns the bit string of #b or #x Constant Terms. (_bvi j) Constants are
 	 * replaced by #b constants beforehand
 	 */
-	public static String getConstAsString(final ConstantTerm ct) {
+	public String getConstAsString(Term term) {
+		ConstantTerm ct = null;
+		if(term instanceof ApplicationTerm) {
+			ApplicationTerm appTerm = (ApplicationTerm) term; 
+			ct = (ConstantTerm) getBvConstAsBinaryConst(appTerm.getFunction(),term.getSort());
+		} else if (term instanceof ConstantTerm) {
+			ct = (ConstantTerm) term;
+		} else{
+			throw new UnsupportedOperationException("Can't convert to bitstring: " + term);
+		}
+		
+		
 		if (ct.getSort().isBitVecSort()) {
 			String bitString;
 			assert (ct.getValue() instanceof String);
@@ -99,6 +123,8 @@ public class BvUtils {
 				final String repeated = new String(new char[size - value.length()]).replace("\0", "0");
 				value = repeated + value;
 			}
+			Term bitString = mTheory.binary("#b" + value);
+			assert bitString.getSort().equals(sort);
 			return mTheory.binary("#b" + value);
 		}
 		throw new UnsupportedOperationException("Can't convert bv constant: " + fsym.getName());
@@ -197,8 +223,8 @@ public class BvUtils {
 	 * bvadd, bvudiv, bvmul
 	 */
 	public Term simplifyArithmeticConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
-		final BigInteger lhsInt = new BigInteger(getConstAsString((ConstantTerm) lhs), 2);
-		final BigInteger rhsInt = new BigInteger(getConstAsString((ConstantTerm) rhs), 2);
+		final BigInteger lhsInt = new BigInteger(getConstAsString( lhs), 2);
+		final BigInteger rhsInt = new BigInteger(getConstAsString( rhs), 2);
 		String calc;
 		final int size = Integer.valueOf(lhs.getSort().getIndices()[0]);
 		if (fsym.getName().equals("bvadd")) {
@@ -249,8 +275,8 @@ public class BvUtils {
 	 */
 	public Term simplifyLogicalConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		String resultconst = "#b";
-		final String constRHS = getConstAsString((ConstantTerm) lhs);
-		final String constLHS = getConstAsString((ConstantTerm) rhs);
+		final String constRHS = getConstAsString( lhs);
+		final String constLHS = getConstAsString( rhs);
 		for (int i = 0; i < constRHS.length(); i++) {
 			final char first = constRHS.charAt(i);
 			final char second = constLHS.charAt(i);
@@ -277,7 +303,7 @@ public class BvUtils {
 
 	public Term simplifyConcatConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		assert fsym.getName().equals("concat");
-		final String result = "#b" + getConstAsString((ConstantTerm) lhs).concat(getConstAsString((ConstantTerm) rhs));
+		final String result = "#b" + getConstAsString( lhs).concat(getConstAsString( rhs));
 		final Term concat = mTheory.binary(result);
 		return concat;
 	}
@@ -288,7 +314,7 @@ public class BvUtils {
 	public Term simplifyShiftConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		String resultconst = "#b";
 		final String lhsString = getConstAsString((ConstantTerm) lhs);
-		final BigInteger rhsBigInt = new BigInteger(getConstAsString((ConstantTerm) rhs), 2);
+		final BigInteger rhsBigInt = new BigInteger(getConstAsString( rhs), 2);
 		final BigInteger lhslenth = new BigInteger(String.valueOf(lhsString.length()));
 
 		if (fsym.getName().equals("bvshl")) {
@@ -320,7 +346,7 @@ public class BvUtils {
 
 	public Term simplifyNegConst(final FunctionSymbol fsym, final Term term) {
 		assert fsym.getName().equals("bvneg");
-		final BigInteger bigint = new BigInteger(getConstAsString((ConstantTerm) term), 2);
+		final BigInteger bigint = new BigInteger(getConstAsString( term), 2);
 		if (bigint.equals(BigInteger.ZERO)) {
 			return term;
 		}
@@ -337,7 +363,7 @@ public class BvUtils {
 
 	public Term simplifyNotConst(final FunctionSymbol fsym, final Term term) {
 		String resultconst = "#b";
-		final String termAsString = getConstAsString((ConstantTerm) term);
+		final String termAsString = getConstAsString( term);
 		assert fsym.getName().equals("bvnot");
 		for (int i = 0; i < termAsString.length(); i++) {
 			if (termAsString.charAt(i) == '1') {
@@ -357,7 +383,7 @@ public class BvUtils {
 		// Result length = i - j + 1
 		String resultconst = "#b";
 		assert fsym.getName().equals("extract");
-		final String parameterAsString = getConstAsString((ConstantTerm) term);
+		final String parameterAsString = getConstAsString( term);
 		final int size = parameterAsString.length();
 		final int idx1 = size - Integer.parseInt(fsym.getIndices()[1]);
 		final int idx2 = size - Integer.parseInt(fsym.getIndices()[0]) - 1;
@@ -369,8 +395,8 @@ public class BvUtils {
 		if (fsym != null) {
 			assert fsym.getName().equals("bvult");
 		}
-		final String lhsAsString = getConstAsString((ConstantTerm) lhs);
-		final String rhsAsString = getConstAsString((ConstantTerm) rhs);
+		final String lhsAsString = getConstAsString( lhs);
+		final String rhsAsString = getConstAsString( rhs);
 		for (int i = 0; i < lhsAsString.length(); i++) {
 			if ((lhsAsString.charAt(i) == '1') && (rhsAsString.charAt(i) == '0')) {
 				return mTheory.mFalse;
@@ -383,8 +409,8 @@ public class BvUtils {
 
 	public Term simplifyBvslXConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		assert fsym.getName().equals("bvslt") || fsym.getName().equals("bvsle");
-		final String lhsAsString = getConstAsString((ConstantTerm) lhs);
-		final String rhsAsString = getConstAsString((ConstantTerm) rhs);
+		final String lhsAsString = getConstAsString( lhs);
+		final String rhsAsString = getConstAsString( rhs);
 		// both strings are equal
 		if (lhsAsString.equals(rhsAsString)) {
 			if (fsym.getName().equals("bvslt")) {
@@ -595,7 +621,7 @@ public class BvUtils {
 			final String constAsString;
 			Term varTerm;
 			if ((lhs instanceof ConstantTerm) && ((rhs instanceof TermVariable) || (rhs instanceof ApplicationTerm))) {
-				constAsString = getConstAsString((ConstantTerm) lhs);
+				constAsString = getConstAsString( lhs);
 				varTerm = rhs;
 			} else if ((rhs instanceof ConstantTerm)
 					&& ((lhs instanceof TermVariable) || (lhs instanceof ApplicationTerm))) {
@@ -849,7 +875,7 @@ public class BvUtils {
 			return mTheory.mTrue;
 		}
 		if (isConstRelation(lhs, rhs)) {
-			if (getConstAsString((ConstantTerm) lhs).equals(getConstAsString((ConstantTerm) rhs))) {
+			if (getConstAsString((ConstantTerm) lhs).equals(getConstAsString( rhs))) {
 				return mTheory.mTrue;
 			} else
 				return mTheory.mFalse;
@@ -1056,7 +1082,7 @@ public class BvUtils {
 
 		} else {
 			if (isConstRelation(params[0], null)) {
-				final String constAsString = getConstAsString((ConstantTerm) params[0]);
+				final String constAsString = getConstAsString( params[0]);
 				String repeat = "#b" + constAsString;
 				for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) { // start from 1
 					repeat = repeat + constAsString;
@@ -1075,7 +1101,7 @@ public class BvUtils {
 		} else {
 			if (isConstRelation(params[0], null)) {
 				String repeat = "#b";
-				final String constAsString = getConstAsString((ConstantTerm) params[0]);
+				final String constAsString = getConstAsString( params[0]);
 				repeat = repeat + constAsString.charAt(0);
 				for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
 					repeat = repeat + constAsString.charAt(0);
@@ -1099,7 +1125,7 @@ public class BvUtils {
 			return params[0];
 		} else {
 			if (isConstRelation(params[0], null)) {
-				final String constAsString = getConstAsString((ConstantTerm) params[0]);
+				final String constAsString = getConstAsString( params[0]);
 				final String overhead = (String) constAsString.subSequence(0, rotationDistance);
 				final String shifted = (String) constAsString.subSequence(rotationDistance, constAsString.length());
 				return mTheory.binary("#b" + shifted + overhead);
@@ -1122,7 +1148,7 @@ public class BvUtils {
 			return params[0];
 		} else {
 			if (isConstRelation(params[0], null)) {
-				final String constAsString = getConstAsString((ConstantTerm) params[0]);
+				final String constAsString = getConstAsString( params[0]);
 				final String shifted = (String) constAsString.subSequence(0,
 						(constAsString.length() - rotationDistance));
 				final String overhead = (String) constAsString.subSequence((constAsString.length() - rotationDistance),
