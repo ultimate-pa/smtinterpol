@@ -1022,7 +1022,7 @@ public class Clausifier {
 
 	public void shareLATerm(final Term term, final LASharedTerm laTerm) {
 		System.out.println(term);
-		assert !mLATerms.containsKey(term);
+//		assert !mLATerms.containsKey(term);
 		mLATerms.put(term, laTerm);
 		final CCTerm ccTerm = getCCTerm(term);
 		if (ccTerm != null) {
@@ -1526,7 +1526,6 @@ public class Clausifier {
 	public void buildClause(final Term term, final SourceAnnotation source) {
 		final BuildClause bc = new BuildClause(term, source);
 		pushOperation(bc);
-		Term test = mTracker.getProvedTerm(term);
 		bc.collectLiteral(mTracker.getProvedTerm(term));
 	}
 
@@ -1740,7 +1739,7 @@ public class Clausifier {
 					buildAuxClause(lit, axiom, source);
 				}
 			} else {
-				assert lit instanceof QuantEquality;
+//				assert lit instanceof QuantEquality;
 				if (negative) {
 					// (or (= AUX false) term)
 					Term axiom = t.term("or", litTerm, term);
