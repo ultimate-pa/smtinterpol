@@ -62,7 +62,8 @@ public class BitvectorTest {
 	private Term q4;
 	private Term p7;
 	private Term p8;
-
+	private Term q8;
+	
 	@Before
 	public void setUp() throws Exception {
 		mSolver = new SMTInterpol(new DefaultLogger());
@@ -97,6 +98,7 @@ public class BitvectorTest {
 		mSolver.declareFun("q3", Script.EMPTY_SORT_ARRAY, bv3);
 		mSolver.declareFun("p4", Script.EMPTY_SORT_ARRAY, bv4);
 		mSolver.declareFun("q4", Script.EMPTY_SORT_ARRAY, bv4);
+		mSolver.declareFun("q8", Script.EMPTY_SORT_ARRAY, bv8);
 		mSolver.declareFun("p8", Script.EMPTY_SORT_ARRAY, bv8);
 		mSolver.declareFun("p7", Script.EMPTY_SORT_ARRAY, bv7);
 
@@ -121,7 +123,7 @@ public class BitvectorTest {
 		q4 = mSolver.term("q4");
 		p7 = mSolver.term("p7");
 		p8 = mSolver.term("p8");
-
+		q8 = mSolver.term("q8");
 	}
 
 	@After
@@ -994,11 +996,26 @@ public class BitvectorTest {
 		Assert.assertSame(LBool.SAT, isSat);
 		mSolver.reset();
 	}
+	
+	@Test
+	public void congruenceVsRanged() {
+		mSolver.resetAssertions();
+		final Term input = 
+				mSolver.term("=", mSolver.binary("#b11111111"),
+						mSolver.term("bvadd", mSolver.term("bvmul", mSolver.term("bvadd", p8, q8), mSolver.binary("#b00011110")), q8));
+		mSolver.assertTerm(input);
+		final LBool isSat = mSolver.checkSat();
+		Assert.assertSame(LBool.SAT, isSat);
+		mSolver.reset();
+	}
+	
+	
 	@Test
 	public void bbAddUNSAT() {
 		mSolver.resetAssertions();
 		final Term input = mSolver.term("and", mSolver.term("=", mSolver.binary("#b10"),
 				mSolver.term("bvadd", p2, mSolver.binary("#b10"))),
+				
 				mSolver.term("=", mSolver.binary("#b11"),
 						mSolver.term("bvadd", p2, mSolver.binary("#b01"))));
 		mSolver.assertTerm(input);
