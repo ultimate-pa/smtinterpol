@@ -1051,6 +1051,7 @@ public class Clausifier {
 
 				final ApplicationTerm at = (ApplicationTerm) term;
 				final FunctionSymbol fs = at.getFunction();
+				boolean eagerMod = false;
 				if (fs.isIntern()) {
 					/* add axioms for certain built-in functions */
 					if (fs.getName().equals("div")) {
@@ -1066,8 +1067,7 @@ public class Clausifier {
 					} else if (fs.getName().equals(SMTInterpolConstants.DIFF)) {
 						addDiffAxiom(at, source);
 						mArrayTheory.notifyDiff((CCAppTerm) ccTerm);
-					} else if (fs.getName().equals("bv2nat")) {
-						System.out.println("need constraint? + " +at);
+					} else if (fs.getName().equals("bv2nat") && eagerMod) {
 						addBitvectorBoundAxioms(at, ccTerm, source);
 					} else if (fs.getName().equals("nat2bv")) {
 						addNat2BvAxiom(at, ccTerm, source);									
