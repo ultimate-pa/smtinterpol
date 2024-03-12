@@ -67,7 +67,7 @@ public class BitvectorTest {
 	@Before
 	public void setUp() throws Exception {
 		mSolver = new SMTInterpol(new DefaultLogger());
-		mSolver.setOption(":produce-models", Boolean.FALSE);
+		mSolver.setOption(":produce-models", Boolean.TRUE);		
 		mSolver.setLogic(Logics.ALL); // TODO declare numeric Sort if logic is bv
 		final Sort bv1 = mSolver.getTheory().getSort("BitVec", new String[] { "1" });
 		final Sort bv2 = mSolver.getTheory().getSort("BitVec", new String[] { "2" });
@@ -960,6 +960,7 @@ public class BitvectorTest {
 		mSolver.assertTerm(input);
 		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
+		mSolver.setOption(null, isSat);
 		mSolver.reset();
 	}
 

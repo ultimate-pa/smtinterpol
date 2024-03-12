@@ -73,10 +73,12 @@ public class BvToIntUtils {
 																					// needs a modulo
 				}else {
 					return apParam.getParameters()[0];
-			}}
+			}
+				} else 	if (apParam.getFunction().getName().equals("bv2nat") ) { //TODO mod heißt wir machen mod sonst weg
+					throw new UnsupportedOperationException("TODO" );
+			}
 		}
 
-		// TODO optimize bv2nat bv2nat
 		return mTheory.term("bv2nat", param);
 	}
 
@@ -257,6 +259,7 @@ public class BvToIntUtils {
 
 	public Term translateConcat(IProofTracker tracker, final ApplicationTerm appTerm, Term convertedApp,
 			boolean eagerMod) {
+		boolean mod = !eagerMod;
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		if (mBvUtils.isConstRelation(appTerm.getParameters()[0], appTerm.getParameters()[1])) {
 			return mBvUtils.simplifyConcatConst(appTerm.getFunction(), appTerm.getParameters()[0],
@@ -268,10 +271,10 @@ public class BvToIntUtils {
 		// 2 pow width
 		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(widthInt), BigInteger.ONE),
 				mTheory.getSort(SMTLIBConstants.INT));
-		final Term multiplication = mTheory.term("*", bv2nat(params[0], eagerMod), maxNumber);
+		final Term multiplication = mTheory.term("*", bv2nat(params[0], false), maxNumber);
 
-		Term concat = mTheory.term("+", multiplication, bv2nat(params[1], eagerMod));
-		Term transformed = nat2bv(concat, appTerm.getSort().getIndices(), eagerMod);
+		Term concat = mTheory.term("+", multiplication, bv2nat(params[1], mod));
+		Term transformed = nat2bv(concat, appTerm.getSort().getIndices(), mod);
 		Term profedTransformedConcat = mProof.trackBvToIntProofConcat(appTerm, (ApplicationTerm) convertedApp, transformed,
 				false, tracker, "+", ProofConstants.RW_CONCAT2INT);
 		return profedTransformedConcat;
@@ -280,6 +283,7 @@ public class BvToIntUtils {
 
 	public Term translateBvudiv(IProofTracker tracker, final ApplicationTerm appTerm, Term convertedApp,
 			boolean eagerMod) {
+		boolean mod = !eagerMod;
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		if (mBvUtils.isConstRelation(appTerm.getParameters()[0], appTerm.getParameters()[1])) {
 			return mBvUtils.simplifyArithmeticConst(appTerm.getFunction(), appTerm.getParameters()[0],
@@ -292,13 +296,13 @@ public class BvToIntUtils {
 				mTheory.rational(Rational.valueOf(two.pow(widthInt).subtract(BigInteger.ONE), BigInteger.ONE),
 						mTheory.getSort(SMTLIBConstants.INT));
 
-		final Term ifTerm = mTheory.term("=", bv2nat(params[1], eagerMod),
+		final Term ifTerm = mTheory.term("=", bv2nat(params[1], mod),
 				mTheory.rational(Rational.ZERO, mTheory.getSort(SMTLIBConstants.INT)));
 		final Term thenTerm = maxNumberMinusOne;
-		final Term elseTerm = mTheory.term("div", bv2nat(params[0], eagerMod), bv2nat(params[1], eagerMod));
+		final Term elseTerm = mTheory.term("div", bv2nat(params[0], mod), bv2nat(params[1], mod));
 
 		Term transformed =
-				nat2bv(mTheory.term("ite", ifTerm, thenTerm, elseTerm), appTerm.getSort().getIndices(), eagerMod);
+				nat2bv(mTheory.term("ite", ifTerm, thenTerm, elseTerm), appTerm.getSort().getIndices(), mod);
 
 		Term profedTransformed = mProof.trackBvudivProof(appTerm, (ApplicationTerm) convertedApp, transformed, false, tracker,
 				"+", ProofConstants.RW_BVUDIV2INT);
@@ -308,21 +312,22 @@ public class BvToIntUtils {
 
 	public Term translateBvurem(IProofTracker tracker, final ApplicationTerm appTerm, Term convertedApp,
 			boolean eagerMod) {
+		boolean mod = !eagerMod;
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		if (mBvUtils.isConstRelation(appTerm.getParameters()[0], appTerm.getParameters()[1])) {
 			return mBvUtils.simplifyArithmeticConst(appTerm.getFunction(), appTerm.getParameters()[0],
 					appTerm.getParameters()[1]);
 		}
 		final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);
-		Term lhs = bv2nat(params[0], eagerMod);
-		Term rhs = bv2nat(params[1], eagerMod);
+		Term lhs = bv2nat(params[0], mod);
+		Term rhs = bv2nat(params[1], mod);
 
 		final Term ifTerm = mTheory.term("=", rhs, mTheory.rational(Rational.ZERO, intSort));
 		final Term thenTerm = lhs;
 		final Term elseTerm = mTheory.term("mod", lhs, rhs);
 
 		Term transformed =
-				nat2bv(mTheory.term("ite", ifTerm, thenTerm, elseTerm), appTerm.getSort().getIndices(), eagerMod);
+				nat2bv(mTheory.term("ite", ifTerm, thenTerm, elseTerm), appTerm.getSort().getIndices(), mod);
 
 		Term profedTransformed = mProof.trackBvuremProof(appTerm, (ApplicationTerm) convertedApp, transformed, false, tracker,
 				"+", ProofConstants.RW_BVUREM2INT);
@@ -332,6 +337,7 @@ public class BvToIntUtils {
 
 	public Term translateBvshl(IProofTracker tracker, final ApplicationTerm appTerm, Term convertedApp,
 			boolean eagerMod) {
+		boolean mod = !eagerMod;	
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		if (mBvUtils.isConstRelation(appTerm.getParameters()[0], appTerm.getParameters()[1])) {
 			return mBvUtils.simplifyShiftConst(appTerm.getFunction(), appTerm.getParameters()[0],
@@ -339,8 +345,8 @@ public class BvToIntUtils {
 		}
 		final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);
 
-		Term translatedLHS = bv2nat(params[0], eagerMod);
-		Term translatedRHS = bv2nat(params[1], eagerMod);
+		Term translatedLHS = bv2nat(params[0], mod);
+		Term translatedRHS = bv2nat(params[1], mod);
 
 		final int width = Integer.valueOf(appTerm.getSort().getIndices()[0]);
 		Term iteChain = mTheory.rational(Rational.ZERO, intSort);
@@ -363,7 +369,7 @@ public class BvToIntUtils {
 				iteChain = mTheory.term("ite", ifTerm, thenTerm, iteChain);
 			}
 		}
-		Term transformed = nat2bv(iteChain, appTerm.getSort().getIndices(), eagerMod);
+		Term transformed = nat2bv(iteChain, appTerm.getSort().getIndices(), mod);
 		Term profedTransformed = mProof.trackBvshlProof(appTerm, (ApplicationTerm) convertedApp, transformed, false, tracker,
 				"+", ProofConstants.RW_BVSHL2INT);
 		return profedTransformed;
@@ -371,6 +377,7 @@ public class BvToIntUtils {
 
 	public Term translateBvlshr(IProofTracker tracker, final ApplicationTerm appTerm, Term convertedApp,
 			boolean eagerMod) {
+		boolean mod = !eagerMod;
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		if (mBvUtils.isConstRelation(appTerm.getParameters()[0], appTerm.getParameters()[1])) {
 			return mBvUtils.simplifyShiftConst(appTerm.getFunction(), appTerm.getParameters()[0],
@@ -379,8 +386,8 @@ public class BvToIntUtils {
 		final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);
 		final int width = Integer.valueOf(appTerm.getSort().getIndices()[0]);
 		// nat2bv[m](bv2nat([[s]]) div 2^(bv2nat([[t]])))
-		Term translatedLHS = bv2nat(params[0], eagerMod);
-		Term translatedRHS = bv2nat(params[1], eagerMod);
+		Term translatedLHS = bv2nat(params[0], mod);
+		Term translatedRHS = bv2nat(params[1], mod);
 		Term iteChain = mTheory.rational(Rational.ZERO, intSort);
 
 		for (int i = width - 1; i >= 0; i--) {
@@ -397,7 +404,7 @@ public class BvToIntUtils {
 			}
 		}
 
-		Term transformed = nat2bv(iteChain, appTerm.getSort().getIndices(), eagerMod);
+		Term transformed = nat2bv(iteChain, appTerm.getSort().getIndices(), mod);
 		Term profedTransformed = mProof.trackBvlshrProof(appTerm, (ApplicationTerm) convertedApp, transformed, false, tracker,
 				"+", ProofConstants.RW_BVLSHR2INT);
 		return profedTransformed;
@@ -429,18 +436,14 @@ public class BvToIntUtils {
 	}
 
 	public Term translateRelations(IProofTracker tracker, final ApplicationTerm appTerm, Term convertedApp,
-			boolean eagerMod) {
+			boolean eagerMod) {		
+		boolean mod = !eagerMod;		
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		final int width = Integer.valueOf(params[0].getSort().getIndices()[0]);
 
 		Term[] translatedArgs = new Term[params.length];
-		for (int i = 0; i < params.length; i++) {
-			if(eagerMod) {
-				translatedArgs[i] = bv2nat(params[i], false);
-			} else{
-				translatedArgs[i] = bv2nat(params[i], true);
-			}
-			
+		for (int i = 0; i < params.length; i++) {			
+				translatedArgs[i] = bv2nat(params[i], mod);
 		}
 
 		if (appTerm.getFunction().isIntern()) {
@@ -483,29 +486,29 @@ public class BvToIntUtils {
 				return profedTransformed;
 			}
 			case "bvslt": {
-				Term transformed = mTheory.term("<", uts(width, translatedArgs[0], eagerMod),
-						uts(width, translatedArgs[1], eagerMod));
+				Term transformed = mTheory.term("<", uts(width, translatedArgs[0], mod),
+						uts(width, translatedArgs[1], mod));
 				Term profedTransformed = mProof.trackBvsltProof(appTerm, (ApplicationTerm) convertedApp, transformed, false,
 						tracker, "+", ProofConstants.RW_BVSLT2INT);
 				return profedTransformed;
 			}
 			case "bvsle": {
-				Term transformed = mTheory.term("<=", uts(width, translatedArgs[0], eagerMod),
-						uts(width, translatedArgs[1], eagerMod));
+				Term transformed = mTheory.term("<=", uts(width, translatedArgs[0], mod),
+						uts(width, translatedArgs[1], mod));
 				Term profedTransformed = mProof.trackBvsleProof(appTerm, (ApplicationTerm) convertedApp, transformed, false,
 						tracker, "+", ProofConstants.RW_BVSLE2INT);
 				return profedTransformed;
 			}
 			case "bvsgt": {
-				Term transformed = mTheory.term(">", uts(width, translatedArgs[0], eagerMod),
-						uts(width, translatedArgs[1], eagerMod));
+				Term transformed = mTheory.term(">", uts(width, translatedArgs[0], mod),
+						uts(width, translatedArgs[1], mod));
 				Term profedTransformed = mProof.trackBvsgtProof(appTerm, (ApplicationTerm) convertedApp, transformed, false,
 						tracker, "+", ProofConstants.RW_BVSGT2INT);
 				return profedTransformed;
 			}
 			case "bvsge": {
-				Term transformed = mTheory.term(">=", uts(width, translatedArgs[0], eagerMod),
-						uts(width, translatedArgs[1], eagerMod));
+				Term transformed = mTheory.term(">=", uts(width, translatedArgs[0], mod),
+						uts(width, translatedArgs[1], mod));
 				Term profedTransformed = mProof.trackBvsgeProof(appTerm, (ApplicationTerm) convertedApp, transformed, false,
 						tracker, "+", ProofConstants.RW_BVSGE2INT);
 				return profedTransformed;

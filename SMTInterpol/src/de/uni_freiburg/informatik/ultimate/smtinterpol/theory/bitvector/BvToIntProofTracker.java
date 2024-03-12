@@ -66,7 +66,7 @@ public class BvToIntProofTracker {
 	}
 
 	public Term trackBvToIntProofConcat(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed,
-			boolean b, IProofTracker tracker, String string, String rwConcat2int) {
+			boolean b, IProofTracker tracker, String string, Annotation rwConcat2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
@@ -74,7 +74,7 @@ public class BvToIntProofTracker {
 
 
 	public Term trackBvudivProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvudiv2int) {
+			IProofTracker tracker, String string, Annotation rwBvudiv2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
@@ -82,7 +82,7 @@ public class BvToIntProofTracker {
 
 
 	public Term trackBvuremProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvurem2int) {
+			IProofTracker tracker, String string, Annotation rwBvurem2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
@@ -90,7 +90,7 @@ public class BvToIntProofTracker {
 
 
 	public Term trackBvshlProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvshl2int) {
+			IProofTracker tracker, String string, Annotation rwBvshl2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
@@ -98,7 +98,7 @@ public class BvToIntProofTracker {
 
 
 	public Term trackExtractProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwExtract2int) {
+			IProofTracker tracker, String string, Annotation rwExtract2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
@@ -106,66 +106,66 @@ public class BvToIntProofTracker {
 
 
 	public Term trackBvlshrProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvlshr2int) {
+			IProofTracker tracker, String string, Annotation rwBvlshr2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 	public Term trackDistinctProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBveq2int) {
+			IProofTracker tracker, String string, Annotation rwBveq2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackEqualProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBveq2int) {
+			IProofTracker tracker, String string, Annotation rwBveq2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackBvultProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvult2int) {
+			IProofTracker tracker, String string, Annotation rwBvult2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackBvuleProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvule2int) {
+			IProofTracker tracker, String string, Annotation rwBvule2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackBvugtProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvugt2int) {
+			IProofTracker tracker, String string, Annotation rwBvugt2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackBvugeProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvuge2int) {
+			IProofTracker tracker, String string, Annotation rwBvuge2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackBvsltProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvslt2int) {
+			IProofTracker tracker, String string, Annotation rwBvslt2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackBvsleProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvsle2int) {
+			IProofTracker tracker, String string, Annotation rwBvsle2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackBvsgtProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvsgt2int) {
+			IProofTracker tracker, String string, Annotation rwBvsgt2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
 
 	public Term trackBvsgeProof(ApplicationTerm appTerm, ApplicationTerm convertedApp, Term transformed, boolean b,
-			IProofTracker tracker, String string, String rwBvsge2int) {
+			IProofTracker tracker, String string, Annotation rwBvsge2int) {
 		// TODO Auto-generated method stub
 		return transformed;
 	}
