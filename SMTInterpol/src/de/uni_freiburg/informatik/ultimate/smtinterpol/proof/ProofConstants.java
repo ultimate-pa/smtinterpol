@@ -145,21 +145,22 @@ public interface ProofConstants {
 	public static final Annotation RW_BVTOINT_CONST = null;
 	public static final Annotation RW_BVMUL2INT = null;
 	public static final Annotation RW_BVSUB2INT = null;
-	public static final String RW_CONCAT2INT = null;
-	public static final String RW_BVUDIV2INT = null;
-	public static final String RW_BVSHL2INT = null;
-	public static final String RW_BVUREM2INT = null;
-	public static final String RW_BVLSHR2INT = null;
-	public static final String RW_EXTRACT2INT = null;
-	public static final String RW_BVEQ2INT = null;
-	public static final String RW_BVULT2INT = null;
-	public static final String RW_BVULE2INT = null;
-	public static final String RW_BVUGT2INT = null;
-	public static final String RW_BVUGE2INT = null;
-	public static final String RW_BVSLT2INT = null;
-	public static final String RW_BVSLE2INT = null;
-	public static final String RW_BVSGT2INT = null;
-	public static final String RW_BVSGE2INT = null;
+	public static final Annotation RW_CONCAT2INT = null;
+	public static final Annotation RW_BVUDIV2INT = null;
+	public static final Annotation RW_BVSHL2INT = null;
+	public static final Annotation RW_BVUREM2INT = null;
+	public static final Annotation RW_BVLSHR2INT = null;
+	public static final Annotation RW_EXTRACT2INT = null;
+	public static final Annotation RW_BVEQ2INT = null;
+	public static final Annotation RW_BVULT2INT = null;
+	public static final Annotation RW_BVULE2INT = null;
+	public static final Annotation RW_BVUGT2INT = null;
+	public static final Annotation RW_BVUGE2INT = null;
+	public static final Annotation RW_BVSLT2INT = null;
+	public static final Annotation RW_BVSLE2INT = null;
+	public static final Annotation RW_BVSGT2INT = null;
+	public static final Annotation RW_BVSGE2INT = null;
+	public static final Annotation TAUT_BV2NAT = null;
 
 	//// ==== Annotations with non-null value ====
 	public static Annotation getTautForallPos(final Term[] skolemFuns) {

@@ -274,7 +274,7 @@ public class TermCompiler extends TermTransformer {
 				return;
 			case "=":
 				if (params[0].getSort().isBitVecSort()) {
-					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, true)); 
+					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod)); 
 					//TODO setResult or PushTerm? see other bv relations too
 					//VLT wegen nested eq
 					return;
@@ -283,7 +283,7 @@ public class TermCompiler extends TermTransformer {
 				return;
 			case "distinct":
 				if (params[0].getSort().isBitVecSort()) {
-					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, true)); 
+					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod)); 
 					//TODO setResult or PushTerm? see other bv relations too
 					//VLT wegen nested eq
 					return;
@@ -583,8 +583,9 @@ public class TermCompiler extends TermTransformer {
 				setResult(bvToIntUtils.translateBvNeg(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
+			//Do we need modulo here?
 			case "bvnot": {
-				setResult(bvToIntUtils.translateBvNot(mTracker, appTerm, convertedApp,  mEagerMod));
+				setResult(bvToIntUtils.translateBvNot(mTracker, appTerm, convertedApp,  false));
 				return;
 			}
 			case "concat": {
@@ -621,7 +622,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvsgt":
 			case "bvsge":
 			case "bvult": {
-				pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, true));
+				pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
 			case "extract": {
@@ -645,7 +646,7 @@ public class TermCompiler extends TermTransformer {
 //					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
 //					return;
 //				}				
-				setResult(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(convertedApp, mEagerMod), appTerm.getSort().getIndices(), mEagerMod));
+				setResult(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(convertedApp, mEagerMod), appTerm.getSort().getIndices(), true));
 				return;
 			}
 			case "sign_extend": {
