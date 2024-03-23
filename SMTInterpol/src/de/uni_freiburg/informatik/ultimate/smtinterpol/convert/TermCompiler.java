@@ -201,14 +201,19 @@ public class TermCompiler extends TermTransformer {
 		} else if (term instanceof ConstantTerm && term.getSort().isBitVecSort()) {
 			final Theory theory = term.getTheory();
 			final BvUtils bvUtils = new BvUtils(theory, mUtils);
-			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils);
-			setResult(bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod));
+			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker);
+			setResult( mTracker.reflexivity(bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod)));
 			return;
+//			setResult(mTracker.buildRewrite(term, bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
+//			return;
 		} else if (term instanceof TermVariable) {
 			if (term.getSort().isBitVecSort()) {
 				final Theory theory = term.getTheory();
-				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null);
-				setResult(bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod));
+				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null, mTracker);
+				setResult( mTracker.reflexivity(bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod)));
+				return;
+//				setResult(mTracker.buildRewrite(term, bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
+			// return;
 			} else {
 				setResult(mTracker.reflexivity(term));
 				return;
@@ -222,14 +227,13 @@ public class TermCompiler extends TermTransformer {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
 		final BvUtils bvUtils = new BvUtils(theory, mUtils);
-		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils);
-
+		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker);
 		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
+	
 		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {
 			setResult(convertedApp);
 			return;
 		}
-
 		final Term[] params = ((ApplicationTerm) mTracker.getProvedTerm(convertedApp)).getParameters();
 
 		if (fsym.getDefinition() != null && !fsym.getName().startsWith("@skolem.")
@@ -646,7 +650,7 @@ public class TermCompiler extends TermTransformer {
 //					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
 //					return;
 //				}				
-				setResult(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(convertedApp, mEagerMod), appTerm.getSort().getIndices(), true));
+				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(mTracker.reflexivity(bvToIntUtils.bv2nat(convertedApp, mEagerMod)), appTerm.getSort().getIndices(), true)));
 				return;
 			}
 			case "sign_extend": {
@@ -705,11 +709,11 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "bv2nat": {
 				//Term should only contain bv2nat around uninterpreted functions / constants
-				setResult(bvToIntUtils.bv2nat(params[0], mEagerMod));
+				setResult(mTracker.reflexivity(bvToIntUtils.bv2nat(params[0], mEagerMod)));
 				return;
 			}
 			case "nat2bv": {
-				setResult(bvToIntUtils.nat2bv(params[0],appTerm.getSort().getIndices(), mEagerMod));
+				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(params[0],appTerm.getSort().getIndices(), mEagerMod)));
 				return;
 //				throw new UnsupportedOperationException("Should be dealt with directly");
 			}
