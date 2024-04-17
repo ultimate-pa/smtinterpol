@@ -52,71 +52,71 @@ public class BvToIntUtils {
 		// width of the first argument
 
 		final BigInteger two = BigInteger.valueOf(2);
-		// maximal representable number by a bit-vector of width "width"
-
+//		// maximal representable number by a bit-vector of width "width"
 		if (mBvUtils.isConstRelation(param, null)) {
 			if (param instanceof ConstantTerm) {
-//				return translateConstant(((ConstantTerm) param).getValue());
-				return mTracker.reflexivity(translateConstant(((ConstantTerm) param).getValue()));	
+				return translateConstant(((ConstantTerm) param).getValue());
+//				return mTracker.reflexivity(translateConstant(((ConstantTerm) param).getValue()));	
 			} else {
 				BigInteger value = new BigInteger(((ApplicationTerm) param).getFunction().getName().substring(2));
-//				return translateConstant(value);
-				return mTracker.reflexivity(translateConstant(value));	
+				return translateConstant(value);
+//				return mTracker.reflexivity(translateConstant(value));	
 			}
 
 		}
+		
 		if (param instanceof ApplicationTerm) {
 			ApplicationTerm apParam = (ApplicationTerm) param;
 			// Problem: bv2nat(nat2bv(t)) // can only be removed if value fits in bv width
 			if (apParam.getFunction().getName().equals("nat2bv")) { // TODO mod heißt wir machen mod sonst weg
-				if (mod) {
+				if (mod || mTheory.getDeclaredFunctions().containsKey(apParam.getParameters()[0])) {
 					final int width = Integer.valueOf(apParam.getSort().getIndices()[0]);
 					final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE),
 							mTheory.getSort(SMTLIBConstants.INT));
-//					return mTheory.term("mod", apParam.getParameters()[0], maxNumber); // !!!CAnnot be eliminated here,
+					return mTheory.term("mod", apParam.getParameters()[0], maxNumber); // !!!CAnnot be eliminated here,
 																						// needs a modulo
-					return mTracker.reflexivity(mTheory.term("mod", apParam.getParameters()[0], maxNumber));	
+//					return mTracker.reflexivity(mTheory.term("mod", apParam.getParameters()[0], maxNumber));	
 				} else {
-					return mTracker.reflexivity(apParam.getParameters()[0]);	
-//					return apParam.getParameters()[0];
+//					return mTracker.reflexivity(apParam.getParameters()[0]);	
+					return apParam.getParameters()[0];
 				}
 			} else if (apParam.getFunction().getName().equals("bv2nat")) { // TODO mod heißt wir machen mod sonst weg
 				throw new UnsupportedOperationException("TODO");
 			}
 		}
-//		return mTheory.term("bv2nat", param);
-		return mTracker.reflexivity(mTheory.term("bv2nat", param));	
+		return mTheory.term("bv2nat", param);
+//		return mTracker.reflexivity(mTheory.term("bv2nat", param));	
 	}
 
 	/*
 	 * TODO RangeBased "nat2bv""bv2nat" -> mod,?
 	 */
-	public Term nat2bv(Term param, String[] width, boolean eagerMod) {
+	public Term nat2bv(Term param, String[] width) {
 		assert param.getSort().isNumericSort();
-		// TODO case switch for simplifications
-		// width of the first argument
-		final int widthInt = Integer.valueOf(width[0]);
-		final BigInteger two = BigInteger.valueOf(2);
-		// maximal representable number by a bit-vector of width "width"
-		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(widthInt), BigInteger.ONE),
-				mTheory.getSort(SMTLIBConstants.INT));
-		// TODO optimize nat2bv nat2bv
+//		// TODO case switch for simplifications
+//		// width of the first argument
+//		final int widthInt = Integer.valueOf(width[0]);
+//		final BigInteger two = BigInteger.valueOf(2);
+//		// maximal representable number by a bit-vector of width "width"
+//		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(widthInt), BigInteger.ONE),
+//				mTheory.getSort(SMTLIBConstants.INT));
+//		// TODO optimize nat2bv nat2bv
 		if (param instanceof ConstantTerm) {
-//			return translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width);
-			return mTracker.reflexivity(translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width));	
+			return translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width);
+//			return mTracker.reflexivity(translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width));	
 		}
-		if (param instanceof ApplicationTerm) {
-			ApplicationTerm apParam = (ApplicationTerm) param;
-			if (apParam.getFunction().getName().equals("bv2nat")) {
-				if (width.equals(apParam.getParameters()[0].getSort().getIndices())) {
+//		if (param instanceof ApplicationTerm) {
+//			ApplicationTerm apParam = (ApplicationTerm) param;
+//			if (apParam.getFunction().getName().equals("bv2nat")) {
+//				if (width.equals(apParam.getParameters()[0].getSort().getIndices())) {
 //					return apParam.getParameters()[0];
-					return mTracker.reflexivity(apParam.getParameters()[0]);
-				}
-
-			}
-		}
-//		return mTheory.term("nat2bv", width, null, param);
-		return mTracker.reflexivity(mTheory.term("nat2bv", width, null, param));
+////					return mTracker.reflexivity(apParam.getParameters()[0]);
+//				}
+//
+//			}
+//		}
+		return mTheory.term("nat2bv", width, null, param);
+//		return mTracker.reflexivity(mTheory.term("nat2bv", width, null, param));
 	}
 
 	/*
@@ -125,7 +125,7 @@ public class BvToIntUtils {
 	public Term translateBvConstant(final FunctionSymbol fsym, Term convertedApp, boolean eagerMod) {
 		if (convertedApp.getSort().isBitVecSort()) {
 			BigInteger value = new BigInteger(fsym.getName().substring(2));
-			return nat2bv(translateConstant(value), convertedApp.getSort().getIndices(), eagerMod);
+			return nat2bv(translateConstant(value), convertedApp.getSort().getIndices());
 		} else {
 			throw new UnsupportedOperationException("Can't convert bv constant: " + fsym.getName());
 		}
@@ -136,7 +136,7 @@ public class BvToIntUtils {
 	 */
 	public Term translateBvConstantTerm(ConstantTerm term, boolean eagerMod) {
 		if (term.getSort().isBitVecSort()) {
-			return nat2bv(translateConstant(term.getValue()), term.getSort().getIndices(), eagerMod);
+			return nat2bv(translateConstant(term.getValue()), term.getSort().getIndices());
 		} else {
 			throw new UnsupportedOperationException("Can't convert bv constant: " + term);
 		}
@@ -213,7 +213,7 @@ public class BvToIntUtils {
 		}
 		Term transformed =
 				nat2bv(mTheory.term(integerFunctionSymbol, bv2nat(params[0], eagerMod), bv2nat(params[1], eagerMod)),
-						params[0].getSort().getIndices(), eagerMod);
+						params[0].getSort().getIndices());
 		Term profedTransformedBvadd = mProof.trackBvToIntProof(appTerm, convertedApp, transformed, false, tracker,
 				integerFunctionSymbol, proof);
 		return profedTransformedBvadd;
@@ -237,7 +237,7 @@ public class BvToIntUtils {
 
 		// nat2bv[m](2^m - bv2nat([[s]]))
 		Term transformed = nat2bv(mTheory.term("-", maxNumber, bv2nat(params[0], eagerMod)),
-				params[0].getSort().getIndices(), eagerMod);
+				params[0].getSort().getIndices());
 		Term profedTransformedBvadd = mProof.trackBvToIntProofNegNotTODO(appTerm, convertedApp, transformed, false,
 				tracker, "-", ProofConstants.RW_BVMUL2INT);
 		return profedTransformedBvadd;
@@ -262,7 +262,7 @@ public class BvToIntUtils {
 
 		final Term not = mTheory.term("-", maxNumber, mTheory.term("+", bv2nat(params[0], eagerMod), one));
 
-		Term transformed = nat2bv(not, params[0].getSort().getIndices(), eagerMod);
+		Term transformed = nat2bv(not, params[0].getSort().getIndices());
 		Term profedTransformedBvadd = mProof.trackBvToIntProofNegNotTODO(appTerm, convertedApp, transformed, false,
 				tracker, "-", ProofConstants.RW_BVMUL2INT);
 		return profedTransformedBvadd;
@@ -288,7 +288,7 @@ public class BvToIntUtils {
 		final Term multiplication = mTheory.term("*", bv2nat(params[0], false), maxNumber);
 
 		Term concat = mTheory.term("+", multiplication, bv2nat(params[1], mod));
-		Term transformed = nat2bv(concat, appTerm.getSort().getIndices(), mod);
+		Term transformed = nat2bv(concat, appTerm.getSort().getIndices());
 		Term profedTransformedConcat = mProof.trackBvToIntProofConcat(appTerm, convertedApp, transformed, false,
 				tracker, "+", ProofConstants.RW_CONCAT2INT);
 		return profedTransformedConcat;
@@ -317,7 +317,7 @@ public class BvToIntUtils {
 		final Term thenTerm = maxNumberMinusOne;
 		final Term elseTerm = mTheory.term("div", bv2nat(params[0], mod), bv2nat(params[1], mod));
 
-		Term transformed = nat2bv(mTheory.term("ite", ifTerm, thenTerm, elseTerm), appTerm.getSort().getIndices(), mod);
+		Term transformed = nat2bv(mTheory.term("ite", ifTerm, thenTerm, elseTerm), appTerm.getSort().getIndices());
 
 		Term profedTransformed = mProof.trackBvudivProof(appTerm, convertedApp, transformed, false, tracker, "+",
 				ProofConstants.RW_BVUDIV2INT);
@@ -343,7 +343,7 @@ public class BvToIntUtils {
 		final Term thenTerm = lhs;
 		final Term elseTerm = mTheory.term("mod", lhs, rhs);
 
-		Term transformed = nat2bv(mTheory.term("ite", ifTerm, thenTerm, elseTerm), appTerm.getSort().getIndices(), mod);
+		Term transformed = nat2bv(mTheory.term("ite", ifTerm, thenTerm, elseTerm), appTerm.getSort().getIndices());
 
 		Term profedTransformed = mProof.trackBvuremProof(appTerm, convertedApp, transformed, false, tracker, "+",
 				ProofConstants.RW_BVUREM2INT);
@@ -381,13 +381,14 @@ public class BvToIntUtils {
 				final BigInteger pow = BigInteger.valueOf(2).pow(i);
 				final Term thenTerm;
 				// TODO no modulo here? ist than lazy mod or is it?
+//				BUG muss modulo hier rhin für eager
 				thenTerm = mTheory.term("*", mTheory.rational(Rational.valueOf(pow, BigInteger.ONE), intSort),
 						translatedLHS);
 
 				iteChain = mTheory.term("ite", ifTerm, thenTerm, iteChain);
 			}
 		}
-		Term transformed = nat2bv(iteChain, appTerm.getSort().getIndices(), mod);
+		Term transformed = nat2bv(iteChain, appTerm.getSort().getIndices());
 		Term profedTransformed = mProof.trackBvshlProof(appTerm, convertedApp, transformed, false, tracker, "+",
 				ProofConstants.RW_BVSHL2INT);
 		return profedTransformed;
@@ -424,7 +425,7 @@ public class BvToIntUtils {
 			}
 		}
 
-		Term transformed = nat2bv(iteChain, appTerm.getSort().getIndices(), mod);
+		Term transformed = nat2bv(iteChain, appTerm.getSort().getIndices());
 		Term profedTransformed = mProof.trackBvlshrProof(appTerm, convertedApp, transformed, false, tracker, "+",
 				ProofConstants.RW_BVLSHR2INT);
 		return profedTransformed;
@@ -450,7 +451,7 @@ public class BvToIntUtils {
 		int extractedWidth = upperIndex - lowerIndex + 1;
 		String[] newWidth = new String[1];
 		newWidth[0] = String.valueOf(extractedWidth);
-		Term transformed = nat2bv(mTheory.term("div", translatedLHS, divby), newWidth, eagerMod);
+		Term transformed = nat2bv(mTheory.term("div", translatedLHS, divby), newWidth);
 		Term profedTransformed = mProof.trackExtractProof(appTerm, convertedApp, transformed, false, tracker, "+",
 				ProofConstants.RW_EXTRACT2INT);
 		return profedTransformed;
@@ -557,7 +558,7 @@ public class BvToIntUtils {
 		// Lazy this should become ((param mod 2^k) mod 2^k−1)
 		// And bv2nat(param) should eager become param
 		// And Lazy bv2nat(param) become (param mod 2^k)
-		final Term modulo = bv2nat(nat2bv(bv2natparam, newWidth, eagerMod), eagerMod);
+		final Term modulo = bv2nat(nat2bv(bv2natparam, newWidth), eagerMod);
 		Term two = mTheory.rational(Rational.TWO, intSort);
 		return mTheory.term("-", mTheory.term("*", two, modulo), bv2natparam);
 	}

@@ -67,7 +67,7 @@ public class TermCompiler extends TermTransformer {
 	private LogicSimplifier mUtils;
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 	// TODO make it an option
-	boolean mEagerMod = true;
+	boolean mEagerMod = false; // Bug in EAGER!!! need to check more canse nested bvadd, last modulo missing
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -103,6 +103,7 @@ public class TermCompiler extends TermTransformer {
 
 	@Override
 	public void convert(final Term term) {
+		System.out.println(term);
 		if (term.getSort().isInternal()) {
 			/* check if we support the internal sort */
 			switch (term.getSort().getName()) {
@@ -186,12 +187,19 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			if(term.getSort().isBitVecSort() && appTerm.getParameters().length == 0 && !fsym.isIntern()) {
-//				final Theory theory = appTerm.getTheory();
-//				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils);
-//				final Term rhs = bvToIntUtils.bv2nat(appTerm, mEagerMod);
-//				final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
-//				setResult(rewrite);
-//				return;
+				final Theory theory = appTerm.getTheory();
+				final BvUtils bvUtils = new BvUtils(theory, mUtils);
+				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker);
+				
+				
+				
+				final Term intVar = theory.term(theory.declareFunction(appTerm + "2Int", new Sort[0], theory.getSort("Int")));
+			
+				final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
+				
+				final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
+				setResult(rewrite);
+				return;
 				//TODO we just do nothing here?
 			}
 		} else if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
@@ -650,7 +658,7 @@ public class TermCompiler extends TermTransformer {
 //					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
 //					return;
 //				}				
-				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(mTracker.reflexivity(bvToIntUtils.bv2nat(convertedApp, mEagerMod)), appTerm.getSort().getIndices(), true)));
+				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(mTracker.reflexivity(bvToIntUtils.bv2nat(convertedApp, mEagerMod)), appTerm.getSort().getIndices())));
 				return;
 			}
 			case "sign_extend": {
@@ -713,7 +721,7 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "nat2bv": {
-				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(params[0],appTerm.getSort().getIndices(), mEagerMod)));
+				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(params[0],appTerm.getSort().getIndices())));
 				return;
 //				throw new UnsupportedOperationException("Should be dealt with directly");
 			}
