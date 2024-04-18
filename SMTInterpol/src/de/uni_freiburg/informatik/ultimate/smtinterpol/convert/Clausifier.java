@@ -1023,7 +1023,6 @@ public class Clausifier {
 	}
 
 	public void shareLATerm(final Term term, final LASharedTerm laTerm) {
-		System.out.println(term);
 		// assert !mLATerms.containsKey(term);
 		mLATerms.put(term, laTerm);
 		final CCTerm ccTerm = getCCTerm(term);
@@ -1042,7 +1041,6 @@ public class Clausifier {
 	}
 
 	public void addTermAxioms(final Term term, final SourceAnnotation source) {
-		System.out.println("TermAxiom: "+ term);
 		final int termFlags = getTermFlags(term);
 		if ((termFlags & Clausifier.AUX_AXIOM_ADDED) == 0) {
 			setTermFlags(term, termFlags | Clausifier.AUX_AXIOM_ADDED);
@@ -1196,13 +1194,13 @@ public class Clausifier {
 				mTheory.getSort(SMTLIBConstants.INT));
 		Term test = mTheory.term("=", at , mTheory.term("mod", at, maxNumber));
 		
-		System.out.println("Axiom?: " + at);
+
 		
 		if(	at.getParameters()[0] instanceof ApplicationTerm) {
 			if(((ApplicationTerm)at.getParameters()[0]).getFunction().getName().equals("nat2bv")) {
 				Term axiom = mTheory.term("=", at , mTheory.term("mod", ((ApplicationTerm)at.getParameters()[0]).getParameters()[0], maxNumber));			
 				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_BV2NATUP), source);
-				System.out.println("Axiom!: " + axiom);
+
 				
 				// Ptoblem, 2mal für sum?
 				Term leq0LowerBound = mTheory.term("<=", mTheory.term("-", ((ApplicationTerm)at.getParameters()[0]).getParameters()[0]), zero);

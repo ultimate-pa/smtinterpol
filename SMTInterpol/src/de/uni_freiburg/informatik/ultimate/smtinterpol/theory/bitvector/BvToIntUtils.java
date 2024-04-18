@@ -168,9 +168,9 @@ public class BvToIntUtils {
 	}
 
 	private Term translateConstantBack(Rational value, String[] width) {
-
+		
 		Rational valueInRange =
-				Rational.valueOf(value.numerator().mod(BigInteger.TWO.pow(Integer.valueOf(width[0]))), BigInteger.ONE);
+				Rational.valueOf(value.numerator().mod(BigInteger.valueOf(2).pow(Integer.valueOf(width[0]))), BigInteger.ONE);
 		return mTheory.term("bv" + valueInRange, width, null);
 
 	}

@@ -103,7 +103,6 @@ public class TermCompiler extends TermTransformer {
 
 	@Override
 	public void convert(final Term term) {
-		System.out.println(term);
 		if (term.getSort().isInternal()) {
 			/* check if we support the internal sort */
 			switch (term.getSort().getName()) {
@@ -193,7 +192,7 @@ public class TermCompiler extends TermTransformer {
 				
 				
 				
-				final Term intVar = theory.term(theory.declareFunction(appTerm + "2Int", new Sort[0], theory.getSort("Int")));
+				final Term intVar = theory.term(theory.declareFunction(theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0], theory.getSort("Int")));
 			
 				final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
 				
