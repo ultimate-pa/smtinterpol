@@ -67,7 +67,7 @@ public class TermCompiler extends TermTransformer {
 	private LogicSimplifier mUtils;
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 	// TODO make it an option
-	boolean mEagerMod = false; // Bug in EAGER!!! need to check more canse nested bvadd, last modulo missing
+	boolean mEagerMod = false;
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -118,6 +118,7 @@ public class TermCompiler extends TermTransformer {
 			}
 		}
 		if (term instanceof ApplicationTerm) {
+			System.out.println(term);
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol fsym = appTerm.getFunction();
 			// TODO: The following is commented out because of the lambdas in
@@ -188,7 +189,7 @@ public class TermCompiler extends TermTransformer {
 			if(term.getSort().isBitVecSort() && appTerm.getParameters().length == 0 && !fsym.isIntern()) {
 				final Theory theory = appTerm.getTheory();
 				final BvUtils bvUtils = new BvUtils(theory, mUtils);
-				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker);
+				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod);
 				
 				
 				
@@ -208,7 +209,7 @@ public class TermCompiler extends TermTransformer {
 		} else if (term instanceof ConstantTerm && term.getSort().isBitVecSort()) {
 			final Theory theory = term.getTheory();
 			final BvUtils bvUtils = new BvUtils(theory, mUtils);
-			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker);
+			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod);
 			setResult( mTracker.reflexivity(bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod)));
 			return;
 //			setResult(mTracker.buildRewrite(term, bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
@@ -216,7 +217,7 @@ public class TermCompiler extends TermTransformer {
 		} else if (term instanceof TermVariable) {
 			if (term.getSort().isBitVecSort()) {
 				final Theory theory = term.getTheory();
-				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null, mTracker);
+				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null, mTracker, mEagerMod);
 				setResult( mTracker.reflexivity(bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod)));
 				return;
 //				setResult(mTracker.buildRewrite(term, bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
@@ -234,7 +235,7 @@ public class TermCompiler extends TermTransformer {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
 		final BvUtils bvUtils = new BvUtils(theory, mUtils);
-		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker);
+		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod);
 		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
 	
 		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {
