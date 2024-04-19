@@ -81,6 +81,11 @@ public class BvToIntUtils {
 					return apParam.getParameters()[0];
 				}
 			} 
+			if (apParam.getFunction().getName().equals("ite")) {
+				
+						
+				return mTheory.term("ite", apParam.getParameters()[0], bv2nat( apParam.getParameters()[1], mod), bv2nat( apParam.getParameters()[2], mod));	
+			} 
 		}
 		return mTheory.term("bv2nat", param);
 	}
@@ -542,21 +547,21 @@ public class BvToIntUtils {
 				Term transformed = mTheory.term(">=", translatedArgs);
 				Term profedTransformed = mProof.trackBvugeProof(appTerm, convertedApp, transformed, false, tracker, "+",
 						ProofConstants.RW_BVUGE2INT);
-				return profedTransformed;
+				return transformed;
 			}
 			case "bvslt": {
 				Term transformed =
 						mTheory.term("<", uts(width, translatedArgs[0], mod), uts(width, translatedArgs[1], mod));
 				Term profedTransformed = mProof.trackBvsltProof(appTerm, convertedApp, transformed, false, tracker, "+",
 						ProofConstants.RW_BVSLT2INT);
-				return profedTransformed;
+				return transformed;
 			}
 			case "bvsle": {
 				Term transformed =
 						mTheory.term("<=", uts(width, translatedArgs[0], mod), uts(width, translatedArgs[1], mod));
 				Term profedTransformed = mProof.trackBvsleProof(appTerm, convertedApp, transformed, false, tracker, "+",
 						ProofConstants.RW_BVSLE2INT);
-				return profedTransformed;
+				return transformed;
 			}
 			case "bvsgt": {
 				Term transformed =
@@ -565,7 +570,7 @@ public class BvToIntUtils {
 										ProofConstants.RW_EXTRACT2INT));
 				Term profedTransformed = mProof.trackBvsgtProof(appTerm, convertedApp, transformed, false, tracker, "+",
 						ProofConstants.RW_BVSGT2INT);
-				return profedTransformed;
+				return transformed;
 			}
 			case "bvsge": {				 
 				Term transformed =
@@ -573,7 +578,7 @@ public class BvToIntUtils {
 								ProofConstants.RW_EXTRACT2INT), uts(width, translatedArgs[1], mod));
 				Term profedTransformed = mProof.trackBvsgeProof(appTerm, convertedApp, transformed, false, tracker, "+",
 						ProofConstants.RW_BVSGE2INT);
-				return profedTransformed;
+				return transformed;
 			}
 			}
 		}
@@ -581,19 +586,26 @@ public class BvToIntUtils {
 	}
 
 	// unsigned to signed for relations
-	private final Term uts(final int width, final Term bv2natparam, final boolean eagerMod) {
+	private final Term uts(final int width, Term bv2natparam, final boolean eagerMod) {
 		// 2 * (x mod 2^(k - 1) ) - x
 		// 2 * nat2bv_{k - 1}(bv2nat(param)) - x)
 		final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);
-		String[] newWidth = new String[1];
-		newWidth[0] = String.valueOf(width - 1);
+//		String[] newWidth = new String[1];
+//		newWidth[0] = String.valueOf(width - 1);
 
 		// Is now bv2nat(nat2bv_k-1(bv2nat(param)))
 		// Egaer this should become (param mod 2^k−1)
 		// Lazy this should become ((param mod 2^k) mod 2^k−1)
 		// And bv2nat(param) should eager become param
 		// And Lazy bv2nat(param) become (param mod 2^k)
-		final Term modulo = bv2nat(nat2bv(bv2natparam, newWidth), eagerMod);
+		final BigInteger twoBigInt = BigInteger.valueOf(2);
+		final int newwidth = width - 1;
+		final Term newMaxNumber = mTheory.rational(Rational.valueOf(twoBigInt.pow(newwidth), BigInteger.ONE),
+				mTheory.getSort(SMTLIBConstants.INT));
+		final Term maxNumber = mTheory.rational(Rational.valueOf(twoBigInt.pow(width), BigInteger.ONE),
+				mTheory.getSort(SMTLIBConstants.INT));
+		bv2natparam = mTheory.term("mod", bv2natparam, maxNumber);
+		final Term modulo = mTheory.term("mod", bv2natparam, newMaxNumber);
 		Term two = mTheory.rational(Rational.TWO, intSort);
 		return mTheory.term("-", mTheory.term("*", two, modulo), bv2natparam);
 	}

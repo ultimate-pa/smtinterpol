@@ -951,6 +951,42 @@ public class BvUtils {
 	}
 
 	public Term transformBvsdiv(Term[] params) {
+		final String[] indices = new String[2];
+		indices[0] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
+		indices[1] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
+		final Term msbLhs = mTheory.term( "extract", indices, null,params[0]);
+		final Term msbRhs = mTheory.term( "extract", indices,null, params[1]);
+
+		final Term zeroVec = mTheory.binary("#b0");
+		final Term oneVec =  mTheory.binary("#b1");
+
+		final Term ifterm1 = mTheory.and(  mTheory.term( "=",zeroVec, msbLhs),
+				 mTheory.term( "=", zeroVec, msbRhs));
+		final Term ifterm2 = mTheory.and(  mTheory.term( "=",oneVec, msbLhs),
+				 mTheory.term( "=", zeroVec, msbRhs));
+		final Term ifterm3 = mTheory.and( mTheory.term( "=", zeroVec, msbLhs),
+				 mTheory.term( "=", oneVec, msbRhs));
+
+		final Term bvudiv = mTheory.term( "bvudiv",  params);
+		final Term thenTerm2 = mTheory.term( "bvneg", 
+				mTheory.term( "bvudiv", 
+						mTheory.term( "bvneg",  params[0]),
+						params[1]));
+		final Term thenTerm3 = mTheory.term( "bvneg",				mTheory.term( "bvudiv",  params[0],
+						mTheory.term("bvneg",  params[1])));
+
+		final Term elseTerm = mTheory.term( "bvudiv", 
+				mTheory.term( "bvneg", params[0]),
+				mTheory.term( "bvneg", params[1]));
+
+		final Term iteChain2 = mTheory.term("ite", ifterm3, thenTerm3, elseTerm);
+		final Term iteChain1 = mTheory.term("ite", ifterm2, thenTerm2, iteChain2);
+		final Term bvsdiv = mTheory.term("ite", ifterm1, bvudiv, iteChain1);
+
+		return bvsdiv;
+	}
+	
+	public Term transformBvsdivOld(Term[] params) {
 
 		// abbreviation as defined in the SMT-Lib
 		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
@@ -1089,8 +1125,15 @@ public class BvUtils {
 				}
 				return mTheory.binary(repeat);
 
+			} else {
+				Term repeat = params[0];
+				for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) { // start from 1
+					repeat =  mTheory.term("concat", repeat,  params[0]);
+				}
+				return repeat;
+
 			}
-			return convertedApp;
+			
 		}
 
 	}

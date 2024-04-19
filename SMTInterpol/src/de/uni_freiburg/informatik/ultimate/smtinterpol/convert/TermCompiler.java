@@ -126,6 +126,7 @@ public class TermCompiler extends TermTransformer {
 			// if (fsym.isModelValue()) {
 			// throw new SMTLIBException("Model values not allowed in input");
 			// }
+			Term asd = fsym.getDefinition();
 			final Term[] params = appTerm.getParameters();
 			if (fsym.isLeftAssoc() && params.length > 2) {
 				final Theory theory = appTerm.getTheory();
@@ -191,10 +192,16 @@ public class TermCompiler extends TermTransformer {
 				final BvUtils bvUtils = new BvUtils(theory, mUtils);
 				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod);
 				
+				if(fsym.getDefinition() != null) {					
+					pushTerm(fsym.getDefinition());
+					return;					
+				}
+				
 				if(mVarNameTranslation.containsKey(term)) {
 					setResult(mVarNameTranslation.get(term));
 					return;
-				} else{
+				
+				} else {
 					final Term intVar = theory.term(theory.declareFunction(theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0], theory.getSort("Int")));
 					
 					final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
@@ -203,11 +210,12 @@ public class TermCompiler extends TermTransformer {
 					mVarNameTranslation.put(term, rewrite);
 					setResult(rewrite);
 					return;
-				}
+					}
+				
 				
 
 				//TODO we just do nothing here?
-			}
+			} 
 		} else if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
 			final Term res = SMTAffineTerm.convertConstant((ConstantTerm) term).toTerm(term.getSort());
 			setResult(mTracker.buildRewrite(term, res, ProofConstants.RW_CANONICAL_SUM));
@@ -288,6 +296,17 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertImplies(convertedApp));
 				return;
 			case "ite":
+
+			
+//				if (convertedApp.getSort().isBitVecSort()) {	
+//					final BigInteger two = BigInteger.valueOf(2);
+//					final int width = Integer.valueOf(convertedApp.getSort().getIndices()[0]);
+//					final Term maxNumber = theory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE),
+//							theory.getSort(SMTLIBConstants.INT));				
+//					setResult( bvToIntUtils.nat2bv(theory.term("mod", mUtils.convertIte(convertedApp), maxNumber), convertedApp.getSort().getIndices()));	
+//					return;
+//				}
+				
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
@@ -594,16 +613,16 @@ public class TermCompiler extends TermTransformer {
 			}
 			case "bvsub":			
 			case "bvadd": {
-				setResult(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
 			case "bvneg": {
-				setResult(bvToIntUtils.translateBvNeg(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvNeg(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
 			//Do we need modulo here?
 			case "bvnot": {
-				setResult(bvToIntUtils.translateBvNot(mTracker, appTerm, convertedApp,  false));
+				pushTerm(bvToIntUtils.translateBvNot(mTracker, appTerm, convertedApp,  false));
 				return;
 			}
 			case "concat": {
@@ -619,11 +638,11 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "bvlshr": {
-				setResult(bvToIntUtils.translateBvlshr(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvlshr(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
 			case "bvshl": {
-				setResult(bvToIntUtils.translateBvshl(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvshl(mTracker, appTerm, convertedApp,  mEagerMod));
 				return;
 			}
 			case "bvand":
@@ -644,38 +663,82 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "extract": {
-				setResult(bvToIntUtils.translateExtract(mTracker, appTerm, convertedApp, true));
+				pushTerm(bvToIntUtils.translateExtract(mTracker, appTerm, convertedApp, true));
 				return;
 			}
 			case "repeat": {
-				setResult(bvUtils.transformRepeat(params, fsym, convertedApp));
+				
+				pushTerm(bvUtils.transformRepeat(params, fsym, convertedApp));
 				return;
 			}
 			case "zero_extend": {
 				// abbreviates (concat ((_ repeat i) #b0) t)
-//				if (fsym.getIndices()[0].equals("0")) {
-//					setResult(params[0]);
-//					return;
-//				} else {
+				if (fsym.getIndices()[0].equals("0")) {
+					setResult(params[0]);
+					return;
+				} else {
+					String repeat = "#b0";
+					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
+						repeat = repeat + "0";
+					}
+					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
+					return;
+				}				
+//				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(convertedApp, mEagerMod), appTerm.getSort().getIndices())));
+//				return;
+			}
+			case "sign_extend": {
+				if (fsym.getIndices()[0].equals("0")) {
+					setResult(params[0]);
+					return;
+				} else {
 //					String repeat = "#b0";
 //					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
 //						repeat = repeat + "0";
 //					}
-//					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
-//					return;
-//				}				
-				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(mTracker.reflexivity(bvToIntUtils.bv2nat(convertedApp, mEagerMod)), appTerm.getSort().getIndices())));
-				return;
-			}
-			case "sign_extend": {
-				setResult(bvUtils.transformSignExtend(params, fsym, convertedApp));
-				return;
+//					int difference = Integer.valueOf(fsym.getIndices()[0]) - Integer.valueOf(params[0].getSort().getIndices()[0]);
+//					
+//					int maxExtract = Integer.valueOf(params[0].getSort().getIndices()[0]) - 1;
+//					
+//					final String[] idx = new String[2];
+//					idx[0] = String.valueOf(maxExtract);
+//					idx[1] = String.valueOf(maxExtract);
+//				
+//					final String[] repeatIdx = new String[1];
+//					repeatIdx[0] = String.valueOf(difference);
+//					 
+//					pushTerm(theory.term("concat", 	theory.term("repeat", repeatIdx, null , theory.term("extract", idx, null, params[0])) , params[0]));
+//					
+//					
+					
+					
+					final String[] indices = new String[2];
+					indices[0] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
+					indices[1] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
+
+					Term repeat = appTerm.getParameters()[0];
+					final int difference = Integer.valueOf(appTerm.getSort().getIndices()[0])
+							- Integer.valueOf(params[0].getSort().getIndices()[0]);
+					for (int i = 0; i < difference; i++) {
+						repeat = theory.term( "concat",
+								theory.term("extract", indices, null, params[0]), repeat);
+					}
+					pushTerm(repeat);
+					return;
+					
+					
+					
+					
+				}		
+				
 			}
 			case "rotate_left": {
+				assert false;
 				setResult(bvUtils.transformRotateleft(params, fsym, convertedApp));
 				return;
 			}
 			case "rotate_right": {
+				assert false;
 				setResult(bvUtils.transformRotateright(params, fsym, convertedApp));
 				return;
 			}
