@@ -67,7 +67,7 @@ public class TermCompiler extends TermTransformer {
 	private LogicSimplifier mUtils;
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 	// TODO make it an option
-	boolean mEagerMod = false;
+	boolean mEagerMod = true;
 	private Map<Term, Term> mVarNameTranslation = new HashMap<>();
 	
 	static class TransitivityStep implements Walker {
