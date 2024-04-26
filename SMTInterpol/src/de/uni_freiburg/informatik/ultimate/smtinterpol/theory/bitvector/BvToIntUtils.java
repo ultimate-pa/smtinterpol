@@ -63,21 +63,17 @@ public class BvToIntUtils {
 			}
 
 		}
-		if (param instanceof ApplicationTerm) {
+		if (param instanceof ApplicationTerm && false) {
 			ApplicationTerm apParam = (ApplicationTerm) param;
 			if (apParam.getFunction().getName().equals("nat2bv")) {
 				if(mEagerMod) {
 					if(apParam.getParameters()[0] instanceof ApplicationTerm) {
 						if(mTheory.getDeclaredFunctions().containsKey(	((ApplicationTerm) apParam.getParameters()[0]).getFunction().getName())) {
-							mod = true;			
-								
+							mod = true;
 						}
-					} else if(apParam.getParameters()[0] instanceof TermVariable) {
-						
-							mod = true;			
-								
-					}
-			
+					} else if(apParam.getParameters()[0] instanceof TermVariable) {						
+							mod = true;										
+					}			
 				}
 				if (mod ) {
 					final int width = Integer.valueOf(apParam.getSort().getIndices()[0]);

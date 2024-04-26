@@ -1023,7 +1023,7 @@ public class Clausifier {
 	}
 
 	public void shareLATerm(final Term term, final LASharedTerm laTerm) {
-		// assert !mLATerms.containsKey(term);
+		assert !mLATerms.containsKey(term);
 		mLATerms.put(term, laTerm);
 		final CCTerm ccTerm = getCCTerm(term);
 		if (ccTerm != null) {
@@ -1053,7 +1053,6 @@ public class Clausifier {
 
 				final ApplicationTerm at = (ApplicationTerm) term;
 				final FunctionSymbol fs = at.getFunction();
-				boolean eagerMod = true;
 				if (fs.isIntern()) {
 					/* add axioms for certain built-in functions */
 					if (fs.getName().equals("div")) {
@@ -1070,7 +1069,7 @@ public class Clausifier {
 						addDiffAxiom(at, source);
 						mArrayTheory.notifyDiff((CCAppTerm) ccTerm);
 					} else if (fs.getName().equals("bv2nat")) {
-						addBv2NatAxioms(at, ccTerm, source, eagerMod);
+						addBv2NatAxioms(at, ccTerm, source);
 					} else if (fs.getName().equals("nat2bv")) {
 						addNat2BvAxiom(at, ccTerm, source);
 					}
@@ -1146,87 +1145,71 @@ public class Clausifier {
 		final int width = Integer.valueOf(at.getSort().getIndices()[0]);
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
-		final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE),
-				mTheory.getSort(SMTLIBConstants.INT));
-
-		// vlt bv2nat nat2bv a = mod a
-
-		// Endlos schleife!
-		// Term axiom = mTheory.term("=", at, mTheory.term("nat2bv", at.getSort().getIndices(), null,
-		// mTheory.term("mod", at.getParameters()[0], maxNumber )));
-		Term axiom =
-				mTheory.term("=", mTheory.term("bv2nat", at), mTheory.term("mod", at.getParameters()[0], maxNumber));
-//		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
-
-		Term axiom2 =
-				mTheory.term("=",at, mTheory.term(at.getFunction(), mTheory.term("mod", at.getParameters()[0], maxNumber)));
+		final Rational maxNumber = Rational.valueOf(two.pow(width), BigInteger.ONE);
+		Term arg = at.getParameters()[0];
 		
-		Term axiom3 =
-				mTheory.term("=", mTheory.term("bv2nat", at), mTheory.term("bv2nat", mTheory.term(at.getFunction(), mTheory.term("mod", at.getParameters()[0], maxNumber))));
+		if(arg instanceof ApplicationTerm) {
+			if(!((ApplicationTerm)arg).getFunction().getName().equals("bv2nat")) {
+				Term mod = normalizeMod(at.getParameters()[0], maxNumber);
+				// bv2nat(nat2bv(n)) = n mod 2^bvlen
+				Term axiom = mTheory.term("=", mTheory.term("bv2nat", at), mod);
+
+				// nat2bv(n) = nat2bv(n mod 2^bvlen)
+				Term axiom2 = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
+				
+				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
+				buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
+			}
+		}
 		
-//		Term axiom2 =
-//				mTheory.term("=",at.getParameters()[0], mTheory.term("mod", at.getParameters()[0], maxNumber));
-//		buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
-		
+
+
+
 	
+
+
 	}
 
+	private Term normalizeMod(Term lhs, Rational maxNumber) {
+		Term rhs = mTheory.rational(maxNumber, mTheory.getSort(SMTLIBConstants.INT));
+		final SMTAffineTerm arg0 = new SMTAffineTerm(lhs);
+		arg0.mod(maxNumber);
+		final Term div = mTheory.term("div", arg0.toTerm(mTheory.getSort(SMTLIBConstants.INT)), rhs);
+		arg0.add(maxNumber.negate(), div);
+		return arg0.toTerm(rhs.getSort());
+	}
+
+	 
 	/*
 	 * These method adds Axiom to the Clausifier of the form 0 leq ccTerm leq maxNumber
 	 * 
 	 * At this point, we assume that the parameter of bv2nat can only be an uninterpreted function symbol.
 	 */
-	private void addBv2NatAxioms(ApplicationTerm at, CCTerm ccTerm, SourceAnnotation source, boolean eagerMod) {
+	private void addBv2NatAxioms(ApplicationTerm at, CCTerm ccTerm, SourceAnnotation source) {
 		final int width = Integer.valueOf(at.getParameters()[0].getSort().getIndices()[0]);
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
-		 Term maxNumberMinunsOne = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE).sub(Rational.ONE),
-				mTheory.getSort(SMTLIBConstants.INT));
 		final Term zero = Rational.ZERO.toTerm(mTheory.getSort(SMTLIBConstants.INT));
-
-		// TODO add Axiom
-		Term axiomLowerBound = mTheory.term(">=", at, zero);
-		Term axiomUpperBound = mTheory.term("<=", at, maxNumberMinunsOne);
-
-	
-
-		 Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE),
-				mTheory.getSort(SMTLIBConstants.INT));
-		Term test = mTheory.term("=", at , mTheory.term("mod", at, maxNumber));
+		
+		createCCTerm(at.getParameters()[0], source);		
 		
 
-		
-		if(	at.getParameters()[0] instanceof ApplicationTerm) {
-			if(((ApplicationTerm)at.getParameters()[0]).getFunction().getName().equals("nat2bv")) {
-				Term axiom = mTheory.term("=", at , mTheory.term("mod", ((ApplicationTerm)at.getParameters()[0]).getParameters()[0], maxNumber));			
-				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_BV2NATUP), source);
+//		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_BV2NATUP), source);
 
-				
-				// Ptoblem, 2mal für sum?
-				Term leq0LowerBound = mTheory.term("<=", mTheory.term("-", ((ApplicationTerm)at.getParameters()[0]).getParameters()[0]), zero);
-				Term leq0UpperBound = mTheory.term("<=", mTheory.term("-", ((ApplicationTerm)at.getParameters()[0]).getParameters()[0], maxNumberMinunsOne), zero);
-				
-//				
-//				buildClause(mTracker.tautology(leq0LowerBound, ProofConstants.TAUT_BV2NATLOW), source); // TODO Proof
-//				buildClause(mTracker.tautology(leq0UpperBound, ProofConstants.TAUT_BV2NATUP), source);
-//				
-			}
-		}
-		
-		
-		
-		
-		
-		
-//		buildClause(mTracker.tautology(test, ProofConstants.TAUT_BV2NATUP), source);
-//		buildClause(mTracker.tautology(leq0LowerBound, ProofConstants.TAUT_BV2NATLOW), source); // TODO Proof
-//		buildClause(mTracker.tautology(leq0UpperBound, ProofConstants.TAUT_BV2NATUP), source);
+		// Needs SMTAffineTerm, no - here
+		// Term leq0LowerBound = mTheory.term("<=", mTheory.term("-",
+		// ((ApplicationTerm)at.getParameters()[0]).getParameters()[0]), zero);
+		// Term leq0UpperBound = mTheory.term("<=", mTheory.term("-",
+		// ((ApplicationTerm)at.getParameters()[0]).getParameters()[0], maxNumberMinunsOne), zero);
+		SMTAffineTerm leq0LowerBound = new SMTAffineTerm( at);
+		SMTAffineTerm leq0UpperBound = new SMTAffineTerm(at);
+		leq0UpperBound.add(Rational.valueOf(two.pow(width), BigInteger.ONE).sub(Rational.ONE).negate());
+		leq0LowerBound.negate();
+		Term axiomLowerBound2 = mTheory.term("<=", leq0LowerBound.toTerm(mTheory.getSort(SMTLIBConstants.INT)), zero);
+		Term axiomUpperBound2 = mTheory.term("<=", leq0UpperBound.toTerm(mTheory.getSort(SMTLIBConstants.INT)), zero);
 
-		//TODO check if this is better:
-		Term test1 = mTheory.term("mod", at, mTheory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE),
-				mTheory.getSort(SMTLIBConstants.INT)));		
-		Term test2 = mTheory.term("=", at, test1);		
-//		buildClause(mTracker.tautology(test2, ProofConstants.TAUT_BV2NATUP), source);
+		buildClause(mTracker.tautology(axiomLowerBound2, ProofConstants.TAUT_BV2NATLOW), source); // TODO Proof
+		buildClause(mTracker.tautology(axiomUpperBound2, ProofConstants.TAUT_BV2NATUP), source);
 	}
 
 	/**
@@ -1366,8 +1349,8 @@ public class Clausifier {
 			case SMTLIBConstants.CONST:
 			case "@EQ":
 			case "is":
-//			case "bv2nat":
-//			case "nat2bv":
+				// case "bv2nat":
+				// case "nat2bv":
 				return true;
 			case "div":
 			case "mod":
@@ -1825,7 +1808,7 @@ public class Clausifier {
 					buildAuxClause(lit, axiom, source);
 				}
 			} else {
-				// assert lit instanceof QuantEquality;
+				 assert lit instanceof QuantEquality;
 				if (negative) {
 					// (or (= AUX false) term)
 					Term axiom = t.term("or", litTerm, term);
@@ -2334,7 +2317,7 @@ public class Clausifier {
 		// Set up the theories.
 		// Note that order is important: the easier theories should be first,
 		// undecidable theories like quantifier theory should be last.
-		if (logic.isUF() || logic.isArray() || logic.isArithmetic() || logic.isQuantified() || logic.isDatatype()) {
+		if (logic.isUF() || logic.isArray() || logic.isArithmetic() || logic.isQuantified() || logic.isDatatype() || logic.isBitVector()) {
 			// also need UF for div/mod
 			// and for quantifiers for AUX functions
 			setupCClosure();
@@ -2345,10 +2328,7 @@ public class Clausifier {
 		if (logic.isDatatype()) {
 			setupDataTypeTheory();
 		}
-		if (logic.isArithmetic()) {
-			setupLinArithmetic();
-		}
-		if (logic.isBitVector()) {
+		if (logic.isArithmetic() || logic.isBitVector()) {
 			setupLinArithmetic();
 		}
 		if (logic.isQuantified()) {

@@ -67,7 +67,7 @@ public class TermCompiler extends TermTransformer {
 	private LogicSimplifier mUtils;
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 	// TODO make it an option
-	boolean mEagerMod = true;
+	boolean mEagerMod = false;
 	private Map<Term, Term> mVarNameTranslation = new HashMap<>();
 	
 	static class TransitivityStep implements Walker {
@@ -126,7 +126,6 @@ public class TermCompiler extends TermTransformer {
 			// if (fsym.isModelValue()) {
 			// throw new SMTLIBException("Model values not allowed in input");
 			// }
-			Term asd = fsym.getDefinition();
 			final Term[] params = appTerm.getParameters();
 			if (fsym.isLeftAssoc() && params.length > 2) {
 				final Theory theory = appTerm.getTheory();
@@ -192,25 +191,25 @@ public class TermCompiler extends TermTransformer {
 				final BvUtils bvUtils = new BvUtils(theory, mUtils);
 				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod);
 				
-				if(fsym.getDefinition() != null) {					
-					pushTerm(fsym.getDefinition());
-					return;					
-				}
-				
-				if(mVarNameTranslation.containsKey(term)) {
-					setResult(mVarNameTranslation.get(term));
-					return;
-				
-				} else {
-					final Term intVar = theory.term(theory.declareFunction(theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0], theory.getSort("Int")));
-					
-					final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
-					
-					final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
-					mVarNameTranslation.put(term, rewrite);
-					setResult(rewrite);
-					return;
-					}
+//				if(fsym.getDefinition() != null) {					
+//					pushTerm(fsym.getDefinition());
+//					return;					
+//				}
+//				
+//				if(mVarNameTranslation.containsKey(term)) {
+//					setResult(mVarNameTranslation.get(term));
+//					return;
+//				
+//				} else {
+//					final Term intVar = theory.term(theory.declareFunction(theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0], theory.getSort("Int")));
+//					
+//					final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
+//					
+//					final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
+//					mVarNameTranslation.put(term, rewrite);
+//					setResult(rewrite);
+//					return;
+//				}
 				
 				
 
@@ -296,24 +295,11 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertImplies(convertedApp));
 				return;
 			case "ite":
-
-			
-//				if (convertedApp.getSort().isBitVecSort()) {	
-//					final BigInteger two = BigInteger.valueOf(2);
-//					final int width = Integer.valueOf(convertedApp.getSort().getIndices()[0]);
-//					final Term maxNumber = theory.rational(Rational.valueOf(two.pow(width), BigInteger.ONE),
-//							theory.getSort(SMTLIBConstants.INT));				
-//					setResult( bvToIntUtils.nat2bv(theory.term("mod", mUtils.convertIte(convertedApp), maxNumber), convertedApp.getSort().getIndices()));	
-//					return;
-//				}
-				
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
 				if (params[0].getSort().isBitVecSort()) {
 					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod)); 
-					//TODO setResult or PushTerm? see other bv relations too
-					//VLT wegen nested eq
 					return;
 				}
 				setResult(mUtils.convertEq(convertedApp));
@@ -321,8 +307,6 @@ public class TermCompiler extends TermTransformer {
 			case "distinct":
 				if (params[0].getSort().isBitVecSort()) {
 					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod)); 
-					//TODO setResult or PushTerm? see other bv relations too
-					//VLT wegen nested eq
 					return;
 				}
 				setResult(mUtils.convertDistinct(convertedApp));

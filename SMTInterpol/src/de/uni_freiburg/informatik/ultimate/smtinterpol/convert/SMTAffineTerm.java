@@ -23,6 +23,7 @@ import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
@@ -327,5 +328,29 @@ public final class SMTAffineTerm {
 	@Override
 	public int hashCode() {
 		return HashUtils.hashJenkins(mConstant.hashCode(), mSummands);
+	}
+
+	public final static Rational constDiv(final Rational c0, final Rational c1) {
+		final Rational div = c0.div(c1);
+		return c1.isNegative() ? div.ceil() : div.floor();
+	}
+	
+	public static Rational mod(final Rational c0, final Rational c1) {
+		final Rational mod = c0.sub(constDiv(c0, c1).mul(c1));
+		return mod;
+	}
+	
+	public void mod(Rational maxNumber) {
+		Iterator<Map.Entry<Term, Rational>> mapIterator = mSummands.entrySet().iterator();
+		while(mapIterator.hasNext()) {	
+			Map.Entry<Term, Rational> entry = mapIterator.next();
+			Rational newValue = SMTAffineTerm.mod(entry.getValue(), maxNumber);
+			if (newValue == Rational.ZERO) {
+				mapIterator.remove();
+			} else{
+				entry.setValue(newValue);
+			}			
+		}
+		mConstant = SMTAffineTerm.mod(mConstant, maxNumber);
 	}
 }

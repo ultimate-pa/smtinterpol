@@ -1333,15 +1333,15 @@ public class Theory {
 			mRealSort = declareInternalSort("Real", 0, SortSymbol.NUMERIC).getSort(null, new Sort[0]);
 		}
 
-		if (logic.isArithmetic()) {
+		if (logic.isArithmetic() || logic.isBitVector()) {
 
-			if (logic.hasIntegers()) {
+			if (logic.hasIntegers() || logic.isBitVector()) {
 				mNumericSort = declareInternalSort("Int", 0, SortSymbol.NUMERIC).getSort(null, new Sort[0]);
 			} else {
 				mNumericSort = mRealSort;
 			}
 
-			if (logic.isIRA()) {
+			if (logic.isIRA() || (logic.isBitVector() && logic.hasReals())) {
 				createIRAOperators();
 			} else {
 				createNumericOperators(mNumericSort, logic.hasReals());
@@ -1353,7 +1353,7 @@ public class Theory {
 		}
 
 		if (logic.isBitVector()) {
-			createBitVecOperators();
+			createBitVecOperators();	
 		}
 
 		if (logic.isFloatingPoint()) {

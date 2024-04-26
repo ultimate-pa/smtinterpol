@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
@@ -68,6 +69,7 @@ public class BitvectorTest {
 	public void setUp() throws Exception {
 		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setOption(":produce-models", Boolean.TRUE);		
+		mSolver.setOption(":verbosity", 8);	
 		mSolver.setLogic(Logics.ALL); // TODO declare numeric Sort if logic is bv
 		final Sort bv1 = mSolver.getTheory().getSort("BitVec", new String[] { "1" });
 		final Sort bv2 = mSolver.getTheory().getSort("BitVec", new String[] { "2" });
@@ -942,11 +944,15 @@ public class BitvectorTest {
 	public void bbAddSAT1() {
 		mSolver.resetAssertions();
 		final Term input =
-				mSolver.term("=", mSolver.binary("#b010"),
-						mSolver.term("bvadd", p3, q3));
+				
+				mSolver.term("and", mSolver.term("not",mSolver.term("=", mSolver.binary("#b111"),q3)),
+						mSolver.term("=", mSolver.binary("#b111"),
+								mSolver.term("bvadd", mSolver.binary("#b111"), mSolver.term("bvadd", mSolver.binary("#b001"), q3))))
+				
+			;
 		mSolver.assertTerm(input);
 		final LBool isSat = mSolver.checkSat();
-		Assert.assertSame(LBool.SAT, isSat);
+		Assert.assertSame(LBool.UNSAT, isSat);
 		mSolver.reset();
 	}
 
@@ -960,7 +966,6 @@ public class BitvectorTest {
 		mSolver.assertTerm(input);
 		final LBool isSat = mSolver.checkSat();
 		Assert.assertSame(LBool.SAT, isSat);
-		mSolver.setOption(null, isSat);
 		mSolver.reset();
 	}
 
@@ -1049,8 +1054,11 @@ public class BitvectorTest {
 	@Test
 	public void bbMulUNSAT1() {
 		mSolver.resetAssertions();
+		final Sort bv4 = mSolver.getTheory().getSort("BitVec", new String[] { "4" });
+		mSolver.defineFun("fun", new TermVariable[0], bv4, mSolver.term("bvand", p4, mSolver.binary("#b0010")));
+		
 		final Term input =
-				mSolver.term("=", mSolver.term("bvmul", p4, mSolver.binary("#b0010")), mSolver.binary("#b1001"));
+				mSolver.term("=", mSolver.term("bvadd", p4, 	mSolver.term("fun")), mSolver.binary("#b1001"));
 		mSolver.assertTerm(input);
 		final LBool isUnSat = mSolver.checkSat();
 		Assert.assertSame(LBool.UNSAT, isUnSat);
