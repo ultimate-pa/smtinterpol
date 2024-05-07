@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.util;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -87,14 +87,16 @@ public final class Polynomial {
 					monomial.put(f,  old == null ? 1 : old + 1);
 				}
 			}
+			if (coefficient == Rational.ZERO) {
+				continue;
+			}
 			if (monomial.isEmpty()) {
 				monomial = Collections.emptyMap();
 			} else if (monomial.size() == 1) {
 				final Map.Entry<Term, Integer> entry = monomial.entrySet().iterator().next();
 				monomial = Collections.singletonMap(entry.getKey(), entry.getValue());
 			}
-			final Rational old = mSummands.get(monomial);
-			mSummands.put(monomial, old == null ? coefficient : old.add(coefficient));
+			add(coefficient, monomial);
 		}
 	}
 
@@ -282,15 +284,23 @@ public final class Polynomial {
 		for (final Map.Entry<Map<Term, Integer>, Rational> term : mSummands.entrySet()) {
 			final Map<Term, Integer> monomial = term.getKey();
 			final ArrayList<Term> factors = new ArrayList<>();
-			factors.add(term.getValue().toTerm(sort));
+			if (term.getValue() != Rational.ONE) {
+				factors.add(term.getValue().toTerm(sort));
+			}
 			for (final Map.Entry<Term, Integer> f : monomial.entrySet()) {
 				final int power = f.getValue();
 				assert power > 0;
+				Term factor = f.getKey();
+				if (!factor.getSort().equals(sort)) {
+					factor = t.term("to_real", factor);
+				}
 				for (int j = 0; j < power; j++) {
-					factors.add(f.getKey());
+					factors.add(factor);
 				}
 			}
-			if (factors.size() == 1) {
+			if (factors.size() == 0) {
+				sum[i++] = Rational.ONE.toTerm(sort);
+			} else if (factors.size() == 1) {
 				sum[i++] = factors.get(0);
 			} else {
 				sum[i++] = t.term(SMTLIBConstants.MUL, factors.toArray(new Term[factors.size()]));

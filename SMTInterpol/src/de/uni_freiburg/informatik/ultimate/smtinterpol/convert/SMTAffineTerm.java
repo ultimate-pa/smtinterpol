@@ -242,22 +242,6 @@ public final class SMTAffineTerm {
 	}
 
 	/**
-	 * Convert this affine term to a plain SMTLib term.
-	 *
-	 * @param unifier
-	 *            the term compiler object that contains the normalization map.
-	 * @param sort
-	 *            the expected sort
-	 */
-	public Term toTerm(final TermCompiler unifier, final Sort sort) {
-		final Term term = toTerm(sort);
-		if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().getName().equals("+")) {
-			return unifier.unifySummation((ApplicationTerm) term);
-		}
-		return term;
-	}
-
-	/**
 	 * Convert this affine term to a plain SMTLib term. This function does not unify the terms.
 	 *
 	 * @param sort

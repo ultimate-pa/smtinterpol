@@ -1658,7 +1658,7 @@ public class InstantiationManager {
 			public void walk(final NonRecursive engine) {
 				final SMTAffineTerm instAffine = buildEquivalentAffine(mSmtAff);
 				if (instAffine != null) {
-					final Term instTerm = instAffine.toTerm(mClausifier.getTermCompiler(), mTerm.getSort());
+					final Term instTerm = instAffine.toTerm(mTerm.getSort());
 					// Note: This will often not find a CC term.
 					final CCTerm ccTermRep = mQuantTheory.getCClosure().getCCTermRep(instTerm);
 					if (ccTermRep != null) {

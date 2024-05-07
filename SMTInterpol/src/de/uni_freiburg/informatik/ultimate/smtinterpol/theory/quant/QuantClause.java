@@ -321,8 +321,8 @@ public class QuantClause {
 					final SMTAffineTerm upperAffine = new SMTAffineTerm(rhs);
 					upperAffine.add(Rational.ONE);
 					final TermCompiler compiler = mQuantTheory.getClausifier().getTermCompiler();
-					final Term lowerBound = lowerAffine.toTerm(compiler, rhs.getSort());
-					final Term upperBound = upperAffine.toTerm(compiler, rhs.getSort());
+					final Term lowerBound = lowerAffine.toTerm(rhs.getSort());
+					final Term upperBound = upperAffine.toTerm(rhs.getSort());
 					varInfo.addLowerGroundBound(lowerBound);
 					varInfo.addUpperGroundBound(upperBound);
 				} else {
@@ -488,8 +488,7 @@ public class QuantClause {
 							for (final Rational offset : new Rational[] { Rational.ONE, Rational.MONE }) {
 								final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(indexTerm);
 								idxPlusMinusOneAff.add(offset);
-								final Term shared = idxPlusMinusOneAff.toTerm(
-										mQuantTheory.getClausifier().getTermCompiler(), indexTerm.getSort());
+								final Term shared = idxPlusMinusOneAff.toTerm(indexTerm.getSort());
 								interestingTerms.add(shared);
 							}
 						}

@@ -127,6 +127,7 @@ public interface ProofConstants {
 	public final static Annotation TAUT_EXCLUDED_MIDDLE_2 = new Annotation(":excludedMiddle2", null);
 	public final static Annotation TAUT_TERM_ITE = new Annotation(":termITE", null);
 	public final static Annotation TAUT_TERM_ITE_BOUND = new Annotation(":termITEBound", null);
+	public final static Annotation TAUT_MODULO = new Annotation(":modulo", null);
 	public final static Annotation TAUT_DIV_LOW = new Annotation(":divLow", null);
 	public final static Annotation TAUT_DIV_HIGH = new Annotation(":divHigh", null);
 	public final static Annotation TAUT_TO_INT_LOW = new Annotation(":toIntLow", null);

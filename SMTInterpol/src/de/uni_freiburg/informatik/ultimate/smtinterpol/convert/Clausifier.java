@@ -95,6 +95,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantLiteral
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
@@ -892,9 +893,8 @@ public class Clausifier {
 					mMaxSubMin = Rational.ZERO;
 					return;
 				}
-				final SMTAffineTerm diff = new SMTAffineTerm(mMinValue);
-				diff.negate();
-				diff.add(new SMTAffineTerm(mTerm));
+				final Polynomial diff = new Polynomial(mTerm);
+				diff.add(Rational.MONE, mMinValue);
 				if (!diff.isConstant()) {
 					mIsNotConstant = true;
 					return;
@@ -920,14 +920,13 @@ public class Clausifier {
 					final Sort sort = mTermITE.getSort();
 					final Theory theory = sort.getTheory();
 					final Term zero = Rational.ZERO.toTerm(sort);
-					final SMTAffineTerm diff = new SMTAffineTerm(mTermITE);
-					diff.negate();
-					diff.add(new SMTAffineTerm(mMinValue));
-					final Term lboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
+					final Polynomial diff = new Polynomial(mMinValue);
+					diff.add(Rational.MONE, mTermITE);
+					final Term lboundAx = theory.term("<=", mCompiler.unifyPolynomial(diff, sort), zero);
 					buildClause(mTracker.tautology(lboundAx, ProofConstants.TAUT_TERM_ITE_BOUND), mSource);
 					diff.add(mMaxSubMin);
-					diff.negate();
-					final Term uboundAx = theory.term("<=", diff.toTerm(mCompiler, sort), zero);
+					diff.mul(Rational.MONE);
+					final Term uboundAx = theory.term("<=", mCompiler.unifyPolynomial(diff, sort), zero);
 					buildClause(mTracker.tautology(uboundAx, ProofConstants.TAUT_TERM_ITE_BOUND), mSource);
 				}
 			}
@@ -1054,6 +1053,8 @@ public class Clausifier {
 					/* add axioms for certain built-in functions */
 					if (fs.getName().equals("div")) {
 						addDivideAxioms(at, source);
+					} else if (fs.getName().equals("mod")) {
+						addModuloAxioms(at, source);
 					} else if (fs.getName().equals("to_int")) {
 						addToIntAxioms(at, source);
 					} else if (fs.getName().equals("ite") && fs.getReturnSort() != mTheory.getBooleanSort()) {
@@ -1103,8 +1104,8 @@ public class Clausifier {
 						needsLA = true;
 					}
 				}
-				if (needsLA) {
-					final MutableAffineTerm mat = createMutableAffinTerm(new SMTAffineTerm(term), source);
+				if (needsLA && !isMonomial(term)) {
+					final MutableAffineTerm mat = createMutableAffinTerm(new Polynomial(term), source);
 					assert mat.getConstant().mEps == 0;
 					shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
 				}
@@ -1144,6 +1145,15 @@ public class Clausifier {
 		return laShared.getSummands().keySet().iterator().next();
 	}
 
+	private boolean isMonomial(Term t) {
+		final Polynomial p = new Polynomial(t);
+		if (p.getSummands().size() != 1) {
+			return false;
+		}
+		final Map.Entry<Map<Term, Integer>, Rational> entry = p.getSummands().entrySet().iterator().next();
+		return !entry.getKey().isEmpty() && entry.getValue() == Rational.ONE;
+	}
+
 	/**
 	 * Create a LinVar for a basic term. The term must be a non-basic (no arithmetic on the outside and not a constant)
 	 * numeric term. This will create a linvar or return an already existing linvar.
@@ -1156,7 +1166,7 @@ public class Clausifier {
 	 */
 	public LinVar createLinVar(final Term term, final SourceAnnotation source) {
 		assert term.getSort().isNumericSort();
-		assert term == SMTAffineTerm.create(term).getSummands().keySet().iterator().next();
+		assert isMonomial(term);
 		addTermAxioms(term, source);
 		LASharedTerm laShared = getLATerm(term);
 		if (laShared == null) {
@@ -1170,14 +1180,25 @@ public class Clausifier {
 		return laShared.getSummands().keySet().iterator().next();
 	}
 
-	public MutableAffineTerm createMutableAffinTerm(final SMTAffineTerm at, final SourceAnnotation source) {
+	private Term createMonomial(Map<Term, Integer> monomial) {
+		final Polynomial p = new Polynomial();
+		p.add(Rational.ONE, monomial);
+		return p.toTerm(
+				p.isAllIntSummands() ? mTheory.getSort(SMTLIBConstants.INT) : mTheory.getSort(SMTLIBConstants.REAL));
+	}
+
+	public MutableAffineTerm createMutableAffinTerm(final Polynomial at, final SourceAnnotation source) {
 		final MutableAffineTerm res = new MutableAffineTerm();
-		for (final Map.Entry<Term, Rational> summand : at.getSummands().entrySet()) {
-			final LinVar lv = createLinVar(summand.getKey(), source);
+		for (final Map.Entry<Map<Term, Integer>, Rational> summand : at.getSummands().entrySet()) {
 			final Rational coeff = summand.getValue();
-			res.add(coeff, lv);
+			if (summand.getKey().isEmpty()) {
+				res.add(coeff);
+			} else {
+				final Term monomial = createMonomial(summand.getKey());
+				final LinVar lv = createLinVar(monomial, source);
+				res.add(coeff, lv);
+			}
 		}
-		res.add(at.getConstant());
 		return res;
 	}
 
@@ -1227,7 +1248,8 @@ public class Clausifier {
 			case "div":
 			case "mod":
 			case "/":
-				return SMTAffineTerm.convertConstant((ConstantTerm) appTerm.getParameters()[1]) == Rational.ZERO;
+				final Polynomial divisor = new Polynomial(appTerm.getParameters()[1]);
+				return !divisor.isConstant() || divisor.isZero();
 			default:
 				return false;
 			}
@@ -1371,7 +1393,7 @@ public class Clausifier {
 	/**
 	 * Map of differences to equality proxies.
 	 */
-	final ScopedHashMap<SMTAffineTerm, EqualityProxy> mEqualities = new ScopedHashMap<>();
+	final ScopedHashMap<Polynomial, EqualityProxy> mEqualities = new ScopedHashMap<>();
 	/**
 	 * Current assertion stack level.
 	 */
@@ -1801,22 +1823,60 @@ public class Clausifier {
 	public void addDivideAxioms(final ApplicationTerm divTerm, final SourceAnnotation source) {
 		final Theory theory = divTerm.getTheory();
 		final Term[] divParams = divTerm.getParameters();
-		final Rational divisor = (Rational) ((ConstantTerm) divParams[1]).getValue();
-		if (divisor == Rational.ZERO) {
+		final Polynomial divisorPoly = new Polynomial(divParams[1]);
+		if (divisorPoly.isZero()) {
 			/* Do not add any axiom if divisor is 0. */
 			return;
 		}
 		final Term zero = Rational.ZERO.toTerm(divTerm.getSort());
-		final SMTAffineTerm diff = new SMTAffineTerm(divParams[0]);
-		diff.negate(); // -x
-		diff.add(divisor, divTerm); // -x + d * (div x d)
+		Term isZero = null;
+		if (!divisorPoly.isConstant()) {
+			isZero = theory.term(SMTLIBConstants.EQUALS, divTerm, zero);
+		}
+		final Polynomial diff = new Polynomial(divParams[0]);
+		diff.mul(Rational.MONE); // -x
+		final Polynomial mulD = new Polynomial(divTerm);
+		mulD.mul(divisorPoly); // d * (div x d)
+		diff.add(Rational.ONE, mulD); // -x + d * (div x d)
 		// (<= (+ (- x) (* d (div x d))) 0)
-		Term axiom = theory.term("<=", diff.toTerm(mCompiler, divTerm.getSort()), zero);
+		Term axiom = theory.term("<=", mCompiler.unifyPolynomial(diff, divTerm.getSort()), zero);
+		if (isZero != null) {
+			axiom = theory.term("or", isZero, axiom);
+		}
 		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_DIV_LOW), source);
 		// (not (<= (+ (- x) (* d (div x d) |d|)) 0))
-		diff.add(divisor.abs());
-		axiom = theory.term("not", theory.term("<=", diff.toTerm(mCompiler, divTerm.getSort()), zero));
+		if (divisorPoly.isConstant()) {
+			diff.add(divisorPoly.getConstant().abs());
+		} else {
+			diff.add(Rational.ONE, theory.term("abs", divParams[1]));
+		}
+		axiom = theory.term("not", theory.term("<=", mCompiler.unifyPolynomial(diff, divTerm.getSort()), zero));
+		if (isZero != null) {
+			axiom = theory.term("or", isZero, axiom);
+		}
 		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_DIV_HIGH), source);
+	}
+
+	public void addModuloAxioms(final ApplicationTerm modTerm, final SourceAnnotation source) {
+		final Theory theory = modTerm.getTheory();
+		final Term[] divParams = modTerm.getParameters();
+		final Term divTerm = theory.term("div", divParams[0], divParams[1]);
+		final Polynomial divisorPoly = new Polynomial(divParams[1]);
+		if (divisorPoly.isZero()) {
+			/* Do not add any axiom if divisor is 0. */
+			return;
+		}
+		assert !divisorPoly.isConstant();
+		final Term zero = Rational.ZERO.toTerm(divTerm.getSort());
+		final Term isZero = theory.term(SMTLIBConstants.EQUALS, divTerm, zero);
+		final Polynomial diff = new Polynomial(divParams[0]);
+		final Polynomial mulD = new Polynomial(divTerm);
+		mulD.mul(divisorPoly); // d * (div x d)
+		diff.add(Rational.MONE, mulD); // x - d * (div x d)
+		// (or (= d 0) (= (mod x d) (+ (- x) (* d (div x d)))))
+		final Term axiom = theory.term("or", isZero,
+				theory.term("=", modTerm, mCompiler.unifyPolynomial(diff, divTerm.getSort())));
+		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_MODULO), source);
 	}
 
 	/**
@@ -1827,15 +1887,15 @@ public class Clausifier {
 		final Theory theory = toIntTerm.getTheory();
 		final Term realTerm = toIntTerm.getParameters()[0];
 		final Term zero = Rational.ZERO.toTerm(realTerm.getSort());
-		final SMTAffineTerm diff = new SMTAffineTerm(realTerm);
-		diff.negate();
+		final Polynomial diff = new Polynomial(realTerm);
+		diff.mul(Rational.MONE);
 		diff.add(Rational.ONE, toIntTerm);
 		// (<= (+ (to_real (to_int x)) (- x)) 0)
-		Term axiom = theory.term("<=", diff.toTerm(mCompiler, realTerm.getSort()), zero);
+		Term axiom = theory.term("<=", mCompiler.unifyPolynomial(diff, realTerm.getSort()), zero);
 		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_TO_INT_LOW), source);
 		// (not (<= (+ (to_real (to_int x)) (- x) 1) 0))
 		diff.add(Rational.ONE);
-		axiom = theory.term("not", theory.term("<=", diff.toTerm(mCompiler, realTerm.getSort()), zero));
+		axiom = theory.term("not", theory.term("<=", mCompiler.unifyPolynomial(diff, realTerm.getSort()), zero));
 		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_TO_INT_HIGH), source);
 	}
 
@@ -1934,9 +1994,8 @@ public class Clausifier {
 	 * @return the equality proxy.
 	 */
 	public EqualityProxy createEqualityProxy(final Term lhs, final Term rhs, final SourceAnnotation source) {
-		final SMTAffineTerm diff = new SMTAffineTerm(lhs);
-		diff.negate();
-		diff.add(new SMTAffineTerm(rhs));
+		final Polynomial diff = new Polynomial(lhs);
+		diff.add(Rational.MONE, rhs);
 		if (diff.isConstant()) {
 			if (diff.getConstant().equals(Rational.ZERO)) {
 				return EqualityProxy.getTrueProxy();
@@ -1944,7 +2003,7 @@ public class Clausifier {
 				return EqualityProxy.getFalseProxy();
 			}
 		}
-		diff.div(diff.getGcd());
+		diff.mul(diff.getGcd().inverse());
 		Sort sort = lhs.getSort();
 		// normalize equality to integer logic if all variables are integer.
 		if (mTheory.getLogic().isIRA() && sort.getName().equals("Real") && diff.isAllIntSummands()) {
@@ -1961,7 +2020,7 @@ public class Clausifier {
 		if (eqForm != null) {
 			return eqForm;
 		}
-		diff.negate();
+		diff.mul(Rational.MONE);
 		eqForm = mEqualities.get(diff);
 		if (eqForm != null) {
 			return eqForm;
@@ -2410,7 +2469,8 @@ public class Clausifier {
 	private Literal createLeq0(final ApplicationTerm leq0term, final SourceAnnotation source) {
 		Literal lit = (Literal) getILiteral(leq0term);
 		if (lit == null) {
-			final SMTAffineTerm sum = new SMTAffineTerm(leq0term.getParameters()[0]);
+			assert ((ConstantTerm) leq0term.getParameters()[1]).getValue() == Rational.ZERO;
+			final Polynomial sum = new Polynomial(leq0term.getParameters()[0]);
 			final MutableAffineTerm msum = createMutableAffinTerm(sum, source);
 			lit = mLASolver.generateConstraint(msum, false);
 			setLiteral(leq0term, lit);

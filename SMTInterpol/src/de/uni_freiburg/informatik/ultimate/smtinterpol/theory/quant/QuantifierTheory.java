@@ -518,7 +518,6 @@ public class QuantifierTheory implements ITheory {
 			linAdded.add(Rational.MONE, SMTAffineTerm.create(rhs));
 			linAdded.div(linAdded.getGcd());
 			Rational fac = Rational.ONE;
-			final TermCompiler compiler = mClausifier.getTermCompiler();
 			for (final Term smd : linAdded.getSummands().keySet()) {
 				if (smd instanceof TermVariable) {
 					fac = linAdded.getSummands().get(smd);
@@ -526,7 +525,7 @@ public class QuantifierTheory implements ITheory {
 						newLhs = smd;
 						linAdded.add(fac.negate(), smd);
 						linAdded.div(fac.negate());
-						newRhs = linAdded.toTerm(compiler, lhs.getSort());
+						newRhs = linAdded.toTerm(lhs.getSort());
 						break;
 					} else {
 						if (fac.abs() == Rational.ONE) {
@@ -536,7 +535,7 @@ public class QuantifierTheory implements ITheory {
 							if (fac == Rational.ONE) {
 								linAdded.negate();
 							}
-							newRhs = linAdded.toTerm(compiler, lhs.getSort());
+							newRhs = linAdded.toTerm(lhs.getSort());
 							break;
 						}
 					}
@@ -636,7 +635,7 @@ public class QuantifierTheory implements ITheory {
 		}
 
 		final TermCompiler compiler = mClausifier.getTermCompiler();
-		final Term newLhs = linTerm.toTerm(compiler, lhs.getSort());
+		final Term newLhs = linTerm.toTerm(lhs.getSort());
 		final Term newAtomTerm = mTheory.term("<=", newLhs, Rational.ZERO.toTerm(lhs.getSort()));
 		QuantLiteral atom = (QuantLiteral) mClausifier.getILiteral(newAtomTerm);
 		if (atom != null) {
@@ -661,7 +660,7 @@ public class QuantifierTheory implements ITheory {
 			if (!hasUpperBound) {
 				remainderAff.negate();
 			}
-			final Term remainder = remainderAff.toTerm(compiler, lhs.getSort());
+			final Term remainder = remainderAff.toTerm(lhs.getSort());
 			if (remainder instanceof TermVariable || remainder.getFreeVars().length == 0) {
 				atom.negate().mIsArithmetical = true;
 			}

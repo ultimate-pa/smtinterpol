@@ -38,6 +38,7 @@ import java.util.TreeSet;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -153,6 +154,13 @@ public class LinArSolve implements ITheory {
 	/** Are we in a check-sat? */
 	private boolean mInCheck = false;
 	/**
+	 * This is -1 if no non-linear var exists, otherwise the push/pop level where
+	 * the first non-linear variable was introduced.
+	 */
+	private int mHasNonLinearVar = -1;
+	/** Current number of pushes. */
+	private int mPushPopLevel = 0;
+	/**
 	 * Basic initialization.
 	 * @param engine DPLLEngine this theory is used in.
 	 */
@@ -225,6 +233,10 @@ public class LinArSolve implements ITheory {
 	 * @return Newly created variable
 	 */
 	public LinVar addVar(final Term name, final boolean isint, final int level) {
+		if ((name instanceof ApplicationTerm)
+				&& ((ApplicationTerm) name).getFunction().getName().equals(SMTLIBConstants.MUL)) {
+			mHasNonLinearVar = mPushPopLevel;
+		}
 		mClausifier.getLogger().debug("Creating var %s", name);
 		final LinVar var = new LinVar(name, isint, level, mLinvars.size());
 		mLinvars.add(var);
@@ -674,6 +686,9 @@ public class LinArSolve implements ITheory {
 
 	@Override
 	public int checkCompleteness() {
+		if (mHasNonLinearVar >= 0) {
+			return DPLLEngine.INCOMPLETE_THEORY;
+		}
 		return DPLLEngine.COMPLETE;
 	}
 
@@ -2071,6 +2086,10 @@ public class LinArSolve implements ITheory {
 				mIntVars.remove(var);
 			}
 		}
+		if (mPushPopLevel == mHasNonLinearVar) {
+			mHasNonLinearVar = -1;
+		}
+		mPushPopLevel--;
 		mLinvars.endScope();
 		mSharedVars.endScope();
 		mBasics.endScope();
@@ -2089,6 +2108,7 @@ public class LinArSolve implements ITheory {
 		mBasics.beginScope();
 		mSharedVars.beginScope();
 		mLinvars.beginScope();
+		mPushPopLevel++;
 	}
 
 	@Override

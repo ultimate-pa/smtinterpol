@@ -54,6 +54,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**

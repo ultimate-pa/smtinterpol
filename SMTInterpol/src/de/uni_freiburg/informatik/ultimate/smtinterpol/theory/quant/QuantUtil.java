@@ -33,7 +33,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
 
 /**
  * This class contains helper methods to classify quantified terms and literals.
- * 
+ *
  * @author Tanja Schindler
  */
 public class QuantUtil {
@@ -45,9 +45,9 @@ public class QuantUtil {
 	/**
 	 * Check if a given term is essentially uninterpreted, i.e., it is ground or variables only appear as arguments of
 	 * uninterpreted functions.
-	 * 
+	 *
 	 * TODO Nonrecursive.
-	 * 
+	 *
 	 * @param term
 	 *            The term to check.
 	 * @return true if the term is essentially uninterpreted, false otherwise.
@@ -59,7 +59,7 @@ public class QuantUtil {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol func = appTerm.getFunction();
 			if (!func.isInterpreted()) {
-				for (Term arg : appTerm.getParameters()) {
+				for (final Term arg : appTerm.getParameters()) {
 					if (!(arg instanceof TermVariable)) {
 						if (!isEssentiallyUninterpreted(arg)) {
 							return false;
@@ -78,7 +78,7 @@ public class QuantUtil {
 				return true;
 			} else if (func.getName() == "+" || func.getName() == "-" || func.getName() == "*") {
 				final SMTAffineTerm affineTerm = SMTAffineTerm.create(term);
-				for (Term summand : affineTerm.getSummands().keySet()) {
+				for (final Term summand : affineTerm.getSummands().keySet()) {
 					if (!isEssentiallyUninterpreted(summand)) {
 						return false;
 					}
@@ -96,7 +96,7 @@ public class QuantUtil {
 	 * Check if a quantified atom contains arithmetic on quantified terms only at top level, i.e., the left and right
 	 * hand side of the (in)equality are affine terms where the summands do not contain arithmetic on quantified terms
 	 * themselves.
-	 * 
+	 *
 	 * @param atom
 	 *            the quantified atom.
 	 * @return true if the literal contains arithmetic on quantified terms only at top level, false else.
@@ -119,7 +119,7 @@ public class QuantUtil {
 	/**
 	 * Check that any variable occurring in a quantified literal appears at least once in a function application within
 	 * this literal, excluding top level arithmetic function applications.
-	 * 
+	 *
 	 * @param atom
 	 *            the quantified atom.
 	 * @return true if each variable appears at least once in a function application, false else.
@@ -170,7 +170,7 @@ public class QuantUtil {
 	/**
 	 * For an arithmetical literal, get the terms t1, t2, such that the literal t1<t2 has form var<ground, ground<var,
 	 * var<var, or t1=t2 has form var=ground.
-	 * 
+	 *
 	 * @param arithLit
 	 *            an arithmetical literal
 	 * @return the array [t1,t2]
@@ -189,8 +189,8 @@ public class QuantUtil {
 			final QuantBoundConstraint bc = (QuantBoundConstraint) arithLit.getAtom();
 			TermVariable lowerVar = null;
 			TermVariable upperVar = null;
-			SMTAffineTerm remainder = new SMTAffineTerm();
-			SMTAffineTerm aff = bc.getAffineTerm();
+			final SMTAffineTerm remainder = new SMTAffineTerm();
+			final SMTAffineTerm aff = bc.getAffineTerm();
 			for (final Entry<Term, Rational> smd : aff.getSummands().entrySet()) {
 				if (smd.getKey() instanceof TermVariable) {
 					if (smd.getValue().signum() < 0) {
@@ -212,10 +212,10 @@ public class QuantUtil {
 				t2 = upperVar;
 			} else if (lowerVar != null) {
 				t1 = lowerVar;
-				t2 = remainder.toTerm(compiler, lowerVar.getSort());
+				t2 = remainder.toTerm(lowerVar.getSort());
 			} else {
 				remainder.negate();
-				t1 = remainder.toTerm(compiler, upperVar.getSort());
+				t1 = remainder.toTerm(upperVar.getSort());
 				t2 = upperVar;
 			}
 		}
@@ -225,7 +225,7 @@ public class QuantUtil {
 	/**
 	 * Check if an affine term contains arithmetic on quantified terms only at top level, i.e., its summands do not
 	 * contain arithmetic on quantified terms.
-	 * 
+	 *
 	 * @param at
 	 *            the SMTAffineTerm to check
 	 */
@@ -242,9 +242,9 @@ public class QuantUtil {
 	 * Check if a term is a "simple" EU term, i.e., it is ground, or an application of an uninterpreted function where
 	 * all arguments are variables or simple EU terms. (Exception: select behaves as an uninterpreted function but may
 	 * not have a variable as first argument.)
-	 * 
+	 *
 	 * TODO Nonrecursive.
-	 * 
+	 *
 	 * @param term
 	 *            the term to check.
 	 * @return true, if the term is a "simple" EU term, false otherwise.
@@ -282,13 +282,13 @@ public class QuantUtil {
 
 	/**
 	 * Check if a term is an application term with an internal {@literal @}AUX function.
-	 * 
+	 *
 	 * @param term
 	 *            the term to check.
 	 */
 	public static boolean isAuxApplication(final Term term) {
 		if (term instanceof ApplicationTerm) {
-			FunctionSymbol fsym = ((ApplicationTerm) term).getFunction();
+			final FunctionSymbol fsym = ((ApplicationTerm) term).getFunction();
 			return fsym.isIntern() && fsym.getName().startsWith("@AUX");
 		}
 		return false;
@@ -296,13 +296,13 @@ public class QuantUtil {
 
 	/**
 	 * Check if a term is a lambda.
-	 * 
+	 *
 	 * @param term
 	 *            the term to check.
 	 */
 	public static boolean isLambda(final Term term) {
 		if (term instanceof ApplicationTerm) {
-			FunctionSymbol fsym = ((ApplicationTerm) term).getFunction();
+			final FunctionSymbol fsym = ((ApplicationTerm) term).getFunction();
 			return fsym.isIntern() && fsym.getName().startsWith("@0");
 		}
 		return false;

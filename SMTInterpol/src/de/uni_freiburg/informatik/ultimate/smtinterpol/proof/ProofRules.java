@@ -40,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 
 public class ProofRules {
 	// the function symbols
