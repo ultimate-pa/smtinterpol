@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -28,8 +29,8 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 
 /**
  * This class contains helper methods to classify quantified terms and literals.
@@ -77,10 +78,12 @@ public class QuantUtil {
 				}
 				return true;
 			} else if (func.getName() == "+" || func.getName() == "-" || func.getName() == "*") {
-				final SMTAffineTerm affineTerm = SMTAffineTerm.create(term);
-				for (final Term summand : affineTerm.getSummands().keySet()) {
-					if (!isEssentiallyUninterpreted(summand)) {
-						return false;
+				final Polynomial affineTerm = new Polynomial(term);
+				for (final Map<Term, Integer> summand : affineTerm.getSummands().keySet()) {
+					for (final Term factor : summand.keySet()) {
+						if (!isEssentiallyUninterpreted(factor)) {
+							return false;
+						}
 					}
 				}
 				return true;
@@ -107,9 +110,9 @@ public class QuantUtil {
 			return containsArithmeticOnQuantOnlyAtTopLevel(((QuantBoundConstraint) atom).getAffineTerm());
 		} else {
 			final QuantEquality eq = (QuantEquality) atom;
-			final SMTAffineTerm lhsAff = new SMTAffineTerm(eq.getLhs());
+			final Polynomial lhsAff = new Polynomial(eq.getLhs());
 			if (containsArithmeticOnQuantOnlyAtTopLevel(lhsAff)) {
-				final SMTAffineTerm rhsAff = new SMTAffineTerm(eq.getRhs());
+				final Polynomial rhsAff = new Polynomial(eq.getRhs());
 				return containsArithmeticOnQuantOnlyAtTopLevel(rhsAff);
 			}
 		}
@@ -132,13 +135,19 @@ public class QuantUtil {
 			final QuantEquality eq = (QuantEquality) atom;
 			final Term lhs = eq.getLhs();
 			final Term rhs = eq.getRhs();
-			final SMTAffineTerm lhsAff = new SMTAffineTerm(lhs);
-			final SMTAffineTerm rhsAff = new SMTAffineTerm(rhs);
-			allSummandsWithoutCoeffs.addAll(lhsAff.getSummands().keySet());
-			allSummandsWithoutCoeffs.addAll(rhsAff.getSummands().keySet());
+			final Polynomial lhsAff = new Polynomial(lhs);
+			final Polynomial rhsAff = new Polynomial(rhs);
+			for (final Map<Term, Integer> monom : lhsAff.getSummands().keySet()) {
+				allSummandsWithoutCoeffs.addAll(monom.keySet());
+			}
+			for (final Map<Term, Integer> monom : rhsAff.getSummands().keySet()) {
+				allSummandsWithoutCoeffs.addAll(monom.keySet());
+			}
 		} else {
 			final QuantBoundConstraint bc = (QuantBoundConstraint) atom;
-			allSummandsWithoutCoeffs.addAll(bc.getAffineTerm().getSummands().keySet());
+			for (final Map<Term, Integer> monom : bc.getAffineTerm().getSummands().keySet()) {
+				allSummandsWithoutCoeffs.addAll(monom.keySet());
+			}
 		}
 		final Set<Term> varTerms = new HashSet<>();
 		final Set<TermVariable> varsInApps = new HashSet<>();
@@ -189,16 +198,20 @@ public class QuantUtil {
 			final QuantBoundConstraint bc = (QuantBoundConstraint) arithLit.getAtom();
 			TermVariable lowerVar = null;
 			TermVariable upperVar = null;
-			final SMTAffineTerm remainder = new SMTAffineTerm();
-			final SMTAffineTerm aff = bc.getAffineTerm();
-			for (final Entry<Term, Rational> smd : aff.getSummands().entrySet()) {
-				if (smd.getKey() instanceof TermVariable) {
+			final Polynomial remainder = new Polynomial();
+			final Polynomial aff = bc.getAffineTerm();
+			for (final Entry<Map<Term, Integer>, Rational> smd : aff.getSummands().entrySet()) {
+				Term singleton = null;
+				if (smd.getKey().size() == 1 && smd.getKey().values().iterator().next() == 1) {
+					singleton = smd.getKey().keySet().iterator().next();
+				}
+				if (singleton instanceof TermVariable) {
 					if (smd.getValue().signum() < 0) {
 						assert t1 == null;
-						lowerVar = (TermVariable) smd.getKey();
+						lowerVar = (TermVariable) singleton;
 					} else {
 						assert upperVar == null;
-						upperVar = (TermVariable) smd.getKey();
+						upperVar = (TermVariable) singleton;
 					}
 				} else {
 					remainder.add(smd.getValue(), smd.getKey());
@@ -214,12 +227,18 @@ public class QuantUtil {
 				t1 = lowerVar;
 				t2 = remainder.toTerm(lowerVar.getSort());
 			} else {
-				remainder.negate();
+				remainder.mul(Rational.MONE);
 				t1 = remainder.toTerm(upperVar.getSort());
 				t2 = upperVar;
 			}
 		}
 		return new Term[] { t1, t2 };
+	}
+
+	public static boolean isTermVariable(Map<Term, Integer> monom) {
+		return monom.size() == 1 &&
+				monom.values().iterator().next() == 1 &&
+				monom.keySet().iterator().next() instanceof TermVariable;
 	}
 
 	/**
@@ -229,10 +248,14 @@ public class QuantUtil {
 	 * @param at
 	 *            the SMTAffineTerm to check
 	 */
-	public static boolean containsArithmeticOnQuantOnlyAtTopLevel(final SMTAffineTerm at) {
-		for (final Term smd : at.getSummands().keySet()) {
-			if (!(smd instanceof TermVariable) && !isSimpleEU(smd)) {
-				return false;
+	public static boolean containsArithmeticOnQuantOnlyAtTopLevel(final Polynomial at) {
+		for (final Map<Term,Integer> monom : at.getSummands().keySet()) {
+			if (!isTermVariable(monom)) {
+				for (final Term factor : monom.keySet()) {
+					if (!isSimpleEU(factor)) {
+						return false;
+					}
+				}
 			}
 		}
 		return true;

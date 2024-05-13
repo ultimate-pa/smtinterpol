@@ -2047,7 +2047,7 @@ public class ProofSimplifier extends TermTransformer {
 				final Term[] expectedArgs = new Term[lhsArgs.length];
 				expectedArgs[0] = lhsArgs[0];
 				for (int i = 1; i < lhsArgs.length; i++) {
-					final SMTAffineTerm affineTerm = new SMTAffineTerm();
+					final Polynomial affineTerm = new Polynomial();
 					affineTerm.add(Rational.MONE, lhsArgs[i]);
 					expectedArgs[i] = affineTerm.toTerm(lhsArgs[i].getSort());
 				}

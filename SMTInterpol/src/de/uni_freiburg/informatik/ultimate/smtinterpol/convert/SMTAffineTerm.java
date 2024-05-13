@@ -65,9 +65,17 @@ public final class SMTAffineTerm {
 			Rational factor = Rational.ONE;
 			if (subterm instanceof ApplicationTerm && ((ApplicationTerm) subterm).getFunction().getName() == "*") {
 				final Term[] params = ((ApplicationTerm) subterm).getParameters();
-				assert params.length == 2;
-				factor = convertConstant((ConstantTerm) parseConstant(params[0]));
-				subterm = params[1];
+				final Term constant = parseConstant(params[0]);
+				if (constant instanceof ConstantTerm) {
+					factor = convertConstant((ConstantTerm) constant);
+					if (params.length == 2) {
+						subterm = params[1];
+					} else {
+						final Term[] remainder = new Term[params.length - 1];
+						System.arraycopy(params, 1, remainder, 0, remainder.length);
+						subterm = subterm.getTheory().term(((ApplicationTerm) subterm).getFunction(), remainder);
+					}
+				}
 			}
 			if (subterm instanceof ApplicationTerm && ((ApplicationTerm) subterm).getFunction().getName() == "-"
 					&& ((ApplicationTerm) subterm).getParameters().length == 1) {

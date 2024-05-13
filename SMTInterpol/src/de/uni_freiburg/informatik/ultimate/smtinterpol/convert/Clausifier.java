@@ -1100,14 +1100,19 @@ public class Clausifier {
 				boolean needsLA = term instanceof ConstantTerm;
 				if (term instanceof ApplicationTerm) {
 					final String func = ((ApplicationTerm) term).getFunction().getName();
-					if (func.equals("+") || func.equals("-") || func.equals("*") || func.equals("to_real")) {
+					if (func.equals("+") || func.equals("-") || func.equals("to_real")) {
 						needsLA = true;
 					}
+					if (func.equals("*")) {
+						needsLA = true; // !isMonomial(term) || !mLATerms.containsKey(term);
+					}
 				}
-				if (needsLA && !isMonomial(term)) {
+				if (needsLA) {
 					final MutableAffineTerm mat = createMutableAffinTerm(new Polynomial(term), source);
 					assert mat.getConstant().mEps == 0;
-					shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+					if (!mLATerms.containsKey(term)) {
+						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+					}
 				}
 			}
 			if (term.getSort() == term.getTheory().getBooleanSort()
@@ -1197,6 +1202,26 @@ public class Clausifier {
 				final Term monomial = createMonomial(summand.getKey());
 				final LinVar lv = createLinVar(monomial, source);
 				res.add(coeff, lv);
+			}
+		}
+		return res;
+	}
+
+	public MutableAffineTerm toMutableAffineTerm(final Polynomial poly) {
+		final MutableAffineTerm res = new MutableAffineTerm();
+		for (final Map.Entry<Map<Term, Integer>, Rational> summand : poly.getSummands().entrySet()) {
+			final Rational coeff = summand.getValue();
+			if (summand.getKey().isEmpty()) {
+				res.add(coeff);
+			} else {
+				final Term monomial = createMonomial(summand.getKey());
+				final LASharedTerm laShared = getLATerm(monomial);
+				if (laShared == null) {
+					return null;
+				}
+				assert laShared.getSummands().size() == 1 && laShared.getOffset() == Rational.ZERO
+						&& laShared.getSummands().values().iterator().next() == Rational.ONE;
+				res.add(coeff, laShared.getSummands().keySet().iterator().next());
 			}
 		}
 		return res;
@@ -2041,7 +2066,7 @@ public class Clausifier {
 	 */
 	public static Term checkAndGetTrivialEquality(final Term lhs, final Term rhs, final Theory theory) {
 		// This code corresponds to the check in createEqualityProxy(...)
-		final SMTAffineTerm diff = new SMTAffineTerm(lhs);
+		final Polynomial diff = new Polynomial(lhs);
 		diff.add(Rational.MONE, rhs);
 		if (diff.isConstant()) {
 			if (diff.getConstant().equals(Rational.ZERO)) {
@@ -2050,7 +2075,7 @@ public class Clausifier {
 				return theory.mFalse;
 			}
 		} else {
-			diff.div(diff.getGcd());
+			diff.mul(diff.getGcd().inverse());
 			Sort sort = lhs.getSort();
 			// Normalize equality to integer logic if all variables are integer.
 			if (theory.getLogic().isIRA() && sort.getName().equals("Real") && diff.isAllIntSummands()) {
