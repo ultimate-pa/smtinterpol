@@ -234,10 +234,10 @@ stage:             Upload new version to Maven Central (owner only)
         <mkdir dir="${tmpdir}/bin"/>
         <echo file="${tmpdir}/bin/starexec_run_default" append="false">#!/bin/bash
 # Run script for SMTInterpol for the STAREXEC cluster
-java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode "$$1" 2&gt;"$$2"/error.log
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$1" 2&gt;"$$2"/error.log
 </echo>
         <echo file="${tmpdir}/bin/smtcomp_run_incremental" append="false">#!/bin/bash
-java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode "$$@" 2&gt;/dev/null
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@" 2&gt;/dev/null
 </echo>
         <echo file="${tmpdir}/bin/smtcomp_solver" append="false">#!/bin/bash
 
