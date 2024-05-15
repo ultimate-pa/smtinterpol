@@ -63,6 +63,7 @@ public enum Logics {
 	QF_UFBV   (Features.UF + Features.BV),
 	QF_UFBVLIA (Features.UF + Features.BV + Features.LA + Features.IA),
 	QF_UFDT   (Features.UF + Features.DT),
+	QF_UFDTNIA (Features.UF + Features.DT + Features.NA + Features.IA),
 	QF_UFDTLIA (Features.UF + Features.DT + Features.LA + Features.IA),
 	QF_UFDTLIRA (Features.UF + Features.DT + Features.LA + Features.IA + Features.RA),
 	QF_UFFP   (Features.UF + Features.FP),

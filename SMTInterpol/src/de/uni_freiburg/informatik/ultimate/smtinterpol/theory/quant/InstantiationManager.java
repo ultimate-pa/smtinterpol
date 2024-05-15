@@ -1579,6 +1579,7 @@ public class InstantiationManager {
 			final Polynomial instAff = new Polynomial();
 			for (final Entry<Map<Term, Integer>, Rational> smd : smtAff.getSummands().entrySet()) {
 				final Polynomial instMonom = new Polynomial();
+				instMonom.add(Rational.ONE);
 				for (final Entry<Term, Integer> factors : smd.getKey().entrySet()) {
 					final Term inst = mTerms.get(factors.getKey());
 					if (inst == null) {
@@ -1591,7 +1592,6 @@ public class InstantiationManager {
 				}
 				instAff.add(smd.getValue(), instMonom);
 			}
-			instAff.add(smtAff.getConstant());
 			return instAff;
 		}
 

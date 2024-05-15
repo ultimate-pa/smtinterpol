@@ -217,10 +217,9 @@ public class QuantUtil {
 					remainder.add(smd.getValue(), smd.getKey());
 				}
 			}
-			remainder.add(aff.getConstant());
 			assert lowerVar != null || upperVar != null;
 			if (lowerVar != null && upperVar != null) {
-				assert remainder.isConstant() && remainder.getConstant() == Rational.ZERO;
+				assert remainder.isZero();
 				t1 = lowerVar;
 				t2 = upperVar;
 			} else if (lowerVar != null) {
