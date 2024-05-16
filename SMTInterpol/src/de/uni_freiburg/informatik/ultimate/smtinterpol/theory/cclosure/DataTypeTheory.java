@@ -754,11 +754,17 @@ public class DataTypeTheory implements ITheory {
 					}
 				}
 			} else {
-				assert constructor.getFunction().getName().equals(selectorOrTester.getIndices()[0]);
-				final CCTerm ccTrue = mClausifier.getCCTerm(mTheory.mTrue);
-				if (ccTrue.mRepStar != checkTerm.mRepStar) {
-					final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm,
-							mClausifier.getCCTerm(mTheory.mTrue));
+				// If appTerm is a "is" function, check if it tests for the constructor of mArg.
+				// If so set the function equal to true else to false.
+				final Term truthValue;
+				if (selectorOrTester.getIndices()[0].equals(constructor.getFunction().getName())) {
+					truthValue = mClausifier.getTheory().mTrue;
+				} else {
+					truthValue = mClausifier.getTheory().mFalse;
+				}
+				final CCTerm ccTruthValue = mClausifier.getCCTerm(truthValue);
+				if (ccTruthValue.mRepStar != checkTerm.mRepStar) {
+					final SymmetricPair<CCTerm> provedEq = new SymmetricPair<>(checkTerm, ccTruthValue);
 					final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, provedEq, reason,
 							constructorCCTerm);
 					addPendingLemma(lemma);
