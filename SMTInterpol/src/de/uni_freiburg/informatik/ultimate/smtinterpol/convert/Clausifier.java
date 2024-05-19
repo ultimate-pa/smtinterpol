@@ -1156,19 +1156,17 @@ public class Clausifier {
 
 				// nat2bv(n) = nat2bv(n mod 2^bvlen)
 				Term axiom2 = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
-				
+
 				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 				buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
 			}
 		}
-		
 
-
+	}
 
 	
 
 
-	}
 
 	private Term normalizeMod(Term lhs, Rational maxNumber) {
 		Term rhs = mTheory.rational(maxNumber, mTheory.getSort(SMTLIBConstants.INT));
@@ -1194,13 +1192,6 @@ public class Clausifier {
 		createCCTerm(at.getParameters()[0], source);		
 		
 
-//		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_BV2NATUP), source);
-
-		// Needs SMTAffineTerm, no - here
-		// Term leq0LowerBound = mTheory.term("<=", mTheory.term("-",
-		// ((ApplicationTerm)at.getParameters()[0]).getParameters()[0]), zero);
-		// Term leq0UpperBound = mTheory.term("<=", mTheory.term("-",
-		// ((ApplicationTerm)at.getParameters()[0]).getParameters()[0], maxNumberMinunsOne), zero);
 		SMTAffineTerm leq0LowerBound = new SMTAffineTerm( at);
 		SMTAffineTerm leq0UpperBound = new SMTAffineTerm(at);
 		leq0UpperBound.add(Rational.valueOf(two.pow(width), BigInteger.ONE).sub(Rational.ONE).negate());
@@ -1210,6 +1201,21 @@ public class Clausifier {
 
 		buildClause(mTracker.tautology(axiomLowerBound2, ProofConstants.TAUT_BV2NATLOW), source); // TODO Proof
 		buildClause(mTracker.tautology(axiomUpperBound2, ProofConstants.TAUT_BV2NATUP), source);
+
+	
+		//bv2nat nat2bv == mod
+		Term arg = at.getParameters()[0];
+		final Rational maxNumber = Rational.valueOf(two.pow(width), BigInteger.ONE);
+		if(arg instanceof ApplicationTerm) {
+			if(((ApplicationTerm)arg).getFunction().getName().equals("nat2bv")) {
+				Term mod = normalizeMod(((ApplicationTerm) arg).getParameters()[0], maxNumber);
+				// bv2nat(nat2bv(n)) = n mod 2^bvlen
+				Term axiom = mTheory.term("=", at, mod);
+
+				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
+			}
+		}
+	
 	}
 
 	/**

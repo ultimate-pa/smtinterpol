@@ -51,9 +51,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
- * Build a representation of the formula where only not, or, ite and =/2 are
- * present. Linear arithmetic terms are converted into Polynomials. We normalize
- * quantifiers to universal quantifiers. Additionally, this term transformer
+ * Build a representation of the formula where only not, or, ite and =/2 are present. Linear arithmetic terms are
+ * converted into Polynomials. We normalize quantifiers to universal quantifiers. Additionally, this term transformer
  * removes all annotations from the formula.
  *
  * @author Jochen Hoenicke, Juergen Christ
@@ -67,9 +66,11 @@ public class TermCompiler extends TermTransformer {
 	private LogicSimplifier mUtils;
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 	// TODO make it an option
-	boolean mEagerMod = false;
-	private Map<Term, Term> mVarNameTranslation = new HashMap<>();
-	
+	private final boolean mEagerMod = false;
+	private final boolean mDealWithBvToNatAndNatToBvInPreprocessing = true;
+
+	private final Map<Term, Term> mVarNameTranslation = new HashMap<>();
+
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
 
@@ -189,32 +190,32 @@ public class TermCompiler extends TermTransformer {
 			if(term.getSort().isBitVecSort() && appTerm.getParameters().length == 0 && !fsym.isIntern()) {
 				final Theory theory = appTerm.getTheory();
 				final BvUtils bvUtils = new BvUtils(theory, mUtils);
-				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod);
-				
-//				if(fsym.getDefinition() != null) {					
-//					pushTerm(fsym.getDefinition());
-//					return;					
-//				}
-//				
-//				if(mVarNameTranslation.containsKey(term)) {
-//					setResult(mVarNameTranslation.get(term));
-//					return;
-//				
-//				} else {
-//					final Term intVar = theory.term(theory.declareFunction(theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0], theory.getSort("Int")));
-//					
-//					final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
-//					
-//					final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
-//					mVarNameTranslation.put(term, rewrite);
-//					setResult(rewrite);
-//					return;
-//				}
-				
-				
+				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod,
+						mDealWithBvToNatAndNatToBvInPreprocessing);
+				if (mDealWithBvToNatAndNatToBvInPreprocessing) {
+					if (fsym.getDefinition() != null) {
+						pushTerm(fsym.getDefinition());
+						return;
+					}
 
-				//TODO we just do nothing here?
-			} 
+					if (mVarNameTranslation.containsKey(term)) {
+						setResult(mVarNameTranslation.get(term));
+						return;
+
+					} else {
+						final Term intVar = theory.term(theory.declareFunction(
+								theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0],
+								theory.getSort("Int")));
+
+						final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
+
+						final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
+						mVarNameTranslation.put(term, rewrite);
+						setResult(rewrite);
+						return;
+					}
+				}
+			}
 		} else if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
 			final Term res = SMTAffineTerm.convertConstant((ConstantTerm) term).toTerm(term.getSort());
 			setResult(mTracker.buildRewrite(term, res, ProofConstants.RW_CANONICAL_SUM));
@@ -222,7 +223,7 @@ public class TermCompiler extends TermTransformer {
 		} else if (term instanceof ConstantTerm && term.getSort().isBitVecSort()) {
 			final Theory theory = term.getTheory();
 			final BvUtils bvUtils = new BvUtils(theory, mUtils);
-			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod);
+			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod, mDealWithBvToNatAndNatToBvInPreprocessing);
 			setResult( mTracker.reflexivity(bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod)));
 			return;
 //			setResult(mTracker.buildRewrite(term, bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
@@ -230,7 +231,7 @@ public class TermCompiler extends TermTransformer {
 		} else if (term instanceof TermVariable) {
 			if (term.getSort().isBitVecSort()) {
 				final Theory theory = term.getTheory();
-				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null, mTracker, mEagerMod);
+				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null, mTracker, mEagerMod, mDealWithBvToNatAndNatToBvInPreprocessing);
 				setResult( mTracker.reflexivity(bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod)));
 				return;
 //				setResult(mTracker.buildRewrite(term, bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
@@ -248,9 +249,10 @@ public class TermCompiler extends TermTransformer {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
 		final BvUtils bvUtils = new BvUtils(theory, mUtils);
-		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod);
+		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod,
+				mDealWithBvToNatAndNatToBvInPreprocessing);
 		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
-	
+
 		if (mTracker.getProvedTerm(convertedApp) instanceof ConstantTerm) {
 			setResult(convertedApp);
 			return;
@@ -266,8 +268,8 @@ public class TermCompiler extends TermTransformer {
 			final FormulaUnLet unletter = new FormulaUnLet();
 			unletter.addSubstitutions(substs);
 			final Term expanded = unletter.unlet(fsym.getDefinition());
-			final Term expandedProof = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), expanded,
-					ProofConstants.RW_EXPAND_DEF);
+			final Term expandedProof =
+					mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), expanded, ProofConstants.RW_EXPAND_DEF);
 			enqueueWalker(new TransitivityStep(mTracker.transitivity(convertedApp, expandedProof)));
 			pushTerm(expanded);
 			return;
@@ -299,14 +301,14 @@ public class TermCompiler extends TermTransformer {
 				return;
 			case "=":
 				if (params[0].getSort().isBitVecSort()) {
-					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod)); 
+					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod));
 					return;
 				}
 				setResult(mUtils.convertEq(convertedApp));
 				return;
 			case "distinct":
 				if (params[0].getSort().isBitVecSort()) {
-					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod)); 
+					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod));
 					return;
 				}
 				setResult(mUtils.convertDistinct(convertedApp));
@@ -584,56 +586,56 @@ public class TermCompiler extends TermTransformer {
 				assert sort.isArraySort();
 				if (!isInfinite(sort.getArguments()[0])) {
 					/*
-					 * We don't support const over non-infinite index sorts. So we require the sort
-					 * to be internal and non-bool. Non-bool is already checked earlier.
+					 * We don't support const over non-infinite index sorts. So we require the sort to be internal and
+					 * non-bool. Non-bool is already checked earlier.
 					 */
 					throw new SMTLIBException("Const is only supported for infinite index sort");
 				}
 				break;
 			}
 			case "bvmul": {
-				pushTerm(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
-			case "bvsub":			
+			case "bvsub":
 			case "bvadd": {
-				pushTerm(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
 			case "bvneg": {
-				pushTerm(bvToIntUtils.translateBvNeg(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvNeg(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
-			//Do we need modulo here?
 			case "bvnot": {
-				pushTerm(bvToIntUtils.translateBvNot(mTracker, appTerm, convertedApp,  false));
+				pushTerm(bvToIntUtils.translateBvNot(mTracker, appTerm, convertedApp, false));
 				return;
 			}
 			case "concat": {
-				pushTerm(bvToIntUtils.translateConcat(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateConcat(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
-			case "bvudiv": {				
-				pushTerm(bvToIntUtils.translateBvudiv(mTracker, appTerm, convertedApp,  mEagerMod));
+			case "bvudiv": {
+				pushTerm(bvToIntUtils.translateBvudiv(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
 			case "bvurem": {
-				pushTerm(bvToIntUtils.translateBvurem(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvurem(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
 			case "bvlshr": {
-				pushTerm(bvToIntUtils.translateBvlshr(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvlshr(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
 			case "bvshl": {
-				pushTerm(bvToIntUtils.translateBvshl(mTracker, appTerm, convertedApp,  mEagerMod));
+				pushTerm(bvToIntUtils.translateBvshl(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
 			case "bvand":
 			case "bvor": {
-				throw new UnsupportedOperationException("Bit-Wise Operations not supported" + appTerm.getFunction().getName());			
-//				setResult(bvUtils.transformBitwise(params, fsym));
-//				return;
+				throw new UnsupportedOperationException(
+						"Bit-Wise Operations not supported" + appTerm.getFunction().getName());
+				// setResult(bvUtils.transformBitwise(params, fsym));
+				// return;
 			}
 			case "bvuge":
 			case "bvslt":
@@ -651,7 +653,7 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "repeat": {
-				
+
 				pushTerm(bvUtils.transformRepeat(params, fsym, convertedApp));
 				return;
 			}
@@ -667,35 +669,37 @@ public class TermCompiler extends TermTransformer {
 					}
 					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
 					return;
-				}				
-//				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(convertedApp, mEagerMod), appTerm.getSort().getIndices())));
-//				return;
+				}
+				// setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(convertedApp, mEagerMod),
+				// appTerm.getSort().getIndices())));
+				// return;
 			}
 			case "sign_extend": {
 				if (fsym.getIndices()[0].equals("0")) {
 					setResult(params[0]);
 					return;
 				} else {
-//					String repeat = "#b0";
-//					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
-//						repeat = repeat + "0";
-//					}
-//					int difference = Integer.valueOf(fsym.getIndices()[0]) - Integer.valueOf(params[0].getSort().getIndices()[0]);
-//					
-//					int maxExtract = Integer.valueOf(params[0].getSort().getIndices()[0]) - 1;
-//					
-//					final String[] idx = new String[2];
-//					idx[0] = String.valueOf(maxExtract);
-//					idx[1] = String.valueOf(maxExtract);
-//				
-//					final String[] repeatIdx = new String[1];
-//					repeatIdx[0] = String.valueOf(difference);
-//					 
-//					pushTerm(theory.term("concat", 	theory.term("repeat", repeatIdx, null , theory.term("extract", idx, null, params[0])) , params[0]));
-//					
-//					
-					
-					
+					// String repeat = "#b0";
+					// for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
+					// repeat = repeat + "0";
+					// }
+					// int difference = Integer.valueOf(fsym.getIndices()[0]) -
+					// Integer.valueOf(params[0].getSort().getIndices()[0]);
+					//
+					// int maxExtract = Integer.valueOf(params[0].getSort().getIndices()[0]) - 1;
+					//
+					// final String[] idx = new String[2];
+					// idx[0] = String.valueOf(maxExtract);
+					// idx[1] = String.valueOf(maxExtract);
+					//
+					// final String[] repeatIdx = new String[1];
+					// repeatIdx[0] = String.valueOf(difference);
+					//
+					// pushTerm(theory.term("concat", theory.term("repeat", repeatIdx, null , theory.term("extract",
+					// idx, null, params[0])) , params[0]));
+					//
+					//
+
 					final String[] indices = new String[2];
 					indices[0] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
 					indices[1] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
@@ -704,17 +708,13 @@ public class TermCompiler extends TermTransformer {
 					final int difference = Integer.valueOf(appTerm.getSort().getIndices()[0])
 							- Integer.valueOf(params[0].getSort().getIndices()[0]);
 					for (int i = 0; i < difference; i++) {
-						repeat = theory.term( "concat",
-								theory.term("extract", indices, null, params[0]), repeat);
+						repeat = theory.term("concat", theory.term("extract", indices, null, params[0]), repeat);
 					}
 					pushTerm(repeat);
 					return;
-					
-					
-					
-					
-				}		
-				
+
+				}
+
 			}
 			case "rotate_left": {
 				assert false;
@@ -726,7 +726,7 @@ public class TermCompiler extends TermTransformer {
 				setResult(bvUtils.transformRotateright(params, fsym, convertedApp));
 				return;
 			}
-			//From here on all bv function do pushTerm
+			// From here on all bv function do pushTerm
 			case "bvnand": {
 				// (bvnand s t) abbreviates (bvnot (bvand s t))
 				pushTerm(theory.term("bvnot", theory.term("bvand", params)));
@@ -769,14 +769,12 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "bv2nat": {
-				//Term should only contain bv2nat around uninterpreted functions / constants
 				setResult(mTracker.reflexivity(bvToIntUtils.bv2nat(params[0], mEagerMod)));
 				return;
 			}
 			case "nat2bv": {
-				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(params[0],appTerm.getSort().getIndices())));
+				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(params[0], appTerm.getSort().getIndices())));
 				return;
-//				throw new UnsupportedOperationException("Should be dealt with directly");
 			}
 			case "true":
 			case "false":
@@ -869,14 +867,15 @@ public class TermCompiler extends TermTransformer {
 	}
 
 	/**
-	 * Canonicalize a polynomial, i.e. check if we already created this term with
-	 * the summands in a different order.
+	 * Canonicalize a polynomial, i.e. check if we already created this term with the summands in a different order.
 	 *
-	 * @param poly the polynomial to canonicalize and convert to a term.
-	 * @param sort the Sort of the resulting term.
+	 * @param poly
+	 *            the polynomial to canonicalize and convert to a term.
+	 * @param sort
+	 *            the Sort of the resulting term.
 	 * @return the canonic summation term.
 	 */
-	public Term unifyPolynomial(final Polynomial poly, Sort sort) {
+	public Term unifyPolynomial(final Polynomial poly, final Sort sort) {
 		final int hash = poly.hashCode() ^ sort.hashCode();
 		for (final Term canonic : mCanonicalPolys.iterateHashCode(hash)) {
 			if (canonic.getSort() == sort && poly.equals(new Polynomial(canonic))) {
