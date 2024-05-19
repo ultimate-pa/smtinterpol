@@ -34,13 +34,12 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.LogicSimplifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 
 public class BvUtils {
 	private final Theory mTheory;
 	private final LogicSimplifier mUtils;
 	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
-	
+
 	public BvUtils(final Theory theory, final LogicSimplifier utils) {
 		mTheory = theory;
 		mUtils = utils;
@@ -63,7 +62,7 @@ public class BvUtils {
 
 	public boolean isConstRelation(final Term term) {
 		if (term instanceof ConstantTerm) {
-				return true;		
+				return true;
 		}
 		if (term instanceof ApplicationTerm) {
 			if (((ApplicationTerm)term).getFunction().getName().matches(BITVEC_CONST_PATTERN)) {
@@ -72,23 +71,23 @@ public class BvUtils {
 		}
 		return false;
 	}
-	
+
 	/**
 	 * returns the bit string of #b or #x Constant Terms. (_bvi j) Constants are
 	 * replaced by #b constants beforehand
 	 */
-	public String getConstAsString(Term term) {
+	public String getConstAsString(final Term term) {
 		ConstantTerm ct = null;
 		if(term instanceof ApplicationTerm) {
-			ApplicationTerm appTerm = (ApplicationTerm) term; 
+			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			ct = (ConstantTerm) getBvConstAsBinaryConst(appTerm.getFunction(),term.getSort());
 		} else if (term instanceof ConstantTerm) {
 			ct = (ConstantTerm) term;
 		} else{
 			throw new UnsupportedOperationException("Can't convert to bitstring: " + term);
 		}
-		
-		
+
+
 		if (ct.getSort().isBitVecSort()) {
 			String bitString;
 			assert (ct.getValue() instanceof String);
@@ -123,7 +122,7 @@ public class BvUtils {
 				final String repeated = new String(new char[size - value.length()]).replace("\0", "0");
 				value = repeated + value;
 			}
-			Term bitString = mTheory.binary("#b" + value);
+			final Term bitString = mTheory.binary("#b" + value);
 			assert bitString.getSort().equals(sort);
 			return mTheory.binary("#b" + value);
 		}
@@ -313,7 +312,7 @@ public class BvUtils {
 	 */
 	public Term simplifyShiftConst(final FunctionSymbol fsym, final Term lhs, final Term rhs) {
 		String resultconst = "#b";
-		final String lhsString = getConstAsString((ConstantTerm) lhs);
+		final String lhsString = getConstAsString(lhs);
 		final BigInteger rhsBigInt = new BigInteger(getConstAsString( rhs), 2);
 		final BigInteger lhslenth = new BigInteger(String.valueOf(lhsString.length()));
 
@@ -625,7 +624,7 @@ public class BvUtils {
 				varTerm = rhs;
 			} else if ((rhs instanceof ConstantTerm)
 					&& ((lhs instanceof TermVariable) || (lhs instanceof ApplicationTerm))) {
-				constAsString = getConstAsString((ConstantTerm) rhs);
+				constAsString = getConstAsString(rhs);
 				varTerm = lhs;
 			} else {
 				return term;
@@ -875,10 +874,11 @@ public class BvUtils {
 			return mTheory.mTrue;
 		}
 		if (isConstRelation(lhs, rhs)) {
-			if (getConstAsString((ConstantTerm) lhs).equals(getConstAsString( rhs))) {
+			if (getConstAsString(lhs).equals(getConstAsString( rhs))) {
 				return mTheory.mTrue;
-			} else
+			} else {
 				return mTheory.mFalse;
+			}
 		}
 		final Term perfectMatch = eliminateConcatPerfectMatch(appterm.getFunction(), lhs, rhs);
 		if (perfectMatch != null) {
@@ -921,7 +921,7 @@ public class BvUtils {
 		}
 	}
 
-	public Term transformBvcomp(Term[] params) {
+	public Term transformBvcomp(final Term[] params) {
 		// bit comparator: equals #b1 iff all bits are equal
 		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
 		final Term[] bvxnor = new Term[size];
@@ -950,7 +950,7 @@ public class BvUtils {
 		return result;
 	}
 
-	public Term transformBvsdiv(Term[] params) {
+	public Term transformBvsdiv(final Term[] params) {
 		final String[] indices = new String[2];
 		indices[0] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
 		indices[1] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
@@ -968,14 +968,14 @@ public class BvUtils {
 				 mTheory.term( "=", oneVec, msbRhs));
 
 		final Term bvudiv = mTheory.term( "bvudiv",  params);
-		final Term thenTerm2 = mTheory.term( "bvneg", 
-				mTheory.term( "bvudiv", 
+		final Term thenTerm2 = mTheory.term( "bvneg",
+				mTheory.term( "bvudiv",
 						mTheory.term( "bvneg",  params[0]),
 						params[1]));
 		final Term thenTerm3 = mTheory.term( "bvneg",				mTheory.term( "bvudiv",  params[0],
 						mTheory.term("bvneg",  params[1])));
 
-		final Term elseTerm = mTheory.term( "bvudiv", 
+		final Term elseTerm = mTheory.term( "bvudiv",
 				mTheory.term( "bvneg", params[0]),
 				mTheory.term( "bvneg", params[1]));
 
@@ -985,8 +985,8 @@ public class BvUtils {
 
 		return bvsdiv;
 	}
-	
-	public Term transformBvsdivOld(Term[] params) {
+
+	public Term transformBvsdivOld(final Term[] params) {
 
 		// abbreviation as defined in the SMT-Lib
 		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
@@ -1028,7 +1028,7 @@ public class BvUtils {
 		return mTheory.ifthenelse(rhsZero, divZero, bvsdivAbbreviation);
 	}
 
-	public Term transformBvsrem(Term[] params) {
+	public Term transformBvsrem(final Term[] params) {
 		// abbreviation as defined in the SMT-Lib
 		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
 		final String[] selectIndices = new String[2];
@@ -1040,7 +1040,7 @@ public class BvUtils {
 		final Term extractSignLhs = mTheory.term(extract, params[0]);
 		final Term extractSignRhs = mTheory.term(extract, params[1]);
 
-		Term definitionBvsrem = (mTheory.ifthenelse(
+		final Term definitionBvsrem = (mTheory.ifthenelse(
 				mTheory.term("and", mTheory.term("=", extractSignLhs, mTheory.binary("#b0")),
 						mTheory.term("=", extractSignRhs, mTheory.binary("#b0"))),
 				mTheory.term("bvurem", params[0], params[1]),
@@ -1057,7 +1057,7 @@ public class BvUtils {
 		return definitionBvsrem;
 	}
 
-	public Term transformBvsmod(Term[] params) {
+	public Term transformBvsmod(final Term[] params) {
 		// abbreviation as defined in the SMT-Lib
 		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
 		final String[] selectIndices = new String[2];
@@ -1097,7 +1097,7 @@ public class BvUtils {
 				mTheory.ifthenelse(mTheory.term("=", bvurem, zeroVec), bvurem, elseTerm));
 	}
 
-	public Term transformBvashr(Term[] params) {
+	public Term transformBvashr(final Term[] params) {
 		// abbreviation as defined in the SMT-Lib
 		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
 		final String[] selectIndices = new String[2];
@@ -1112,7 +1112,7 @@ public class BvUtils {
 				mTheory.term("bvnot", mTheory.term("bvlshr", mTheory.term("bvnot", params[0]), params[1]))));
 	}
 
-	public Term transformRepeat(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformRepeat(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		if (fsym.getIndices()[0].equals("1")) {
 			return (params[0]);
 
@@ -1133,12 +1133,12 @@ public class BvUtils {
 				return repeat;
 
 			}
-			
+
 		}
 
 	}
 
-	public Term transformSignExtend(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformSignExtend(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		if (fsym.getIndices()[0].equals("0")) {
 			return params[0];
 		} else {
@@ -1156,7 +1156,7 @@ public class BvUtils {
 		}
 	}
 
-	public Term transformRotateleft(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformRotateleft(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
 		int rotationDistance = Integer.valueOf(fsym.getIndices()[0]);
 		if (rotationDistance > size) {
@@ -1173,12 +1173,37 @@ public class BvUtils {
 				final String shifted = (String) constAsString.subSequence(rotationDistance, constAsString.length());
 				return mTheory.binary("#b" + shifted + overhead);
 
+			} else {
+				final String[] selectIndicesLhs = new String[2];
+				selectIndicesLhs[0] = String.valueOf(size - 2);
+				selectIndicesLhs[1] = String.valueOf(0);
+
+				final String[] selectIndicesRhs = new String[2];
+				selectIndicesRhs[0] = String.valueOf(size - 1);
+				selectIndicesRhs[1] = String.valueOf(size - 1);
+
+				final String[] rotateIndices = new String[1];
+				rotateIndices[0] = String.valueOf(rotationDistance - 1);
+
+				final FunctionSymbol extractLhs =
+						mTheory.getFunctionWithResult("extract", selectIndicesLhs, null, params[0].getSort());
+				final FunctionSymbol extractRhs =
+						mTheory.getFunctionWithResult("extract", selectIndicesRhs, null, params[0].getSort());
+				final FunctionSymbol rotateOneLess = mTheory.getFunctionWithResult("rotate_left", rotateIndices, null,
+						params[0].getSort());
+
+				final Term concat = mTheory.term("concat", mTheory.term(extractLhs, params[0]),
+						mTheory.term(extractRhs, params[0]));
+
+				return mTheory.term(rotateOneLess, concat);
 			}
-			return convertedApp;
+
 		}
 	}
 
-	public Term transformRotateright(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+
+
+	public Term transformRotateright(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
 		int rotationDistance = Integer.valueOf(fsym.getIndices()[0]);
 		if (rotationDistance > size) {
@@ -1198,19 +1223,42 @@ public class BvUtils {
 						constAsString.length());
 				return mTheory.binary("#b" + overhead + shifted);
 
+			} else {
+				final String[] selectIndicesLhs = new String[2];
+				selectIndicesLhs[0] = String.valueOf(0);
+				selectIndicesLhs[1] = String.valueOf(0);
+
+				final String[] selectIndicesRhs = new String[2];
+				selectIndicesRhs[0] = String.valueOf(size - 1);
+				selectIndicesRhs[1] = String.valueOf(1);
+
+				final String[] rotateIndices = new String[1];
+				rotateIndices[0] = String.valueOf(rotationDistance - 1);
+
+				final FunctionSymbol extractLhs =
+						mTheory.getFunctionWithResult("extract", selectIndicesLhs, null, params[0].getSort());
+				final FunctionSymbol extractRhs =
+						mTheory.getFunctionWithResult("extract", selectIndicesRhs, null, params[0].getSort());
+				final FunctionSymbol rotateOneLess =
+						mTheory.getFunctionWithResult("rotate_left", rotateIndices, null, params[0].getSort());
+
+				final Term concat = mTheory.term("concat", mTheory.term(extractLhs, params[0]),
+						mTheory.term(extractRhs, params[0]));
+
+				return mTheory.term(rotateOneLess, concat);
 			}
-			return convertedApp;
+
 		}
 	}
 
-	public Term transformBvnot(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformBvnot(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		if (isConstRelation(params[0], null)) {
 			return simplifyNotConst(fsym, params[0]);
 		}
 		return convertedApp;
 	}
 
-	public Term transformBvneg(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformBvneg(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		if (isConstRelation(params[0], null)) {
 			return simplifyNegConst(fsym, params[0]);
 		}
@@ -1222,7 +1270,7 @@ public class BvUtils {
 		return bvneg;
 	}
 
-	public Term transformBvxor(Term[] params) {
+	public Term transformBvxor(final Term[] params) {
 		// (bvxor s t) abbreviates (bvor (bvand s (bvnot t)) (bvand (bvnot s) t))
 		// bvxor is left associative
 		assert params.length == 2;
@@ -1231,7 +1279,7 @@ public class BvUtils {
 
 	}
 
-	public Term transformBvxnor(Term[] params) {
+	public Term transformBvxnor(final Term[] params) {
 		// (bvxnor s t) abbreviates (bvor (bvand s t) (bvand (bvnot s) (bvnot t)))
 		// bvxor is left associative
 		assert params.length == 2;
@@ -1240,7 +1288,7 @@ public class BvUtils {
 
 	}
 
-	public Term transformExtract(Term[] params, FunctionSymbol fsym) {
+	public Term transformExtract(final Term[] params, final FunctionSymbol fsym) {
 		if (isConstRelation(params[0], null)) {
 			return simplifySelectConst(fsym, params[0]);
 		}
@@ -1249,7 +1297,7 @@ public class BvUtils {
 
 	}
 
-	public Term transformBvult(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformBvult(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		final Term bvult = getBvultTerm(convertedApp);
 		if (bvult instanceof ApplicationTerm) {
 			final ApplicationTerm appterm = (ApplicationTerm) bvult;
@@ -1262,21 +1310,21 @@ public class BvUtils {
 
 	}
 
-	public Term transformConcat(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformConcat(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		if (isConstRelation(params[0], params[1])) {
 			return simplifyConcatConst(fsym, params[0], params[1]);
 		}
 		return convertedApp;
 	}
 
-	public Term transformBvArithmetic(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformBvArithmetic(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		if (isConstRelation(params[0], params[1])) {
-			return simplifyArithmeticConst(fsym, params[0], params[1]);			
+			return simplifyArithmeticConst(fsym, params[0], params[1]);
 		}
 		return convertedApp;
 	}
 
-	public Term transformBvaddBvmul(Term[] params, FunctionSymbol fsym) {
+	public Term transformBvaddBvmul(final Term[] params, final FunctionSymbol fsym) {
 		if (isConstRelation(params[0], params[1])) {
 			return simplifyArithmeticConst(fsym, params[0], params[1]);
 		}
@@ -1284,7 +1332,7 @@ public class BvUtils {
 		return orderParameters(fsym, params);
 	}
 
-	public Term transformBitwise(Term[] params, FunctionSymbol fsym) {
+	public Term transformBitwise(final Term[] params, final FunctionSymbol fsym) {
 		assert params.length == 2;
 		if (isConstRelation(params[0], params[1])) {
 			return simplifyLogicalConst(fsym, params[0], params[1]);
@@ -1294,7 +1342,7 @@ public class BvUtils {
 		}
 	}
 
-	public Term transformShift(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformShift(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		if (isConstRelation(params[0], params[1])) {
 			return simplifyShiftConst(fsym, params[0], params[1]);
 
@@ -1302,7 +1350,7 @@ public class BvUtils {
 		return convertedApp;
 	}
 
-	public Term transformInequality(Term[] params, FunctionSymbol fsym, Term convertedApp) {
+	public Term transformInequality(final Term[] params, final FunctionSymbol fsym, final Term convertedApp) {
 		final Term bvult = getBvultTerm(convertedApp);
 		if (bvult instanceof ApplicationTerm) {
 			final ApplicationTerm appterm = (ApplicationTerm) bvult;

@@ -717,13 +717,11 @@ public class TermCompiler extends TermTransformer {
 
 			}
 			case "rotate_left": {
-				assert false;
-				setResult(bvUtils.transformRotateleft(params, fsym, convertedApp));
+				pushTerm(bvUtils.transformRotateleft(params, fsym, convertedApp));
 				return;
 			}
 			case "rotate_right": {
-				assert false;
-				setResult(bvUtils.transformRotateright(params, fsym, convertedApp));
+				pushTerm(bvUtils.transformRotateright(params, fsym, convertedApp));
 				return;
 			}
 			// From here on all bv function do pushTerm
