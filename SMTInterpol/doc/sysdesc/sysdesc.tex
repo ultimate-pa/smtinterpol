@@ -50,7 +50,7 @@ In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.inform
 
 \section*{Competition Version}
 The version of \SI submitted to the SMT-COMP 2024 contains
-preliminary support for non-linear benchmarks.  Multiplication of arbitrary terms is handled by the pre-processor.  However, the linear solver will treat products of variables as unconstraint variables.  If a model is found, the solver reports unknown if a non-linear multiplication is part of the tableau.
+preliminary support for non-linear benchmarks.  Multiplication of arbitrary terms is handled by the pre-processor.  However, the linear solver will treat products of variables as unconstrained variables.  If a model is found, the solver reports unknown if a non-linear multiplication is part of the tableau.
 
 We also have an experimental bit-vector solver based on a translation to integer arithmetic.  The bitvector solver does not yet support bit-wise operations (like bvand/bvor/bvxor). It also has no support for proof or models, so there is no extra check to ensure soundness for these theories.
 
