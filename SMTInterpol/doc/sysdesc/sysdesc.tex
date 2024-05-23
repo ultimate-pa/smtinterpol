@@ -13,13 +13,14 @@
 
 \title{\SI\\{\large Version \version}}
 
-\author{Jochen Hoenicke\inst{1} \and Tanja Schindler\inst{2}}
+\author{Max Barth\inst{1} \and Jochen Hoenicke\inst{2} \and Tanja Schindler\inst{3}}
 \institute{
+  Ludwig Maximilian University of Munich, \email{max.barth@lmu.de} \and
   Certora, \email{jochen@certora.com} \and
-  University of Li\`{e}ge, \email{tanja.schindler@uliege.be}
+  University of Basel, \email{tanja.schindler@unibas.ch}
 }
 \titlerunning{\SI \version}
-\authorrunning{Hoenicke and Schindler}
+\authorrunning{Barth, Hoenicke and Schindler}
 
 \begin{document}
 \maketitle
@@ -41,19 +42,20 @@ Theory combination is performed based on partial models produced by the theory s
 
 The main focus of \SI is the incremental track.
 This track simulates the typical application of \SI where a user asks multiple queries.
-As an extension, \SI supports interpolation for all supported theories except for datatypes~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19,DBLP:conf/smt/HenkelHS21}.  It computes quantifier-free interpolants for quantifier-free input formulas.
+As an extension, \SI supports interpolation for all supported theories~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19,DBLP:conf/smt/HenkelHS21}.  It computes quantifier-free interpolants for quantifier-free input formulas.
 This makes it useful as a backend for software verification tools.
 In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2023, used \SI.
 
 \SI aims for producing witnesses (proofs and models).  The competition version will check these witnesses before reporting the result to ensure soundness.  Only sat results for quantified logics are not checked.
 
-
 \section*{Competition Version}
 The version of \SI submitted to the SMT-COMP 2024 contains
 preliminary support for non-linear benchmarks.  Multiplication of arbitrary terms is handled by the pre-processor.  However, the linear solver will treat products of variables as unconstraint variables.  If a model is found, the solver reports unknown if a non-linear multiplication is part of the tableau.
 
+We also have an experimental bit-vector solver based on a translation to integer arithmetic.  The bitvector solver does not yet support bit-wise operations (like bvand/bvor/bvxor). It also has no support for proof or models, so there is no extra check to ensure soundness for these theories.
+
 \section*{Authors, Logics, and Tracks}
-The code was written by J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Elisabeth Henkel, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
+The code was written by Max Barth, Leon Cacace, J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Elisabeth Henkel, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
 Further information about \SI can be found at
 \begin{center}
   \url{https://ultimate.informatik.uni-freiburg.de/smtinterpol/}

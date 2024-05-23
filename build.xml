@@ -247,10 +247,10 @@ java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=fal
 
 java -Xms1536m -Xmx50g -da -dsa -cp smtinterpol.jar de.uni_freiburg.informatik.ultimate.smtinterpol.proof.checker.Main "$$@"
 </echo>
-        <chmod file="${tmpdir}/bin/starexec_run_default" perm="a+rx"/>
-        <chmod file="${tmpdir}/bin/smtcomp_run_incremental" perm="a+rx"/>
-        <chmod file="${tmpdir}/bin/smtcomp_solver" perm="a+rx"/>
-        <chmod file="${tmpdir}/bin/smtcomp_checker" perm="a+rx"/>
+        <chmod file="${tmpdir}/bin/starexec_run_default" perm="ugo+rx"/>
+        <chmod file="${tmpdir}/bin/smtcomp_run_incremental" perm="ugo+rx"/>
+        <chmod file="${tmpdir}/bin/smtcomp_solver" perm="ugo+rx"/>
+        <chmod file="${tmpdir}/bin/smtcomp_checker" perm="ugo+rx"/>
         <echo file="${tmpdir}/starexec_description.txt" append="false">SMTInterpol ${version}</echo>
         <!-- stupid starexec does not like - characters in description -->
         <replace file="${tmpdir}/starexec_description.txt" token="-" value="_"/>
@@ -259,6 +259,28 @@ java -Xms1536m -Xmx50g -da -dsa -cp smtinterpol.jar de.uni_freiburg.informatik.u
         <zip destfile="${jar.outdir}/smtinterpol-${version}.zip" basedir="${tmpdir}"/>
         <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
         <echo>created ${jar.outdir}/smtinterpol-${version}.zip</echo>
+    </target>
+    <!-- Create the smtcomp solver zip file -->
+    <target name="smtcomp" depends="get-version,smtinterpol.jar">
+        <property name="tmpdir" value="buildtmp"/>
+        <mkdir dir="${tmpdir}/smtinterpol-${version}/bin"/>
+        <echo file="${tmpdir}/smtinterpol-${version}/bin/smtinterpol" append="false">#!/bin/bash
+# Run script for SMTInterpol for SMT-COMP 2024+
+java -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@"
+</echo>
+        <echo file="${tmpdir}/smtinterpol-${version}/Dockerfile" append="false">FROM eclipse-temurin:8
+RUN mkdir /smtinterpol
+COPY . /smtinterpol
+WORKDIR /smtinterpol/bin
+CMD ./smtinterpol
+</echo>
+        <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/smtinterpol-${version}/bin/smtinterpol.jar"/>
+        <tar destfile="${jar.outdir}/smtinterpol-${version}.tar.gz" compression="gzip">
+            <tarfileset dir="${tmpdir}" excludes="smtinterpol-${version}/bin/smtinterpol"/>
+            <tarfileset dir="${tmpdir}" includes="smtinterpol-${version}/bin/smtinterpol" filemode="755" />
+        </tar>
+        <!--delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/-->
+        <echo>created ${jar.outdir}/smtinterpol-${version}.tar.gz</echo>
     </target>
     <!-- Delete compiled class files -->
     <target name="clean" description="Cleans a previous build">
