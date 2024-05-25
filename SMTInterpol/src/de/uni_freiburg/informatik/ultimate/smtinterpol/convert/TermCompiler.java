@@ -630,12 +630,27 @@ public class TermCompiler extends TermTransformer {
 				pushTerm(bvToIntUtils.translateBvshl(mTracker, appTerm, convertedApp, mEagerMod));
 				return;
 			}
-			case "bvand":
-			case "bvor": {
-				throw new UnsupportedOperationException(
-						"Bit-Wise Operations not supported" + appTerm.getFunction().getName());
-				// setResult(bvUtils.transformBitwise(params, fsym));
-				// return;
+			case "bvand": {
+				final Term bitMaskEliminated = bvUtils.transformBitwise(params, fsym);
+				if (bitMaskEliminated instanceof ConstantTerm) {
+					setResult(bitMaskEliminated);
+				} else {
+					pushTerm(bvToIntUtils.translateBvandSum(mTracker, appTerm, bvUtils.transformBitwise(params, fsym),
+							mEagerMod));
+				}
+				return;
+			}
+			case "bvor": { // x or y = (x + y ) - (x and y)
+				final Term bitMaskEliminated = bvUtils.transformBitwise(params, fsym);
+				if (bitMaskEliminated instanceof ConstantTerm) {
+					setResult(bitMaskEliminated);
+				} else {
+					final Term intor =
+							bvToIntUtils.translateBvor(mTracker, appTerm, bvUtils.transformBitwise(params, fsym),
+							mEagerMod);
+					pushTerm(intor);
+				}
+				return;
 			}
 			case "bvuge":
 			case "bvslt":
@@ -653,7 +668,6 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case "repeat": {
-
 				pushTerm(bvUtils.transformRepeat(params, fsym, convertedApp));
 				return;
 			}
@@ -670,36 +684,12 @@ public class TermCompiler extends TermTransformer {
 					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
 					return;
 				}
-				// setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(convertedApp, mEagerMod),
-				// appTerm.getSort().getIndices())));
-				// return;
 			}
 			case "sign_extend": {
 				if (fsym.getIndices()[0].equals("0")) {
 					setResult(params[0]);
 					return;
 				} else {
-					// String repeat = "#b0";
-					// for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
-					// repeat = repeat + "0";
-					// }
-					// int difference = Integer.valueOf(fsym.getIndices()[0]) -
-					// Integer.valueOf(params[0].getSort().getIndices()[0]);
-					//
-					// int maxExtract = Integer.valueOf(params[0].getSort().getIndices()[0]) - 1;
-					//
-					// final String[] idx = new String[2];
-					// idx[0] = String.valueOf(maxExtract);
-					// idx[1] = String.valueOf(maxExtract);
-					//
-					// final String[] repeatIdx = new String[1];
-					// repeatIdx[0] = String.valueOf(difference);
-					//
-					// pushTerm(theory.term("concat", theory.term("repeat", repeatIdx, null , theory.term("extract",
-					// idx, null, params[0])) , params[0]));
-					//
-					//
-
 					final String[] indices = new String[2];
 					indices[0] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
 					indices[1] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
@@ -735,7 +725,7 @@ public class TermCompiler extends TermTransformer {
 				pushTerm(theory.term("bvnot", theory.term("bvor", params)));
 				return;
 			}
-			case "bvxor": {
+			case "bvxor": { // x or y = (x + y ) - (x and y)
 				assert params.length == 2;
 				pushTerm(bvUtils.transformBvxor(params));
 				return;
@@ -774,6 +764,7 @@ public class TermCompiler extends TermTransformer {
 				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(params[0], appTerm.getSort().getIndices())));
 				return;
 			}
+			case "intand":
 			case "true":
 			case "false":
 			case SMTInterpolConstants.DIFF:

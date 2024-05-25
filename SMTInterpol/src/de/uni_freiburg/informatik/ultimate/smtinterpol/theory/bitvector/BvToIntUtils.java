@@ -619,4 +619,54 @@ public class BvToIntUtils {
 		return mTheory.term("-", mTheory.term("*", two, modulo), bv2natparam);
 	}
 
+	public Term translateBvandSum(final IProofTracker tracker, final ApplicationTerm appTerm, final Term convertedApp,
+			final boolean eagerMod) {
+		final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);
+		final BigInteger two = BigInteger.valueOf(2);
+		final int width = Integer.valueOf(appTerm.getSort().getIndices()[0]);
+		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
+		final Term[] sum = new Term[width];
+
+		final Term lhs = bv2nat(params[0], !eagerMod); //needs modulo if lazy
+		final Term rhs = bv2nat(params[1], !eagerMod);
+
+		for (int i = 0; i < width; i++) { // width + 1?
+			final Term twoPowI = mTheory.rational(Rational.valueOf(two.pow(i), BigInteger.ONE), intSort);
+			final Term one = mTheory.rational(Rational.ONE, intSort);
+			final Term zero = mTheory.rational(Rational.ZERO, intSort);
+			final Term ite = mTheory.term("ite", mTheory.term("=", isel(i, lhs), isel(i, rhs), one),
+					one, zero);
+			final Term mul = mTheory.term("*", twoPowI, ite);
+			sum[i] = mul;
+		}
+		if (width == 1) {
+			return nat2bv(sum[0], appTerm.getSort().getIndices());
+
+		} else {
+			return nat2bv(mTheory.term("+", sum), appTerm.getSort().getIndices());
+		}
+	}
+
+	// Term that picks the bit at position "i" of integer term "term"
+	// interpreted as binary
+	private Term isel(final int i, final Term term) {
+		final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);
+		final Term two = mTheory.rational(Rational.TWO, intSort);
+		final Term twoPowI = mTheory.rational(
+				Rational.valueOf(BigInteger.valueOf(2).pow(i), BigInteger.ONE), intSort);
+		return mTheory.term("mod", mTheory.term("div", term, twoPowI), two);
+	}
+
+	public Term translateBvor(final IProofTracker tracker, final ApplicationTerm appTerm, final Term convertedApp,
+			final boolean eagerMod) {
+
+		final Term intand = translateBvandSum(mTracker, appTerm, convertedApp, mEagerMod);
+		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
+		final Term lhs = bv2nat(params[0], !eagerMod); // needs modulo if lazy
+		final Term rhs = bv2nat(params[1], !eagerMod);
+		final Term result =
+				nat2bv(mTheory.term("-", mTheory.term("+", lhs, rhs), bv2nat(intand, false)),
+						appTerm.getSort().getIndices());
+		return result;
+	}
 }
