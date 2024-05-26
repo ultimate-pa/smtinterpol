@@ -267,33 +267,33 @@ java -Xms1536m -Xmx50g -da -dsa -cp smtinterpol.jar de.uni_freiburg.informatik.u
     <!-- Create the smtcomp solver zip file -->
     <target name="smtcomp" depends="get-version,smtinterpol.jar">
         <property name="tmpdir" value="buildtmp"/>
-        <mkdir dir="${tmpdir}/smtinterpol-${version}/bin"/>
-        <echo file="${tmpdir}/smtinterpol-${version}/bin/smtinterpol" append="false">#!/bin/bash
+        <mkdir dir="${tmpdir}"/>
+        <echo file="${tmpdir}/bin/smtinterpol" append="false">#!/bin/bash
 # Run script for SMTInterpol for SMT-COMP 2024+
-java -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@"
+java -da -dsa -jar lib/smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@"
 </echo>
-        <echo file="${tmpdir}/smtinterpol-${version}/bin/smtinterpol-bv" append="false">#!/bin/bash
+        <echo file="${tmpdir}/bin/smtinterpol-bv" append="false">#!/bin/bash
 # Run script for SMTInterpol for SMT-COMP 2024+ for bitvector theories
-java -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false "$$@"
+java -da -dsa -jar lib/smtinterpol.jar -w -o continue-on-error=false "$$@"
 </echo>
-        <echo file="${tmpdir}/smtinterpol-${version}/Dockerfile" append="false">FROM eclipse-temurin:8
+        <!-- disable dockerfile  echo file="${tmpdir}/smtinterpol-${version}/Dockerfile" append="false">FROM eclipse-temurin:8
 RUN mkdir /smtinterpol
 COPY . /smtinterpol
 WORKDIR /smtinterpol/bin
 CMD ./smtinterpol
-</echo>
-        <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/smtinterpol-${version}/bin/smtinterpol.jar"/>
+</echo> -->
+        <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/lib/smtinterpol.jar"/>
         <tar destfile="${jar.outdir}/smtinterpol-${version}.tar.gz" compression="gzip">
             <tarfileset dir="${tmpdir}">
-                <exclude name="smtinterpol-${version}/bin/smtinterpol"/>
-                <exclude name="smtinterpol-${version}/bin/smtinterpol-bv"/>
+                <exclude name="bin/smtinterpol"/>
+                <exclude name="bin/smtinterpol-bv"/>
             </tarfileset>
-            <tarfileset dir="${tmpdir}" filemode="755">
-                <include name="smtinterpol-${version}/bin/smtinterpol"/>
-                <include name="smtinterpol-${version}/bin/smtinterpol-bv"/>
+            <tarfileset dir="${tmpdir}" defaultexcludes="yes" filemode="755">
+                <include name="bin/smtinterpol"/>
+                <include name="bin/smtinterpol-bv"/>
             </tarfileset>
         </tar>
-        <!--delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/-->
+        <delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/>
         <echo>created ${jar.outdir}/smtinterpol-${version}.tar.gz</echo>
     </target>
     <!-- Delete compiled class files -->
