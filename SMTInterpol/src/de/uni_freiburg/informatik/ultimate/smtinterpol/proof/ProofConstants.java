@@ -131,10 +131,10 @@ public interface ProofConstants {
 	public final static Annotation TAUT_TERM_ITE = new Annotation(":termITE", null);
 	public final static Annotation TAUT_TERM_ITE_BOUND = new Annotation(":termITEBound", null);
 	public final static Annotation TAUT_MODULO = new Annotation(":modulo", null);
-	public final static Annotation TAUT_DIV_LOW = new Annotation(":divLow", null);
-	public final static Annotation TAUT_DIV_HIGH = new Annotation(":divHigh", null);
-	public final static Annotation TAUT_TO_INT_LOW = new Annotation(":toIntLow", null);
-	public final static Annotation TAUT_TO_INT_HIGH = new Annotation(":toIntHigh", null);
+	public final static String TAUT_DIV_LOW = ":divLow";
+	public final static String TAUT_DIV_HIGH = ":divHigh";
+	public final static String TAUT_TO_INT_LOW = ":toIntLow";
+	public final static String TAUT_TO_INT_HIGH = ":toIntHigh";
 	public final static Annotation TAUT_ARRAY_STORE = new Annotation(":store", null);
 	public final static Annotation TAUT_ARRAY_DIFF = new Annotation(":diff", null);
 	public final static Annotation TAUT_MATCH_CASE = new Annotation(":matchCase", null);

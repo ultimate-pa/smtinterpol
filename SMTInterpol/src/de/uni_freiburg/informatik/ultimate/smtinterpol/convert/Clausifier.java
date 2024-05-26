@@ -590,7 +590,7 @@ public class Clausifier {
 		/**
 		 * Start collecting a term in a clause. This creates a literal collector for the literal, unless the literal was
 		 * already collected.
-		 * 
+		 *
 		 * @param term
 		 *            the disjunct to add to the clause.
 		 */
@@ -1107,11 +1107,8 @@ public class Clausifier {
 				boolean needsLA = term instanceof ConstantTerm;
 				if (term instanceof ApplicationTerm) {
 					final String func = ((ApplicationTerm) term).getFunction().getName();
-					if (func.equals("+") || func.equals("-") || func.equals("to_real")) {
+					if (func.equals("+") || func.equals("-") || func.equals("*") || func.equals("to_real")) {
 						needsLA = true;
-					}
-					if (func.equals("*")) {
-						needsLA = true; // !isMonomial(term) || !mLATerms.containsKey(term);
 					}
 				}
 				if (needsLA) {
@@ -1146,16 +1143,16 @@ public class Clausifier {
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
 		final Rational maxNumber = Rational.valueOf(two.pow(width), BigInteger.ONE);
-		Term arg = at.getParameters()[0];
-		
+		final Term arg = at.getParameters()[0];
+
 		if(arg instanceof ApplicationTerm) {
 			if(!((ApplicationTerm)arg).getFunction().getName().equals("bv2nat")) {
-				Term mod = normalizeMod(at.getParameters()[0], maxNumber);
+				final Term mod = normalizeMod(at.getParameters()[0], maxNumber);
 				// bv2nat(nat2bv(n)) = n mod 2^bvlen
-				Term axiom = mTheory.term("=", mTheory.term("bv2nat", at), mod);
+				final Term axiom = mTheory.term("=", mTheory.term("bv2nat", at), mod);
 
 				// nat2bv(n) = nat2bv(n mod 2^bvlen)
-				Term axiom2 = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
+				final Term axiom2 = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
 
 				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 				buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
@@ -1164,12 +1161,12 @@ public class Clausifier {
 
 	}
 
-	
+
 
 
 
 	private Term normalizeMod(Term lhs, Rational maxNumber) {
-		Term rhs = mTheory.rational(maxNumber, mTheory.getSort(SMTLIBConstants.INT));
+		final Term rhs = mTheory.rational(maxNumber, mTheory.getSort(SMTLIBConstants.INT));
 		final SMTAffineTerm arg0 = new SMTAffineTerm(lhs);
 		arg0.mod(maxNumber);
 		final Term div = mTheory.term("div", arg0.toTerm(mTheory.getSort(SMTLIBConstants.INT)), rhs);
@@ -1177,10 +1174,10 @@ public class Clausifier {
 		return arg0.toTerm(rhs.getSort());
 	}
 
-	 
+
 	/*
 	 * These method adds Axiom to the Clausifier of the form 0 leq ccTerm leq maxNumber
-	 * 
+	 *
 	 * At this point, we assume that the parameter of bv2nat can only be an uninterpreted function symbol.
 	 */
 	private void addBv2NatAxioms(ApplicationTerm at, CCTerm ccTerm, SourceAnnotation source) {
@@ -1188,34 +1185,34 @@ public class Clausifier {
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
 		final Term zero = Rational.ZERO.toTerm(mTheory.getSort(SMTLIBConstants.INT));
-		
-		createCCTerm(at.getParameters()[0], source);		
-		
 
-		SMTAffineTerm leq0LowerBound = new SMTAffineTerm( at);
-		SMTAffineTerm leq0UpperBound = new SMTAffineTerm(at);
+		createCCTerm(at.getParameters()[0], source);
+
+
+		final SMTAffineTerm leq0LowerBound = new SMTAffineTerm( at);
+		final SMTAffineTerm leq0UpperBound = new SMTAffineTerm(at);
 		leq0UpperBound.add(Rational.valueOf(two.pow(width), BigInteger.ONE).sub(Rational.ONE).negate());
 		leq0LowerBound.negate();
-		Term axiomLowerBound2 = mTheory.term("<=", leq0LowerBound.toTerm(mTheory.getSort(SMTLIBConstants.INT)), zero);
-		Term axiomUpperBound2 = mTheory.term("<=", leq0UpperBound.toTerm(mTheory.getSort(SMTLIBConstants.INT)), zero);
+		final Term axiomLowerBound2 = mTheory.term("<=", leq0LowerBound.toTerm(mTheory.getSort(SMTLIBConstants.INT)), zero);
+		final Term axiomUpperBound2 = mTheory.term("<=", leq0UpperBound.toTerm(mTheory.getSort(SMTLIBConstants.INT)), zero);
 
 		buildClause(mTracker.tautology(axiomLowerBound2, ProofConstants.TAUT_BV2NATLOW), source); // TODO Proof
 		buildClause(mTracker.tautology(axiomUpperBound2, ProofConstants.TAUT_BV2NATUP), source);
 
-	
+
 		//bv2nat nat2bv == mod
-		Term arg = at.getParameters()[0];
+		final Term arg = at.getParameters()[0];
 		final Rational maxNumber = Rational.valueOf(two.pow(width), BigInteger.ONE);
 		if(arg instanceof ApplicationTerm) {
 			if(((ApplicationTerm)arg).getFunction().getName().equals("nat2bv")) {
-				Term mod = normalizeMod(((ApplicationTerm) arg).getParameters()[0], maxNumber);
+				final Term mod = normalizeMod(((ApplicationTerm) arg).getParameters()[0], maxNumber);
 				// bv2nat(nat2bv(n)) = n mod 2^bvlen
-				Term axiom = mTheory.term("=", at, mod);
+				final Term axiom = mTheory.term("=", at, mod);
 
 				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 			}
 		}
-	
+
 	}
 
 	/**
@@ -1258,7 +1255,14 @@ public class Clausifier {
 	public LinVar createLinVar(final Term term, final SourceAnnotation source) {
 		assert term.getSort().isNumericSort();
 		assert isMonomial(term);
-		addTermAxioms(term, source);
+		if ((term instanceof ApplicationTerm)
+				&& ((ApplicationTerm) term).getFunction().getName().equals(SMTLIBConstants.MUL)) {
+			for (final Term factor : ((ApplicationTerm) term).getParameters()) {
+				addTermAxioms(factor, source);
+			}
+		} else {
+			addTermAxioms(term, source);
+		}
 		LASharedTerm laShared = getLATerm(term);
 		if (laShared == null) {
 			final boolean isint = term.getSort().getName().equals("Int");
@@ -1607,6 +1611,17 @@ public class Clausifier {
 		bc.collectLiteral(mTracker.getProvedTerm(term));
 	}
 
+	public void buildClause(final Annotation rule, final SourceAnnotation source, final Term... clauseLits) {
+		final Theory t = clauseLits[0].getTheory();
+		final Term clauseTerm = clauseLits.length == 1 ? clauseLits[0] : t.term("or", clauseLits);
+		final Term tautology = mTracker.tautology(clauseTerm, rule);
+		final BuildClause bc = new BuildClause(tautology, source);
+		pushOperation(bc);
+		for (final Term lit : clauseLits) {
+			bc.collectLiteral(lit);
+		}
+	}
+
 	public void buildClauseWithTautology(final Term term, final SourceAnnotation source, final Term[] tautLits,
 			final Annotation rule) {
 		final Theory t = term.getTheory();
@@ -1936,32 +1951,44 @@ public class Clausifier {
 			return;
 		}
 		final Term zero = Rational.ZERO.toTerm(divTerm.getSort());
-		Term isZero = null;
-		if (!divisorPoly.isConstant()) {
-			isZero = theory.term(SMTLIBConstants.EQUALS, divTerm, zero);
-		}
 		final Polynomial diff = new Polynomial(divParams[0]);
 		diff.mul(Rational.MONE); // -x
 		final Polynomial mulD = new Polynomial(divTerm);
 		mulD.mul(divisorPoly); // d * (div x d)
 		diff.add(Rational.ONE, mulD); // -x + d * (div x d)
+
 		// (<= (+ (- x) (* d (div x d))) 0)
-		Term axiom = theory.term("<=", mCompiler.unifyPolynomial(diff, divTerm.getSort()), zero);
-		if (isZero != null) {
-			axiom = theory.term("or", isZero, axiom);
+		final Term axiomLow = theory.term("<=", mCompiler.unifyPolynomial(diff, divTerm.getSort()), zero);
+		final Annotation annotLow = new Annotation(ProofConstants.TAUT_DIV_LOW, divTerm);
+		if (divisorPoly.isConstant()) {
+			buildClause(annotLow, source, axiomLow);
+		} else {
+			final Term isZero = theory.term(SMTLIBConstants.EQUALS, divParams[1], zero);
+			buildClause(annotLow, source, isZero, axiomLow);
 		}
-		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_DIV_LOW), source);
+
 		// (not (<= (+ (- x) (* d (div x d) |d|)) 0))
+		final Annotation annotHigh = new Annotation(ProofConstants.TAUT_DIV_HIGH, divTerm);
 		if (divisorPoly.isConstant()) {
 			diff.add(divisorPoly.getConstant().abs());
+			final Term axiomHigh = theory.term("not",
+					theory.term("<=", mCompiler.unifyPolynomial(diff, divTerm.getSort()), zero));
+			buildClause(annotHigh, source, axiomHigh);
 		} else {
-			diff.add(Rational.ONE, theory.term("abs", divParams[1]));
+			final Polynomial divisorPlus1 = new Polynomial(divParams[1]);
+			divisorPlus1.add(Rational.ONE);
+			final Term notIsNeg = theory.term(SMTLIBConstants.NOT,
+					theory.term(SMTLIBConstants.LEQ, mCompiler.unifyPolynomial(divisorPlus1, divTerm.getSort()), zero));
+			diff.add(Rational.MONE, divisorPoly);
+			final Term axiomHighMinus = theory.term("not",
+					theory.term("<=", mCompiler.unifyPolynomial(diff, divTerm.getSort()), zero));
+			buildClause(annotHigh, source, notIsNeg, axiomHighMinus);
+			final Term notIsPos = theory.term(SMTLIBConstants.LEQ, divParams[1], zero);
+			diff.add(Rational.TWO, divisorPoly);
+			final Term axiomHighPlus = theory.term("not",
+					theory.term("<=", mCompiler.unifyPolynomial(diff, divTerm.getSort()), zero));
+			buildClause(annotHigh, source, notIsPos, axiomHighPlus);
 		}
-		axiom = theory.term("not", theory.term("<=", mCompiler.unifyPolynomial(diff, divTerm.getSort()), zero));
-		if (isZero != null) {
-			axiom = theory.term("or", isZero, axiom);
-		}
-		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_DIV_HIGH), source);
 	}
 
 	public void addModuloAxioms(final ApplicationTerm modTerm, final SourceAnnotation source) {
@@ -1975,15 +2002,14 @@ public class Clausifier {
 		}
 		assert !divisorPoly.isConstant();
 		final Term zero = Rational.ZERO.toTerm(divTerm.getSort());
-		final Term isZero = theory.term(SMTLIBConstants.EQUALS, divTerm, zero);
+		final Term isZero = theory.term(SMTLIBConstants.EQUALS, divParams[1], zero);
 		final Polynomial diff = new Polynomial(divParams[0]);
 		final Polynomial mulD = new Polynomial(divTerm);
 		mulD.mul(divisorPoly); // d * (div x d)
 		diff.add(Rational.MONE, mulD); // x - d * (div x d)
 		// (or (= d 0) (= (mod x d) (+ (- x) (* d (div x d)))))
-		final Term axiom = theory.term("or", isZero,
-				theory.term("=", modTerm, mCompiler.unifyPolynomial(diff, divTerm.getSort())));
-		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_MODULO), source);
+		final Term axiom = theory.term("=", modTerm, mCompiler.unifyPolynomial(diff, divTerm.getSort()));
+		buildClause(ProofConstants.TAUT_MODULO, source, isZero, axiom);
 	}
 
 	/**
@@ -1999,11 +2025,11 @@ public class Clausifier {
 		diff.add(Rational.ONE, toIntTerm);
 		// (<= (+ (to_real (to_int x)) (- x)) 0)
 		Term axiom = theory.term("<=", mCompiler.unifyPolynomial(diff, realTerm.getSort()), zero);
-		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_TO_INT_LOW), source);
+		buildClause(mTracker.tautology(axiom, new Annotation(ProofConstants.TAUT_TO_INT_LOW, toIntTerm)), source);
 		// (not (<= (+ (to_real (to_int x)) (- x) 1) 0))
 		diff.add(Rational.ONE);
 		axiom = theory.term("not", theory.term("<=", mCompiler.unifyPolynomial(diff, realTerm.getSort()), zero));
-		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_TO_INT_HIGH), source);
+		buildClause(mTracker.tautology(axiom, new Annotation(ProofConstants.TAUT_TO_INT_HIGH, toIntTerm)), source);
 	}
 
 	/**
