@@ -236,6 +236,10 @@ stage:             Upload new version to Maven Central (owner only)
 # Run script for SMTInterpol for the STAREXEC cluster
 java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$1" 2&gt;"$$2"/error.log
 </echo>
+        <echo file="${tmpdir}/bin/starexec_run_bitvector" append="false">#!/bin/bash
+# Run script for SMTInterpol for the STAREXEC cluster
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false "$$1" 2&gt;"$$2"/error.log
+</echo>
         <echo file="${tmpdir}/bin/smtcomp_run_incremental" append="false">#!/bin/bash
 java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@" 2&gt;/dev/null
 </echo>
@@ -268,6 +272,10 @@ java -Xms1536m -Xmx50g -da -dsa -cp smtinterpol.jar de.uni_freiburg.informatik.u
 # Run script for SMTInterpol for SMT-COMP 2024+
 java -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@"
 </echo>
+        <echo file="${tmpdir}/smtinterpol-${version}/bin/smtinterpol-bv" append="false">#!/bin/bash
+# Run script for SMTInterpol for SMT-COMP 2024+ for bitvector theories
+java -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false "$$@"
+</echo>
         <echo file="${tmpdir}/smtinterpol-${version}/Dockerfile" append="false">FROM eclipse-temurin:8
 RUN mkdir /smtinterpol
 COPY . /smtinterpol
@@ -276,8 +284,14 @@ CMD ./smtinterpol
 </echo>
         <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/smtinterpol-${version}/bin/smtinterpol.jar"/>
         <tar destfile="${jar.outdir}/smtinterpol-${version}.tar.gz" compression="gzip">
-            <tarfileset dir="${tmpdir}" excludes="smtinterpol-${version}/bin/smtinterpol"/>
-            <tarfileset dir="${tmpdir}" includes="smtinterpol-${version}/bin/smtinterpol" filemode="755" />
+            <tarfileset dir="${tmpdir}">
+                <exclude name="smtinterpol-${version}/bin/smtinterpol"/>
+                <exclude name="smtinterpol-${version}/bin/smtinterpol-bv"/>
+            </tarfileset>
+            <tarfileset dir="${tmpdir}" filemode="755">
+                <include name="smtinterpol-${version}/bin/smtinterpol"/>
+                <include name="smtinterpol-${version}/bin/smtinterpol-bv"/>
+            </tarfileset>
         </tar>
         <!--delete failonerror="false" includeemptydirs="true" dir="${tmpdir}"/-->
         <echo>created ${jar.outdir}/smtinterpol-${version}.tar.gz</echo>
