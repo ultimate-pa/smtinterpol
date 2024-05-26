@@ -184,6 +184,9 @@ public class BvToIntUtils {
 
 	}
 
+	/*
+	 * we do not translate Term Variables
+	 */
 	public Term translateTermVariable(final TermVariable term, final boolean mEagerMod) {
 		throw new UnsupportedOperationException("TODO: translate TermVariable");
 	}

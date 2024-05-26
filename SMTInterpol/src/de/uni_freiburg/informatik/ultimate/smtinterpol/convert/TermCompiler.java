@@ -229,17 +229,8 @@ public class TermCompiler extends TermTransformer {
 //			setResult(mTracker.buildRewrite(term, bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
 //			return;
 		} else if (term instanceof TermVariable) {
-			if (term.getSort().isBitVecSort()) {
-				final Theory theory = term.getTheory();
-				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, null, mTracker, mEagerMod, mDealWithBvToNatAndNatToBvInPreprocessing);
-				setResult( mTracker.reflexivity(bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod)));
-				return;
-//				setResult(mTracker.buildRewrite(term, bvToIntUtils.translateTermVariable((TermVariable) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
-			// return;
-			} else {
-				setResult(mTracker.reflexivity(term));
-				return;
-			}
+			setResult(mTracker.reflexivity(term));
+			return;
 		}
 		super.convert(term);
 	}
