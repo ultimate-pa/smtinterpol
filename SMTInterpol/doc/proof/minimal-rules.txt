@@ -262,9 +262,12 @@ Linear Arithmetic:
   NOTE: For linear arithmetic m must be one or zero.
 
 (poly+ a1 .. an a):  (= (+ a1 ... an) a)
-  where (poly a) = (poly a1) + ... + (poly an))
+  where a1,...,an,a are some normalized polynomials
+  and a is the sum of a1,...,an.
+
 (poly* a1 .. an a):  (= (* a1 ... an) a)
-  where (poly a) = (poly a1) * ... * (poly an))
+  where a1,...,an,a are some normalized polynomials
+  and a is the product of a1,...,an.
 
   # NOTE: since constants are polynomials, the rule for * and + can
   # be used to add or multiply constants.
@@ -306,24 +309,10 @@ The functions / and - are defined by:
   implicitly converted to Real by converting all coefficients in ai/bi to
   real and replacing all terms t in ai/bi with (to_real t).
 
-
 NON-LINEAR Arithmetic:
-
-TODO:
-something like
-(/ a1 a2 ... an):
-  (= a2 0), ..., (= an 0), (= (* (/ a1 a2 ... an) a2 ... an) a1)
-
-(divlow a1 a2 ... an):
-  (= a2 0), (<= a1 (* (div a1 a2) a2))
-(divhigh a1 a2 ... an):
-  (= a2 0), (<= (* (div a1 a2) a2) (+ a1 (abs a2)))
-
-(zero a1 ... an):
-  ~(= (poly a1*...*an) 0), (= a1 0), ..., (= an 0)
-
-
-
+(mulpos (<=? 0 a1) ... (<=? 0 an) (<=? 0 a)): ~(<=? 0 a1),...,~(<=? 0 an),(<=? 0 a)
+  where a1,...,an are polynomials, a is the polynomial a1*...*an, <=? stands for <, <=, =,
+  the last atom is (< 0 a) iff all other arguments are (< 0 ai), otherwise it is (<= 0 a).
 
 [1] B. Kiesl, A. Rebola-Pardo, M. Heule, Extended Resolution Simulates DRAT,
     IJCAR 2018, https://www.cs.cmu.edu/~mheule/publications/ijcar18.pdf

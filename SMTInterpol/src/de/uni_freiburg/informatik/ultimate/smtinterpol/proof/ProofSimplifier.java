@@ -877,9 +877,20 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		}
 		case ":divLow": {
-			axiomTerm = theory.term(SMTLIBConstants.LEQ,
-					theory.term(SMTLIBConstants.MUL, args[1], divTerm), args[0]);
+			final Term realMulTerm = theory.term(SMTLIBConstants.MUL, args[1], divTerm);
+			axiomTerm = theory.term(SMTLIBConstants.LEQ, realMulTerm, args[0]);
 			proof = mProofRules.divLow(args[0], args[1]);
+			final Term mulTerm = summand.toTerm(realMulTerm.getSort());
+			if (realMulTerm != mulTerm) {
+				final Term eqMulProof = mProofRules.polyMul(realMulTerm, mulTerm);
+				final Term newAxiomTerm = theory.term(SMTLIBConstants.LEQ, mulTerm, args[0]);
+				final Term iffAxiom = theory.term(SMTLIBConstants.EQUALS, axiomTerm, newAxiomTerm);
+				final Term iffProof = res(theory.term(SMTLIBConstants.EQUALS, realMulTerm, mulTerm), eqMulProof,
+						res(theory.term(SMTLIBConstants.EQUALS, args[0], args[0]), mProofRules.refl(args[0]),
+								mProofRules.cong(axiomTerm, newAxiomTerm)));
+				proof = res(axiomTerm, proof, res(iffAxiom, iffProof, mProofRules.iffElim2(iffAxiom)));
+				axiomTerm = newAxiomTerm;
+			}
 			if (d.isConstant()) {
 				final Term zero = Rational.ZERO.toTerm(args[1].getSort());
 				proof = res(theory.term(SMTLIBConstants.EQUALS, args[1], zero), proof,
@@ -888,11 +899,36 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		}
 		case ":divHigh": {
-			axiomTerm = theory.term(SMTLIBConstants.LT, args[0],
-					theory.term(SMTLIBConstants.PLUS,
-							theory.term(SMTLIBConstants.MUL, args[1], divTerm),
-							theory.term(SMTLIBConstants.ABS, args[1])));
+			final Term realAbsTerm = theory.term(SMTLIBConstants.ABS, args[1]);
+			final Term realMulTerm = theory.term(SMTLIBConstants.MUL, args[1], divTerm);
+			final Term realPlusTerm = theory.term(SMTLIBConstants.PLUS, realMulTerm, realAbsTerm);
+			axiomTerm = theory.term(SMTLIBConstants.LT, args[0], realPlusTerm);
 			proof = mProofRules.divHigh(args[0], args[1]);
+			final Term mulTerm = summand.toTerm(realMulTerm.getSort());
+			summand.add(Rational.ONE, realAbsTerm);
+			final Term plusTerm = summand.toTerm(realPlusTerm.getSort());
+			if (realPlusTerm != plusTerm) {
+				final Term mixPlusTerm = theory.term(SMTLIBConstants.PLUS, mulTerm, realAbsTerm);
+				final Term eqMulProof = mProofRules.polyMul(realMulTerm, mulTerm);
+				Term eqPlusProof =
+						res(theory.term(SMTLIBConstants.EQUALS, realMulTerm, mulTerm), eqMulProof,
+						res(theory.term(SMTLIBConstants.EQUALS, realAbsTerm, realAbsTerm),
+										mProofRules.refl(realAbsTerm), mProofRules.cong(realPlusTerm, mixPlusTerm)));
+				if (mixPlusTerm != plusTerm ) {
+					final Term polyPlusProof = mProofRules.polyAdd(mixPlusTerm, plusTerm);
+					final Term eqTrans = mProofRules.trans(realPlusTerm, mixPlusTerm, plusTerm);
+					eqPlusProof =
+						res(theory.term(SMTLIBConstants.EQUALS, realPlusTerm, mixPlusTerm), eqPlusProof,
+							res(theory.term(SMTLIBConstants.EQUALS, mixPlusTerm, plusTerm), polyPlusProof, eqTrans));
+				}
+				final Term newAxiomTerm = theory.term(SMTLIBConstants.LT, args[0], plusTerm);
+				final Term iffAxiom = theory.term(SMTLIBConstants.EQUALS, axiomTerm, newAxiomTerm);
+				final Term iffProof = res(theory.term(SMTLIBConstants.EQUALS, realPlusTerm, plusTerm), eqPlusProof,
+							res(theory.term(SMTLIBConstants.EQUALS, args[0], args[0]), mProofRules.refl(args[0]),
+								mProofRules.cong(axiomTerm, newAxiomTerm)));
+				proof = res(axiomTerm, proof, res(iffAxiom, iffProof, mProofRules.iffElim2(iffAxiom)));
+				axiomTerm = newAxiomTerm;
+			}
 			if (d.isConstant()) {
 				final Term zero = Rational.ZERO.toTerm(args[1].getSort());
 				proof = res(theory.term(SMTLIBConstants.EQUALS, args[1], zero), proof,
@@ -4934,9 +4970,9 @@ public class ProofSimplifier extends TermTransformer {
 
 		final Term[] lhsParams = ((ApplicationTerm) lhs).getParameters();
 		final Term[] rhsParams = ((ApplicationTerm) rhs).getParameters();
-		final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParams[0]);
+		final Polynomial lhsAffine = new Polynomial(lhsParams[0]);
 		lhsAffine.add(Rational.MONE, lhsParams[1]);
-		final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsParams[0]);
+		final Polynomial rhsAffine = new Polynomial(rhsParams[0]);
 		rhsAffine.add(Rational.MONE, rhsParams[1]);
 		// we cannot compute gcd on constants so check for this and bail out
 		assert !lhsAffine.isConstant() && !rhsAffine.isConstant() : "A trivial equality was created";
@@ -4944,7 +4980,7 @@ public class ProofSimplifier extends TermTransformer {
 		rhsAffine.mul(multiplier);
 		final boolean swapSides = !lhsAffine.equals(rhsAffine);
 		if (swapSides) {
-			rhsAffine.negate();
+			rhsAffine.mul(Rational.MONE);
 			multiplier = multiplier.negate();
 		}
 		assert lhsAffine.equals(rhsAffine);

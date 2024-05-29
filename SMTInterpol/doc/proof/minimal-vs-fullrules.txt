@@ -555,4 +555,56 @@ for c < 0:
           (farkas 1 (<= t (* cseq (/ t cseq))) |c| (< rhs (/ t cseq)))))
     (res (<= (* cseq (/ t cseq)) t) (eqLeq (* cseq (/ t cseq)) t)
       (farkas 1 (<= (* cseq (/ t cseq)) t) |c| (< (/ t cseq) rhs)))
- 
+
+
+
+Show (<= 0 (* a a))
+
+(res (<= 0 a)
+  (res (<= 0 (* (- 1) a))
+    (res (< a 0)
+      (total 0 a)
+      (res (< (* (- 1) a) 0)
+         (total 0 (* (- 1) a))
+         (farkas (< a 0) 1 (< (* (- 1) a) 0) 1)))
+    (mulpos (<= 0 (* (- 1) a) (<= 0 (* (- 1) a) (<= 0 (* a a))))
+  (mulpos (<= 0 a) (<= 0 a) (<= 0 (* a a)))
+
+Show ~(= a 0), (= (* a b) 0)
+Axioms:
+  (mulpos (= 0 a) (<= 0 b) (<= 0 (* a b))
+  (mulpos (<= 0 (* (- 1) a)) (<= 0 b) (<= 0 (* (- 1) a b))
+  (mulpos (= 0 a) (<= 0 (* (- 1) b)) (<= 0 (* (- 1) a b))
+  (mulpos (<= 0 (* (- 1) a)) (<= 0 (* (- 1) b)) (<= 0 (* a b))
+
+  (farkas (<= 0 (* (- 1) a b)) 1 (< 0 (* a b)) 1)
+  (farkas (<= 0 (* a b)) 1 (< (* a b) 0) 1)
+  (trichotomy (* a b) 0)
+
+  (total 0 (* (- 1) b))
+  (total 0 b)
+  (farkas (< b 0) 1 (< (* (- 1) b) 0) 1)
+
+  (total 0 (* (- 1) a))
+  (farkas (= 0 a) 1 (< (* (- 1) a) 0) 1)
+
+Show ~(= (* a b) 0), (= a 0), (= b 0)
+  (mulpos (= 0 a) (<= 0 b) (< 0 (* a b))
+  (mulpos (< 0 (* (- 1) a)) (< 0 b) (< 0 (* (- 1) a b))
+  (mulpos (< 0 a) (<= 0 (* (- 1) b)) (< 0 (* (- 1) a b))
+  (mulpos (< 0 (* (- 1) a)) (< 0 (* (- 1) b)) (< 0 (* a b))
+  (farkas (< 0 (* a b)) 1 (= (* a b) 0) 1)
+  (farkas (< 0 (* (- 1) a b)) 1 (= 0 (* a b)) 1)
+  (symm 0 (* a b))
+  (trichotomy a 0)
+  (trichotomy b 0)
+  (total a 0)
+  (total b 0)
+  (total (* (- 1) a) 0)
+  (total (* (- 1) b) 0)
+  (farkas (< 0 a) (< a 0))
+  (farkas (< 0 (* (- 1) a)) (< 0 a))
+  (farkas (< 0 b) (< b 0))
+  (farkas (< 0 (* (- 1) b)) (< 0 b))
+  
+  

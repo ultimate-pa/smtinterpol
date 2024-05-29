@@ -43,9 +43,17 @@
 (check-sat)
 (get-proof)
 (pop 1)
+
 (push 1)
 (assert (>= x (+ (- a b) (* (- a b) (div x (- a b))))))
 (assert (> (- a b) 0))
+(check-sat)
+(get-proof)
+(pop 1)
+
+(push 1)
+(assert (>= x (+ (* (- 5) d) (* (* (- 5) d) (div x (* (- 5) d))))))
+(assert (> (* (- 5) d) 0))
 (check-sat)
 (get-proof)
 (pop 1)

@@ -895,9 +895,6 @@ public class ProofRules {
 			sum.add(coeff.negate(), params[1]);
 		}
 		final boolean okay = sum.isConstant() && sum.getConstant().signum() >= (strict ? 0 : 1);
-		if (!okay) {
-			System.err.println("STOP");
-		}
 		return okay;
 	}
 
