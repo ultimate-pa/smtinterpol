@@ -1145,22 +1145,23 @@ public class Clausifier {
 		final Rational maxNumber = Rational.valueOf(two.pow(width), BigInteger.ONE);
 		final Term arg = at.getParameters()[0];
 
-		if(arg instanceof ApplicationTerm) {
-			if(!((ApplicationTerm)arg).getFunction().getName().equals("bv2nat")) {
-				final Term mod = normalizeMod(at.getParameters()[0], maxNumber);
-				// bv2nat(nat2bv(n)) = n mod 2^bvlen
-				final Term axiom = mTheory.term("=", mTheory.term("bv2nat", at), mod);
+		if (!isBv2NatApplication(arg)) {
+			final Term mod = normalizeMod(at.getParameters()[0], maxNumber);
+			// bv2nat(nat2bv(n)) = n mod 2^bvlen
+			final Term axiom = mTheory.term("=", mTheory.term("bv2nat", at), mod);
 
-				// nat2bv(n) = nat2bv(n mod 2^bvlen)
-				final Term axiom2 = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
+			// nat2bv(n) = nat2bv(n mod 2^bvlen)
+			final Term axiom2 = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
 
-				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
-				buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
-			}
+			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
+			buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
 		}
 
 	}
 
+	private boolean isBv2NatApplication(final Term arg) {
+		return (arg instanceof ApplicationTerm) && ((ApplicationTerm) arg).getFunction().getName().equals("bv2nat");
+	}
 
 
 
@@ -1359,8 +1360,8 @@ public class Clausifier {
 			case SMTLIBConstants.CONST:
 			case "@EQ":
 			case "is":
-				// case "bv2nat":
-				// case "nat2bv":
+			case "bv2nat":
+			case "nat2bv":
 				return true;
 			case "div":
 			case "mod":
