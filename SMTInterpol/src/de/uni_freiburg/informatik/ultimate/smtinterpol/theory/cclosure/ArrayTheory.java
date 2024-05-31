@@ -1522,7 +1522,8 @@ public class ArrayTheory implements ITheory {
 		}
 		for (final SymmetricPair<ArrayNode> equalities : propEqualities) {
 			if (equalities.getFirst().getWeakRepresentative() != equalities.getSecond().getWeakRepresentative()) {
-				assert mNeedDiffIndexLevel >= 0;
+				assert mNeedDiffIndexLevel >= 0
+						|| hasFiniteIndexSort(equalities.getFirst().mTerm.getFlatTerm().getSort());
 				// just create a diff term and let the solver do the rest.
 				final Term diffTerm = mClausifier.getTheory().term(SMTInterpolConstants.DIFF,
 						equalities.getFirst().mTerm.getFlatTerm(), equalities.getSecond().mTerm.getFlatTerm());
