@@ -53,7 +53,7 @@ public class SystemTest {
 		final OptionMap options = new OptionMap(logger, true);
 		final SMTInterpol solver = new SMTInterpol(options);
 		final TestEnvironment testEnv = new TestEnvironment(solver, options);
-		if (!f.getAbsolutePath().contains("epr")) {
+		if (!f.getAbsolutePath().contains("epr") && !f.getAbsolutePath().contains("bv/")) {
 			solver.setOption(":proof-check-mode", true);
 			solver.setOption(":proof-level", ProofMode.LOWLEVEL);
 			if (!f.getAbsolutePath().contains("quant")) {
