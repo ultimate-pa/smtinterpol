@@ -1473,7 +1473,7 @@ public class ArrayTheory implements ITheory {
 				constRep = getValueFromConst(weakRep.mConstTerm).getRepresentative();
 			}
 			if (node == weakRep) {
-				if (mNeedDiffIndexLevel >= 0) {
+				if (mNeedDiffIndexLevel >= 0 || hasFiniteIndexSort(node.mTerm.getFlatTerm().getSort())) {
 					// If we have quantified array indices, we need to handle extensionality for
 					// arrays that are not weakly equivalent. Unless the arrays have different
 					// sorts.
@@ -1531,6 +1531,13 @@ public class ArrayTheory implements ITheory {
 		}
 		mTimeBuildWeakEqi += (System.nanoTime() - startTime);
 		return !propEqualities.isEmpty();
+	}
+
+	private boolean hasFiniteIndexSort(Sort sort) {
+		assert sort.isArraySort();
+		assert sort.getArguments().length == 2;
+		final Sort indexSort = sort.getArguments()[0];
+		return (indexSort.isBitVecSort() || indexSort.getName().equals(SMTLIBConstants.BOOL));
 	}
 
 	CClosure getCClosure() {

@@ -1156,7 +1156,6 @@ public class Clausifier {
 			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 			buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
 		}
-
 	}
 
 	private boolean isBv2NatApplication(final Term arg) {
@@ -1925,7 +1924,8 @@ public class Clausifier {
 		buildClause(provedAxiom, source);
 		if (Config.ARRAY_ALWAYS_ADD_READ
 				// HACK: We mean "finite sorts"
-				|| v.getSort() == mTheory.getBooleanSort()) {
+				|| v.getSort() == mTheory.getBooleanSort()
+				|| v.getSort().isBitVecSort()) {
 			final Term a = store.getParameters()[0];
 			final Term sel = mTheory.term("select", a, i);
 			// Simply create the CCTerm
