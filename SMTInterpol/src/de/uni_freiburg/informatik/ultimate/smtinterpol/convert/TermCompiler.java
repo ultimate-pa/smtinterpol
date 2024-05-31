@@ -192,7 +192,7 @@ public class TermCompiler extends TermTransformer {
 				final BvUtils bvUtils = new BvUtils(theory, mUtils);
 				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod,
 						mDealWithBvToNatAndNatToBvInPreprocessing);
-				if (mDealWithBvToNatAndNatToBvInPreprocessing) {
+				if (false && mDealWithBvToNatAndNatToBvInPreprocessing) {
 					if (fsym.getDefinition() != null) {
 						pushTerm(fsym.getDefinition());
 						return;
