@@ -110,10 +110,10 @@ public class BvToIntUtils {
 		// final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(widthInt), BigInteger.ONE),
 		// mTheory.getSort(SMTLIBConstants.INT));
 		// // TODO optimize nat2bv nat2bv
-		if (param instanceof ConstantTerm) {
-			return translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width);
-			// return mTracker.reflexivity(translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width));
-		}
+//		if (param instanceof ConstantTerm) {
+//			return translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width);
+//			// return mTracker.reflexivity(translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width));
+//		}
 		// if (param instanceof ApplicationTerm) {
 		// ApplicationTerm apParam = (ApplicationTerm) param;
 		// if (apParam.getFunction().getName().equals("bv2nat")) {
