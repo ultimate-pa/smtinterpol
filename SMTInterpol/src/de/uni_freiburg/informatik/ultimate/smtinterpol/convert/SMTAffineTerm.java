@@ -23,7 +23,6 @@ import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
@@ -110,8 +109,7 @@ public final class SMTAffineTerm {
 		Term numerator;
 		Rational denominator;
 		boolean isNegated = false;
-		if (term instanceof ApplicationTerm
-				&& ((ApplicationTerm) term).getFunction().getName().equals("/")) {
+		if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().getName().equals("/")) {
 			final Term[] params = ((ApplicationTerm) term).getParameters();
 			numerator = params[0];
 			if (isToReal(params[1])) {
@@ -334,22 +332,22 @@ public final class SMTAffineTerm {
 		final Rational div = c0.div(c1);
 		return c1.isNegative() ? div.ceil() : div.floor();
 	}
-	
+
 	public static Rational mod(final Rational c0, final Rational c1) {
 		final Rational mod = c0.sub(constDiv(c0, c1).mul(c1));
 		return mod;
 	}
-	
+
 	public void mod(Rational maxNumber) {
-		Iterator<Map.Entry<Term, Rational>> mapIterator = mSummands.entrySet().iterator();
-		while(mapIterator.hasNext()) {	
-			Map.Entry<Term, Rational> entry = mapIterator.next();
-			Rational newValue = SMTAffineTerm.mod(entry.getValue(), maxNumber);
+		final Iterator<Map.Entry<Term, Rational>> mapIterator = mSummands.entrySet().iterator();
+		while(mapIterator.hasNext()) {
+			final Map.Entry<Term, Rational> entry = mapIterator.next();
+			final Rational newValue = SMTAffineTerm.mod(entry.getValue(), maxNumber);
 			if (newValue == Rational.ZERO) {
 				mapIterator.remove();
 			} else{
 				entry.setValue(newValue);
-			}			
+			}
 		}
 		mConstant = SMTAffineTerm.mod(mConstant, maxNumber);
 	}
