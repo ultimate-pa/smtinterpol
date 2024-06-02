@@ -1538,7 +1538,7 @@ public class ArrayTheory implements ITheory {
 		assert sort.isArraySort();
 		assert sort.getArguments().length == 2;
 		final Sort indexSort = sort.getArguments()[0];
-		return (indexSort.isBitVecSort() || indexSort.getName().equals(SMTLIBConstants.BOOL));
+		return !mClausifier.isStablyInfinite(indexSort);
 	}
 
 	CClosure getCClosure() {

@@ -23,6 +23,7 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -1508,6 +1509,12 @@ public class Clausifier {
 	 * Map of differences to equality proxies.
 	 */
 	final ScopedHashMap<Polynomial, EqualityProxy> mEqualities = new ScopedHashMap<>();
+
+	/**
+	 * Cache to determine if a sort is stably infinite.
+	 */
+	private final HashMap<Sort, Boolean> mInfinityMap = new HashMap<>();
+
 	/**
 	 * Current assertion stack level.
 	 */
@@ -1923,9 +1930,7 @@ public class Clausifier {
 				mUtils.convertBinaryEq(mTracker.reflexivity(axiom)));
 		buildClause(provedAxiom, source);
 		if (Config.ARRAY_ALWAYS_ADD_READ
-				// HACK: We mean "finite sorts"
-				|| v.getSort() == mTheory.getBooleanSort()
-				|| v.getSort().isBitVecSort()) {
+				|| !isStablyInfinite(v.getSort())) {
 			final Term a = store.getParameters()[0];
 			final Term sel = mTheory.term("select", a, i);
 			// Simply create the CCTerm
@@ -2346,6 +2351,139 @@ public class Clausifier {
 		mPropagateUnknownAux = propagateUnknownAux;
 	}
 
+	private boolean isBasicStablyInfinite(Sort sort) {
+		assert !sort.getSortSymbol().isDatatype() && !sort.isArraySort();
+		if (sort.equals(sort.getTheory().getBooleanSort()) || sort.isBitVecSort()) {
+			// boolean and bitvector sorts are always finite.
+			return false;
+		} else if (!sort.isInternal()) {
+			// uninterpreted sorts are stably infinite unless we have quantifiers.
+			return mQuantTheory == null;
+		} else {
+			// all other internal theories are stably infinite.
+			assert sort.isNumericSort();
+			return true;
+		}
+	}
+
+	/**
+	 * This function determines if a given sort contains only a single element.
+	 *
+	 * @param sort the sort in question.
+	 * @return True if sort is infinite else False
+	 */
+	public boolean isSingleton(Sort sort) {
+		if (sort.isArraySort()) {
+			return isSingleton(sort.getArguments()[1]);
+		} else if (sort.getSortSymbol().isDatatype()) {
+			final Constructor[] cs = ((DataType) sort.getSortSymbol()).getConstructors();
+			if (cs.length != 1) {
+				return false;
+			}
+			final Sort[] datatypeParameters = sort.getArguments();
+			for (Sort argSort : cs[0].getArgumentSorts()) {
+				if (datatypeParameters.length != 0) {
+					argSort = argSort.mapSort(datatypeParameters);
+				}
+				if (!isSingleton(argSort)) {
+					return false;
+				}
+			}
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * This function determines if a given sort is infinite or not.
+	 *
+	 * @param sort the sort in question.
+	 * @return True if sort is infinite else False
+	 */
+	public boolean isStablyInfinite(Sort sort) {
+		if (!sort.getSortSymbol().isDatatype() && !sort.isArraySort()) {
+			return isBasicStablyInfinite(sort);
+		}
+		final Boolean cacheVal = mInfinityMap.get(sort);
+		if (cacheVal != null) {
+			return cacheVal;
+		}
+		// todo is the stack of sorts, for which we still have to determine the
+		// inifinity.
+		// dependent is the stack of parent sorts, for which we have not determined
+		// infinity yet.
+		// if x is in dependent at the beginning of the while loop, it's guaranteed that
+		// todo contains x at least once and that all elements after the last occurrence
+		// of x are descendents of x.
+		final ArrayDeque<Sort> todo = new ArrayDeque<>();
+		final Set<Sort> dependent = new LinkedHashSet<>();
+		todo.push(sort);
+		todo_loop: while (!todo.isEmpty()) {
+			final Sort currSort = todo.pop();
+			assert currSort.getSortSymbol().isDatatype() || currSort.isArraySort();
+			// we may have already determined the status earlier; in that case just take the
+			// next todo item.
+			if (mInfinityMap.get(currSort) != null) {
+				continue todo_loop;
+			}
+			final Set<Sort> subSorts = new LinkedHashSet<>();
+			// Get all dependent subSorts
+			if (currSort.getSortSymbol().isDatatype()) {
+				final Sort[] datatypeParameters = currSort.getArguments();
+				for (final Constructor c : ((DataType) currSort.getSortSymbol()).getConstructors()) {
+					if (datatypeParameters.length == 0) {
+						subSorts.addAll(Arrays.asList(c.getArgumentSorts()));
+					} else {
+						for (final Sort s : c.getArgumentSorts()) {
+							subSorts.add(s.mapSort(datatypeParameters));
+						}
+					}
+				}
+			} else {
+				final Sort[] indexElemSort = currSort.getArguments();
+				// special case for arrays: singleton element sort means
+				// array is not stably infinite. In that case we keep the
+				// subSorts empty so we go into the false case.
+				if (!isSingleton(indexElemSort[1])) {
+					subSorts.addAll(Arrays.asList(indexElemSort));
+				}
+			}
+			dependent.add(currSort);
+			// check sub sorts, if one of them is stably infinite then currSort is stably infinite.
+			// if we find a cycle (currSort appears in dependent), currSort also stably infinite.
+			// otherwise we need to check the remaining subSorts first and then try again.
+			final Iterator<Sort> iterator = subSorts.iterator();
+			while (iterator.hasNext()) {
+				final Sort argSort = iterator.next();
+				final Boolean isStablyInfinite = dependent.contains(argSort) ? Boolean.TRUE :
+						argSort.getSortSymbol().isDatatype() || argSort.isArraySort() ? mInfinityMap.get(argSort)
+								: Boolean.valueOf(isBasicStablyInfinite(argSort));
+				if (isStablyInfinite != null) {
+					iterator.remove();
+					if (isStablyInfinite) {
+						mInfinityMap.put(currSort, true);
+						dependent.remove(currSort);
+						continue todo_loop;
+					}
+				}
+			}
+			// If we are here, we did not find any stably infinite arg sort.
+			// subSorts contains all argument sorts that are still undecided.
+			if (!subSorts.isEmpty()) {
+				todo.push(currSort);
+				for (final Sort s : subSorts) {
+					todo.push(s);
+				}
+			} else {
+				// all arg sorts are finite.
+				mInfinityMap.put(currSort, false);
+				dependent.remove(currSort);
+			}
+		}
+		return mInfinityMap.get(sort);
+	}
+
 	public void setLogic(final Logics logic) {
 		// Set up the theories.
 		// Note that order is important: the easier theories should be first,
@@ -2544,6 +2682,7 @@ public class Clausifier {
 			mEqualities.endScope();
 		}
 		mStackLevel -= numpops;
+		mInfinityMap.clear();
 	}
 
 	private ProofNode getProofNewSource(final Term proof, final SourceAnnotation source) {
