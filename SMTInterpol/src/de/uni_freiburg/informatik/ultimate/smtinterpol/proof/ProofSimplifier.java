@@ -824,7 +824,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Term divisor = ((ApplicationTerm) modTerm).getParameters()[1];
 		final Term x = ((ApplicationTerm) modTerm).getParameters()[0];
 		assert isApplication(SMTLIBConstants.EQUALS, clause[0].getAtom())
-				&& x == ((ApplicationTerm) clause[0].getAtom()).getParameters()[0]
+				&& divisor == ((ApplicationTerm) clause[0].getAtom()).getParameters()[0]
 				&& isZero(((ApplicationTerm) clause[0].getAtom()).getParameters()[1]);
 		final Sort sort = x.getSort();
 		final Term divTerm = theory.term(SMTLIBConstants.DIV, x, divisor);
