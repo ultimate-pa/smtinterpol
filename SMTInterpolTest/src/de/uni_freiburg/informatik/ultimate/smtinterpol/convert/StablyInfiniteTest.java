@@ -193,4 +193,37 @@ public class StablyInfiniteTest implements SMTLIBConstants {
 		assertTrue(mClausifier.isSingleton(mScript.sort("Wrapped", mScript.sort("NestedUnit"))));
 	}
 
+	@Test
+	public void testRealSort() {
+		mScript.defineSort("MyUnit", new Sort[0], mUnit);
+		final Sort[] sortParams = mScript.sortVariables("X");
+		mScript.defineSort("MyWrapped", sortParams, mScript.sort("Wrapped", sortParams[0]));
+		final Sort myUnit = mScript.sort("MyUnit");
+		final DataType nestedUnit = mScript.datatype("MyNestedUnit", 0);
+		final DataType.Constructor[] constructors = new DataType.Constructor[] {
+				new DataType.Constructor("nest", new String[] { "unnest1", "unnest2" }, new Sort[] { myUnit, mUnit }) };
+		mScript.declareDatatype(nestedUnit, constructors);
+
+		assertTrue(mClausifier.isSingleton(myUnit));
+		assertFalse(mClausifier.isSingleton(mScript.sort("List", myUnit)));
+		assertFalse(mClausifier.isSingleton(mScript.sort("List", mInt)));
+		assertFalse(mClausifier.isSingleton(mScript.sort("Option", myUnit)));
+		assertTrue(mClausifier.isSingleton(mScript.sort("MyWrapped", myUnit)));
+		assertFalse(mClausifier.isSingleton(mScript.sort("MyWrapped", mInt)));
+		assertTrue(mClausifier.isSingleton(mScript.sort(ARRAY, mInt, myUnit)));
+		assertTrue(mClausifier.isSingleton(mScript.sort("Wrapped", mScript.sort("MyNestedUnit"))));
+
+		assertFalse(mClausifier.isStablyInfinite(myUnit));
+		assertTrue(mClausifier.isStablyInfinite(mScript.sort("List", myUnit)));
+		assertTrue(mClausifier.isStablyInfinite(mScript.sort("List", mInt)));
+		assertFalse(mClausifier.isStablyInfinite(mScript.sort("Option", myUnit)));
+		assertFalse(mClausifier.isStablyInfinite(mScript.sort("MyWrapped", myUnit)));
+		assertTrue(mClausifier.isStablyInfinite(mScript.sort("MyWrapped", mInt)));
+		assertFalse(mClausifier.isStablyInfinite(mScript.sort(ARRAY, mInt, myUnit)));
+		assertFalse(mClausifier.isStablyInfinite(mScript.sort(ARRAY, mBool, mScript.sort("MyWrapped", mBool))));
+		assertFalse(mClausifier.isStablyInfinite(mScript.sort(ARRAY, mScript.sort("MyWrapped", mBool), mBool)));
+		assertTrue(mClausifier.isStablyInfinite(mScript.sort(ARRAY, mScript.sort("MyWrapped", mInt), mBool)));
+		assertFalse(mClausifier.isStablyInfinite(mScript.sort("Wrapped", mScript.sort("MyNestedUnit"))));
+	}
+
 }

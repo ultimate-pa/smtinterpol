@@ -2352,6 +2352,7 @@ public class Clausifier {
 	}
 
 	private boolean isBasicStablyInfinite(Sort sort) {
+		assert sort == sort.getRealSort() && !sort.isSortVariable();
 		assert !sort.getSortSymbol().isDatatype() && !sort.isArraySort();
 		if (sort.equals(sort.getTheory().getBooleanSort()) || sort.isBitVecSort()) {
 			// boolean and bitvector sorts are always finite.
@@ -2373,6 +2374,7 @@ public class Clausifier {
 	 * @return True if sort is infinite else False
 	 */
 	public boolean isSingleton(Sort sort) {
+		sort = sort.getRealSort();
 		if (sort.isArraySort()) {
 			return isSingleton(sort.getArguments()[1]);
 		} else if (sort.getSortSymbol().isDatatype()) {
@@ -2402,6 +2404,7 @@ public class Clausifier {
 	 * @return True if sort is infinite else False
 	 */
 	public boolean isStablyInfinite(Sort sort) {
+		sort = sort.getRealSort();
 		if (!sort.getSortSymbol().isDatatype() && !sort.isArraySort()) {
 			return isBasicStablyInfinite(sort);
 		}
@@ -2432,12 +2435,11 @@ public class Clausifier {
 			if (currSort.getSortSymbol().isDatatype()) {
 				final Sort[] datatypeParameters = currSort.getArguments();
 				for (final Constructor c : ((DataType) currSort.getSortSymbol()).getConstructors()) {
-					if (datatypeParameters.length == 0) {
-						subSorts.addAll(Arrays.asList(c.getArgumentSorts()));
-					} else {
-						for (final Sort s : c.getArgumentSorts()) {
-							subSorts.add(s.mapSort(datatypeParameters));
+					for (Sort s : c.getArgumentSorts()) {
+						if (datatypeParameters.length > 0) {
+							s = s.mapSort(datatypeParameters);
 						}
+						subSorts.add(s.getRealSort());
 					}
 				}
 			} else {

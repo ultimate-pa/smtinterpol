@@ -857,7 +857,7 @@ public class DataTypeTheory implements ITheory {
 		// check if only selectors with finite return sort are missing and build them
 		final Sort dataTypeSort = ccterm.mFlatTerm.getSort();
 		for (int i = 0; i < constr.getArgumentSorts().length; i++) {
-			if (mClausifier.isStablyInfinite(constr.getArgumentSorts()[i])) {
+			if (mClausifier.isStablyInfinite(constr.getArgumentSorts()[i].mapSort(dataTypeSort.getArguments()))) {
 				final FunctionSymbol selector = mTheory.getFunction(constr.getSelectors()[i], dataTypeSort);
 				if (mCClosure.getAllFuncAppsForArg(selector, ccterm, 0).isEmpty()) {
 					return true;
