@@ -292,7 +292,7 @@ The functions / and - are defined by:
 (divlow x d):        (<= (* d (div x d)) x), (= d 0)
 (divhigh x d):       (<  x (+ (* d (div x d)) (abs d))), (= d 0)
 
-(mod-def x d):       (= (mod x d) (- x (* d (div x d)))), (= d 0)
+(mod-def x d):       (= (+ (* d (div x d)) (mod x d)) x), (= d 0)
 (divisible-def d x): (= ((_ divisible d) x) (= x (* d (div x d))))
 
 (>def a b):  (= (> a b) (< b a))

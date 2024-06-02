@@ -812,6 +812,64 @@ public class ProofSimplifier extends TermTransformer {
 		return mProofRules.extDiff(arrays[0], arrays[1]);
 	}
 
+	private Term convertTautModulo(final ProofLiteral[] clause) {
+		assert clause.length == 2;
+		assert clause[0].getPolarity() == true;
+		assert clause[1].getPolarity() == true;
+		final Term goalEq = clause[1].getAtom();
+		final Theory theory = goalEq.getTheory();
+		assert isApplication(SMTLIBConstants.EQUALS, goalEq);
+		final Term modTerm = ((ApplicationTerm) goalEq).getParameters()[0];
+		assert isApplication(SMTLIBConstants.MOD, modTerm);
+		final Term divisor = ((ApplicationTerm) modTerm).getParameters()[1];
+		final Term x = ((ApplicationTerm) modTerm).getParameters()[0];
+		assert isApplication(SMTLIBConstants.EQUALS, clause[0].getAtom())
+				&& x == ((ApplicationTerm) clause[0].getAtom()).getParameters()[0]
+				&& isZero(((ApplicationTerm) clause[0].getAtom()).getParameters()[1]);
+		final Sort sort = x.getSort();
+		final Term divTerm = theory.term(SMTLIBConstants.DIV, x, divisor);
+		final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
+
+		final Polynomial poly = new Polynomial(divisor);
+		poly.mul(new Polynomial(divTerm));
+		final Term mulDivNormTerm = poly.toTerm(sort);
+		poly.add(Rational.ONE, new Polynomial(modTerm));
+		final Term divPlusModNormTerm = poly.toTerm(sort);
+
+		// proof shows (+ (* divisor (div x divisor)) (mod x divisor)) = x
+		final Term divPlusModTerm = theory.term(SMTLIBConstants.PLUS, mulDivTerm, modTerm);
+		Term proofModDef = mProofRules.modDef(x, divisor);
+		if (divPlusModNormTerm != divPlusModTerm) {
+			Term proofPlus;
+			final Term plusEq = theory.term(SMTLIBConstants.EQUALS, divPlusModTerm, divPlusModNormTerm);
+			if (mulDivNormTerm != mulDivTerm) {
+				final Term mulEq = theory.term(SMTLIBConstants.EQUALS, mulDivTerm, mulDivNormTerm);
+				final Term proofMul = mProofRules.polyMul(mulDivTerm, mulDivNormTerm);
+				final Term divPlusModMixTerm = theory.term(SMTLIBConstants.PLUS, mulDivNormTerm, modTerm);
+				proofPlus = res(mulEq, proofMul, mProofRules.cong(divPlusModTerm, divPlusModMixTerm));
+				proofPlus = res(theory.term(SMTLIBConstants.EQUALS, modTerm, modTerm), mProofRules.refl(modTerm),
+						proofPlus);
+				if (divPlusModMixTerm != divPlusModNormTerm) {
+					final Term eq1 = theory.term(SMTLIBConstants.EQUALS, divPlusModTerm, divPlusModMixTerm);
+					final Term eq2 = theory.term(SMTLIBConstants.EQUALS, divPlusModMixTerm, divPlusModNormTerm);
+					proofPlus = res(eq1, proofPlus, res(eq2, mProofRules.polyAdd(divPlusModMixTerm, divPlusModNormTerm),
+							mProofRules.trans(divPlusModTerm, divPlusModMixTerm, divPlusModNormTerm)));
+				}
+			} else {
+				proofPlus = mProofRules.polyAdd(divPlusModTerm, divPlusModNormTerm);
+			}
+			final Term revPlusEq = theory.term(SMTLIBConstants.EQUALS, divPlusModNormTerm, divPlusModTerm);
+			proofModDef = res(theory.term(SMTLIBConstants.EQUALS, divPlusModTerm, x), proofModDef,
+					res(revPlusEq, res(plusEq, proofPlus, mProofRules.symm(divPlusModNormTerm, divPlusModTerm)),
+							mProofRules.trans(divPlusModNormTerm, divPlusModTerm, x)));
+		}
+		final Term[] provedEq = new Term[] { divPlusModNormTerm, x };
+		final Term provedTerm = theory.term(SMTLIBConstants.EQUALS, provedEq);
+		final Term proofGoal = proveEqWithMultiplier(provedEq, ((ApplicationTerm) goalEq).getParameters(),
+				Rational.ONE);
+		return res(provedTerm, proofModDef, proofGoal);
+	}
+
 	private Term convertTautLowHigh(final Term divTerm, final String ruleName, final ProofLiteral[] clause) {
 		final Term mainAtom = clause[clause.length - 1].getAtom();
 		final Theory theory = clause[0].getAtom().getTheory();
@@ -1227,6 +1285,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":toIntHigh":
 		case ":toIntLow":
 			proof = convertTautLowHigh((Term) annot.getValue(), ruleName, clause);
+			break;
+		case ":modulo":
+			proof = convertTautModulo(clause);
 			break;
 		case ":store":
 			proof = convertTautStore(clause);
@@ -2672,8 +2733,8 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	private Term convertRewriteModulo(final String ruleName, final Term lhs, final Term rhs) {
-		// mod1: (div x 1) -> 0
-		// mod-1: (div x (- 1)) -> 0
+		// modulo1: (mod x 1) -> 0
+		// modulo-1: (mod x (- 1)) -> 0
 		// moduloConst: (mod c1 c2) -> c where c1,c2 are constants, c = (mod c1 c2)
 		// modulo: (mod x c) -> (- x (* c (div x c)))
 		assert isApplication("mod", lhs);
@@ -2689,7 +2750,7 @@ public class ProofSimplifier extends TermTransformer {
 		// proof shows (+ (* c (div x c)) (mod x c)) = x
 		final Term divPlusMod = theory.term(SMTLIBConstants.PLUS, theory.term(SMTLIBConstants.MUL, modArgs[1], divTerm), lhs);
 		final Term modDefEq = theory.term(SMTLIBConstants.EQUALS, divPlusMod, modArgs[0]);
-		final SMTAffineTerm affine = new SMTAffineTerm(modArgs[0]);
+		final Polynomial affine = new Polynomial(modArgs[0]);
 		affine.add(divisor.negate(), divTerm);
 		Term divResult;
 		switch (ruleName) {
@@ -2715,7 +2776,7 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		}
 		case ":modulo":
-			assert new SMTAffineTerm(rhs).equals(affine);
+			assert new Polynomial(rhs).equals(affine);
 			divResult = divTerm;
 			break;
 		default:
@@ -4428,6 +4489,7 @@ public class ProofSimplifier extends TermTransformer {
 		case ":divLow":
 		case ":toIntHigh":
 		case ":toIntLow":
+		case ":modulo":
 		case ":store":
 		case ":diff":
 		case ":matchCase":

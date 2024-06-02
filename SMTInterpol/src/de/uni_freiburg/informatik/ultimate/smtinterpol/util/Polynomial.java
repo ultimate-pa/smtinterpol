@@ -203,8 +203,8 @@ public final class Polynomial {
 			return;
 		}
 		final Polynomial newPolynomial = new Polynomial();
-		for (final Map.Entry<Map<Term, Integer>,Rational> term1 : other.mSummands.entrySet()) {
-			for (final Map.Entry<Map<Term, Integer>,Rational> term2 : mSummands.entrySet()) {
+		for (final Map.Entry<Map<Term, Integer>, Rational> term1 : mSummands.entrySet()) {
+			for (final Map.Entry<Map<Term, Integer>, Rational> term2 : other.mSummands.entrySet()) {
 				final Map<Term, Integer> newMonomial = mulMonomials(term1.getKey(), term2.getKey());
 				newPolynomial.add(term1.getValue().mul(term2.getValue()), newMonomial);
 			}
