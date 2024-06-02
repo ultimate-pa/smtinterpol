@@ -52,7 +52,6 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
@@ -224,7 +223,7 @@ public class ProofSimplifier extends TermTransformer {
 	 *                        1 or -1.
 	 * @return true if the sum is of the correct form.
 	 */
-	private boolean checkIteinIteBound(final SMTAffineTerm sum, final ApplicationTerm possibleIteTerm,
+	private boolean checkIteinIteBound(final Polynomial sum, final ApplicationTerm possibleIteTerm,
 			final Rational factor) {
 		assert isApplication(SMTLIBConstants.ITE, possibleIteTerm);
 		Term[] iteArgs = possibleIteTerm.getParameters();
@@ -246,10 +245,10 @@ public class ProofSimplifier extends TermTransformer {
 				} else {
 					// replace (ite c t e) with candidate in sum, by adding
 					// (- candidate (ite c t e)) * factor
-					final SMTAffineTerm sumWithCandidate = new SMTAffineTerm(candidate);
+					final Polynomial sumWithCandidate = new Polynomial(candidate);
 					sumWithCandidate.add(Rational.MONE, possibleIteTerm);
 					sumWithCandidate.mul(factor);
-					sumWithCandidate.add(sum);
+					sumWithCandidate.add(Rational.ONE, sum);
 
 					// Afterwards the literal should be <= 0, to make the clause true.
 					if (!sumWithCandidate.isConstant() || sumWithCandidate.getConstant().signum() > 0) {
@@ -277,10 +276,14 @@ public class ProofSimplifier extends TermTransformer {
 	 * @return The iteTerm.
 	 * @throws AssertionError if there is no candidate ite term.
 	 */
-	private ApplicationTerm findAndCheckIteinIteBound(final SMTAffineTerm sum) {
-		for (final Map.Entry<Term, Rational> entry : sum.getSummands().entrySet()) {
-			if (isApplication("ite", entry.getKey()) && entry.getValue().abs() == Rational.ONE) {
-				final ApplicationTerm iteTerm = (ApplicationTerm) entry.getKey();
+	private ApplicationTerm findAndCheckIteinIteBound(final Polynomial sum) {
+		for (final Map.Entry<Map<Term, Integer>, Rational> entry : sum.getSummands().entrySet()) {
+			if (entry.getKey().size() != 1 || entry.getKey().values().iterator().next() != 1) {
+				continue;
+			}
+			final Term term = entry.getKey().keySet().iterator().next();
+			if (isApplication("ite", term) && entry.getValue().abs() == Rational.ONE) {
+				final ApplicationTerm iteTerm = (ApplicationTerm) term;
 				if (checkIteinIteBound(sum, iteTerm, entry.getValue())) {
 					return iteTerm;
 				}
@@ -358,7 +361,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Theory theory = clause[0].getAtom().getTheory();
 		final Term[] leqArgs = ((ApplicationTerm) clause[0].getAtom()).getParameters();
 		assert leqArgs.length == 2 && isZero(leqArgs[1]);
-		final SMTAffineTerm sum = new SMTAffineTerm(leqArgs[0]);
+		final Polynomial sum = new Polynomial(leqArgs[0]);
 
 		final ApplicationTerm iteTerm = findAndCheckIteinIteBound(sum);
 		final LinkedHashSet<Term> allLeafs = new LinkedHashSet<>();
@@ -2298,7 +2301,6 @@ public class ProofSimplifier extends TermTransformer {
 		final Term array = innerArgs[0];
 		final Term innerIndex = innerArgs[1];
 		final Term proofEq = proveTrivialEquality(index, innerIndex);
-		assert proofEq != null;
 		assert rhs == mSkript.term("store", array, index, valueW);
 
 		final Theory theory = lhs.getTheory();
@@ -2355,14 +2357,21 @@ public class ProofSimplifier extends TermTransformer {
 		final Term indexI = storeArgs[1];
 		final Term value = storeArgs[2];
 		final Term indexJ = selectArgs[1];
-		final Term proofEqualJI = proveTrivialEquality(indexJ, indexI);
-		if (proofEqualJI != null) {
+		final boolean equalCase;
+		if (indexI == indexJ) {
+			equalCase = true;
+		} else {
+			final Polynomial diff = new Polynomial(indexI);
+			diff.add(Rational.MONE, indexJ);
+			equalCase = diff.isZero();
+		}
+		if (equalCase) {
 			assert rhs == storeArgs[2];
 			final Term selectStoreI = theory.term("select", store, indexI);
 			Term proof = mProofRules.trans(lhs, selectStoreI, value);
 			proof = res(theory.term("=", lhs, selectStoreI), mProofRules.cong(lhs,  selectStoreI), proof);
 			proof = res(theory.term("=", store, store), mProofRules.refl(store), proof);
-			proof = res(theory.term("=", indexJ, indexI), proofEqualJI, proof);
+			proof = res(theory.term("=", indexJ, indexI), proveTrivialEquality(indexJ, indexI), proof);
 			proof = res(theory.term("=", selectStoreI, value), mProofRules.selectStore1(array, indexI, value), proof);
 			return proof;
 		} else {
@@ -2679,7 +2688,7 @@ public class ProofSimplifier extends TermTransformer {
 				divArgs[0]);
 		final Term origDivHigh = theory.term(SMTLIBConstants.LT, divArgs[0],
 				theory.term(SMTLIBConstants.PLUS, theory.term(SMTLIBConstants.MUL, divArgs[1], divTerm), absDivArg));
-		final SMTAffineTerm diffAffine = new SMTAffineTerm(divTerm);
+		final Polynomial diffAffine = new Polynomial(divTerm);
 		diffAffine.add(Rational.MONE, divResult);
 		final Term diffLhsRhs = diffAffine.toTerm(sort);
 		Term proof = mProofRules.trichotomy(divTerm, divResult);
@@ -2761,8 +2770,8 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		case ":modulo-1": {
 			assert divisor.equals(Rational.MONE) && isZero(rhs);
-			final SMTAffineTerm negX = new SMTAffineTerm(modArgs[0]);
-			negX.negate();
+			final Polynomial negX = new Polynomial(modArgs[0]);
+			negX.mul(Rational.MONE);
 			divResult = negX.toTerm(sort);
 			break;
 		}
@@ -3129,17 +3138,13 @@ public class ProofSimplifier extends TermTransformer {
 
 		final Term[] negAtomArgs = ((ApplicationTerm) clause[negNr].getAtom()).getParameters();
 		final Term[] posAtomArgs = ((ApplicationTerm) clause[posNr].getAtom()).getParameters();
-		final SMTAffineTerm negDiff = new SMTAffineTerm(negAtomArgs[0]);
+		final Polynomial negDiff = new Polynomial(negAtomArgs[0]);
 		negDiff.add(Rational.MONE, negAtomArgs[1]);
-		final SMTAffineTerm posDiff = new SMTAffineTerm(posAtomArgs[0]);
+		final Polynomial posDiff = new Polynomial(posAtomArgs[0]);
 		posDiff.add(Rational.MONE, posAtomArgs[1]);
-		Rational multiplier = posDiff.getGcd().div(negDiff.getGcd());
-		negDiff.mul(multiplier);
-		if (!negDiff.equals(posDiff)) {
-			negDiff.negate();
-			multiplier = multiplier.negate();
-		}
-		assert negDiff.equals(posDiff);
+		assert !negDiff.isZero();
+		final Map<Term, Integer> someMonomial = negDiff.getSummands().keySet().iterator().next();
+		final Rational multiplier = posDiff.getSummands().get(someMonomial).div(negDiff.getSummands().get(someMonomial));
 		final Term proof = proveEqWithMultiplier(negAtomArgs, posAtomArgs, multiplier);
 		return proof;
 	}
@@ -4665,28 +4670,19 @@ public class ProofSimplifier extends TermTransformer {
 	 *
 	 * @param first  the left-hand side of the equality
 	 * @param second the right-hand side of the equality
-	 * @return the proof for `(= first second)` or null if this is not a trivial disequality.
+	 * @return the proof for `(= first second)`.
 	 */
 	private Term proveTrivialEquality(final Term first, final Term second) {
 		if (first == second) {
 			return mProofRules.refl(first);
 		}
-		if (!first.getSort().isNumericSort()) {
-			return null;
-		}
-		final SMTAffineTerm diff = new SMTAffineTerm(second);
-		diff.negate();
-		diff.add(new SMTAffineTerm(first));
-		if (diff.isConstant() && diff.getConstant().equals(Rational.ZERO)) {
-			final Theory theory = first.getTheory();
-			final Term ltTerm = theory.term(SMTLIBConstants.LT, first, second);
-			final Term gtTerm = theory.term(SMTLIBConstants.LT, second, first);
-			final BigInteger[] one = new BigInteger[] { BigInteger.ONE };
-			return res(ltTerm, res(gtTerm, mProofRules.trichotomy(first, second),
-					mProofRules.farkas(new Term[] { gtTerm }, one)), mProofRules.farkas(new Term[] { ltTerm }, one));
-		} else {
-			return null;
-		}
+		final Theory theory = first.getTheory();
+		final Term ltTerm = theory.term(SMTLIBConstants.LT, first, second);
+		final Term gtTerm = theory.term(SMTLIBConstants.LT, second, first);
+		final BigInteger[] one = new BigInteger[] { BigInteger.ONE };
+		return res(ltTerm,
+				res(gtTerm, mProofRules.trichotomy(first, second), mProofRules.farkas(new Term[] { gtTerm }, one)),
+				mProofRules.farkas(new Term[] { ltTerm }, one));
 	}
 
 	/**
@@ -4702,22 +4698,21 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	private Term proveTrivialDisequality(final Term first, final Term second) {
 		final Theory theory = first.getTheory();
-		final SMTAffineTerm diff = new SMTAffineTerm(first);
+		final Polynomial diff = new Polynomial(first);
 		diff.add(Rational.MONE, second);
 		if (diff.isConstant()) {
 			if (diff.getConstant().signum() > 0) {
 				final Term eqLhs = theory.term(SMTLIBConstants.EQUALS, first, second);
 				return mProofRules.farkas(new Term[] { eqLhs }, new BigInteger[] { BigInteger.ONE });
-			} else if (diff.getConstant().signum() < 0) {
+			} else {
+				assert (diff.getConstant().signum() < 0);
 				final Term eqSwapped = theory.term(SMTLIBConstants.EQUALS, second, first);
 				return mProofRules.resolutionRule(eqSwapped, mProofRules.symm(second, first),
 						mProofRules.farkas(new Term[] { eqSwapped }, new BigInteger[] { BigInteger.ONE }));
-			} else {
-				return null;
 			}
 		} else {
 			final Rational gcd = diff.getGcd();
-			diff.div(gcd);
+			diff.mul(gcd.inverse());
 			final Rational bound = diff.getConstant().negate();
 			if (!diff.isAllIntSummands() || bound.isIntegral()) {
 				return null;
@@ -4835,7 +4830,6 @@ public class ProofSimplifier extends TermTransformer {
 				}
 			} else {
 				final Term proofEq = proveTrivialEquality(eqParam[0], eqParam[1]);
-				assert proofEq != null;
 				proof = res(eq, proofEq, proof);
 			}
 		}
@@ -5071,13 +5065,17 @@ public class ProofSimplifier extends TermTransformer {
 		Rational factor = Rational.ONE;
 		boolean needsIntReasoning = false;
 		if (allowFactor) {
-			final SMTAffineTerm lhsAffine = new SMTAffineTerm(lhsParam[0]);
+			final Polynomial lhsAffine = new Polynomial(lhsParam[0]);
 			lhsAffine.add(Rational.MONE, lhsParam[1]);
-			final SMTAffineTerm rhsAffine = new SMTAffineTerm(rhsAtomParam[0]);
+			final Polynomial rhsAffine = new Polynomial(rhsAtomParam[0]);
 			rhsAffine.add(Rational.MONE, rhsAtomParam[1]);
 			assert !lhsAffine.isConstant() && !rhsAffine.isConstant();
-			final Term someTerm = lhsAffine.getSummands().keySet().iterator().next();
-			factor = lhsAffine.getSummands().get(someTerm).div(rhsAffine.getSummands().get(someTerm)).abs();
+			for (final Map<Term, Integer> monomial : lhsAffine.getSummands().keySet()) {
+				if (monomial.size() > 0) {
+					factor = lhsAffine.getSummands().get(monomial).div(rhsAffine.getSummands().get(monomial)).abs();
+					break;
+				}
+			}
 
 			// Round constant up for integers: (<= (x + 1.25) 0) --> (<= (x + 2) 0)
 			if (lhsParam[0].getSort().getName().equals(SMTLIBConstants.INT)) {
