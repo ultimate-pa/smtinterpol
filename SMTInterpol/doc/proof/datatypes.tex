@@ -114,7 +114,15 @@ This rule reports a conflict if all test functions are currently $\false$.
 
 \paragraph{Rule 7} (dt-cycle)
 
-TODO
+This rule states that a datatype object can never be its own (potentially nested) constructor argument.
+This means there is a cycle $c_1=p_2, c_2=p_3 \dots c_n=p_1$, where $c_k$ is a constructor argument of $p_k$ or it is a selector applied to $p_k$ and the corresponding tester for $p_k$ is true.
+
+\[
+\frac{\isC_{i_1}(p_1)\sim\true, c_1\sim p_2,\dots,\isC_{i_n}(p_n)\sim\true, c_n\sim p_1}{\bot}
+\]
+where $n\geq 1$ and each $c_k$ is a child of $p_k$, i.e., either
+$p_k = C_{i_k}(\dots,c_k,\dots)$ (in which case $\isC_{i_k}(p_k)$ is omitted) or
+$c_k = sel_{i_k j}(p_k)$.
 
 \paragraph{Rule 8} (dt-injective)
 \[
