@@ -658,48 +658,96 @@ public class ModelEvaluator extends TermTransformer {
 		}
 
 		case SMTLIBConstants.BVULE: {
-			assert args.length == 2;
-			return bitvectorValue(args[0]).compareTo(bitvectorValue(args[1])) <= 0 ? theory.mTrue : theory.mFalse;
+			assert args.length >= 2;
+			boolean result = true;
+			BigInteger lastArg = bitvectorValue(args[0]);
+			for (int i = 1; i < args.length; i++) {
+				final BigInteger nextArg = bitvectorValue(args[i]);
+				result &= lastArg.compareTo(nextArg) <= 0;
+				lastArg = nextArg;
+			}
+			return result ? theory.mTrue : theory.mFalse;
 		}
 		case SMTLIBConstants.BVULT: {
-			assert args.length == 2;
-			return bitvectorValue(args[0]).compareTo(bitvectorValue(args[1])) < 0 ? theory.mTrue : theory.mFalse;
+			assert args.length >= 2;
+			boolean result = true;
+			BigInteger lastArg = bitvectorValue(args[0]);
+			for (int i = 1; i < args.length; i++) {
+				final BigInteger nextArg = bitvectorValue(args[i]);
+				result &= lastArg.compareTo(nextArg) < 0;
+				lastArg = nextArg;
+			}
+			return result ? theory.mTrue : theory.mFalse;
 		}
 		case SMTLIBConstants.BVUGE: {
-			assert args.length == 2;
-			return bitvectorValue(args[0]).compareTo(bitvectorValue(args[1])) >= 0 ? theory.mTrue : theory.mFalse;
+			assert args.length >= 2;
+			boolean result = true;
+			BigInteger lastArg = bitvectorValue(args[0]);
+			for (int i = 1; i < args.length; i++) {
+				final BigInteger nextArg = bitvectorValue(args[i]);
+				result &= lastArg.compareTo(nextArg) >= 0;
+				lastArg = nextArg;
+			}
+			return result ? theory.mTrue : theory.mFalse;
 		}
 		case SMTLIBConstants.BVUGT: {
-			assert args.length == 2;
-			return bitvectorValue(args[0]).compareTo(bitvectorValue(args[1])) > 0 ? theory.mTrue : theory.mFalse;
+			assert args.length >= 2;
+			boolean result = true;
+			BigInteger lastArg = bitvectorValue(args[0]);
+			for (int i = 1; i < args.length; i++) {
+				final BigInteger nextArg = bitvectorValue(args[i]);
+				result &= lastArg.compareTo(nextArg) > 0;
+				lastArg = nextArg;
+			}
+			return result ? theory.mTrue : theory.mFalse;
 		}
 		case SMTLIBConstants.BVSLE: {
-			final BigInteger moduloHalf = getBVModulo(args[0].getSort()).shiftRight(1);
-			assert args.length == 2;
-			return bitvectorValue(args[0]).xor(moduloHalf).compareTo(bitvectorValue(args[1]).xor(moduloHalf)) <= 0
-					? theory.mTrue
-					: theory.mFalse;
+			assert args.length >= 2;
+			boolean result = true;
+			final BigInteger signBit = BigInteger.ONE.shiftLeft(getBitVecSize(args[0].getSort()) - 1);
+			BigInteger lastArg = bitvectorValue(args[0]).xor(signBit);
+			for (int i = 1; i < args.length; i++) {
+				final BigInteger nextArg = bitvectorValue(args[i]).xor(signBit);
+				result &= lastArg.compareTo(nextArg) <= 0;
+				lastArg = nextArg;
+			}
+			return result ? theory.mTrue : theory.mFalse;
 		}
 		case SMTLIBConstants.BVSLT: {
-			final BigInteger moduloHalf = getBVModulo(args[0].getSort()).shiftRight(1);
-			assert args.length == 2;
-			return bitvectorValue(args[0]).xor(moduloHalf).compareTo(bitvectorValue(args[1]).xor(moduloHalf)) < 0
-					? theory.mTrue
-					: theory.mFalse;
+			assert args.length >= 2;
+			boolean result = true;
+			final BigInteger signBit = BigInteger.ONE.shiftLeft(getBitVecSize(args[0].getSort()) - 1);
+			BigInteger lastArg = bitvectorValue(args[0]).xor(signBit);
+			for (int i = 1; i < args.length; i++) {
+				final BigInteger nextArg = bitvectorValue(args[i]).xor(signBit);
+				result &= lastArg.compareTo(nextArg) < 0;
+				lastArg = nextArg;
+			}
+			return result ? theory.mTrue : theory.mFalse;
 		}
 		case SMTLIBConstants.BVSGE: {
-			final BigInteger moduloHalf = getBVModulo(args[0].getSort()).shiftRight(1);
-			assert args.length == 2;
-			return bitvectorValue(args[0]).xor(moduloHalf).compareTo(bitvectorValue(args[1]).xor(moduloHalf)) >= 0
-					? theory.mTrue
-					: theory.mFalse;
+			assert args.length >= 2;
+			boolean result = true;
+			final BigInteger signBit = BigInteger.ONE.shiftLeft(getBitVecSize(args[0].getSort()) - 1);
+			BigInteger lastArg = bitvectorValue(args[0]).xor(signBit);
+			for (int i = 1; i < args.length; i++) {
+				final BigInteger nextArg = bitvectorValue(args[i]).xor(signBit);
+				result &= lastArg.compareTo(nextArg) >= 0;
+				lastArg = nextArg;
+			}
+			return result ? theory.mTrue : theory.mFalse;
 		}
 		case SMTLIBConstants.BVSGT: {
-			final BigInteger moduloHalf = getBVModulo(args[0].getSort()).shiftRight(1);
-			assert args.length == 2;
-			return bitvectorValue(args[0]).xor(moduloHalf).compareTo(bitvectorValue(args[1]).xor(moduloHalf)) > 0
-					? theory.mTrue
-					: theory.mFalse;
+			assert args.length >= 2;
+			boolean result = true;
+			final BigInteger signBit = BigInteger.ONE.shiftLeft(getBitVecSize(args[0].getSort()) - 1);
+			BigInteger lastArg = bitvectorValue(args[0]).xor(signBit);
+			for (int i = 1; i < args.length; i++) {
+				final BigInteger nextArg = bitvectorValue(args[i]).xor(signBit);
+				result &= lastArg.compareTo(nextArg) > 0;
+				lastArg = nextArg;
+			}
+			return result ? theory.mTrue : theory.mFalse;
 		}
 		case SMTLIBConstants.BVSHL: {
 			final int size = getBitVecSize(fs.getReturnSort());
