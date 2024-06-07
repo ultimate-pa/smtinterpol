@@ -122,7 +122,7 @@ public class Theory {
 	 * Pattern for model value variables '{@literal @}digits'.
 	 */
 	private final static String MODEL_VALUE_PATTERN = "@\\d+";
-	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
+	public final static String BITVEC_CONST_PATTERN = "bv\\d+";
 
 	private int mTvarCtr = 0;
 

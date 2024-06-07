@@ -39,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.model.BitVectorInterpretation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.NumericSortInterpretation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
@@ -108,6 +109,8 @@ public class ModelBuilder {
 						return datatypeParameters == null ? dependentSort : dependentSort.mapSort(datatypeParameters);
 					}
 				};
+			} else if (sort.isBitVecSort()) {
+				return Collections.singleton(sort.getTheory().getNumericSort()).iterator();
 			} else {
 				return Collections.emptyListIterator();
 			}
@@ -174,6 +177,21 @@ public class ModelBuilder {
 						delayed.add(ccterm);
 						continue;
 					}
+				} else if (ccterm.getFlatTerm().getSort().isBitVecSort()) {
+					value = null;
+					for (final CCTerm member : ccterm.mRepStar.mMembers) {
+						final Term t = member.getFlatTerm();
+						if (t instanceof ApplicationTerm) {
+							if (((ApplicationTerm) t).getFunction().getName().equals("nat2bv")) {
+								final Term arg = ((ApplicationTerm) t).getParameters()[0];
+								final Rational v = mEvaluator.evaluate(arg, mTheory);
+								assert v.isIntegral();
+								value = BitVectorInterpretation.BV(v.numerator(), t.getSort());
+								break;
+							}
+						}
+					}
+					assert value != null;
 				} else if (ccterm == trueNode.mRepStar) {
 					value = sort.getTheory().mTrue;
 				} else if (sort.isInternal() && sort.getName().equals(SMTLIBConstants.BOOL)) {
