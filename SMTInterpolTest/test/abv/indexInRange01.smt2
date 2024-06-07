@@ -8,7 +8,7 @@
 (declare-fun myArray () (Array (_ BitVec 8) (_ BitVec 8)))
 (declare-fun k () (_ BitVec 8))
 
-(assert (= (select myArray (_ bv256 8)) (_ bv42 8)))
+(assert (= (select myArray (_ bv0 8)) (_ bv42 8)))
 (assert (= k (_ bv1 8)))
 (assert (not (= (select myArray (bvadd k (_ bv255 8))) (_ bv42 8))))
 

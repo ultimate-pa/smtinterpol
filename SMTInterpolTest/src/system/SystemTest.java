@@ -61,6 +61,9 @@ public class SystemTest {
 			}
 			solver.setOption(":interpolant-check-mode", true);
 		}
+		if (f.getAbsolutePath().contains("bv/")) {
+			solver.setOption(":model-check-mode", true);
+		}
 		if (f.getAbsolutePath().contains("test" + File.separatorChar + "epr")) {
 			solver.setOption(SMTInterpolConstants.EPR, true);
 		}
@@ -188,7 +191,7 @@ public class SystemTest {
 			}
 			if (mLastStatus != null
 					&& response instanceof LBool) {
-				Assert.assertEquals("Status differs", mLastStatus, (LBool) response);
+				Assert.assertEquals("Status differs", mLastStatus, response);
 				mLastStatus = null;
 			}
 			super.printResponse(response);
