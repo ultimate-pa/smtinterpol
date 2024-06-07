@@ -238,7 +238,7 @@ java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=fal
 </echo>
         <echo file="${tmpdir}/bin/starexec_run_bitvector" append="false">#!/bin/bash
 # Run script for SMTInterpol for the STAREXEC cluster
-java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false "$$1" 2&gt;"$$2"/error.log
+java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o model-check-mode "$$1" 2&gt;"$$2"/error.log
 </echo>
         <echo file="${tmpdir}/bin/smtcomp_run_incremental" append="false">#!/bin/bash
 java -Xms1536m -Xmx50g -da -dsa -jar smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@" 2&gt;/dev/null
@@ -276,7 +276,7 @@ java -da -dsa -jar $$SCRIPTDIR/smtinterpol.jar -w -o continue-on-error=false -o 
         <echo file="${tmpdir}/smtinterpol-bv" append="false">#!/bin/bash
 # Run script for SMTInterpol for SMT-COMP 2024+ for bitvector theories
 SCRIPTDIR=`dirname $$0`
-java -da -dsa -jar $$SCRIPTDIR/smtinterpol.jar -w -o continue-on-error=false "$$@"
+java -da -dsa -jar $$SCRIPTDIR/smtinterpol.jar -w -o continue-on-error=false -o model-check-mode "$$@"
 </echo>
         <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/smtinterpol.jar"/>
         <tar destfile="${jar.outdir}/smtinterpol-${version}.tar.gz" compression="gzip">
