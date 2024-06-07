@@ -749,6 +749,15 @@ public class ModelEvaluator extends TermTransformer {
 			final BigInteger value = bitvectorValue(args[0]).shiftLeft(size2).or(bitvectorValue(args[1]));
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
+		case SMTLIBConstants.REPEAT: {
+			assert args.length == 1;
+			final int sizeIn = getBitVecSize(args[0].getSort());
+			final int count = Integer.parseInt(fs.getIndices()[0]);
+			final BigInteger multiplier = BigInteger.ONE.shiftLeft(sizeIn*count).subtract(BigInteger.ONE)
+					.divide(BigInteger.ONE.shiftLeft(sizeIn).subtract(BigInteger.ONE));
+			final BigInteger value = bitvectorValue(args[0]).multiply(multiplier);
+			return createBitvectorTerm(value, fs.getReturnSort());
+		}
 		case SMTLIBConstants.EXTRACT: {
 			assert args.length == 1;
 			final int high = Integer.parseInt(fs.getIndices()[0]);

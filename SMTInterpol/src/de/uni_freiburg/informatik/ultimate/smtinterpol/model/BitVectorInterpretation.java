@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 
 import java.math.BigInteger;
 
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -35,7 +36,7 @@ public class BitVectorInterpretation implements SortInterpretation {
 
 	@Override
 	public Term extendFresh(final Sort sort) {
-		throw new InternalError("BitVec is not infinite");
+		throw new SMTLIBException(sort.toString() + " is not infinite");
 	}
 
 	@Override

@@ -39,7 +39,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 public class BvUtils {
 	private final Theory mTheory;
 	private final LogicSimplifier mUtils;
-	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 
 	public BvUtils(final Theory theory, final LogicSimplifier utils) {
 		mTheory = theory;
