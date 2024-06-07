@@ -104,7 +104,7 @@ public class TermCompiler extends TermTransformer {
 	}
 
 	@Override
-	public void convert(final Term term) {
+	public void convert(Term term) {
 		if (term.getSort().isInternal()) {
 			/* check if we support the internal sort */
 			switch (term.getSort().getName()) {
@@ -189,38 +189,32 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 
-			if (term.getSort().isBitVecSort() && appTerm.getParameters().length == 0 && !fsym.isIntern()) {
-				final Theory theory = appTerm.getTheory();
-				final BvUtils bvUtils = new BvUtils(theory, mUtils);
-				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod,
-						mDealWithBvToNatAndNatToBvInPreprocessing);
-
-				if (mDealWithBvToNatAndNatToBvInPreprocessing) {
-					if (fsym.getDefinition() != null) {
-						pushTerm(fsym.getDefinition());
-						return;
-					}
-
-					// if (mVarNameTranslation.containsKey(term)) {
-					// setResult(mVarNameTranslation.get(term));
-					// return;
-					//
-					// } else {
-					// final Term intVar = theory.term(theory.declareFunction(
-					// theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0],
-					// theory.getSort("Int")));
-					//
-					// final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
-					//
-					// final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
-					// mVarNameTranslation.put(term, rewrite);
-					// setResult(rewrite);
-					setResult(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(term, true), appTerm.getSort().getIndices()));
-
-					return;
-					// }
-				}
-			}
+//			if (term.getSort().isBitVecSort() && !fsym.isIntern()) {
+//				final Theory theory = appTerm.getTheory();
+//				final BvUtils bvUtils = new BvUtils(theory, mUtils);
+//				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod,
+//						mDealWithBvToNatAndNatToBvInPreprocessing);
+//
+//				if (mDealWithBvToNatAndNatToBvInPreprocessing) {
+//					// if (mVarNameTranslation.containsKey(term)) {
+//					// setResult(mVarNameTranslation.get(term));
+//					// return;
+//					//
+//					// } else {
+//					// final Term intVar = theory.term(theory.declareFunction(
+//					// theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0],
+//					// theory.getSort("Int")));
+//					//
+//					// final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
+//					//
+//					// final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
+//					// mVarNameTranslation.put(term, rewrite);
+//					// setResult(rewrite);
+//
+//					super.convert(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(term, true), appTerm.getSort().getIndices()));
+//					// }
+//				}
+//			}
 		} else if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
 			final Term res = SMTAffineTerm.convertConstant((ConstantTerm) term).toTerm(term.getSort());
 			setResult(mTracker.buildRewrite(term, res, ProofConstants.RW_CANONICAL_SUM));
@@ -274,7 +268,6 @@ public class TermCompiler extends TermTransformer {
 			pushTerm(expanded);
 			return;
 		}
-
 		if (fsym.isIntern()) {
 			if (fsym.getName().matches(BITVEC_CONST_PATTERN)) {
 				setResult(bvToIntUtils.translateBvConstant(fsym, convertedApp, mEagerMod));

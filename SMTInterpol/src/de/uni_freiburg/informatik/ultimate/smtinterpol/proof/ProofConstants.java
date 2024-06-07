@@ -139,10 +139,11 @@ public interface ProofConstants {
 	public final static Annotation TAUT_ARRAY_DIFF = new Annotation(":diff", null);
 	public final static Annotation TAUT_MATCH_CASE = new Annotation(":matchCase", null);
 	public final static Annotation TAUT_MATCH_DEFAULT = new Annotation(":matchDefault", null);
-	public final static  Annotation TAUT_NAT2BV = new Annotation(":todo", null); //TODO create annotation
-	public static final Annotation TAUT_BV2NATLOW = new Annotation(":todo", null);
-	public static final Annotation TAUT_BV2NATUP = new Annotation(":todo", null);
-	public static final Annotation RW_BVTOINT_CONST = new Annotation(":todo", null);
+	public final static Annotation TAUT_NAT2BV = new Annotation(":nat2bv", null); // TODO create annotation
+	public static final Annotation TAUT_BV2NATLOW = new Annotation(":bv2natlow", null);
+	public static final Annotation TAUT_BV2NATUP = new Annotation(":bv2natup", null);
+	public static final Annotation TAUT_BV2NAT2BV = new Annotation(":bv2nat2bv", null);
+	public static final Annotation RW_BVTOINT_CONST = new Annotation(":bv2int_const", null);
 	public static final Annotation RW_BVMUL2INT = new Annotation(":todo", null);
 	public static final Annotation RW_BVSUB2INT = new Annotation(":todo", null);
 	public static final Annotation RW_CONCAT2INT = new Annotation(":todo", null);

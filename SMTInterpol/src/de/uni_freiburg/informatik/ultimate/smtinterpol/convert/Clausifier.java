@@ -1076,6 +1076,10 @@ public class Clausifier {
 					}
 				}
 
+				if (term.getSort().isBitVecSort()) {
+					addBitvectorAxiom(term, ccTerm, source);
+				}
+
 				if (term.getSort().isArraySort()) {
 					assert ccTerm != null;
 					final String funcName = at.getFunction().getName();
@@ -1190,6 +1194,25 @@ public class Clausifier {
 		return arg0.toTerm(rhs.getSort());
 	}
 
+	/*
+	 * These method adds the bitvector axiom to the Clausifier of the form {@pre
+	 * (nat2bv (bv2nat b) k) = b}.
+	 *
+	 * But only for b that ar not nat2bv terms themselves.
+	 */
+	private void addBitvectorAxiom(final Term term, final CCTerm ccTerm, final SourceAnnotation source) {
+		if (term instanceof ApplicationTerm) {
+			if (((ApplicationTerm) term).getFunction().getName().equals("nat2bv")) {
+				return;
+			}
+		}
+
+		final Sort sort = term.getSort();
+		final Term bv2nat2bv = mTheory.term("nat2bv", sort.getIndices(), null, mTheory.term("bv2nat", term));
+
+		final Term axiom = mTheory.term("=", bv2nat2bv, term);
+		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_BV2NAT2BV), source);
+	}
 
 	/*
 	 * These method adds Axiom to the Clausifier of the form 0 leq ccTerm leq maxNumber
