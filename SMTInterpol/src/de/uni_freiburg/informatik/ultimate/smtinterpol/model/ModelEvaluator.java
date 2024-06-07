@@ -734,7 +734,7 @@ public class ModelEvaluator extends TermTransformer {
 			if (shiftArg.compareTo(BigInteger.valueOf(size)) < 0) {
 				final int shiftInt = shiftArg.intValueExact();
 				final BigInteger signBits = value.testBit(size - 1)
-						? BigInteger.ONE.shiftLeft(shiftInt - size).subtract(BigInteger.ONE).shiftLeft(shiftInt)
+						? BigInteger.ONE.shiftLeft(size - shiftInt).subtract(BigInteger.ONE).shiftLeft(shiftInt)
 						: BigInteger.ZERO;
 				value = value.shiftRight(shiftInt).or(signBits);
 			} else {
@@ -806,8 +806,6 @@ public class ModelEvaluator extends TermTransformer {
 				final ApplicationTerm arg = (ApplicationTerm) args[0];
 				assert arg.getFunction().isConstructor();
 				return arg.getFunction().getName().equals(fs.getIndices()[0]) ? theory.mTrue : theory.mFalse;
-			} else if (fs.getName().matches(Theory.BITVEC_CONST_PATTERN)) {
-				return theory.term(fs);
 			}
 			throw new AssertionError("Unknown internal function " + fs.getName());
 		}
@@ -818,10 +816,7 @@ public class ModelEvaluator extends TermTransformer {
 	}
 
 	private BigInteger bitvectorValue(Term t) {
-		assert t instanceof ApplicationTerm;
-		final ApplicationTerm appTerm = (ApplicationTerm) t;
-		assert appTerm.getFunction().getName().matches(Theory.BITVEC_CONST_PATTERN);
-		return new BigInteger(appTerm.getFunction().getName().substring(2));
+		return (BigInteger) ((ConstantTerm) t).getValue();
 	}
 
 	private Term createBitvectorTerm(BigInteger value, Sort sort) {

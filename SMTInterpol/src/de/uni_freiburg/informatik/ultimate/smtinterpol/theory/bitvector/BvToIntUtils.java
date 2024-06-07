@@ -21,7 +21,6 @@ public class BvToIntUtils {
 	private final Theory mTheory;
 	private final LogicSimplifier mUtils;
 	private final BvUtils mBvUtils;
-	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
 	private final BvToIntProofTracker mProof;
 	IProofTracker mTracker;
 	boolean mEagerMod;
@@ -155,14 +154,6 @@ public class BvToIntUtils {
 		return intConst;
 	}
 
-	private Term translateConstantBack(final Rational value, final String[] width) {
-
-		final Rational valueInRange = Rational
-				.valueOf(value.numerator().mod(BigInteger.valueOf(2).pow(Integer.valueOf(width[0]))), BigInteger.ONE);
-		return mTheory.term("bv" + valueInRange, width, null);
-
-	}
-
 	/*
 	 * we do not translate Term Variables
 	 */
@@ -174,7 +165,7 @@ public class BvToIntUtils {
 			final boolean eagerMod) {
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		if (mBvUtils.isConstRelation(appTerm.getParameters()[0], appTerm.getParameters()[1])) {
-			final Term transformed = mBvUtils.simplifyArithmeticConst(appTerm.getFunction(), appTerm.getParameters()[0],
+			final Term transformed = mBvUtils.simplifyBitvectorConstantOp(appTerm.getFunction(), appTerm.getParameters()[0],
 					appTerm.getParameters()[1]);
 			return mProof.trackExtractProof(appTerm, convertedApp, transformed, false, tracker, "+",
 					ProofConstants.RW_EXTRACT2INT);
@@ -311,7 +302,7 @@ public class BvToIntUtils {
 		final boolean mod = !eagerMod;
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		if (mBvUtils.isConstRelation(appTerm.getParameters()[0], appTerm.getParameters()[1])) {
-			final Term transformed = mBvUtils.simplifyArithmeticConst(appTerm.getFunction(), appTerm.getParameters()[0],
+			final Term transformed = mBvUtils.simplifyBitvectorConstantOp(appTerm.getFunction(), appTerm.getParameters()[0],
 					appTerm.getParameters()[1]);
 			return mProof.trackTODOProof(appTerm, convertedApp, transformed, false, tracker, "+",
 					ProofConstants.RW_EXTRACT2INT);
@@ -341,7 +332,7 @@ public class BvToIntUtils {
 		final boolean mod = !eagerMod;
 		final Term[] params = ((ApplicationTerm) tracker.getProvedTerm(convertedApp)).getParameters();
 		if (mBvUtils.isConstRelation(appTerm.getParameters()[0], appTerm.getParameters()[1])) {
-			final Term transformed = mBvUtils.simplifyArithmeticConst(appTerm.getFunction(), appTerm.getParameters()[0],
+			final Term transformed = mBvUtils.simplifyBitvectorConstantOp(appTerm.getFunction(), appTerm.getParameters()[0],
 					appTerm.getParameters()[1]);
 			return mProof.trackTODOProof(appTerm, convertedApp, transformed, false, tracker, "+",
 					ProofConstants.RW_EXTRACT2INT);

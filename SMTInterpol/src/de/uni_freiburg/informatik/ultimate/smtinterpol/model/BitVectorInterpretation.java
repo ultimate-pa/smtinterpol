@@ -53,6 +53,6 @@ public class BitVectorInterpretation implements SortInterpretation {
 	}
 
 	public static Term BV(BigInteger value, final Sort sort) {
-		return sort.getTheory().term("bv" + value.toString(), sort.getIndices(), null);
+		return sort.getTheory().constant(value, sort);
 	}
 }
