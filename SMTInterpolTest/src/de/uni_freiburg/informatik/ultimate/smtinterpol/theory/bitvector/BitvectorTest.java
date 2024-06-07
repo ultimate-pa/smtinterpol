@@ -259,7 +259,6 @@ public class BitvectorTest {
 		asd[1] = "1";
 		final String[] constindices = new String[1];
 		constindices[0] = "4";
-		// final FunctionSymbol fs = mSolver.getTheory().getFunctionWithResult("bv", constindices, null, null);
 		final Term consTerm = mSolver.term("bv3", constindices, null);
 		final Term consTerm2 = mSolver.binary("#b0011");
 		final Term input = mSolver.term("=", consTerm, consTerm2);
@@ -551,7 +550,7 @@ public class BitvectorTest {
 						mSolver.term("=",
 								mSolver.term("concat", mSolver.term("bv1", constindices, null),
 										mSolver.term("bv0", constindices, null)),
-								mSolver.term("bv6", constindices2, null)));
+								mSolver.term("bv2", constindices2, null)));
 		mSolver.assertTerm(input);
 		final LBool isUnSat = mSolver.checkSat();
 		Assert.assertSame(LBool.UNSAT, isUnSat);
