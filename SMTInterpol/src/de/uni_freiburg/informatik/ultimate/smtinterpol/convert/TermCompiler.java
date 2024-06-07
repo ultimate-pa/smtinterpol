@@ -119,6 +119,7 @@ public class TermCompiler extends TermTransformer {
 				throw new UnsupportedOperationException("Unsupported internal sort: " + term.getSort());
 			}
 		}
+
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol fsym = appTerm.getFunction();
@@ -187,33 +188,37 @@ public class TermCompiler extends TermTransformer {
 				pushTerms(conjs);
 				return;
 			}
-			if(term.getSort().isBitVecSort() && appTerm.getParameters().length == 0 && !fsym.isIntern()) {
+
+			if (term.getSort().isBitVecSort() && appTerm.getParameters().length == 0 && !fsym.isIntern()) {
 				final Theory theory = appTerm.getTheory();
 				final BvUtils bvUtils = new BvUtils(theory, mUtils);
 				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod,
 						mDealWithBvToNatAndNatToBvInPreprocessing);
-				if (false && mDealWithBvToNatAndNatToBvInPreprocessing) {
+
+				if (mDealWithBvToNatAndNatToBvInPreprocessing) {
 					if (fsym.getDefinition() != null) {
 						pushTerm(fsym.getDefinition());
 						return;
 					}
 
-					if (mVarNameTranslation.containsKey(term)) {
-						setResult(mVarNameTranslation.get(term));
-						return;
+					// if (mVarNameTranslation.containsKey(term)) {
+					// setResult(mVarNameTranslation.get(term));
+					// return;
+					//
+					// } else {
+					// final Term intVar = theory.term(theory.declareFunction(
+					// theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0],
+					// theory.getSort("Int")));
+					//
+					// final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
+					//
+					// final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
+					// mVarNameTranslation.put(term, rewrite);
+					// setResult(rewrite);
+					setResult(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(term, true), appTerm.getSort().getIndices()));
 
-					} else {
-						final Term intVar = theory.term(theory.declareFunction(
-								theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0],
-								theory.getSort("Int")));
-
-						final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
-
-						final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
-						mVarNameTranslation.put(term, rewrite);
-						setResult(rewrite);
-						return;
-					}
+					return;
+					// }
 				}
 			}
 		} else if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
@@ -233,6 +238,10 @@ public class TermCompiler extends TermTransformer {
 			return;
 		}
 		super.convert(term);
+	}
+
+	private boolean isNat2BvApplication(final Term term) {
+		return (term instanceof ApplicationTerm) && ((ApplicationTerm) term).getFunction().getName().equals("nat2bv");
 	}
 
 	@Override

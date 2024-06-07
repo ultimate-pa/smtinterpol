@@ -93,6 +93,7 @@ public class BvToIntUtils {
 				return mTheory.term("ite", apParam.getParameters()[0], bv2nat(apParam.getParameters()[1], mod),
 						bv2nat(apParam.getParameters()[2], mod));
 			}
+
 		}
 		return mTheory.term("bv2nat", param);
 	}
@@ -102,30 +103,8 @@ public class BvToIntUtils {
 	 */
 	public Term nat2bv(final Term param, final String[] width) {
 		assert param.getSort().isNumericSort();
-		// // TODO case switch for simplifications
-		// // width of the first argument
-		// final int widthInt = Integer.valueOf(width[0]);
-		// final BigInteger two = BigInteger.valueOf(2);
-		// // maximal representable number by a bit-vector of width "width"
-		// final Term maxNumber = mTheory.rational(Rational.valueOf(two.pow(widthInt), BigInteger.ONE),
-		// mTheory.getSort(SMTLIBConstants.INT));
-		// // TODO optimize nat2bv nat2bv
-//		if (param instanceof ConstantTerm) {
-//			return translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width);
-//			// return mTracker.reflexivity(translateConstantBack((Rational) ((ConstantTerm) param).getValue(), width));
-//		}
-		// if (param instanceof ApplicationTerm) {
-		// ApplicationTerm apParam = (ApplicationTerm) param;
-		// if (apParam.getFunction().getName().equals("bv2nat")) {
-		// if (width.equals(apParam.getParameters()[0].getSort().getIndices())) {
-		// return apParam.getParameters()[0];
-		//// return mTracker.reflexivity(apParam.getParameters()[0]);
-		// }
-		//
-		// }
-		// }
+
 		return mTheory.term("nat2bv", width, null, param);
-		// return mTracker.reflexivity(mTheory.term("nat2bv", width, null, param));
 	}
 
 	/*

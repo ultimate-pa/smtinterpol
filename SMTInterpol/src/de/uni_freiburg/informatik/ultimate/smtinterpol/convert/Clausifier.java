@@ -1139,7 +1139,7 @@ public class Clausifier {
 	/*
 	 * Adds the Axiom that nat2bv(x) equals x mod width Thereby gives an interpretation for nat2bv
 	 */
-	private void addNat2BvAxiom(ApplicationTerm at, CCTerm ccTerm, SourceAnnotation source) {
+	private void addNat2BvAxiom(final ApplicationTerm at, final CCTerm ccTerm, final SourceAnnotation source) {
 		final int width = Integer.valueOf(at.getSort().getIndices()[0]);
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
@@ -1156,6 +1156,11 @@ public class Clausifier {
 
 			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 			buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
+		} else if (!isArgumentOfBv2NatIsIntern(arg)) {
+				final Term mod = normalizeMod(at.getParameters()[0], maxNumber);
+				// bv2nat(nat2bv(n)) = n mod 2^bvlen
+				final Term axiom = mTheory.term("=", mTheory.term("bv2nat", at), mod);
+				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 		}
 	}
 
@@ -1163,10 +1168,20 @@ public class Clausifier {
 		return (arg instanceof ApplicationTerm) && ((ApplicationTerm) arg).getFunction().getName().equals("bv2nat");
 	}
 
+	private boolean isArgumentOfBv2NatIsIntern(final Term arg) {
+		if (arg instanceof ApplicationTerm) {
+			if (((ApplicationTerm) arg).getParameters()[0] instanceof ApplicationTerm) {
+				if (((ApplicationTerm) ((ApplicationTerm) arg).getParameters()[0]).getFunction().isIntern()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 
 
 
-	private Term normalizeMod(Term lhs, Rational maxNumber) {
+	private Term normalizeMod(final Term lhs, final Rational maxNumber) {
 		final Term rhs = mTheory.rational(maxNumber, mTheory.getSort(SMTLIBConstants.INT));
 		final SMTAffineTerm arg0 = new SMTAffineTerm(lhs);
 		arg0.mod(maxNumber);
@@ -1181,7 +1196,7 @@ public class Clausifier {
 	 *
 	 * At this point, we assume that the parameter of bv2nat can only be an uninterpreted function symbol.
 	 */
-	private void addBv2NatAxioms(ApplicationTerm at, CCTerm ccTerm, SourceAnnotation source) {
+	private void addBv2NatAxioms(final ApplicationTerm at, final CCTerm ccTerm, final SourceAnnotation source) {
 		final int width = Integer.valueOf(at.getParameters()[0].getSort().getIndices()[0]);
 		final BigInteger two = BigInteger.valueOf(2);
 		// maximal representable number by a bit-vector of width "width"
@@ -1234,7 +1249,7 @@ public class Clausifier {
 		return laShared.getSummands().keySet().iterator().next();
 	}
 
-	private boolean isMonomial(Term t) {
+	private boolean isMonomial(final Term t) {
 		final Polynomial p = new Polynomial(t);
 		if (p.getSummands().size() != 1) {
 			return false;
@@ -1276,7 +1291,7 @@ public class Clausifier {
 		return laShared.getSummands().keySet().iterator().next();
 	}
 
-	private Term createMonomial(Map<Term, Integer> monomial) {
+	private Term createMonomial(final Map<Term, Integer> monomial) {
 		final Polynomial p = new Polynomial();
 		p.add(Rational.ONE, monomial);
 		return p.toTerm(
@@ -2351,7 +2366,7 @@ public class Clausifier {
 		mPropagateUnknownAux = propagateUnknownAux;
 	}
 
-	private boolean isBasicStablyInfinite(Sort sort) {
+	private boolean isBasicStablyInfinite(final Sort sort) {
 		assert sort == sort.getRealSort() && !sort.isSortVariable();
 		assert !sort.getSortSymbol().isDatatype() && !sort.isArraySort();
 		if (sort.equals(sort.getTheory().getBooleanSort()) || sort.isBitVecSort()) {
