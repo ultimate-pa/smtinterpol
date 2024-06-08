@@ -767,10 +767,7 @@ public class TermCompiler extends TermTransformer {
 				}
 				return;
 			}
-			case "nat2bv": {
-				setResult(convertedApp);
-				return;
-			}
+			case "nat2bv":
 			case "intand":
 			case "true":
 			case "false":
