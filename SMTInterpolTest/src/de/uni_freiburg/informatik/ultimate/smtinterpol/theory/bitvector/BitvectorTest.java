@@ -69,6 +69,7 @@ public class BitvectorTest {
 	public void setUp() throws Exception {
 		mSolver = new SMTInterpol(new DefaultLogger());
 		mSolver.setOption(":produce-models", Boolean.TRUE);
+		mSolver.setOption(":model-check-mode", Boolean.TRUE);
 		mSolver.setOption(":verbosity", 8);
 		mSolver.setLogic(Logics.ALL); // TODO declare numeric Sort if logic is bv
 		final Sort bv1 = mSolver.getTheory().getSort("BitVec", new String[] { "1" });

@@ -527,24 +527,23 @@ public class ModelEvaluator extends TermTransformer {
 		}
 
 		case SMTLIBConstants.BVUDIV: {
+			assert args.length == 2;
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
 			BigInteger value = bitvectorValue(args[0]);
-			for (int i = 1; i < args.length; i++) {
-				final BigInteger arg = bitvectorValue(args[i]);
-				value = arg.signum() == 0 ? modulo.subtract(BigInteger.ONE) : value.divide(arg);
-			}
+			final BigInteger arg = bitvectorValue(args[1]);
+			value = arg.signum() == 0 ? modulo.subtract(BigInteger.ONE) : value.divide(arg);
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
 
 		case SMTLIBConstants.BVUREM: {
+			assert args.length == 2;
 			BigInteger value = bitvectorValue(args[0]);
-			for (int i = 1; i < args.length; i++) {
-				final BigInteger arg = bitvectorValue(args[i]);
-				value = arg.signum() == 0 ? value : value.mod(arg);
-			}
+			final BigInteger arg = bitvectorValue(args[1]);
+			value = arg.signum() == 0 ? value : value.mod(arg);
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
 		case SMTLIBConstants.BVSDIV: {
+			assert args.length == 2;
 			final int signBit = getBitVecSize(fs.getReturnSort()) - 1;
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
 			BigInteger value = bitvectorValue(args[0]);
@@ -553,21 +552,20 @@ public class ModelEvaluator extends TermTransformer {
 				value = modulo.subtract(value);
 				isNegative = !isNegative;
 			}
-			for (int i = 1; i < args.length; i++) {
-				BigInteger arg = bitvectorValue(args[i]);
-				if (arg.testBit(signBit)) {
-					arg = modulo.subtract(arg);
-					isNegative = !isNegative;
-				}
-				value = arg.signum() == 0 ? modulo.subtract(BigInteger.ONE) : value.divide(arg);
+			BigInteger arg = bitvectorValue(args[1]);
+			if (arg.testBit(signBit)) {
+				arg = modulo.subtract(arg);
+				isNegative = !isNegative;
 			}
-			if (isNegative) {
-				value = modulo.subtract(value).mod(modulo);
+			value = arg.signum() == 0 ? modulo.subtract(BigInteger.ONE) : value.divide(arg);
+			if (isNegative && value.signum() != 0) {
+				value = modulo.subtract(value);
 			}
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
 
 		case SMTLIBConstants.BVSREM: {
+			assert args.length == 2;
 			final int signBit = getBitVecSize(fs.getReturnSort()) - 1;
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
 			BigInteger value = bitvectorValue(args[0]);
@@ -576,12 +574,35 @@ public class ModelEvaluator extends TermTransformer {
 				value = modulo.subtract(value);
 				isNegative = !isNegative;
 			}
-			for (int i = 1; i < args.length; i++) {
-				BigInteger arg = bitvectorValue(args[i]);
-				if (arg.testBit(signBit)) {
-					arg = modulo.subtract(arg);
-				}
-				value = arg.signum() == 0 ? value : value.mod(arg);
+			BigInteger arg = bitvectorValue(args[1]);
+			if (arg.testBit(signBit)) {
+				arg = modulo.subtract(arg);
+			}
+			value = arg.signum() == 0 ? value : value.mod(arg);
+			if (isNegative && value.signum() != 0) {
+				value = modulo.subtract(value);
+			}
+			return createBitvectorTerm(value, fs.getReturnSort());
+		}
+
+		case SMTLIBConstants.BVSMOD: {
+			assert args.length == 2;
+			final int signBit = getBitVecSize(fs.getReturnSort()) - 1;
+			final BigInteger modulo = getBVModulo(fs.getReturnSort());
+			final BigInteger origValue = bitvectorValue(args[0]);
+			BigInteger value = origValue;
+			boolean isNegative = false;
+			if (value.testBit(signBit)) {
+				value = value.subtract(modulo);
+			}
+			BigInteger arg = bitvectorValue(args[1]);
+			if (arg.testBit(signBit)) {
+				arg = modulo.subtract(arg);
+				isNegative = true;
+			}
+			value = arg.signum() == 0 ? origValue : value.mod(arg);
+			if (isNegative && value.signum() != 0) {
+				value = value.add(modulo).subtract(arg);
 			}
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
