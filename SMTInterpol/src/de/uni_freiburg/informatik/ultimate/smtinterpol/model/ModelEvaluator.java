@@ -547,10 +547,9 @@ public class ModelEvaluator extends TermTransformer {
 			final int signBit = getBitVecSize(fs.getReturnSort()) - 1;
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
 			BigInteger value = bitvectorValue(args[0]);
-			boolean isNegative = false;
-			if (value.testBit(signBit)) {
+			boolean isNegative = value.testBit(signBit);
+			if (isNegative) {
 				value = modulo.subtract(value);
-				isNegative = !isNegative;
 			}
 			BigInteger arg = bitvectorValue(args[1]);
 			if (arg.testBit(signBit)) {
@@ -569,10 +568,9 @@ public class ModelEvaluator extends TermTransformer {
 			final int signBit = getBitVecSize(fs.getReturnSort()) - 1;
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
 			BigInteger value = bitvectorValue(args[0]);
-			boolean isNegative = false;
-			if (value.testBit(signBit)) {
+			final boolean isNegative = value.testBit(signBit);
+			if (isNegative) {
 				value = modulo.subtract(value);
-				isNegative = !isNegative;
 			}
 			BigInteger arg = bitvectorValue(args[1]);
 			if (arg.testBit(signBit)) {
@@ -591,14 +589,13 @@ public class ModelEvaluator extends TermTransformer {
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
 			final BigInteger origValue = bitvectorValue(args[0]);
 			BigInteger value = origValue;
-			boolean isNegative = false;
 			if (value.testBit(signBit)) {
 				value = value.subtract(modulo);
 			}
 			BigInteger arg = bitvectorValue(args[1]);
-			if (arg.testBit(signBit)) {
+			final boolean isNegative = arg.testBit(signBit);
+			if (isNegative) {
 				arg = modulo.subtract(arg);
-				isNegative = true;
 			}
 			value = arg.signum() == 0 ? origValue : value.mod(arg);
 			if (isNegative && value.signum() != 0) {
