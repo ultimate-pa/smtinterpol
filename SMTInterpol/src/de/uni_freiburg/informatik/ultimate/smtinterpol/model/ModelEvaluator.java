@@ -853,8 +853,9 @@ public class ModelEvaluator extends TermTransformer {
 			if (fs.getName().equals(SMTLIBConstants.ROTATE_RIGHT)) {
 				rotateValue = size - rotateValue;
 			}
+			final BigInteger mask = BigInteger.ONE.shiftLeft(size).subtract(BigInteger.ONE);
 			BigInteger value = bitvectorValue(args[0]);
-			value = value.shiftLeft(rotateValue).or(value.shiftRight(size - rotateValue));
+			value = value.shiftLeft(rotateValue).or(value.shiftRight(size - rotateValue)).and(mask);
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
 

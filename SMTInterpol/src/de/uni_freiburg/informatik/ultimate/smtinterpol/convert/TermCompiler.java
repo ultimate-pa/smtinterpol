@@ -48,6 +48,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvToIntUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TermUtils;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
@@ -64,12 +65,7 @@ public class TermCompiler extends TermTransformer {
 
 	private IProofTracker mTracker;
 	private LogicSimplifier mUtils;
-	private final static String BITVEC_CONST_PATTERN = "bv\\d+";
-	// TODO make it an option
-	private final boolean mEagerMod = false;
 	private final boolean mDealWithBvToNatAndNatToBvInPreprocessing = true;
-
-	private final Map<Term, Term> mVarNameTranslation = new HashMap<>();
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -83,6 +79,11 @@ public class TermCompiler extends TermTransformer {
 			final TermCompiler compiler = (TermCompiler) engine;
 			final Term second = compiler.getConverted();
 			compiler.setResult(compiler.mTracker.transitivity(mFirst, second));
+		}
+
+		@Override
+		public String toString() {
+			return "Transitivity[" + mFirst + "]";
 		}
 	}
 
@@ -189,32 +190,6 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 
-//			if (term.getSort().isBitVecSort() && !fsym.isIntern()) {
-//				final Theory theory = appTerm.getTheory();
-//				final BvUtils bvUtils = new BvUtils(theory, mUtils);
-//				final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod,
-//						mDealWithBvToNatAndNatToBvInPreprocessing);
-//
-//				if (mDealWithBvToNatAndNatToBvInPreprocessing) {
-//					// if (mVarNameTranslation.containsKey(term)) {
-//					// setResult(mVarNameTranslation.get(term));
-//					// return;
-//					//
-//					// } else {
-//					// final Term intVar = theory.term(theory.declareFunction(
-//					// theory.createFreshTermVariable("2Int", theory.getSort("Int")).getName(), new Sort[0],
-//					// theory.getSort("Int")));
-//					//
-//					// final Term rhs = bvToIntUtils.nat2bv(intVar, appTerm.getSort().getIndices());
-//					//
-//					// final Term rewrite = mTracker.buildRewrite(appTerm, rhs, ProofConstants.RW_BVTOINT_CONST);
-//					// mVarNameTranslation.put(term, rewrite);
-//					// setResult(rewrite);
-//
-//					super.convert(bvToIntUtils.nat2bv(bvToIntUtils.bv2nat(term, true), appTerm.getSort().getIndices()));
-//					// }
-//				}
-//			}
 		} else if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
 			final Term res = SMTAffineTerm.convertConstant((ConstantTerm) term).toTerm(term.getSort());
 			setResult(mTracker.buildRewrite(term, res, ProofConstants.RW_CANONICAL_SUM));
@@ -222,11 +197,11 @@ public class TermCompiler extends TermTransformer {
 		} else if (term instanceof ConstantTerm && term.getSort().isBitVecSort()) {
 			final Theory theory = term.getTheory();
 			final BvUtils bvUtils = new BvUtils(theory, mUtils);
-			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod, mDealWithBvToNatAndNatToBvInPreprocessing);
-			setResult( mTracker.reflexivity(bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod)));
+			final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker,
+					mDealWithBvToNatAndNatToBvInPreprocessing);
+			setResult(mTracker.buildRewrite(term, bvToIntUtils.translateBvConstantTerm((ConstantTerm) term),
+					ProofConstants.RW_BVEVAL));
 			return;
-//			setResult(mTracker.buildRewrite(term, bvToIntUtils.translateBvConstantTerm((ConstantTerm) term, mEagerMod), ProofConstants.RW_CANONICAL_SUM));
-//			return;
 		} else if (term instanceof TermVariable) {
 			setResult(mTracker.reflexivity(term));
 			return;
@@ -238,12 +213,17 @@ public class TermCompiler extends TermTransformer {
 		return (term instanceof ApplicationTerm) && ((ApplicationTerm) term).getFunction().getName().equals("nat2bv");
 	}
 
+	private void repush(Term termWithProof) {
+		enqueueWalker(new TransitivityStep(termWithProof));
+		pushTerm(mTracker.getProvedTerm(termWithProof));
+	}
+
 	@Override
 	public void convertApplicationTerm(final ApplicationTerm appTerm, final Term[] args) {
 		final FunctionSymbol fsym = appTerm.getFunction();
 		final Theory theory = appTerm.getTheory();
 		final BvUtils bvUtils = new BvUtils(theory, mUtils);
-		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker, mEagerMod,
+		final BvToIntUtils bvToIntUtils = new BvToIntUtils(theory, mUtils, bvUtils, mTracker,
 				mDealWithBvToNatAndNatToBvInPreprocessing);
 		Term convertedApp = mTracker.congruence(mTracker.reflexivity(appTerm), args);
 
@@ -269,10 +249,6 @@ public class TermCompiler extends TermTransformer {
 			return;
 		}
 		if (fsym.isIntern()) {
-			if (fsym.getName().matches(BITVEC_CONST_PATTERN)) {
-				setResult(bvToIntUtils.translateBvConstant(fsym, convertedApp, mEagerMod));
-				return;
-			}
 			switch (fsym.getName()) {
 			case "not":
 				setResult(mUtils.convertNot(convertedApp));
@@ -293,17 +269,9 @@ public class TermCompiler extends TermTransformer {
 				setResult(mUtils.convertIte(convertedApp));
 				return;
 			case "=":
-				if (params[0].getSort().isBitVecSort()) {
-					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod));
-					return;
-				}
 				setResult(mUtils.convertEq(convertedApp));
 				return;
 			case "distinct":
-				if (params[0].getSort().isBitVecSort()) {
-					pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod));
-					return;
-				}
 				setResult(mUtils.convertDistinct(convertedApp));
 				return;
 			case "<=": {
@@ -428,6 +396,15 @@ public class TermCompiler extends TermTransformer {
 						final Rational div = constDiv(arg0.getConstant(), divisor);
 						final Term rhs = div.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_CONST);
+						setResult(mTracker.transitivity(convertedApp, rewrite));
+					} else if (TermUtils.isApplication(SMTLIBConstants.DIV, params[0])) {
+						final Term[] innerDivParams = ((ApplicationTerm) params[0]).getParameters();
+						assert innerDivParams.length == 2;
+						final Polynomial newDivisor = new Polynomial();
+						newDivisor.add(divisor, innerDivParams[1]);
+						final Term rhs = theory.term(SMTLIBConstants.DIV,
+								innerDivParams[0], newDivisor.toTerm(innerDivParams[1].getSort()));
+						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_DIV);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
 					} else {
 						setResult(convertedApp);
@@ -587,62 +564,48 @@ public class TermCompiler extends TermTransformer {
 				break;
 			}
 			case "bvmul": {
-				pushTerm(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateBvArithmetic(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvsub":
 			case "bvadd": {
-				pushTerm(bvToIntUtils.translateBvArithmetic(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateBvArithmetic(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvneg": {
-				pushTerm(bvToIntUtils.translateBvNeg(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateBvNeg(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvnot": {
-				pushTerm(bvToIntUtils.translateBvNot(mTracker, appTerm, convertedApp, false));
+				repush(bvToIntUtils.translateBvNot(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "concat": {
-				pushTerm(bvToIntUtils.translateConcat(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateConcat(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvudiv": {
-				pushTerm(bvToIntUtils.translateBvudiv(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateBvudiv(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvurem": {
-				pushTerm(bvToIntUtils.translateBvurem(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateBvurem(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvlshr": {
-				pushTerm(bvToIntUtils.translateBvlshr(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateBvlshr(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvshl": {
-				pushTerm(bvToIntUtils.translateBvshl(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateBvshl(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvand": {
-				final Term bitMaskEliminated = bvUtils.transformBitwise(params, fsym);
-				if (bitMaskEliminated instanceof ConstantTerm) {
-					setResult(bitMaskEliminated);
-				} else {
-					pushTerm(bvToIntUtils.translateBvandSum(mTracker, appTerm, bvUtils.transformBitwise(params, fsym),
-							mEagerMod));
-				}
+				repush(bvToIntUtils.translateBvandSum(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvor": { // x or y = (x + y ) - (x and y)
-				final Term bitMaskEliminated = bvUtils.transformBitwise(params, fsym);
-				if (bitMaskEliminated instanceof ConstantTerm) {
-					setResult(bitMaskEliminated);
-				} else {
-					final Term intor =
-							bvToIntUtils.translateBvor(mTracker, appTerm, bvUtils.transformBitwise(params, fsym),
-							mEagerMod);
-					pushTerm(intor);
-				}
+				repush(bvToIntUtils.translateBvor(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "bvuge":
@@ -653,34 +616,44 @@ public class TermCompiler extends TermTransformer {
 			case "bvsgt":
 			case "bvsge":
 			case "bvult": {
-				pushTerm(bvToIntUtils.translateRelations(mTracker, appTerm, convertedApp, mEagerMod));
+				repush(bvToIntUtils.translateRelations(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "extract": {
-				pushTerm(bvToIntUtils.translateExtract(mTracker, appTerm, convertedApp, true));
+				repush(bvToIntUtils.translateExtract(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case "repeat": {
-				pushTerm(bvUtils.transformRepeat(params, fsym, convertedApp));
+				final Term rhs = bvUtils.transformRepeat(params, fsym, convertedApp);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_EXPAND_DEF);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "zero_extend": {
 				// abbreviates (concat ((_ repeat i) #b0) t)
 				if (fsym.getIndices()[0].equals("0")) {
-					setResult(params[0]);
+					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), params[0],
+							ProofConstants.RW_ZEROEXTEND);
+					setResult(mTracker.transitivity(convertedApp, rewrite));
 					return;
 				} else {
 					String repeat = "#b0";
 					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
 						repeat = repeat + "0";
 					}
-					pushTerm(theory.term("concat", theory.binary(repeat), params[0]));
+					final Term concat = theory.term("concat", theory.binary(repeat), params[0]);
+					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), concat,
+							ProofConstants.RW_ZEROEXTEND);
+					repush(mTracker.transitivity(convertedApp, rewrite));
 					return;
 				}
 			}
 			case "sign_extend": {
 				if (fsym.getIndices()[0].equals("0")) {
-					setResult(params[0]);
+					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), params[0],
+							ProofConstants.RW_SIGNEXTEND);
+					setResult(mTracker.transitivity(convertedApp, rewrite));
 					return;
 				} else {
 					final String[] indices = new String[2];
@@ -693,68 +666,109 @@ public class TermCompiler extends TermTransformer {
 					for (int i = 0; i < difference; i++) {
 						repeat = theory.term("concat", theory.term("extract", indices, null, params[0]), repeat);
 					}
-					pushTerm(repeat);
+					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), repeat,
+							ProofConstants.RW_SIGNEXTEND);
+					repush(mTracker.transitivity(convertedApp, rewrite));
 					return;
-
 				}
 
 			}
 			case "rotate_left": {
-				pushTerm(bvUtils.transformRotateleft(params, fsym, convertedApp));
+				final Term rhs = bvUtils.transformRotateleft(params, fsym, convertedApp);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_BVBLAST);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "rotate_right": {
-				pushTerm(bvUtils.transformRotateright(params, fsym, convertedApp));
+				final Term rhs = bvUtils.transformRotateright(params, fsym, convertedApp);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_BVBLAST);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			// From here on all bv function do pushTerm
 			case "bvnand": {
 				// (bvnand s t) abbreviates (bvnot (bvand s t))
-				pushTerm(theory.term("bvnot", theory.term("bvand", params)));
+				final Term rhs = theory.term("bvnot", theory.term("bvand", params));
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_BVBLAST);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvnor": {
 				// (bvnor s t) abbreviates (bvnot (bvor s t))
-				pushTerm(theory.term("bvnot", theory.term("bvor", params)));
+				final Term rhs = theory.term("bvnot", theory.term("bvor", params));
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_BVBLAST);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvxor": { // x or y = (x + y ) - (x and y)
 				assert params.length == 2;
-				pushTerm(bvUtils.transformBvxor(params));
+				final Term rhs = bvUtils.transformBvxor(params);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_BVBLAST);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvxnor": {
 				assert params.length == 2;
-				pushTerm(bvUtils.transformBvxnor(params));
+				final Term rhs = bvUtils.transformBvxnor(params);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_BVBLAST);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvcomp": {
-				pushTerm(bvUtils.transformBvcomp(params));
+				final Term rhs = bvUtils.transformBvcomp(params);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_EXPAND_DEF);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 
 			case "bvsdiv": {
-				pushTerm(bvUtils.transformBvsdiv(params));
+				final Term rhs = bvUtils.transformBvsdiv(params);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_EXPAND_DEF);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvsrem": {
-				pushTerm(bvUtils.transformBvsrem(params));
+				final Term rhs = bvUtils.transformBvsrem(params);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_EXPAND_DEF);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvsmod": {
-				pushTerm(bvUtils.transformBvsmod(params));
+				final Term rhs = bvUtils.transformBvsmod(params);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_EXPAND_DEF);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvashr": {
-				pushTerm(bvUtils.transformBvashr(params));
+				final Term rhs = bvUtils.transformBvashr(params);
+				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+						ProofConstants.RW_EXPAND_DEF);
+				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bv2nat": {
-				setResult(mTracker.reflexivity(bvToIntUtils.bv2nat(params[0], mEagerMod)));
+				final Term rhs = bvToIntUtils.bv2nat(params[0], true);
+				if (rhs == mTracker.getProvedTerm(convertedApp)) {
+					setResult(convertedApp);
+				} else {
+					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
+							ProofConstants.RW_BV2NAT);
+					repush(mTracker.transitivity(convertedApp, rewrite));
+				}
 				return;
 			}
 			case "nat2bv": {
-				setResult(mTracker.reflexivity(bvToIntUtils.nat2bv(params[0], appTerm.getSort().getIndices())));
+				setResult(convertedApp);
 				return;
 			}
 			case "intand":

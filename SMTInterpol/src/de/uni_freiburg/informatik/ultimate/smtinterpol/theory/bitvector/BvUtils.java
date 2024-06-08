@@ -822,39 +822,17 @@ public class BvUtils {
 
 	public Term transformBvcomp(final Term[] params) {
 		// bit comparator: equals #b1 iff all bits are equal
-		final int size = Integer.parseInt(params[0].getSort().getIndices()[0]);
-		final Term[] bvxnor = new Term[size];
-		for (int i = 0; i < size; i++) {
-			final String[] selectIndices = new String[2];
-			selectIndices[0] = String.valueOf(i);
-			selectIndices[1] = String.valueOf(i);
-
-			final FunctionSymbol extractLhs = mTheory.getFunctionWithResult("extract", selectIndices.clone(), null,
-					params[0].getSort());
-			final FunctionSymbol extractRhs = mTheory.getFunctionWithResult("extract", selectIndices.clone(), null,
-					params[0].getSort());
-			final Term extrctLhs = mTheory.term(extractLhs, params[0]);
-			final Term extrctRhs = mTheory.term(extractRhs, params[1]);
-
-			bvxnor[i] = mTheory.term("bvor", mTheory.term("bvand", extrctLhs, extrctRhs),
-					mTheory.term("bvand", mTheory.term("bvnot", extrctLhs), mTheory.term("bvnot", extrctRhs)));
-		}
-		if (size == 1) {
-			return bvxnor[0];
-		}
-		Term result = bvxnor[0];
-		for (int i = 1; i < size; i++) {
-			result = mTheory.term("bvand", bvxnor[i], result);
-		}
-		return result;
+		final Sort bvSort1 = mTheory.getSort(SMTLIBConstants.BITVEC, new String[] { "1" });
+		return mTheory.term("ite", mTheory.term("=", params[0], params[1]), mTheory.constant(BigInteger.ONE, bvSort1),
+				mTheory.constant(BigInteger.ZERO, bvSort1));
 	}
 
 	public Term transformBvsdiv(final Term[] params) {
 		final String[] indices = new String[2];
 		indices[0] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
 		indices[1] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
-		final Term msbLhs = mTheory.term( "extract", indices, null,params[0]);
-		final Term msbRhs = mTheory.term( "extract", indices,null, params[1]);
+		final Term msbLhs = mTheory.term("extract", indices, null, params[0]);
+		final Term msbRhs = mTheory.term("extract", indices, null, params[1]);
 
 		final Term zeroVec = mTheory.binary("#b0");
 		final Term oneVec =  mTheory.binary("#b1");
@@ -871,7 +849,8 @@ public class BvUtils {
 				mTheory.term( "bvudiv",
 						mTheory.term( "bvneg",  params[0]),
 						params[1]));
-		final Term thenTerm3 = mTheory.term( "bvneg",				mTheory.term( "bvudiv",  params[0],
+		final Term thenTerm3 = mTheory.term("bvneg",
+				mTheory.term("bvudiv", params[0],
 						mTheory.term("bvneg",  params[1])));
 
 		final Term elseTerm = mTheory.term( "bvudiv",

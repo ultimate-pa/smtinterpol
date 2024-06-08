@@ -53,16 +53,13 @@ public class SystemTest {
 		final OptionMap options = new OptionMap(logger, true);
 		final SMTInterpol solver = new SMTInterpol(options);
 		final TestEnvironment testEnv = new TestEnvironment(solver, options);
-		if (!f.getAbsolutePath().contains("epr") && !f.getAbsolutePath().contains("bv/")) {
+		if (!f.getAbsolutePath().contains("epr")) {
 			solver.setOption(":proof-check-mode", true);
 			solver.setOption(":proof-level", ProofMode.LOWLEVEL);
 			if (!f.getAbsolutePath().contains("quant")) {
 				solver.setOption(":model-check-mode", true);
 			}
 			solver.setOption(":interpolant-check-mode", true);
-		}
-		if (f.getAbsolutePath().contains("bv/")) {
-			solver.setOption(":model-check-mode", true);
 		}
 		if (f.getAbsolutePath().contains("test" + File.separatorChar + "epr")) {
 			solver.setOption(SMTInterpolConstants.EPR, true);
