@@ -39,10 +39,12 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.model.ArraySortInterpretation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.BitVectorInterpretation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.NumericSortInterpretation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ComputeSCC;
 
 public class ModelBuilder {
@@ -275,6 +277,11 @@ public class ModelBuilder {
 			final FunctionSymbol fs = base.getFunctionSymbol();
 			if (!fs.isIntern() || isUndefinedFor(fs, args)) {
 				model.map(fs, args.toArray(new Term[args.size()]), value);
+			} else if (fs.getName() == SMTInterpolConstants.DIFF) {
+				final ArraySortInterpretation arraySort = (ArraySortInterpretation) model
+						.provideSortInterpretation(fs.getParameterSorts()[0]);
+				assert args.size() == 2;
+				arraySort.addDiff(args.getFirst(), args.getLast(), value);
 			}
 		}
 	}
