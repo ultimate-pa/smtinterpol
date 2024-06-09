@@ -455,7 +455,43 @@ public class BvToIntUtils {
 		return mTheory.term("+", modTerm, signBit.negate().toTerm(mInteger));
 	}
 
+	public Term bitBlastAndConstant(final Term lhs, final Rational rhs, int width) {
+		assert rhs.isIntegral();
+		BigInteger mask = rhs.numerator();
+		final Polynomial result = new Polynomial();
+
+		while (true) {
+			final int low = mask.getLowestSetBit();
+			if (low >= width || low < 0) {
+				break;
+			}
+			final BigInteger powLow = BigInteger.ONE.shiftLeft(low);
+			mask = mask.add(powLow);
+			if (low == 0) {
+				result.add(Rational.ONE, lhs);
+			} else {
+				final Rational powLowRat = Rational.valueOf(powLow, BigInteger.ONE);
+				result.add(powLowRat, mTheory.term(SMTLIBConstants.DIV, lhs, powLowRat.toTerm(mInteger)));
+			}
+			final int high = mask.getLowestSetBit();
+			if (high >= width || high < 0) {
+				break;
+			}
+			final BigInteger powHigh = BigInteger.ONE.shiftLeft(high);
+			mask = mask.subtract(powHigh);
+			final Rational powHighRat = Rational.valueOf(powHigh, BigInteger.ONE);
+			result.add(powHighRat.negate(), mTheory.term(SMTLIBConstants.DIV, lhs, powHighRat.toTerm(mInteger)));
+		}
+		return result.toTerm(mInteger);
+	}
+
 	public Term bitBlastAnd(final Term lhs, final Term rhs, int width) {
+		if (rhs instanceof ConstantTerm) {
+			return bitBlastAndConstant(lhs, (Rational) ((ConstantTerm) rhs).getValue(), width);
+		}
+		if (lhs instanceof ConstantTerm) {
+			return bitBlastAndConstant(rhs, (Rational) ((ConstantTerm) lhs).getValue(), width);
+		}
 		final Term one = mTheory.rational(Rational.ONE, mInteger);
 		final Term zero = mTheory.rational(Rational.ZERO, mInteger);
 		final Polynomial poly = new Polynomial();
