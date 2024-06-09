@@ -209,10 +209,6 @@ public class TermCompiler extends TermTransformer {
 		super.convert(term);
 	}
 
-	private boolean isNat2BvApplication(final Term term) {
-		return (term instanceof ApplicationTerm) && ((ApplicationTerm) term).getFunction().getName().equals("nat2bv");
-	}
-
 	private void repush(Term termWithProof) {
 		enqueueWalker(new TransitivityStep(termWithProof));
 		pushTerm(mTracker.getProvedTerm(termWithProof));
@@ -244,8 +240,7 @@ public class TermCompiler extends TermTransformer {
 			final Term expanded = unletter.unlet(fsym.getDefinition());
 			final Term expandedProof =
 					mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), expanded, ProofConstants.RW_EXPAND_DEF);
-			enqueueWalker(new TransitivityStep(mTracker.transitivity(convertedApp, expandedProof)));
-			pushTerm(expanded);
+			repush(mTracker.transitivity(convertedApp, expandedProof));
 			return;
 		}
 		if (fsym.isIntern()) {
@@ -402,10 +397,14 @@ public class TermCompiler extends TermTransformer {
 						assert innerDivParams.length == 2;
 						final Polynomial newDivisor = new Polynomial();
 						newDivisor.add(divisor, innerDivParams[1]);
-						final Term rhs = theory.term(SMTLIBConstants.DIV,
-								innerDivParams[0], newDivisor.toTerm(innerDivParams[1].getSort()));
-						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_DIV);
-						setResult(mTracker.transitivity(convertedApp, rewrite));
+						if (newDivisor.isConstant() && !newDivisor.isZero()) {
+							final Term rhs = theory.term(SMTLIBConstants.DIV, innerDivParams[0],
+									newDivisor.toTerm(innerDivParams[1].getSort()));
+							final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_DIV);
+							setResult(mTracker.transitivity(convertedApp, rewrite));
+						} else {
+							setResult(convertedApp);
+						}
 					} else {
 						setResult(convertedApp);
 					}
