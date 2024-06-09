@@ -271,12 +271,12 @@ java -Xms1536m -Xmx50g -da -dsa -cp smtinterpol.jar de.uni_freiburg.informatik.u
         <echo file="${tmpdir}/smtinterpol" append="false">#!/bin/bash
 # Run script for SMTInterpol for SMT-COMP 2024+
 SCRIPTDIR=`dirname $$0`
-java -da -dsa -jar $$SCRIPTDIR/smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@"
+java -da -dsa -jar $$SCRIPTDIR/smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@" 2>error.log
 </echo>
         <echo file="${tmpdir}/smtinterpol-bv" append="false">#!/bin/bash
 # Run script for SMTInterpol for SMT-COMP 2024+ for bitvector theories
 SCRIPTDIR=`dirname $$0`
-java -da -dsa -jar $$SCRIPTDIR/smtinterpol.jar -w -o continue-on-error=false -o model-check-mode "$$@"
+java -da -dsa -jar $$SCRIPTDIR/smtinterpol.jar -w -o continue-on-error=false -o proof-check-mode -o model-check-mode "$$@" 2>error.log
 </echo>
         <copy file="${jar.outdir}/${jar.basename}.jar" tofile="${tmpdir}/smtinterpol.jar"/>
         <tar destfile="${jar.outdir}/smtinterpol-${version}.tar.gz" compression="gzip">
