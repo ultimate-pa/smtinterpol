@@ -1166,7 +1166,8 @@ public class Clausifier {
 	private void addNat2BvAxiom(final ApplicationTerm at, final CCTerm ccTerm, final SourceAnnotation source) {
 		assert at.getFunction().getName() == SMTInterpolConstants.NAT2BV;
 		final Term arg = at.getParameters()[0];
-		if (TermUtils.isApplication(SMTInterpolConstants.BV2NAT, arg)) {
+		if (TermUtils.isApplication(SMTInterpolConstants.BV2NAT, arg)
+				&& ((ApplicationTerm) arg).getParameters()[0].getSort() == at.getSort()) {
 			final Term argarg = ((ApplicationTerm) arg).getParameters()[0];
 			final Term axiom = mTheory.term("=", at, argarg);
 			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_BV2NAT2BV), source);
