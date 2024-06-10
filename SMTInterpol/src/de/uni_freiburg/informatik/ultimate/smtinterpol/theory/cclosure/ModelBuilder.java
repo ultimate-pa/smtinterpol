@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -188,7 +189,10 @@ public class ModelBuilder {
 								final Term arg = ((ApplicationTerm) t).getParameters()[0];
 								final Rational v = mEvaluator.evaluate(arg, mTheory);
 								assert v.isIntegral();
-								value = BitVectorInterpretation.BV(v.numerator(), t.getSort());
+								BigInteger vInt = v.numerator();
+								final int width = Integer.parseInt(t.getSort().getIndices()[0]);
+								vInt = vInt.mod(BigInteger.ONE.shiftLeft(width));
+								value = BitVectorInterpretation.BV(vInt, t.getSort());
 								break;
 							}
 						}
