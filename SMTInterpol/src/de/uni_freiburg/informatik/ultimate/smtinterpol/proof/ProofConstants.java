@@ -167,6 +167,7 @@ public interface ProofConstants {
 	public static final Annotation TAUT_BV2NAT = new Annotation(":bv2nat", null);
 	public static final Annotation RW_BVADD2INT = new Annotation(":bvadd2int", null);
 	public static final Annotation RW_BVBLAST = new Annotation(":bvblast", null);
+	public static final Annotation RW_BV_EXPAND_DEF = new Annotation(":bvexpand", null);
 	public static final Annotation RW_SIGNEXTEND = new Annotation(":signextend", null);
 	public static final Annotation RW_ZEROEXTEND = new Annotation(":zeroextend", null);
 

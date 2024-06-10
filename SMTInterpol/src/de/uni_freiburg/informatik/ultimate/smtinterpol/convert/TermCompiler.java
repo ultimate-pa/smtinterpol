@@ -626,7 +626,7 @@ public class TermCompiler extends TermTransformer {
 			case "repeat": {
 				final Term rhs = bvUtils.transformRepeat(params, fsym, convertedApp);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_EXPAND_DEF);
+						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
@@ -723,7 +723,7 @@ public class TermCompiler extends TermTransformer {
 			case "bvcomp": {
 				final Term rhs = bvUtils.transformBvcomp(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_EXPAND_DEF);
+						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
@@ -731,28 +731,28 @@ public class TermCompiler extends TermTransformer {
 			case "bvsdiv": {
 				final Term rhs = bvUtils.transformBvsdiv(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_EXPAND_DEF);
+						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvsrem": {
 				final Term rhs = bvUtils.transformBvsrem(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_EXPAND_DEF);
+						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvsmod": {
 				final Term rhs = bvUtils.transformBvsmod(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_EXPAND_DEF);
+						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
 			case "bvashr": {
 				final Term rhs = bvUtils.transformBvashr(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_EXPAND_DEF);
+						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
