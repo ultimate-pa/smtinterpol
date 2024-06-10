@@ -392,14 +392,15 @@ public class TermCompiler extends TermTransformer {
 						final Term rhs = div.toTerm(convertedApp.getSort());
 						final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_CONST);
 						setResult(mTracker.transitivity(convertedApp, rewrite));
-					} else if (TermUtils.isApplication(SMTLIBConstants.DIV, params[0])) {
+					} else if (TermUtils.isApplication(SMTLIBConstants.DIV, params[0])
+							&& !divisor.equals(Rational.ZERO)) {
 						final Term[] innerDivParams = ((ApplicationTerm) params[0]).getParameters();
 						assert innerDivParams.length == 2;
-						final Polynomial newDivisor = new Polynomial();
-						newDivisor.add(divisor, innerDivParams[1]);
-						if (newDivisor.isConstant() && !newDivisor.isZero()) {
+						if ((innerDivParams[1] instanceof ConstantTerm)
+								&& ((Rational) ((ConstantTerm) innerDivParams[1]).getValue()).signum() > 0) {
+							final Rational innerDivisor = (Rational) ((ConstantTerm) innerDivParams[1]).getValue();
 							final Term rhs = theory.term(SMTLIBConstants.DIV, innerDivParams[0],
-									newDivisor.toTerm(innerDivParams[1].getSort()));
+									divisor.mul(innerDivisor).toTerm(params[1].getSort()));
 							final Term rewrite = mTracker.buildRewrite(lhs, rhs, ProofConstants.RW_DIV_DIV);
 							setResult(mTracker.transitivity(convertedApp, rewrite));
 						} else {
