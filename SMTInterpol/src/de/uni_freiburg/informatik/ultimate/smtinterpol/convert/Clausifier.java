@@ -99,6 +99,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTh
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TermUtils;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**
@@ -1009,6 +1010,25 @@ public class Clausifier {
 		return ccterm;
 	}
 
+	/**
+	 * Enqueue the build of the given CCTerm. This should only be used in
+	 * addTermAxioms or their descendants to trigger the creation of more CCTerms.
+	 * These functions are not allowed to recurse into createCCTerm, as they may be
+	 * called from inside createCCTerm.
+	 *
+	 * @param term   The term for which we should build.
+	 * @param source The source annotations to map lemmas to their corresponding
+	 *               input clause.
+	 */
+	private void buildCCTerm(final Term term, final SourceAnnotation source) {
+		pushOperation(new Operation() {
+			@Override
+			public void perform() {
+				new CCTermBuilder(source).convert(term);
+			}
+		});
+	}
+
 	public int getTermFlags(final Term term) {
 		final Integer flags = mTermDataFlags.get(term);
 		return flags == null ? 0 : (int) flags;
@@ -1144,46 +1164,21 @@ public class Clausifier {
 	 * Adds the Axiom that nat2bv(x) equals x mod width Thereby gives an interpretation for nat2bv
 	 */
 	private void addNat2BvAxiom(final ApplicationTerm at, final CCTerm ccTerm, final SourceAnnotation source) {
-		final int width = Integer.valueOf(at.getSort().getIndices()[0]);
-		final BigInteger two = BigInteger.valueOf(2);
-		// maximal representable number by a bit-vector of width "width"
-		final Rational maxNumber = Rational.valueOf(two.pow(width), BigInteger.ONE);
+		assert at.getFunction().getName() == SMTInterpolConstants.NAT2BV;
 		final Term arg = at.getParameters()[0];
-
-		if (!isBv2NatApplication(arg)) {
-			final Term mod = normalizeMod(at.getParameters()[0], maxNumber);
-			// bv2nat(nat2bv(n)) = n mod 2^bvlen
-			final Term axiom = mTheory.term("=", mTheory.term("bv2nat", at), mod);
-
+		if (TermUtils.isApplication(SMTInterpolConstants.BV2NAT, arg)) {
+			final Term argarg = ((ApplicationTerm) arg).getParameters()[0];
+			final Term axiom = mTheory.term("=", at, argarg);
+			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_BV2NAT2BV), source);
+		} else {
 			// nat2bv(n) = nat2bv(n mod 2^bvlen)
-			final Term axiom2 = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
-
+			final int width = Integer.valueOf(at.getSort().getIndices()[0]);
+			final Rational modulus = Rational.valueOf(BigInteger.ONE.shiftLeft(width), BigInteger.ONE);
+			final Term mod = normalizeMod(at.getParameters()[0], modulus);
+			final Term axiom = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
 			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
-			buildClause(mTracker.tautology(axiom2, ProofConstants.TAUT_NAT2BV), source);
-		} else if (!isArgumentOfBv2NatIsIntern(arg)) {
-				final Term mod = normalizeMod(at.getParameters()[0], maxNumber);
-				// bv2nat(nat2bv(n)) = n mod 2^bvlen
-				final Term axiom = mTheory.term("=", mTheory.term("bv2nat", at), mod);
-				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 		}
 	}
-
-	private boolean isBv2NatApplication(final Term arg) {
-		return (arg instanceof ApplicationTerm) && ((ApplicationTerm) arg).getFunction().getName().equals("bv2nat");
-	}
-
-	private boolean isArgumentOfBv2NatIsIntern(final Term arg) {
-		if (arg instanceof ApplicationTerm) {
-			if (((ApplicationTerm) arg).getParameters()[0] instanceof ApplicationTerm) {
-				if (((ApplicationTerm) ((ApplicationTerm) arg).getParameters()[0]).getFunction().isIntern()) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-
 
 	private Term normalizeMod(final Term lhs, final Rational maxNumber) {
 		final Term rhs = mTheory.rational(maxNumber, mTheory.getSort(SMTLIBConstants.INT));
@@ -1195,63 +1190,64 @@ public class Clausifier {
 	}
 
 	/*
-	 * These method adds the bitvector axiom to the Clausifier of the form {@pre
-	 * (nat2bv (bv2nat b) k) = b}.
-	 *
-	 * But only for b that ar not nat2bv terms themselves.
-	 */
-	private void addBitvectorAxiom(final Term term, final CCTerm ccTerm, final SourceAnnotation source) {
-		if (term instanceof ApplicationTerm) {
-			if (((ApplicationTerm) term).getFunction().getName().equals("nat2bv")) {
-				return;
-			}
-		}
-
-		final Sort sort = term.getSort();
-		final Term bv2nat2bv = mTheory.term("nat2bv", sort.getIndices(), null, mTheory.term("bv2nat", term));
-
-		final Term axiom = mTheory.term("=", bv2nat2bv, term);
-		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_BV2NAT2BV), source);
-	}
-
-	/*
 	 * These method adds Axiom to the Clausifier of the form 0 leq ccTerm leq maxNumber
 	 *
 	 * At this point, we assume that the parameter of bv2nat can only be an uninterpreted function symbol.
 	 */
 	private void addBv2NatAxioms(final ApplicationTerm at, final CCTerm ccTerm, final SourceAnnotation source) {
+		assert at.getFunction().getName() == SMTInterpolConstants.BV2NAT;
 		final int width = Integer.valueOf(at.getParameters()[0].getSort().getIndices()[0]);
-		final BigInteger two = BigInteger.valueOf(2);
-		// maximal representable number by a bit-vector of width "width"
-		final Term zero = Rational.ZERO.toTerm(mTheory.getSort(SMTLIBConstants.INT));
+		// maxNumber = 2 ^ width
+		final Rational modulus = Rational.valueOf(BigInteger.ONE.shiftLeft(width), BigInteger.ONE);
 
-		createCCTerm(at.getParameters()[0], source);
-
-
-		final SMTAffineTerm leq0LowerBound = new SMTAffineTerm( at);
-		final SMTAffineTerm leq0UpperBound = new SMTAffineTerm(at);
-		leq0UpperBound.add(Rational.valueOf(two.pow(width), BigInteger.ONE).sub(Rational.ONE).negate());
-		leq0LowerBound.negate();
-		final Term axiomLowerBound2 = mTheory.term("<=", leq0LowerBound.toTerm(mTheory.getSort(SMTLIBConstants.INT)), zero);
-		final Term axiomUpperBound2 = mTheory.term("<=", leq0UpperBound.toTerm(mTheory.getSort(SMTLIBConstants.INT)), zero);
-
-		buildClause(mTracker.tautology(axiomLowerBound2, ProofConstants.TAUT_BV2NATLOW), source); // TODO Proof
-		buildClause(mTracker.tautology(axiomUpperBound2, ProofConstants.TAUT_BV2NATUP), source);
-
-
-		//bv2nat nat2bv == mod
 		final Term arg = at.getParameters()[0];
-		final Rational maxNumber = Rational.valueOf(two.pow(width), BigInteger.ONE);
-		if(arg instanceof ApplicationTerm) {
-			if(((ApplicationTerm)arg).getFunction().getName().equals("nat2bv")) {
-				final Term mod = normalizeMod(((ApplicationTerm) arg).getParameters()[0], maxNumber);
-				// bv2nat(nat2bv(n)) = n mod 2^bvlen
-				final Term axiom = mTheory.term("=", at, mod);
+		if (TermUtils.isApplication(SMTInterpolConstants.NAT2BV, arg)) {
+			// bv2nat nat2bv n == n mod maxNumber
 
-				buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
-			}
+			final Term mod = normalizeMod(((ApplicationTerm) arg).getParameters()[0], modulus);
+			final Term axiom = mTheory.term("=", at, mod);
+			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
+		} else {
+			// 0 <= bv2nat b < maxNumber
+			final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);
+			final Polynomial leq0LowerBound = new Polynomial();
+			leq0LowerBound.add(Rational.MONE, at);
+			final Polynomial leq0UpperBound = new Polynomial(at);
+			leq0UpperBound.add(modulus.sub(Rational.ONE).negate());
+			final Term zero = Rational.ZERO.toTerm(intSort);
+			final Term axiomLowerBound2 = mTheory.term("<=", leq0LowerBound.toTerm(intSort), zero);
+			final Term axiomUpperBound2 = mTheory.term("<=", leq0UpperBound.toTerm(intSort), zero);
+
+			buildClause(mTracker.tautology(axiomLowerBound2, ProofConstants.TAUT_BV2NATLOW), source);
+			buildClause(mTracker.tautology(axiomUpperBound2, ProofConstants.TAUT_BV2NATHIGH), source);
 		}
+	}
 
+	/*
+	 * These method creates (bv2nat a) and (nat2bv (bv2nat a)) terms for a bitvector
+	 * a, so that the corresponding axioms are created.
+	 *
+	 * But only for bitvectors a that are not nat2bv terms themselves.
+	 */
+	private void addBitvectorAxiom(final Term term, final CCTerm ccTerm, final SourceAnnotation source) {
+		if (TermUtils.isApplication(SMTInterpolConstants.NAT2BV, term)) {
+			final Term arg = ((ApplicationTerm) term).getParameters()[0];
+			if (TermUtils.isApplication(SMTInterpolConstants.BV2NAT, arg)
+					&& ((ApplicationTerm) arg).getParameters()[0].getSort() == term.getSort()) {
+				// this is a nat2bv(bv2nat(x)) term with matching sorts.
+				// We don't do anything.
+				return;
+			}
+
+			// this is a nat2bv(y) term but y is not a matching bv2nat. Create the matching
+			// bv2nat term.
+			buildCCTerm(term.getTheory().term(SMTInterpolConstants.BV2NAT, term), source);
+		} else {
+			// Not a nat2bv bitvector term. Create nat2bv(bv2nat(term)).
+			final Term bv2nat = term.getTheory().term(SMTInterpolConstants.BV2NAT, term);
+			buildCCTerm(term.getTheory().term(SMTInterpolConstants.NAT2BV, term.getSort().getIndices(), null, bv2nat),
+					source);
+		}
 	}
 
 	/**
@@ -1972,7 +1968,7 @@ public class Clausifier {
 			final Term a = store.getParameters()[0];
 			final Term sel = mTheory.term("select", a, i);
 			// Simply create the CCTerm
-			createCCTerm(sel, source);
+			buildCCTerm(sel, source);
 		}
 	}
 
