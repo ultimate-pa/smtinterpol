@@ -259,7 +259,7 @@ public class BvToIntUtils {
 
 	public int log2(int number) {
 		int log = 0;
-		while (number >= (1 << log)) {
+		while (number >= (1L << log)) {
 			log++;
 		}
 		return log - 1;
@@ -287,7 +287,7 @@ public class BvToIntUtils {
 			} else {
 				final int shiftAsInt = shiftValue.numerator().intValueExact();
 				final Polynomial multiply = new Polynomial();
-				multiply.add(Rational.valueOf(1 << shiftAsInt, 1), translatedLHS);
+				multiply.add(pow2(shiftAsInt), translatedLHS);
 				final Term transformed = nat2bv(multiply.toTerm(mInteger), fsym.getReturnSort().getIndices());
 				return trackBvRewrite(convertedApp, transformed, ProofConstants.RW_BVSHL2INT);
 			}
@@ -303,7 +303,7 @@ public class BvToIntUtils {
 				final Term cond = mTheory.term("<=", compare.toTerm(mInteger), zero);
 				shift.add(Rational.ONE, mTheory.term("ite", cond, shiftStep.negate().toTerm(mInteger), zero));
 				final Polynomial multiply = new Polynomial();
-				multiply.add(Rational.valueOf(1 << (1 << i), 1), result);
+				multiply.add(pow2(1 << i), result);
 				result = mTheory.term("ite", cond, multiply.toTerm(mInteger), result);
 			}
 			final Term transformed = nat2bv(result, fsym.getReturnSort().getIndices());
