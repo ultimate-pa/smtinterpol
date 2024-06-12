@@ -608,6 +608,10 @@ public class TermCompiler extends TermTransformer {
 				repush(bvToIntUtils.translateBvor(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
+			case "bvxor": { // x or y = (x + y ) - (x and y)
+				repush(bvToIntUtils.translateBvxor(mTracker, appTerm.getFunction(), convertedApp));
+				return;
+			}
 			case "bvuge":
 			case "bvslt":
 			case "bvule":
@@ -630,48 +634,10 @@ public class TermCompiler extends TermTransformer {
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "zero_extend": {
-				// abbreviates (concat ((_ repeat i) #b0) t)
-				if (fsym.getIndices()[0].equals("0")) {
-					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), params[0],
-							ProofConstants.RW_ZEROEXTEND);
-					setResult(mTracker.transitivity(convertedApp, rewrite));
-					return;
-				} else {
-					String repeat = "#b0";
-					for (int i = 1; i < Integer.parseInt(fsym.getIndices()[0]); i++) {
-						repeat = repeat + "0";
-					}
-					final Term concat = theory.term("concat", theory.binary(repeat), params[0]);
-					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), concat,
-							ProofConstants.RW_ZEROEXTEND);
-					repush(mTracker.transitivity(convertedApp, rewrite));
-					return;
-				}
-			}
+			case "zero_extend":
 			case "sign_extend": {
-				if (fsym.getIndices()[0].equals("0")) {
-					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), params[0],
-							ProofConstants.RW_SIGNEXTEND);
-					setResult(mTracker.transitivity(convertedApp, rewrite));
-					return;
-				} else {
-					final String[] indices = new String[2];
-					indices[0] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
-					indices[1] = String.valueOf(Integer.valueOf(params[0].getSort().getIndices()[0]) - 1);
-
-					Term repeat = appTerm.getParameters()[0];
-					final int difference = Integer.valueOf(appTerm.getSort().getIndices()[0])
-							- Integer.valueOf(params[0].getSort().getIndices()[0]);
-					for (int i = 0; i < difference; i++) {
-						repeat = theory.term("concat", theory.term("extract", indices, null, params[0]), repeat);
-					}
-					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), repeat,
-							ProofConstants.RW_SIGNEXTEND);
-					repush(mTracker.transitivity(convertedApp, rewrite));
-					return;
-				}
-
+				repush(bvToIntUtils.translateExtend(mTracker, appTerm.getFunction(), convertedApp));
+				return;
 			}
 			case "rotate_left": {
 				final Term rhs = bvUtils.transformRotateleft(params, fsym, convertedApp);
@@ -699,14 +665,6 @@ public class TermCompiler extends TermTransformer {
 			case "bvnor": {
 				// (bvnor s t) abbreviates (bvnot (bvor s t))
 				final Term rhs = theory.term("bvnot", theory.term("bvor", params));
-				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_BVBLAST);
-				repush(mTracker.transitivity(convertedApp, rewrite));
-				return;
-			}
-			case "bvxor": { // x or y = (x + y ) - (x and y)
-				assert params.length == 2;
-				final Term rhs = bvUtils.transformBvxor(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
 						ProofConstants.RW_BVBLAST);
 				repush(mTracker.transitivity(convertedApp, rewrite));
