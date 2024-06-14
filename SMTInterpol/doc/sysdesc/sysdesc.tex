@@ -44,7 +44,7 @@ The main focus of \SI is the incremental track.
 This track simulates the typical application of \SI where a user asks multiple queries.
 As an extension, \SI supports interpolation for all supported theories~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19,DBLP:conf/smt/HenkelHS21}.  It computes quantifier-free interpolants for quantifier-free input formulas.
 This makes it useful as a backend for software verification tools.
-In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2023, used \SI.
+In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2024, used \SI.
 
 \SI aims for producing witnesses (proofs and models).  The competition version will check these witnesses before reporting the result to ensure soundness.  Only sat results for quantified logics are not checked.
 
@@ -65,14 +65,13 @@ The sources are available via GitHub
   \url{https://github.com/ultimate-pa/smtinterpol}
 \end{center}
 
-\SI participates in the single query track, the incremental track, the unsat core track, and the model validation track.
-It supports all combinations of uninterpreted functions, arithmetic, arrays, datatypes, and quantified formulas.
+\SI participates in all tracks: the single query track, the incremental track, the unsat core track, and the model validation track.
+It supports all combinations of uninterpreted functions, arithmetic, arrays, datatypes, bit-vectors, and quantified formulas.
 However, the model generator currently does not support quantifiers.
-
-In the single query track, the incremental track, the unsat core track \SI participates in the logics matched by
-\verb!(QF_)?(AX?)?(UF)?(DT)?([IR]DL|[NL][IR]*A)?!\footnote{\SI will mostly ignore non-linear arithmetic, and report unknown on benchmarks that need non-linear reasoning.  It fully supports modulo and division by constants, though.},
-and in the model validation track in the logics matched by
-\verb!(QF_)(AX?)?(UF)?(DT)?([IR]DL|[NL][IR]*A)?!.
+%
+\SI participates in the logics matched by
+\verb!(QF_)?(AX?)?(BV)?(UF)?(DT)?([IR]DL|[NL][IR]*A)?!\footnote{\SI will mostly ignore non-linear arithmetic, and report unknown on benchmarks that need non-linear reasoning.  It fully supports modulo and division by constants, though.}.
+In the unsat core track it does not participate in logics containing BV.
 
 \bibliography{sysdesc}
 \bibliographystyle{alpha}
