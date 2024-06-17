@@ -4281,12 +4281,15 @@ public class ProofSimplifier extends TermTransformer {
 		proof = mProofRules.resolutionRule(provedEqSides[0], proof, mProofRules.iffElim2(provedEq));
 		proof = mProofRules.resolutionRule(provedEq, subproof, proof);
 		Term[] result = new Term[] { provedEqSides[1] };
-		if (isApplication("false", provedEqSides[1])) {
-			result = new Term[0];
-			proof = mProofRules.resolutionRule(provedEqSides[1], proof, mProofRules.falseElim());
-		} else if (isApplication("or", provedEqSides[1])) {
-			result = ((ApplicationTerm) provedEqSides[1]).getParameters();
-			proof = mProofRules.resolutionRule(provedEqSides[1], proof, mProofRules.orElim(provedEqSides[1]));
+		if (clause.length != 2) {
+			if (isApplication("false", provedEqSides[1])) {
+				result = new Term[0];
+				proof = mProofRules.resolutionRule(provedEqSides[1], proof, mProofRules.falseElim());
+			} else if (isApplication("or", provedEqSides[1])) {
+				result = ((ApplicationTerm) provedEqSides[1]).getParameters();
+				proof = mProofRules.resolutionRule(provedEqSides[1], proof, mProofRules.orElim(provedEqSides[1]));
+			}
+			assert clause.length == 1 + result.length;
 		}
 		for (int i = 0; i < result.length; i++) {
 			proof = removeNot(proof, result[i], true);
