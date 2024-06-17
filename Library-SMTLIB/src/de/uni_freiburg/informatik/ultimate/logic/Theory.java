@@ -608,7 +608,9 @@ public class Theory {
 
 	public PolymorphicFunctionSymbol declareInternalPolymorphicFunction(final String name, final Sort[] sortParams,
 			final Sort[] paramTypes, final Sort resultType, final int flags) {
-		assert !mFunFactory.containsKey(name);
+		if (mFunFactory.get(name) != null || mDeclaredFuns.get(name) != null) {
+			throw new SMTLIBException("Function " + name + " is already defined.");
+		}
 		final PolymorphicFunctionSymbol f = new PolymorphicFunctionSymbol(name, sortParams, paramTypes, resultType,
 				flags | FunctionSymbol.INTERNAL);
 		declareInternalFunctionFactory(f);
