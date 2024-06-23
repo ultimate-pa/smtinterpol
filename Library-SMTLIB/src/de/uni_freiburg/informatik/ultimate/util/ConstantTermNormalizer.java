@@ -42,21 +42,21 @@ public class ConstantTermNormalizer extends TermTransformer {
 		if (term instanceof ConstantTerm) {
 			final Term res;
 			final ConstantTerm ct = (ConstantTerm) term;
-			res = convertConstantTerm(term, ct);
+			res = convertConstantTerm(ct);
 			setResult(res);
 		} else {
 			super.convert(term);
 		}
 	}
 
-	private static Term convertConstantTerm(final Term term, final ConstantTerm ct) {
+	private static Term convertConstantTerm(final ConstantTerm ct) {
 		if (!ct.getSort().isNumericSort()) {
 			// do nothing, only applicable to numeric sorts
 			return ct;
 		}
 		if (ct.getValue() instanceof BigInteger) {
 			final Rational rat = Rational.valueOf((BigInteger) ct.getValue(), BigInteger.ONE);
-			return rat.toTerm(term.getSort());
+			return rat.toTerm(ct.getSort());
 		} else if (ct.getValue() instanceof BigDecimal) {
 			final BigDecimal decimal = (BigDecimal) ct.getValue();
 			Rational rat;
@@ -68,7 +68,7 @@ public class ConstantTermNormalizer extends TermTransformer {
 				final BigInteger denom = BigInteger.TEN.pow(decimal.scale());
 				rat = Rational.valueOf(num, denom);
 			}
-			return rat.toTerm(term.getSort());
+			return rat.toTerm(ct.getSort());
 		} else if (ct.getValue() instanceof Rational) {
 			// do nothing, already in normal form
 			return ct;
