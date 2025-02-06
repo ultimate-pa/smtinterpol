@@ -277,14 +277,16 @@ public class BvUtils {
 			if (BigInteger.valueOf(lhsSize).compareTo(rhsBigInt) <= 0) {
 				result = BigInteger.ZERO;
 			} else {
+				assert rhsBigInt.bitLength() <= 32;
 				final BigInteger mask = BigInteger.ONE.shiftLeft(lhsSize).subtract(BigInteger.ONE);
-				result = lhsBigInt.shiftLeft(rhsBigInt.intValueExact()).and(mask);
+				result = lhsBigInt.shiftLeft(rhsBigInt.intValue()).and(mask);
 			}
 		} else if (fsym.getName().equals("bvlshr")) {
 			if (BigInteger.valueOf(lhsSize).compareTo(rhsBigInt) <= 0) {
 				result = BigInteger.ZERO;
 			} else {
-				result = lhsBigInt.shiftRight(rhsBigInt.intValueExact());
+				assert rhsBigInt.bitLength() <= 32;
+				result = lhsBigInt.shiftRight(rhsBigInt.intValue());
 			}
 
 		} else {

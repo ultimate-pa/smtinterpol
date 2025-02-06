@@ -773,8 +773,9 @@ public class ModelEvaluator extends TermTransformer {
 			final BigInteger shiftArg = bitvectorValue(args[1]);
 			BigInteger value;
 			if (shiftArg.compareTo(BigInteger.valueOf(size)) < 0) {
+				assert shiftArg.bitLength() <= 32;
 				final BigInteger mask = BigInteger.ONE.shiftLeft(size).subtract(BigInteger.ONE);
-				value = bitvectorValue(args[0]).shiftLeft(shiftArg.intValueExact()).and(mask);
+				value = bitvectorValue(args[0]).shiftLeft(shiftArg.intValue()).and(mask);
 			} else {
 				value = BigInteger.ZERO;
 			}
@@ -786,7 +787,8 @@ public class ModelEvaluator extends TermTransformer {
 			final BigInteger shiftArg = bitvectorValue(args[1]);
 			BigInteger value;
 			if (shiftArg.compareTo(BigInteger.valueOf(size)) < 0) {
-				value = bitvectorValue(args[0]).shiftRight(shiftArg.intValueExact());
+				assert shiftArg.bitLength() <= 32;
+				value = bitvectorValue(args[0]).shiftRight(shiftArg.intValue());
 			} else {
 				value = BigInteger.ZERO;
 			}
@@ -798,7 +800,8 @@ public class ModelEvaluator extends TermTransformer {
 			final BigInteger shiftArg = bitvectorValue(args[1]);
 			BigInteger value = bitvectorValue(args[0]);
 			if (shiftArg.compareTo(BigInteger.valueOf(size)) < 0) {
-				final int shiftInt = shiftArg.intValueExact();
+				assert shiftArg.bitLength() <= 32;
+				final int shiftInt = shiftArg.intValue();
 				final BigInteger signBits = value.testBit(size - 1)
 						? BigInteger.ONE.shiftLeft(size - shiftInt).subtract(BigInteger.ONE).shiftLeft(shiftInt)
 						: BigInteger.ZERO;

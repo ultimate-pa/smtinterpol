@@ -254,10 +254,12 @@ public class BvToIntUtils {
 		final Term transformedAsInt;
 		if (translatedRHS instanceof ConstantTerm) {
 			final Rational shiftValue = (Rational) ((ConstantTerm) translatedRHS).getValue();
+			assert shiftValue.denominator() == BigInteger.ONE && shiftValue.signum() >= 0;
 			if (shiftValue.numerator().compareTo(BigInteger.valueOf(width)) >= 0) {
 				transformedAsInt = zero;
 			} else {
-				final int shiftAsInt = shiftValue.numerator().intValueExact();
+				assert shiftValue.numerator().bitLength() <= 32;
+				final int shiftAsInt = shiftValue.numerator().intValue();
 				final Polynomial multiply = new Polynomial();
 				multiply.add(pow2(shiftAsInt), translatedLHS);
 				transformedAsInt = multiply.toTerm(mInteger);
@@ -295,10 +297,12 @@ public class BvToIntUtils {
 		final Term transformedAsInt;
 		if (translatedRHS instanceof ConstantTerm) {
 			final Rational shiftValue = (Rational) ((ConstantTerm) translatedRHS).getValue();
+			assert shiftValue.denominator() == BigInteger.ONE && shiftValue.signum() >= 0;
 			if (shiftValue.numerator().compareTo(BigInteger.valueOf(width)) >= 0) {
 				transformedAsInt = zero;
 			} else {
-				final int shiftAsInt = shiftValue.numerator().intValueExact();
+				assert shiftValue.numerator().bitLength() <= 32;
+				final int shiftAsInt = shiftValue.numerator().intValue();
 				if (shiftAsInt == 0) {
 					transformedAsInt = translatedLHS;
 				} else {
