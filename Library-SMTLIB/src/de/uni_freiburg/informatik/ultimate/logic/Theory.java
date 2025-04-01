@@ -154,10 +154,11 @@ public class Theory {
 		final Sort[] bool2 = new Sort[] { mBooleanSort, mBooleanSort };
 		final Sort[] generic2 = new Sort[] { generic1[0], generic1[0] };
 		final int leftassoc = FunctionSymbol.LEFTASSOC;
+		final int rightassoc = FunctionSymbol.RIGHTASSOC;
 		mNot = declareInternalFunction("not", bool1, mBooleanSort, 0);
 		mAnd = declareInternalFunction("and", bool2, mBooleanSort, leftassoc);
 		mOr = declareInternalFunction("or", bool2, mBooleanSort, leftassoc);
-		mImplies = declareInternalFunction("=>", bool2, mBooleanSort, FunctionSymbol.RIGHTASSOC);
+		mImplies = declareInternalFunction("=>", bool2, mBooleanSort, rightassoc);
 		mEquals = declareInternalPolymorphicFunction("=", generic1, generic2, mBooleanSort, FunctionSymbol.CHAINABLE);
 		mDistinct = declareInternalPolymorphicFunction("distinct", generic1, generic2, mBooleanSort,
 				FunctionSymbol.PAIRWISE);
@@ -166,7 +167,11 @@ public class Theory {
 				generic1[0], 0);
 		mTrue = (ApplicationTerm) term(declareInternalFunction("true", noarg, mBooleanSort, 0));
 		mFalse = (ApplicationTerm) term(declareInternalFunction("false", noarg, mBooleanSort, 0));
-		declareInternalSort(SMTLIBConstants.FUNC, 2, SortSymbol.FUNCTION);
+		mDeclaredSorts.put(SMTLIBConstants.FUNC,
+				new AssociativeSortSymbol(this, SMTLIBConstants.FUNC, SortSymbol.INTERNAL + SortSymbol.FUNCTION));
+		final Sort[] genericAB = createSortVariables("A", "B");
+		declareInternalPolymorphicFunction("_", genericAB,
+				new Sort[] { getSort(SMTLIBConstants.FUNC, genericAB), genericAB[0] }, genericAB[1], rightassoc);
 
 		// Finally, declare logic specific functions
 		setLogic(logic);
