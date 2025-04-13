@@ -705,8 +705,12 @@ public class TermCompiler extends TermTransformer {
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "bv2nat": {
-				final Term rhs = mBvToIntUtils.bv2nat(params[0], true);
+			case SMTLIBConstants.SBV_TO_INT: {
+				repush(mBvToIntUtils.translateSbvToInt(mTracker, appTerm.getFunction(), convertedApp));
+				return;
+			}
+			case SMTLIBConstants.UBV_TO_INT: {
+				final Term rhs = mBvToIntUtils.ubv2int(params[0], true);
 				if (rhs == mTracker.getProvedTerm(convertedApp)) {
 					setResult(convertedApp);
 				} else {
@@ -716,7 +720,7 @@ public class TermCompiler extends TermTransformer {
 				}
 				return;
 			}
-			case "nat2bv":
+			case SMTLIBConstants.INT_TO_BV:
 			case "intand":
 			case "true":
 			case "false":

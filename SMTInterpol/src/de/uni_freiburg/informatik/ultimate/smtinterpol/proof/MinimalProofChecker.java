@@ -1295,7 +1295,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
-		case ":" + ProofRules.NAT2BV2NAT: {
+		case ":" + ProofRules.INT2UBV2INT: {
 			if (!theory.getLogic().isBitVector()) {
 				reportError("Proof requires bit vector theory");
 				return getTrueClause(theory);
@@ -1308,14 +1308,14 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			assert annots[1].getKey().equals(ProofRules.ANNOT_BVLEN);
 			final String bitLength = (String) annots[1].getValue();
-			final Term nat2bv2nat = theory.term(SMTInterpolConstants.BV2NAT,
-					theory.term(SMTInterpolConstants.NAT2BV, new String[] { bitLength }, null, natTerm));
+			final Term nat2bv2nat = theory.term(SMTLIBConstants.UBV_TO_INT,
+					theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm));
 			final BigInteger pow2 = BigInteger.ONE.shiftLeft(Integer.parseInt(bitLength));
 			final Term modTerm = theory.term(SMTLIBConstants.MOD, natTerm, theory.numeral(pow2));
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, nat2bv2nat, modTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
-		case ":" + ProofRules.BV2NAT2BV: {
+		case ":" + ProofRules.UBV2INT2BV: {
 			if (!theory.getLogic().isBitVector()) {
 				reportError("Proof requires bit vector theory");
 				return getTrueClause(theory);
@@ -1324,9 +1324,9 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term bvTerm = (Term) annots[0].getValue();
 			assert bvTerm.getSort().isBitVecSort();
 			final String[] bitLength = bvTerm.getSort().getIndices();
-			final Term bv2nat2bv = theory.term(SMTInterpolConstants.NAT2BV, bitLength, null,
-					theory.term(SMTInterpolConstants.BV2NAT, bvTerm));
-			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, bv2nat2bv, bvTerm);
+			final Term bv2int2bv = theory.term(SMTLIBConstants.INT_TO_BV, bitLength, null,
+					theory.term(SMTLIBConstants.UBV_TO_INT, bvTerm));
+			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, bv2int2bv, bvTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
 		default:

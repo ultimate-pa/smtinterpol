@@ -123,8 +123,8 @@ public class ProofRules {
 	public final static String DT_MATCH = "dt-match";
 
 	// axioms for bitvectors
-	public final static String NAT2BV2NAT = "nat2bv2nat";
-	public final static String BV2NAT2BV = "bv2nat2bv";
+	public final static String INT2UBV2INT = "int2ubv2int";
+	public final static String UBV2INT2BV = "ubv2int2bv";
 
 	/**
 	 * sort name for proofs.
@@ -759,16 +759,16 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, new Term[] { matchTerm }), mAxiom);
 	}
 
-	public Term nat2bv2nat(final String bitLength, final Term natTerm) {
+	public Term int2ubv2int(final String bitLength, final Term natTerm) {
 		assert natTerm.getSort().isInternal() && natTerm.getSort().getName().equals("Int");
 		assert bitLength.matches("[1-9][0-9]*");
 		return mTheory.annotatedTerm(
-				annotate(":" + NAT2BV2NAT, natTerm, new Annotation(ANNOT_BVLEN, bitLength)), mAxiom);
+				annotate(":" + INT2UBV2INT, natTerm, new Annotation(ANNOT_BVLEN, bitLength)), mAxiom);
 	}
 
-	public Term bv2nat2bv(final Term bvTerm) {
+	public Term ubv2int2bv(final Term bvTerm) {
 		assert bvTerm.getSort().isBitVecSort();
-		return mTheory.annotatedTerm(annotate(":" + BV2NAT2BV, bvTerm), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + UBV2INT2BV, bvTerm), mAxiom);
 	}
 
 	public static void printProof(final Appendable appender, final Term proof) {
@@ -1094,7 +1094,7 @@ public class ProofRules {
 					case ":" + ITE2:
 					case ":" + EQI:
 					case ":" + DISTINCTI:
-					case ":" + BV2NAT2BV: {
+					case ":" + UBV2INT2BV: {
 						assert annots.length == 1;
 						final Term param = (Term) annots[0].getValue();
 						mTodo.add(")");
@@ -1153,7 +1153,7 @@ public class ProofRules {
 						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
 					}
-					case ":" + NAT2BV2NAT: {
+					case ":" + INT2UBV2INT: {
 						final Term param = (Term) annots[0].getValue();
 						assert annots.length == 2;
 						assert annots[1].getKey() == ANNOT_BVLEN;

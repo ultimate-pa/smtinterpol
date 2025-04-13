@@ -483,7 +483,7 @@ public class ModelEvaluator extends TermTransformer {
 			return array.computeDiff(args[0], args[1], fs.getReturnSort());
 		}
 
-		case SMTInterpolConstants.NAT2BV: {
+		case SMTLIBConstants.INT_TO_BV: {
 			assert args.length == 1;
 			final Rational n = rationalValue(args[0]);
 			assert n.isIntegral();
@@ -491,7 +491,7 @@ public class ModelEvaluator extends TermTransformer {
 			return createBitvectorTerm(n.numerator().and(mask), fs.getReturnSort());
 		}
 
-		case SMTInterpolConstants.BV2NAT: {
+		case SMTLIBConstants.UBV_TO_INT: {
 			assert args.length == 1;
 			final BigInteger value = bitvectorValue(args[0]);
 			return Rational.valueOf(value, BigInteger.ONE).toTerm(fs.getReturnSort());

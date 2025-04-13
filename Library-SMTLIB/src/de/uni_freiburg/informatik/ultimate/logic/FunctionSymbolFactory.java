@@ -51,7 +51,7 @@ public abstract class FunctionSymbolFactory {
 		return true;
 	}
 
-	public Term getDefinition(TermVariable[] tvs, Sort resultSort) { // NOPMD
+	public Term getDefinition(String[] indices, TermVariable[] tvs, Sort resultSort) { // NOPMD
 		return null;
 	}
 
@@ -113,7 +113,7 @@ public abstract class FunctionSymbolFactory {
 						resultSort.getRealSort());
 			definition = theory.term(realFunc, defVars);
 		} else {
-			definition = getDefinition(defVars, resultSort);
+			definition = getDefinition(indices, defVars, resultSort);
 		}
 		if (definition == null) {
 			defVars = null;

@@ -749,7 +749,7 @@ public class Theory {
 
 		declareInternalFunctionFactory(new FunctionSymbolFactory("abs") {
 			@Override
-			public Term getDefinition(final TermVariable[] tvs, final Sort resultSort) {
+			public Term getDefinition(String[] indices, final TermVariable[] tvs, final Sort resultSort) {
 				return absDefinition(tvs[0]);
 			}
 
@@ -870,7 +870,6 @@ public class Theory {
 		class Bv2NatFunction extends FunctionSymbolFactory {
 			public Bv2NatFunction(final String name) {
 				super(name);
-				assert name.equals("bv2nat") : "Wrong name: " + name;
 			}
 
 			@Override
@@ -881,11 +880,19 @@ public class Theory {
 				}
 				return mNumericSort;
 			}
+
+			@Override
+			public Term getDefinition(String[] indices, TermVariable[] tvs, Sort resultSort) {
+				/* TODO: Backwards compatibility. Remove when no longer needed */
+				if (mFuncName == "bv2nat") {
+					return term(SMTLIBConstants.UBV_TO_INT, tvs[0]);
+				}
+				return null;
+			}
 		}
 		class Nat2BvFunction extends FunctionSymbolFactory {
 			public Nat2BvFunction(final String name) {
 				super(name);
-				assert name.equals("nat2bv") : "Wrong name: " + name;
 			}
 
 			@Override
@@ -895,6 +902,15 @@ public class Theory {
 					return null;
 				}
 				return mBitVecSort.getSort(indices);
+			}
+
+			@Override
+			public Term getDefinition(String[] indices, TermVariable[] tvs, Sort resultSort) {
+				/* TODO: Backwards compatibility. Remove when no longer needed */
+				if (mFuncName == "nat2bv") {
+					return term(SMTLIBConstants.INT_TO_BV, indices, null, tvs[0]);
+				}
+				return null;
 			}
 		}
 		declareInternalFunctionFactory(new FunctionSymbolFactory("concat") {
@@ -993,11 +1009,28 @@ public class Theory {
 		declareInternalFunctionFactory(new RegularBitVecFunction("bvsge", 2, mBooleanSort,
 				FunctionSymbol.INTERNAL | FunctionSymbol.CHAINABLE));
 
+		declareInternalFunctionFactory(
+				new RegularBitVecFunction(SMTLIBConstants.BVNEGO, 1, mBooleanSort, FunctionSymbol.INTERNAL));
+		declareInternalFunctionFactory(
+				new RegularBitVecFunction(SMTLIBConstants.BVUADDO, 2, mBooleanSort, FunctionSymbol.INTERNAL));
+		declareInternalFunctionFactory(
+				new RegularBitVecFunction(SMTLIBConstants.BVSADDO, 2, mBooleanSort, FunctionSymbol.INTERNAL));
+		declareInternalFunctionFactory(
+				new RegularBitVecFunction(SMTLIBConstants.BVUMULO, 2, mBooleanSort, FunctionSymbol.INTERNAL));
+		declareInternalFunctionFactory(
+				new RegularBitVecFunction(SMTLIBConstants.BVSMULO, 2, mBooleanSort, FunctionSymbol.INTERNAL));
+		declareInternalFunctionFactory(
+				new RegularBitVecFunction(SMTLIBConstants.BVUSUBO, 2, mBooleanSort, FunctionSymbol.INTERNAL));
+		declareInternalFunctionFactory(
+				new RegularBitVecFunction(SMTLIBConstants.BVSSUBO, 2, mBooleanSort, FunctionSymbol.INTERNAL));
+		declareInternalFunctionFactory(
+				new RegularBitVecFunction(SMTLIBConstants.BVSDIVO, 2, mBooleanSort, FunctionSymbol.INTERNAL));
+
+		declareInternalFunctionFactory(new Bv2NatFunction(SMTLIBConstants.UBV_TO_INT));
+		declareInternalFunctionFactory(new Bv2NatFunction(SMTLIBConstants.SBV_TO_INT));
+		declareInternalFunctionFactory(new Nat2BvFunction(SMTLIBConstants.INT_TO_BV));
 		declareInternalFunctionFactory(new Bv2NatFunction("bv2nat"));
 		declareInternalFunctionFactory(new Nat2BvFunction("nat2bv"));
-
-
-
 	}
 
 	private void createFloatingPointOperators() {

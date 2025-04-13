@@ -698,3 +698,8 @@ a & b = (a & b & -2^k) + (a & b & (2^k-1))
 (a & b & -2^k) = a & (b & -2^k) = a & ((b div 2^k)*2^k) = ((a div 2^k) & (b div 2^k))*2^k
 (a & b & 2^k-1) = (a & (2^k-1)) & (b & (2^k-1)) = (a mod 2^k) & (b mod 2^k)
 
+
+xor:
+ (a&~b) | (~a&b) = (a&~b + ~a&b - a&~b&~a&b) = (a - a&b + b - a&b - 0) = a + b - 2*(a&b) = a^b
+ (a|b) & ~(a&b) = a|b  - (a|b)&a&b = a|b - a&b = a+ b - 2(a&b)
+
