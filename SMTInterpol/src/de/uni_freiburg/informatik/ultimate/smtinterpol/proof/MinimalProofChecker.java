@@ -31,6 +31,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
@@ -317,6 +318,15 @@ public class MinimalProofChecker extends NonRecursive {
 			mNumOracles++;
 			mNumAxioms--;
 			reportWarning("Used oracle: %s", Arrays.asList(annots).subList(1, annots.length));
+			mLogger.info("Full oracle: %s", new Object() {
+				@Override
+				public String toString() {
+					final Term letted = new FormulaLet().let(axiom);
+					final StringBuilder sb = new StringBuilder();
+					ProofRules.printProof(sb, letted);
+					return sb.toString();
+				}
+			});
 			// convert to clause (and remove multiple occurrences)
 			final ProofLiteral[] lits = ProofRules.proofLiteralsFromAnnotation((Object[]) annots[0].getValue());
 			final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>(Arrays.asList(lits));
@@ -1283,6 +1293,40 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term iteTerm = buildIteForMatch(matchTerm);
 
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
+			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+		}
+		case ":" + ProofRules.NAT2BV2NAT: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			assert annots.length == 2;
+			final Term natTerm = (Term) annots[0].getValue();
+			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")) {
+				reportError("Expected integer argument");
+				return getTrueClause(natTerm.getTheory());
+			}
+			assert annots[1].getKey().equals(ProofRules.ANNOT_BVLEN);
+			final String bitLength = (String) annots[1].getValue();
+			final Term nat2bv2nat = theory.term(SMTInterpolConstants.BV2NAT,
+					theory.term(SMTInterpolConstants.NAT2BV, new String[] { bitLength }, null, natTerm));
+			final BigInteger pow2 = BigInteger.ONE.shiftLeft(Integer.parseInt(bitLength));
+			final Term modTerm = theory.term(SMTLIBConstants.MOD, natTerm, theory.numeral(pow2));
+			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, nat2bv2nat, modTerm);
+			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+		}
+		case ":" + ProofRules.BV2NAT2BV: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			assert annots.length == 1;
+			final Term bvTerm = (Term) annots[0].getValue();
+			assert bvTerm.getSort().isBitVecSort();
+			final String[] bitLength = bvTerm.getSort().getIndices();
+			final Term bv2nat2bv = theory.term(SMTInterpolConstants.NAT2BV, bitLength, null,
+					theory.term(SMTInterpolConstants.BV2NAT, bvTerm));
+			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, bv2nat2bv, bvTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
 		default:

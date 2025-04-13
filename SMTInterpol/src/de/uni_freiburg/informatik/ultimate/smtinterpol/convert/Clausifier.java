@@ -1182,12 +1182,13 @@ public class Clausifier {
 	}
 
 	private Term normalizeMod(final Term lhs, final Rational maxNumber) {
-		final Term rhs = mTheory.rational(maxNumber, mTheory.getSort(SMTLIBConstants.INT));
+		final Sort sort = lhs.getSort();
 		final SMTAffineTerm arg0 = new SMTAffineTerm(lhs);
 		arg0.mod(maxNumber);
-		final Term div = mTheory.term("div", arg0.toTerm(mTheory.getSort(SMTLIBConstants.INT)), rhs);
+		final Term div = arg0.isConstant() ? arg0.getConstant().div(maxNumber).floor().toTerm(sort)
+				: mTheory.term("div", arg0.toTerm(sort), maxNumber.toTerm(sort));
 		arg0.add(maxNumber.negate(), div);
-		return arg0.toTerm(rhs.getSort());
+		return arg0.toTerm(sort);
 	}
 
 	/*
@@ -1207,7 +1208,7 @@ public class Clausifier {
 
 			final Term mod = normalizeMod(((ApplicationTerm) arg).getParameters()[0], modulus);
 			final Term axiom = mTheory.term("=", at, mod);
-			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
+			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV2NAT), source);
 		} else {
 			// 0 <= bv2nat b < maxNumber
 			final Sort intSort = mTheory.getSort(SMTLIBConstants.INT);

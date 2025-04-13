@@ -144,6 +144,7 @@ public interface ProofConstants {
 	public static final Annotation TAUT_BV2NATLOW = new Annotation(":bv2natLow", null);
 	public static final Annotation TAUT_BV2NATHIGH = new Annotation(":bv2natHigh", null);
 	public static final Annotation TAUT_BV2NAT2BV = new Annotation(":bv2nat2bv", null);
+	public final static Annotation TAUT_NAT2BV2NAT = new Annotation(":nat2bv2nat", null);
 	public static final Annotation RW_BVEVAL = new Annotation(":bveval", null);
 	public static final Annotation RW_BVTOINT_CONST = new Annotation(":bv2int_const", null);
 	public static final Annotation RW_BVMUL2INT = new Annotation(":bvmul2int", null);
@@ -164,7 +165,6 @@ public interface ProofConstants {
 	public static final Annotation RW_BVSLE2INT = new Annotation(":bvsle2int", null);
 	public static final Annotation RW_BVSGT2INT = new Annotation(":bvsgt2int", null);
 	public static final Annotation RW_BVSGE2INT = new Annotation(":bvsge2int", null);
-	public static final Annotation TAUT_BV2NAT = new Annotation(":bv2nat", null);
 	public static final Annotation RW_BVADD2INT = new Annotation(":bvadd2int", null);
 	public static final Annotation RW_BVBLAST = new Annotation(":bvblast", null);
 	public static final Annotation RW_BV_EXPAND_DEF = new Annotation(":bvexpand", null);

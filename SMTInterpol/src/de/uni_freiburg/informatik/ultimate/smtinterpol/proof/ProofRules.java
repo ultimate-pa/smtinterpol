@@ -122,6 +122,10 @@ public class ProofRules {
 	public final static String DT_ACYCLIC = "dt-acyclic";
 	public final static String DT_MATCH = "dt-match";
 
+	// axioms for bitvectors
+	public final static String NAT2BV2NAT = "nat2bv2nat";
+	public final static String BV2NAT2BV = "bv2nat2bv";
+
 	/**
 	 * sort name for proofs.
 	 */
@@ -134,6 +138,7 @@ public class ProofRules {
 	public final static String ANNOT_COEFFS = ":coeffs";
 	public final static String ANNOT_DIVISOR = ":divisor";
 	public final static String ANNOT_POS = ":pos";
+	public final static String ANNOT_BVLEN = ":bvlen";
 	public final static String ANNOT_UNIT = ":unit";
 	public final static String ANNOT_DEFINE_FUN = ":define-fun";
 	public final static String ANNOT_DECLARE_FUN = ":declare-fun";
@@ -754,6 +759,18 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, new Term[] { matchTerm }), mAxiom);
 	}
 
+	public Term nat2bv2nat(final String bitLength, final Term natTerm) {
+		assert natTerm.getSort().isInternal() && natTerm.getSort().getName().equals("Int");
+		assert bitLength.matches("[1-9][0-9]*");
+		return mTheory.annotatedTerm(
+				annotate(":" + NAT2BV2NAT, natTerm, new Annotation(ANNOT_BVLEN, bitLength)), mAxiom);
+	}
+
+	public Term bv2nat2bv(final Term bvTerm) {
+		assert bvTerm.getSort().isBitVecSort();
+		return mTheory.annotatedTerm(annotate(":" + BV2NAT2BV, bvTerm), mAxiom);
+	}
+
 	public static void printProof(final Appendable appender, final Term proof) {
 		new PrintProof().append(appender, proof);
 	}
@@ -1076,7 +1093,8 @@ public class ProofRules {
 					case ":" + ITE1:
 					case ":" + ITE2:
 					case ":" + EQI:
-					case ":" + DISTINCTI: {
+					case ":" + DISTINCTI:
+					case ":" + BV2NAT2BV: {
 						assert annots.length == 1;
 						final Term param = (Term) annots[0].getValue();
 						mTodo.add(")");
@@ -1128,6 +1146,17 @@ public class ProofRules {
 						final Term param = (Term) annots[0].getValue();
 						assert annots.length == 2;
 						assert annots[1].getKey() == ANNOT_POS;
+						mTodo.add(")");
+						mTodo.add(param);
+						mTodo.add(" ");
+						mTodo.add(annots[1].getValue());
+						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
+						return;
+					}
+					case ":" + NAT2BV2NAT: {
+						final Term param = (Term) annots[0].getValue();
+						assert annots.length == 2;
+						assert annots[1].getKey() == ANNOT_BVLEN;
 						mTodo.add(")");
 						mTodo.add(param);
 						mTodo.add(" ");

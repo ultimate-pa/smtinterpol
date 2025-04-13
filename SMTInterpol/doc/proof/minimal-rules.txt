@@ -313,6 +313,64 @@ NON-LINEAR Arithmetic:
 (mulpos (<=? 0 a1) ... (<=? 0 an) (<=? 0 a)): ~(<=? 0 a1),...,~(<=? 0 an),(<=? 0 a)
   where a1,...,an are polynomials, a is the polynomial a1*...*an, <=? stands for <, <=, =,
   the last atom is (< 0 a) iff all other arguments are (< 0 ai), otherwise it is (<= 0 a).
+  
+Bitvector Arithmetic:
+(nat2bv2nat k n)    (= (bv2nat ((_ nat2bv k) n)) (mod n 2^k)))
+(bv2nat2bv a)       (= ((_ nat2bv k) (bv2nat a)) a)      # where a is of type (_ BitVec k)
+
+(pow2 k):           (= (pow2 k) 2^k)    # where 0<=k is a constant
+(pow2add n m):      ~(<= 0 n), ~(<= 0 m), (= (pow2 (+ n m)) (* (pow2 n) (* pow2 m))
+(log2low a):        ~(<= 0 a), (<= (pow2 (log2 a)) a)
+(log2high a):       ~(<= 0 a), (< a (* 2 (pow2 (log2 a))))
+(&flat (& (& a_ij)) (& bi))
+                    (= (& (& a_11 ...) ... (& an1 ...)) (& b_1 ... b_m)) # where {b_i} \union {-1} = { a_ij } 
+                    #( if an "&" has only one parameter, it may be omitted)
+(&shift a b k)      (<= 0 k), (= (* (& (div a (pow2 k)) b) (pow2 k)) (& a (* b (pow2 k))))
+
+(&split a b)        (= (+ (& a b) (& a (+ (* (- 1) b) (- 1)))) a)
+(&bound a b)        ~(<= 0 a), (<= (& a b) a)
+(&nonneg a b)       ~(<= 0 a), (<= 0 (& a b))
+
+(bvx k):            (= (_ bvx k) ((_ nat2bv k) x))   # for 0 <= x < 2^k
+(bvadd a b):        (= (bvadd a b) ((_ nat2bv k) (+ (bv2nat a) (bv2nat b))))
+(bvsub a b):        (= (bvsub a b) ((_ nat2bv k) (+ (bv2nat a) (* (- 1) (bv2nat b)))))
+(bvmul a b):        (= (bvmul a b) ((_ nat2bv k) (* (bv2nat a) (bv2nat b))))
+(bvudiv a b):       (= (bvudiv a b) ((_ nat2bv k) (div (bv2nat a) (bv2nat b))))
+(bvurem a b):       (= (bvurem a b) ((_ nat2bv k) (mod (bv2nat a) (bv2nat b))))
+(bvneg a):          (= (bvneg a) ((_ nat2bv k) (- (bv2nat a)) (bv2nat b))))
+(bvnot a):          (= (bvnot a) ((_ nat2bv k) (+ (* (- 1) (bv2nat a)) (- 1))))
+(bvand a b):        (= (bvand a b) ((_ nat2bv k) (intand (bv2nat a) (bv2nat b))))
+(bvor a b):         (= (bvor a b) ((_ nat2bv k) (+ (bv2nat a) (bv2nat b) (* (- 1) (intand (bv2nat a) (bv2nat b))))))
+(bvxor a b):        (= (bvor a b) ((_ nat2bv k) (+ (bv2nat a) (bv2nat b) (* (- 2) (intand (bv2nat a) (bv2nat b))))))
+(bvshl a b):        (= (bvshl a b) ((_ nat2bv k) (* (bv2nat a) (pow2 (bv2nat b)))))
+(bvlshr a b):        (= (bvshl a b) ((_ nat2bv k) (div (bv2nat a) (pow2 (bv2nat b)))))
+(concat a b):       (= (concat a b) ((_ nat2bv (ka+kb)) (* 2^kb (bv2nat a) (bv2nat b))))
+(extract i j a):    (= ((_ extract i j) a) ((_ nat2bv (i-j+1)) (div (bv2nat a) 2^j)))
+(zeroextend k a):   (= ((_ zeroextend k) a) ((_nat2bv (k+ka)) (bv2nat a)))
+(signextend k a):   (= ((_ signextend k) a) ((_nat2bv (k+ka)) (+ (bv2nat a) (* (- 2^ka) (div (bv2nat a) 2^(ka-1))))))
+(bvule a b):        (= (bvule a b) (<= (bv2nat a) (bv2nat b)))
+(bvsle a b):        (= (bvule a b) (<= (+ (bv2nat a) (* (- 2^k) (div (bv2nat a) 2^(k-1)))) (+ (bv2nat b) (* (- 2^k) (div (bv2nat b) 2^(k-1)))))))
+...
+(repeat j a):       (= ((_ repeat j) a) ((_ nat2bv k*j) (* ((2^(k*j)-1)/(2^k-1)) (bv2nat a))  # where a is of type (_ BitVec k)
+
+
+
+(bvor (bvand s (bvnot t)) (bvand (bvnot s) t))
+= (s&~t) + (~s&t) - (s&~t&~s&t)
+= (s&(-1-t)) + (-1-s)&t
+
+
+a & (-1-a) = a & -1
+
+a ^ -1 = a + -1 - 2*(a&-1) = -1 - a
+a ^ a = a + a - 2*(a&a) 
+(a ^ b) ^ c = a ^ (b ^ c)
+
+a + b - 2(a&b) + c - 2((a^b)&c) = 
+a + b + c - 2(b&c) - 2(a&(b^c))
+(a+b-2(a&b))
+
+
 
 [1] B. Kiesl, A. Rebola-Pardo, M. Heule, Extended Resolution Simulates DRAT,
     IJCAR 2018, https://www.cs.cmu.edu/~mheule/publications/ijcar18.pdf
