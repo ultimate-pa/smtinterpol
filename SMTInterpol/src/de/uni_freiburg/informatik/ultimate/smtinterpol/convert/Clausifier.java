@@ -72,6 +72,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvToIntUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
@@ -1175,20 +1176,10 @@ public class Clausifier {
 			// nat2bv(n) = nat2bv(n mod 2^bvlen)
 			final int width = Integer.valueOf(at.getSort().getIndices()[0]);
 			final Rational modulus = Rational.valueOf(BigInteger.ONE.shiftLeft(width), BigInteger.ONE);
-			final Term mod = normalizeMod(at.getParameters()[0], modulus);
+			final Term mod = mBvToIntUtils.normalizeMod(at.getParameters()[0], modulus);
 			final Term axiom = mTheory.term("=", at, mTheory.term(at.getFunction(), mod));
 			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV), source);
 		}
-	}
-
-	private Term normalizeMod(final Term lhs, final Rational maxNumber) {
-		final Sort sort = lhs.getSort();
-		final SMTAffineTerm arg0 = new SMTAffineTerm(lhs);
-		arg0.mod(maxNumber);
-		final Term div = arg0.isConstant() ? arg0.getConstant().div(maxNumber).floor().toTerm(sort)
-				: mTheory.term("div", arg0.toTerm(sort), maxNumber.toTerm(sort));
-		arg0.add(maxNumber.negate(), div);
-		return arg0.toTerm(sort);
 	}
 
 	/*
@@ -1206,7 +1197,7 @@ public class Clausifier {
 		if (TermUtils.isApplication(SMTInterpolConstants.NAT2BV, arg)) {
 			// bv2nat nat2bv n == n mod maxNumber
 
-			final Term mod = normalizeMod(((ApplicationTerm) arg).getParameters()[0], modulus);
+			final Term mod = mBvToIntUtils.normalizeMod(((ApplicationTerm) arg).getParameters()[0], modulus);
 			final Term axiom = mTheory.term("=", at, mod);
 			buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_NAT2BV2NAT), source);
 		} else {
@@ -1572,6 +1563,7 @@ public class Clausifier {
 	 */
 	private final IProofTracker mTracker;
 	private final LogicSimplifier mUtils;
+	private final BvToIntUtils mBvToIntUtils;
 
 	final static ILiteral mTRUE = new TrueLiteral();
 	final static ILiteral mFALSE = new FalseLiteral();
@@ -1583,7 +1575,8 @@ public class Clausifier {
 		mTracker = proofLevel == ProofMode.NONE || proofLevel == ProofMode.CLAUSES ? new NoopProofTracker()
 				: new ProofTracker(theory);
 		mUtils = new LogicSimplifier(mTracker);
-		mCompiler.setProofTracker(mTracker);
+		mBvToIntUtils = new BvToIntUtils(theory, mTracker, true);
+		mCompiler.setProofTracker(mTracker, mUtils, mBvToIntUtils);
 	}
 
 	public void setAssignmentProduction(final boolean on) {

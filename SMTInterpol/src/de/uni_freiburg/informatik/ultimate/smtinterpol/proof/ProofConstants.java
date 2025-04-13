@@ -100,7 +100,6 @@ public interface ProofConstants {
 	public final static Annotation RW_AUX_INTRO = new Annotation(":auxIntro", null);
 	public final static Annotation RW_INTERN = new Annotation(":intern", null);
 	public static final Annotation RW_BV2NAT = new Annotation(":bv2nat", null);
-	public static final Annotation RW_NAT2BV = new Annotation(":nat2bv", null);
 
 	//// ==== Tautologies ====
 	public final static Annotation TAUT_TRUE_NOT_FALSE = new Annotation(":trueNotFalse", null);
@@ -148,7 +147,9 @@ public interface ProofConstants {
 	public static final Annotation RW_BVMUL2INT = new Annotation(":bvmul2int", null);
 	public static final Annotation RW_BVSUB2INT = new Annotation(":bvsub2int", null);
 	public static final Annotation RW_BVNOT2INT = new Annotation(":bvnot2int", null);
+	public static final Annotation RW_BVNEG2INT = new Annotation(":bvneg2int", null);
 	public static final Annotation RW_CONCAT2INT = new Annotation(":concat2int", null);
+	public static final Annotation RW_REPEAT2INT = new Annotation(":repeat2int", null);
 	public static final Annotation RW_BVUDIV2INT = new Annotation(":bvudiv2int", null);
 	public static final Annotation RW_BVSHL2INT = new Annotation(":bvshl2int", null);
 	public static final Annotation RW_BVUREM2INT = new Annotation(":bvurem2int", null);
