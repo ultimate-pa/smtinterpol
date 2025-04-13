@@ -99,9 +99,8 @@ public interface ProofConstants {
 	public final static Annotation RW_STORE_REWRITE = new Annotation(":storeRewrite", null);
 	public final static Annotation RW_AUX_INTRO = new Annotation(":auxIntro", null);
 	public final static Annotation RW_INTERN = new Annotation(":intern", null);
-	public static final Annotation RW_BV2NAT =  new Annotation(":bv2nat", null);
-	public static final Annotation RW_NAT2BV =  new Annotation(":nat2bv", null);
-
+	public static final Annotation RW_BV2NAT = new Annotation(":bv2nat", null);
+	public static final Annotation RW_NAT2BV = new Annotation(":nat2bv", null);
 
 	//// ==== Tautologies ====
 	public final static Annotation TAUT_TRUE_NOT_FALSE = new Annotation(":trueNotFalse", null);
@@ -146,7 +145,6 @@ public interface ProofConstants {
 	public static final Annotation TAUT_BV2NAT2BV = new Annotation(":bv2nat2bv", null);
 	public final static Annotation TAUT_NAT2BV2NAT = new Annotation(":nat2bv2nat", null);
 	public static final Annotation RW_BVEVAL = new Annotation(":bveval", null);
-	public static final Annotation RW_BVTOINT_CONST = new Annotation(":bv2int_const", null);
 	public static final Annotation RW_BVMUL2INT = new Annotation(":bvmul2int", null);
 	public static final Annotation RW_BVSUB2INT = new Annotation(":bvsub2int", null);
 	public static final Annotation RW_BVNOT2INT = new Annotation(":bvnot2int", null);

@@ -1210,6 +1210,87 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
+	private Term convertTautBv2natBound(final ProofLiteral[] clause) {
+		assert clause.length == 1;
+		final ApplicationTerm goalLeq = (ApplicationTerm) clause[0].mAtom;
+		assert isApplication(SMTLIBConstants.LEQ, goalLeq) && isZero(goalLeq.getParameters()[1]);
+		final Term goalLhs = goalLeq.getParameters()[0];
+		final Polynomial leqPoly = new Polynomial(goalLhs);
+		final Rational constant = leqPoly.getConstant();
+		leqPoly.add(constant.negate());
+		assert leqPoly.getSummands().size() == 1;
+		final Map<Term, Integer> monom = leqPoly.getSummands().keySet().iterator().next();
+		assert monom.size() == 1;
+		final Term var = monom.keySet().iterator().next();
+		assert monom.get(var) == 1;
+		assert isApplication(SMTInterpolConstants.BV2NAT, var);
+		assert leqPoly.getSummands().get(monom) == (constant.signum() == 0 ? Rational.MONE : Rational.ONE);
+		final ApplicationTerm bv2nat = (ApplicationTerm) var;
+		final Sort sort = var.getSort();
+		final Term bv = bv2nat.getParameters()[0];
+		final Sort bvSort = bv.getSort();
+		final String bitLengthString = bvSort.getIndices()[0];
+		final int bitLength = Integer.parseInt(bitLengthString);
+		final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength), BigInteger.ONE);
+		final Term pow2Term = pow2.toTerm(sort);
+		final Term zero = Rational.ZERO.toTerm(sort);
+		final Theory theory = bv2nat.getTheory();
+		final Term bv2nat2bv = theory.term(SMTInterpolConstants.NAT2BV, bvSort.getIndices(), null, bv2nat);
+		final Term bv2nat2bv2nat = theory.term(SMTInterpolConstants.BV2NAT, bv2nat2bv);
+		final Term bv2natMod = theory.term(SMTLIBConstants.MOD, bv2nat, pow2Term);
+		final Term bv2natDiv = theory.term(SMTLIBConstants.DIV, bv2nat, pow2Term);
+		final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, pow2Term, bv2natDiv);
+		final Term divPlusMod = theory.term(SMTLIBConstants.PLUS, mulDivTerm, bv2natMod);
+		final Term divModEq = theory.term(SMTLIBConstants.EQUALS, divPlusMod, bv2nat);
+		final Term bv2natEqMod = theory.term(SMTLIBConstants.EQUALS, bv2nat, bv2natMod);
+
+		Term proof;
+		if (constant.signum() == 0) {
+			// Low axiom -bv2nat(x) <= 0.
+			final Term newGoal = theory.term(SMTLIBConstants.LT, zero, goalLhs);
+			final Term divLow = theory.term(SMTLIBConstants.LEQ, mulDivTerm, bv2nat);
+			final Term divModEqSymm = theory.term(SMTLIBConstants.EQUALS, bv2nat, divPlusMod);
+			final Term bv2natEqModSymm = theory.term(SMTLIBConstants.EQUALS, bv2natMod, bv2nat);
+			proof = mProofRules.farkas(new Term[] { newGoal, bv2natEqModSymm, divModEqSymm, divLow },
+					new BigInteger[] { BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, BigInteger.ONE });
+			proof = res(divLow, mProofRules.divLow(bv2nat, pow2Term), proof);
+			proof = res(divModEqSymm, mProofRules.symm(bv2nat, divPlusMod), proof);
+			proof = res(bv2natEqModSymm, mProofRules.symm(bv2natMod, bv2nat), proof);
+			proof = res(newGoal, mProofRules.total(goalLhs, zero), proof);
+		} else {
+			// High axiom bv2nat(x) - (2^k - 1) <= 0.
+			// prove instead ~(1 <= bv2nat(x) - (2^k -1)).
+
+			final Term newGoal = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(sort), goalLhs);
+			final Term absPow2Term = theory.term(SMTLIBConstants.ABS, pow2Term);
+			final Term absEq = theory.term(SMTLIBConstants.EQUALS, absPow2Term, pow2Term);
+			final Term mulDivTermPlus = theory.term(SMTLIBConstants.PLUS, mulDivTerm, absPow2Term);
+			final Term divHigh = theory.term(SMTLIBConstants.LT, bv2nat, mulDivTermPlus);
+			proof = mProofRules.farkas(new Term[] { newGoal, bv2natEqMod, divModEq, divHigh, absEq },
+					new BigInteger[] { BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, BigInteger.ONE,
+							BigInteger.ONE });
+			proof = res(divHigh, mProofRules.divHigh(bv2nat, pow2Term), proof);
+			proof = res(newGoal, mProofRules.totalInt(goalLhs, BigInteger.ZERO), proof);
+			proof = res(absEq, proveAbsConstant(pow2, sort), proof);
+		}
+		final Term bv2natEqbv2nat2bv2nat = theory.term(SMTLIBConstants.EQUALS, bv2nat, bv2nat2bv2nat);
+		final Term bv2nat2bv2natEqMod = theory.term(SMTLIBConstants.EQUALS, bv2nat2bv2nat, bv2natMod);
+		final Term bvEqbv2nat2bv = theory.term(SMTLIBConstants.EQUALS, bv, bv2nat2bv);
+		final Term bv2nat2bvEqbv = theory.term(SMTLIBConstants.EQUALS, bv2nat2bv, bv);
+		proof = res(bv2natEqMod,
+				res(bv2natEqbv2nat2bv2nat,
+						res(bvEqbv2nat2bv,
+								res(bv2nat2bvEqbv, mProofRules.bv2nat2bv(bv), mProofRules.symm(bv, bv2nat2bv)),
+								mProofRules.cong(bv2nat, bv2nat2bv2nat)),
+						res(bv2nat2bv2natEqMod, mProofRules.nat2bv2nat(bitLengthString, bv2nat),
+							mProofRules.trans(bv2nat, bv2nat2bv2nat, bv2natMod))),
+
+				proof);
+		proof = res(divModEq, mProofRules.modDef(bv2nat, pow2Term), proof);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, pow2Term, zero), proof, proveTrivialDisequality(pow2Term, zero));
+		return proof;
+	}
+
 	private Term convertTautology(final ProofLiteral[] clause, Annotation annot) {
 		final String ruleName = annot.getKey();
 		Term proof = null;
@@ -1353,6 +1434,10 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":nat2bv":
 			proof = convertTautNat2bv(clause);
+			break;
+		case ":bv2natLow":
+		case ":bv2natHigh":
+			proof = convertTautBv2natBound(clause);
 			break;
 		default:
 			throw new IllegalArgumentException("Unknown Tautology");
@@ -4657,6 +4742,8 @@ public class ProofSimplifier extends TermTransformer {
 		case ":nat2bv2nat":
 		case ":bv2nat2bv":
 		case ":nat2bv":
+		case ":bv2natHigh":
+		case ":bv2natLow":
 			setResult(convertTautology(clause, annots[1]));
 			break;
 
