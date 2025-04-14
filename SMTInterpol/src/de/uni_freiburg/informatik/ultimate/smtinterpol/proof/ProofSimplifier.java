@@ -1435,8 +1435,8 @@ public class ProofSimplifier extends TermTransformer {
 		case ":int2bv":
 			proof = convertTautInt2bv(clause);
 			break;
-		case ":ubv2intLow":
-		case ":ubv2intHigh":
+		case ":bv2intLow":
+		case ":bv2intHigh":
 			proof = convertTautUbv2IntBound(clause);
 			break;
 		default:

@@ -39,6 +39,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -1073,6 +1074,104 @@ public class LinArSolve implements ITheory {
 		return false;
 	}
 
+	public void pivotEqualities() {
+//		for (int rowIndex = 0; rowIndex < mLinvars.size(); rowIndex++) {
+//			final LinVar rowVar = mLinvars.get(rowIndex);
+//			if (rowVar.mBasic && rowVar.isFixed()) {
+//				// this is a basic variable that is an equality. Check if we can pivot it with
+//				// one of the columns.
+//				final TableauxRow row = mTableaux.get(rowIndex);
+//				assert rowIndex == row.getRawIndex(0);
+//				for (int j = 1; j < row.size(); j++) {
+//					final int colIndex = row.getRawIndex(j);
+//					if (!mLinvars.get(colIndex).isFixed()) {
+//						pivot(rowIndex, colIndex);
+//						updateVariableValue(rowVar, new ExactInfinitesimalNumber(rowVar.getTightUpperBound()));
+//						break;
+//					}
+//				}
+//			}
+//		}
+	}
+
+	public void addToFingerprint(MutableAffineTerm mat, Rational coeff, LinVar lv) {
+		if (lv.isFixed()) {
+			assert lv.getValue().getEpsilon() == Rational.ZERO;
+			mat.add(coeff.mul(lv.getValue().getRealValue()));
+		} else {
+			mat.add(coeff, lv);
+		}
+	}
+
+	public Map<LinVar, Rational> fingerprintSharedVar(LASharedTerm shared) {
+		final MutableAffineTerm mat = new MutableAffineTerm();
+		for (final Map.Entry<LinVar, Rational> summand : shared.getSummands().entrySet()) {
+			final Rational factor = summand.getValue();
+			final LinVar lv = summand.getKey();
+			if (lv.mBasic) {
+				final TableauxRow row = mTableaux.get(lv.mMatrixpos);
+				final BigInteger coeff0 = row.getRawCoeff(0);
+				for (int i = 1; i < row.size(); i++) {
+					final Rational combinedFactor = factor.mul(Rational.valueOf(row.getRawCoeff(i), coeff0))
+							.negate();
+					final LinVar nonbasic = mLinvars.get(row.getRawIndex(i));
+					addToFingerprint(mat, combinedFactor, nonbasic);
+				}
+			} else {
+				addToFingerprint(mat, factor, lv);
+			}
+		}
+		mat.add(shared.getOffset());
+		final Map<LinVar, Rational> result = new HashMap<>(mat.getSummands());
+		result.put(null, mat.getConstant().mReal);
+		return result;
+	}
+
+	public Clause propagateSharedEquality(LASharedTerm lhs, LASharedTerm rhs) {
+		final EqualityProxy eq = mClausifier.createEqualityProxy(lhs.getTerm(), rhs.getTerm(), null);
+		assert eq != EqualityProxy.getTrueProxy();
+		assert eq != EqualityProxy.getFalseProxy();
+		final CCEquality cceq = eq.createCCEquality(lhs.getTerm(), rhs.getTerm());
+		final LAEquality laeq = cceq.getLASharedData();
+		if (laeq.getDecideStatus() != laeq) {
+			return null;
+		}
+		if (cceq.getDecideStatus() == cceq.negate()) {
+			return generateEqualityClause(cceq);
+		} else if (cceq.getDecideStatus() == null) {
+			mProplist.add(cceq);
+		} else {
+			mClausifier.getLogger().debug("already set: %s", cceq.getAtom().getDecideStatus());
+		}
+		return null;
+	}
+
+	public Clause propagateSharedEqualities() {
+		// TODO: store sharedVars already separated by sorts.
+		final Set<Sort> sharedVarSorts = new LinkedHashSet<Sort>();
+		for (final LASharedTerm shared : mSharedVars) {
+			sharedVarSorts.add(shared.getTerm().getSort());
+		}
+		for (final Sort sort : sharedVarSorts) {
+			final Map<Map<LinVar, Rational>, LASharedTerm> fingerprints = new HashMap<>();
+			for (final LASharedTerm shared : mSharedVars) {
+				if (shared.getTerm().getSort() == sort) {
+					final Map<LinVar,Rational> fingerprint = fingerprintSharedVar(shared);
+					final LASharedTerm other = fingerprints.get(fingerprint);
+					if (other == null) {
+						fingerprints.put(fingerprint, shared);
+					} else {
+						final Clause conflict = propagateSharedEquality(other, shared);
+						if (conflict != null) {
+							return conflict;
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+
 	@Override
 	public Clause checkpoint() {
 		do {
@@ -1087,12 +1186,13 @@ public class LinArSolve implements ITheory {
 			if (!mInCheck) {
 				return null;
 			}
+			pivotEqualities();
 			conflict = fixOobs();
 			if (conflict != null) {
 				return conflict;
 			}
 		} while (!mDirty.isEmpty());
-		return null;
+		return propagateSharedEqualities();
 	}
 
 	public Rational realValue(final LinVar var) {
