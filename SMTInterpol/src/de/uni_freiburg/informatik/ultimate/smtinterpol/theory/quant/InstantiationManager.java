@@ -1277,7 +1277,6 @@ public class InstantiationManager {
 
 		// Check for true ground literals first.
 		for (final Literal groundLit : quantClause.getGroundLits()) {
-			assert groundLit.getAtom().getDecideStatus() != null;
 			if (groundLit.getAtom().getDecideStatus() == groundLit) {
 				return new Pair<>(InstanceValue.TRUE, null);
 			}
