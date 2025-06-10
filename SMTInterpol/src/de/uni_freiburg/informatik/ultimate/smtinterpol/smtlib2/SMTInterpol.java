@@ -485,11 +485,13 @@ public class SMTInterpol extends NoopScript {
 								mErrorCallback.notifyError(ErrorReason.INVALID_MODEL);
 							}
 						}
-						for (final Literal lit : mEngine.getAssertedLiterals()) {
-							final Term litTerm = lit.getSMTFormula(getTheory());
-							final Term litValue = mModel.evaluate(litTerm);
-							if (litValue != getTheory().mTrue) {
-								mLogger.fatal("Literal %s not satisfied", lit);
+						if (!getTheory().getLogic().isQuantified()) {
+							for (final Literal lit : mEngine.getAssertedLiterals()) {
+								final Term litTerm = lit.getSMTFormula(getTheory());
+								final Term litValue = mModel.evaluate(litTerm);
+								if (litValue != getTheory().mTrue) {
+									mLogger.fatal("Literal %s not satisfied", lit);
+								}
 							}
 						}
 						for (final Term asserted : mAssertions) {
