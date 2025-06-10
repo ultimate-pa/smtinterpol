@@ -327,6 +327,7 @@ public class DPLLEngine {
 			/* check if clause was already removed */
 			if (clause.mNext == null) {
 				watchList.removeFirst();
+				continue next_watcher;
 			}
 			final Literal[] lits = clause.mLiterals;
 			/*
@@ -345,7 +346,6 @@ public class DPLLEngine {
 					watchList.removeFirst();
 					lits[i].getAtom().mBacktrackWatchers.append(clause, index);
 					continue next_watcher;
-
 				}
 			}
 			/* we found a true watcher */
@@ -1062,8 +1062,8 @@ public class DPLLEngine {
 
 	private Literal chooseLiteral() {
 		final Literal lit = suggestions();
-		mLogger.debug("Decide using suggestion: %s", lit);
 		if (lit != null) {
+			mLogger.debug("Decide using suggestion: %s", lit);
 			return lit;
 		}
 		DPLLAtom atom;
@@ -1184,6 +1184,8 @@ public class DPLLEngine {
 			int iteration = 1;
 			int nextRestart = Config.RESTART_FACTOR;
 			long time;
+
+			main_loop:
 			while (!isTerminationRequested()) {
 				Clause conflict;
 				do {
@@ -1196,25 +1198,34 @@ public class DPLLEngine {
 						mPropTime += time - lastTime - mSetTime - mBacktrackTime;
 						lastTime = time - mSetTime - mBacktrackTime;
 					}
-					final Literal literal = chooseLiteral();
+					Literal literal = chooseLiteral();
 					if (literal == null) {
+						final int level = mDPLLStack.size();
 						conflict = checkConsistency();
 						if (conflict == null) {
-							Literal lit;
-							boolean suggested = false;
-							mLogger.debug("checking suggestions");
-							while (conflict == null && (lit = suggestions()) != null) { // NOPMD
-								if (lit.getAtom().mExplanation == null) {
-									increaseDecideLevel();
-									mDecides++;
+							conflict = propagateInternal();
+						}
+						if (conflict == null && mDPLLStack.size() > level) {
+							continue main_loop;
+						}
+						if (conflict == null) {
+							literal = chooseLiteral();
+							if (literal == null) {
+								mLogger.debug("no more suggestions");
+								nextClause: for (final Clause clause : mClauses) {
+									for (final Literal l : clause.mLiterals) {
+										if (l.getAtom().getDecideStatus() == l) {
+											continue nextClause;
+										}
+									}
+									throw new AssertionError("Unfulfilled clause: " + clause);
 								}
-								assert lit.getAtom().getDecideStatus() == null;
-								conflict = setLiteral(lit);
-								suggested = true;
-							}
-							// @assert conflict != null ==> suggested == true
-							if (!suggested && mPendingWatcherList.isEmpty() && mAtoms.isEmpty()) {
-								mLogger.debug("no suggestions");
+								mLogger.debug("All Clauses satisfied");
+								for (final DPLLAtom atom : mAtomList) {
+									if (atom.getDecideStatus() != null) {
+										mLogger.info("True Literal: %s", atom.getDecideStatus());
+									}
+								}
 								/* We found a model */
 								if (mLogger.isInfoEnabled()) {
 									printStatistics();
@@ -1232,10 +1243,13 @@ public class DPLLEngine {
 								return true;
 							}
 						}
-					} else {
-						assert literal.getAtom().mExplanation == null;
-						increaseDecideLevel();
-						mDecides++;
+					}
+					// either literal is the next decision literal or a conflict was found.
+					if (conflict == null) {
+						if (literal.getAtom().mExplanation == null) {
+							increaseDecideLevel();
+							mDecides++;
+						}
 						conflict = setLiteral(literal);
 					}
 				} while (conflict == null && !isTerminationRequested());
@@ -1991,5 +2005,15 @@ public class DPLLEngine {
 				mAtoms.add(atom);
 			}
 		}
+	}
+
+	public List<Literal> getAssertedLiterals() {
+		final ArrayList<Literal> result = new ArrayList<>();
+		for (final DPLLAtom atom : mAtomList) {
+			if (atom.getDecideStatus() != null) {
+				result.add(atom.getDecideStatus());
+			}
+		}
+		return result;
 	}
 }
