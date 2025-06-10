@@ -13,14 +13,12 @@
 
 \title{\SI\\{\large Version \version}}
 
-\author{Max Barth\inst{1} \and Jochen Hoenicke\inst{2} \and Tanja Schindler\inst{3}}
+\author{Jochen Hoenicke\inst{1}}
 \institute{
-  LMU Munich, \email{max.barth@lmu.de} \and
-  Certora, \email{jochen@certora.com} \and
-  University of Basel, \email{tanja.schindler@unibas.ch}
+  Certora, \email{jochen@certora.com}
 }
 \titlerunning{\SI \version}
-\authorrunning{Barth, Hoenicke and Schindler}
+\authorrunning{Hoenicke}
 
 \begin{document}
 \maketitle
@@ -36,6 +34,7 @@ It uses variants of standard algorithms for CNF conversion~\cite{DBLP:journals/j
 The solver for linear arithmetic is based on Simplex~\cite{DBLP:conf/cav/DutertreM06}, the sum-of-infeasibility algorithm~\cite{DBLP:conf/fmcad/KingBD13}, and branch-and-cut for integer arithmetic~\cite{DBLP:conf/cav/ChristH15,DBLP:conf/cav/DilligDA09}.
 The array decision procedure is based on weak equivalences~\cite{DBLP:conf/frocos/ChristH15} and includes an extension for constant arrays~\cite{DBLP:conf/vmcai/HoenickeS19}.
 The decision procedure for data types is based on the rules presented in~\cite{DBLP:journals/jsat/BarrettST07}.
+The decision procedure for bit-vectors uses the int-blasting technique~\cite{DBLP:conf/vmcai/ZoharIMNNPRBT22,DBLP:conf/smt/BarthH24}.
 The solver for quantified formulas performs an incremental search for conflicting and unit-propagating instances of quantified formulas~\cite{DBLP:conf/vmcai/HoenickeS21} which is complemented with a version of enumerative instantiation~\cite{DBLP:conf/tacas/ReynoldsBF18} to ensure completeness for the finite almost uninterpreted fragment~\cite{DBLP:conf/cav/GeM09}.
 Theory combination is performed based on partial models produced by the theory solvers~\cite{DBLP:journals/entcs/MouraB08}.
 \SI comes with a proof production~\cite{DBLP:conf/smt/HoenickeS22} that is based on resolution using a minimal set of axioms.
@@ -44,15 +43,15 @@ The main focus of \SI is the incremental track.
 This track simulates the typical application of \SI where a user asks multiple queries.
 As an extension, \SI supports interpolation for all supported theories~\cite{DBLP:journals/jar/ChristH16,DBLP:conf/cade/HoenickeS18,DBLP:conf/vmcai/HoenickeS19,DBLP:conf/smt/HenkelHS21}.  It computes quantifier-free interpolants for quantifier-free input formulas.
 This makes it useful as a backend for software verification tools.
-In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2024, used \SI.
+In particular, \textsc{Ultimate Automizer}\footnote{\url{https://ultimate.informatik.uni-freiburg.de/}} and \textsc{CPAchecker}\footnote{\url{https://cpachecker.sosy-lab.org/}}, the winners of the SV-COMP 2016--2025, used \SI.
 
 \SI aims for producing witnesses (proofs and models).  The competition version will check these witnesses before reporting the result to ensure soundness.  Only sat results for quantified logics are not checked.
 
 \section*{Competition Version}
-The version of \SI submitted to the SMT-COMP 2024 contains
-preliminary support for non-linear benchmarks.  Multiplication of arbitrary terms is handled by the pre-processor.  However, the linear solver will treat products of variables as unconstrained variables.  If a model is found, the solver reports unknown if a non-linear multiplication is part of the tableau.
-
-We also have an experimental bit-vector solver based on a translation to integer arithmetic.  The bit-vector rewrite rules are not checked by the proof checker so bugs may lead to wrong unsat results.
+The version of \SI submitted to the SMT-COMP 2025 contains
+new experimental technique for propagating equalities in linear arithmetic.
+Also the DPLL core engine was changed to not decide on literals that
+are currently not watched by any clause.
 
 \section*{Authors, Logics, and Tracks}
 The code was written by Max Barth, Leon Cacace, J{\"u}rgen Christ, Daniel Dietsch, Leonard Fichtner, Joanna Greulich, Elisabeth Henkel, Matthias Heizmann, Jochen Hoenicke, Moritz Mohr, Alexander Nutz, Markus Pomrehn, Pascal Raiola, and Tanja Schindler.
@@ -71,7 +70,6 @@ However, the model generator currently does not support quantifiers.
 %
 \SI participates in the logics matched by
 \verb!(QF_)?(AX?)?(BV)?(UF)?(DT)?([IR]DL|[NL][IR]*A)?!\footnote{\SI will mostly ignore non-linear arithmetic, and report unknown on benchmarks that need non-linear reasoning.  It fully supports modulo and division by constants, though.}.
-In the unsat core track it does not participate in logics containing BV.
 
 \bibliography{sysdesc}
 \bibliographystyle{alpha}
