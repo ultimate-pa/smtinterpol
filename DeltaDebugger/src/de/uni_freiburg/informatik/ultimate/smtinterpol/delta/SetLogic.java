@@ -33,7 +33,7 @@ public class SetLogic extends Cmd {
 	@Override
 	public void dump(PrintWriter writer) {
 		writer.print("(set-logic ");
-		writer.print(mLogic.name());
+		writer.print(mLogic.getName());
 		writer.println(')');
 	}
 

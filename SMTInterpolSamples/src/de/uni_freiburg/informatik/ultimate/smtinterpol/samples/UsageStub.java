@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -34,7 +33,7 @@ public final class UsageStub {
 	public static void main(String[] args) {
 		try {
 			final Script s = new SMTInterpol(new DefaultLogger());
-			s.setLogic(Logics.QF_LIA);
+			s.setLogic("QF_LIA");
 			s.declareFun("x", new Sort[0], s.sort("Int"));
 			s.declareFun("y", new Sort[0], s.sort("Int"));
 			s.assertTerm(s.term(">", s.term("x"), s.term("y")));

@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Model;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -58,7 +57,7 @@ public final class ModelSample {
 		// Enable model production
 		script.setOption(":produce-models", true);
 		script.setOption(":verbosity", 1);
-		script.setLogic(Logics.QF_UF);
+		script.setLogic("QF_UF");
 		// Declare sort U
 		script.declareSort("U", 0);
 		final Sort u = script.sort("U");

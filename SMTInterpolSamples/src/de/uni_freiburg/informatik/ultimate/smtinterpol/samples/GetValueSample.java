@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
 import java.util.Map;
 
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -42,7 +41,7 @@ public final class GetValueSample {
 			// Enable production of a model
 			script.setOption(":produce-models", true);
 
-			script.setLogic(Logics.QF_UFLIA);
+			script.setLogic("QF_UFLIA");
 			declareStuff(script);
 			// Build the formula f(x) == f(y) /\ i > j
 			final Term x = script.term("x");

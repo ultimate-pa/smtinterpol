@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Assignments;
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -39,7 +38,7 @@ public final class FlipDecisions {
 		final Script script = new SMTInterpol(new DefaultLogger());
 		script.setOption(":produce-assignments", true);
 		script.setOption(":verbosity", 2);
-		script.setLogic(Logics.QF_UF);
+		script.setLogic("QF_UF");
 		final Sort[] empty = {};
 		final Sort bool = script.sort("Bool");
 		script.declareFun("P", empty, bool);

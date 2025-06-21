@@ -22,7 +22,6 @@ import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.Assignments;
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -44,7 +43,7 @@ public final class GetAssignmentsSample {
 			// Enable production of assignments for Boolean named terms
 			script.setOption(":produce-assignments", true);
 
-			script.setLogic(Logics.QF_UF);
+			script.setLogic("QF_UF");
 			declareStuff(script);
 			// Build the formula (f(x) == f(y) /\ x == y) \/ x != y
 			// Name every literal in the formula

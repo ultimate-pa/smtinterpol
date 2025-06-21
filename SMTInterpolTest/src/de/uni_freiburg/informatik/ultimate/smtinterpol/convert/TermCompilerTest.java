@@ -42,7 +42,7 @@ public class TermCompilerTest {
 
 	public TermCompilerTest() {
 		mSolver = new SMTInterpol(new DefaultLogger());
-		mSolver.setLogic(Logics.QF_LIA);
+		mSolver.setLogic(Logics.valueOf("QF_LIA"));
 		final Sort boolSort = mSolver.sort("Bool");
 		final Sort intSort = mSolver.sort("Int");
 		final Sort[] empty = {};

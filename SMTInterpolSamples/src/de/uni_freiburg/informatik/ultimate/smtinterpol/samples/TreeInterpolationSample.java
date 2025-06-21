@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.samples;
 
 import java.io.StringReader;
 
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -55,7 +54,7 @@ public final class TreeInterpolationSample {
 		final ParseEnvironment pe = new ParseEnvironment(solver, options);
 		// Disable success messages
 		solver.setOption(":print-success", Boolean.FALSE);
-		solver.setLogic(Logics.QF_LIA);
+		solver.setLogic("QF_LIA");
 		// Declare some function symbols
 		pe.parseStream(new StringReader("(declare-fun x_1 () Int)"), "x_1");
 		pe.parseStream(new StringReader("(declare-fun xm1 () Int)"), "xm1");

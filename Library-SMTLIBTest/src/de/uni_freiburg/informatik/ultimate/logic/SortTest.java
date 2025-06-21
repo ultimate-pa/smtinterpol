@@ -30,7 +30,7 @@ public class SortTest {
 
 	@Test
 	public void test() {
-		final Theory theory = new Theory(Logics.QF_UF);
+		final Theory theory = new Theory(Logics.valueOf("QF_UF"));
 		theory.declareSort("Int", 0);
 		theory.declareSort("Real", 0);
 		theory.declareSort("Array", 2);
@@ -65,7 +65,7 @@ public class SortTest {
 
 	@Test
 	public void testRecursive() {
-		final Theory theory = new Theory(Logics.QF_UF);
+		final Theory theory = new Theory(Logics.valueOf("QF_UF"));
 		theory.declareSort("U", 0);
 		final Sort sort = theory.getSort("U");
 		theory.declareSort("un", 1);
@@ -106,7 +106,7 @@ public class SortTest {
 
 	@Test
 	public void testUnification() {
-		final Theory theory = new Theory(Logics.AUFLIRA);
+		final Theory theory = new Theory(Logics.valueOf("AUFLIRA"));
 
 		final Sort sortInt = theory.getSort("Int");
 		final Sort sortReal = theory.getSort("Real");
@@ -129,7 +129,7 @@ public class SortTest {
 
 	@Test
 	public void testIndexedSort() {
-		final Theory theory = new Theory(Logics.QF_UF);
+		final Theory theory = new Theory(Logics.valueOf("QF_UF"));
 		final String[] size = new String[] { String.valueOf(5) };// NOCHECKSTYLE
 		final String[] dim = new String[] { String.valueOf(2) };
 		final Sort bv5 = new SortSymbol(theory, "bv", 0, null, SortSymbol.INDEXED) {
@@ -160,7 +160,7 @@ public class SortTest {
 
 	@Test
 	public void testFunctionSort() {
-		final Theory theory = new Theory(Logics.QF_UF);
+		final Theory theory = new Theory(Logics.valueOf("QF_UF"));
 		final Sort[] sorts = createDummySorts(theory, 5);
 
 		final Sort sort2 = theory.getSort(SMTLIBConstants.FUNC, sorts[0], sorts[1]);

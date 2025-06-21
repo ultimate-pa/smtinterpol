@@ -73,7 +73,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.demo;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -108,7 +107,7 @@ public final class Spin2012 {
 		final SMTInterpol script = new SMTInterpol(new DefaultLogger());
 		script.setOption(":produce-proofs", true);
 		script.setOption(":produce-interpolants", true);
-		script.setLogic(Logics.QF_UFLIA);
+		script.setLogic("QF_UFLIA");
 		script.declareFun("x", new Sort[0], script.sort("Int"));
 		script.declareFun("y", new Sort[0], script.sort("Int"));
 		script.declareFun("z", new Sort[0], script.sort("Int"));

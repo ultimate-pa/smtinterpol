@@ -24,7 +24,6 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.SimpleLayout;
 import org.apache.log4j.WriterAppender;
 
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.samples.util.Log4jProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
@@ -47,7 +46,7 @@ public final class LogProxySample {
 		// Create and set up the solver
 		final SMTInterpol solver = new SMTInterpol(new Log4jProxy(logger));
 		solver.setOption(":verbosity", BigInteger.valueOf(5));
-		solver.setLogic(Logics.QF_LIA);
+		solver.setLogic("QF_LIA");
 
 		// Just a simple usage to produce some logging
 		final Sort intSort = solver.sort("Int");

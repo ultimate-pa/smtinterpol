@@ -22,7 +22,6 @@ import java.math.BigInteger;
 import java.util.Arrays;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
-import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -51,7 +50,7 @@ public final class CCInterpolationSamples {
 			// Don't be too verbose
 			final BigInteger verbosity = (BigInteger) script.getOption(":verbosity");
 			script.setOption(":verbosity", verbosity.subtract(BigInteger.ONE));
-			script.setLogic(Logics.QF_UF);
+			script.setLogic("QF_UF");
 			script.declareSort("U", 0);
 			final Sort U = script.sort("U");
 			final Sort[] empty = new Sort[0];
