@@ -4755,7 +4755,7 @@ public class ProofSimplifier extends TermTransformer {
 		case ":diff":
 		case ":matchCase":
 		case ":matchDefault":
-		case ":int2ubv2nat":
+		case ":int2ubv2int":
 		case ":ubv2int2bv":
 		case ":int2bv":
 		case ":bv2intHigh":
