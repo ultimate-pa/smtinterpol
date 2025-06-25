@@ -552,7 +552,7 @@ public class Theory {
 		}
 		final String bsize = String.valueOf(value.length() - 2);
 		final Sort sort = mBitVecSort.getSort(new String[] { bsize }, new Sort[0]);
-		return new ConstantTerm(value, sort, ConstantTerm.hashConstant(value, sort));
+		return constant(value, sort);
 	}
 
 	public Term hexadecimal(final String value) {
@@ -562,7 +562,7 @@ public class Theory {
 		}
 		final String bsize = String.valueOf(4 * (value.length() - 2));// NOCHECKSTYLE
 		final Sort sort = mBitVecSort.getSort(new String[] { bsize }, new Sort[0]);
-		return new ConstantTerm(value, sort, ConstantTerm.hashConstant(value, sort));
+		return constant(value, sort);
 	}
 
 	public Term modelRational(final Rational rat, final Sort sort) {

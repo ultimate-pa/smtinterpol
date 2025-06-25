@@ -1165,8 +1165,9 @@ public class ProofSimplifier extends TermTransformer {
 		final ApplicationTerm bvTerm = (ApplicationTerm) int2bv2intTerm.getParameters()[0];
 		final Term intTerm = bvTerm.getParameters()[0];
 		final String bitLength = bvTerm.getSort().getIndices()[0];
-		final Term bv2intProof = mProofRules.int2ubv2int(bitLength, intTerm);
-		final BigInteger pow2 = BigInteger.ONE.shiftLeft(Integer.parseInt(bitLength));
+		final int bitLengthInt = Integer.parseInt(bitLength);
+		final Term bv2intProof = mProofRules.int2ubv2int(BigInteger.valueOf(bitLengthInt), intTerm);
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLengthInt);
 		final Term modTerm = theory.term(SMTLIBConstants.MOD, intTerm, theory.numeral(pow2));
 		final Term modProof = convertRewriteNormalizeModulo(modTerm, goalModTerm);
 		final Term eq1 = theory.term(SMTLIBConstants.EQUALS, int2bv2intTerm, modTerm);
@@ -1282,7 +1283,7 @@ public class ProofSimplifier extends TermTransformer {
 						res(bvEqbv2int2bv,
 								res(bv2int2bvEqbv, mProofRules.ubv2int2bv(bv), mProofRules.symm(bv, bv2int2bv)),
 								mProofRules.cong(bv2int, bv2int2bv2int)),
-						res(bv2int2bv2intEqMod, mProofRules.int2ubv2int(bitLengthString, bv2int),
+						res(bv2int2bv2intEqMod, mProofRules.int2ubv2int(BigInteger.valueOf(bitLength), bv2int),
 								mProofRules.trans(bv2int, bv2int2bv2int, modTerm))),
 
 				proof);
@@ -3102,6 +3103,18 @@ public class ProofSimplifier extends TermTransformer {
 				mProofRules.trans(lhs, equalTerm, rhs)));
 	}
 
+	private Term convertRewriteBvEval(final Term lhs, final Term rhs) {
+		final ConstantTerm lhsConst = (ConstantTerm) lhs;
+		if (lhsConst.getValue() instanceof BigInteger) {
+			final BigInteger value = (BigInteger) lhsConst.getValue();
+			final String bitLength = lhsConst.getSort().getIndices()[0];
+			return mProofRules.bvConst(value, new BigInteger(bitLength));
+		} else {
+			final String value = (String) lhsConst.getValue();
+			return mProofRules.bvLiteral(value);
+		}
+	}
+
 	private Term convertRewrite(final Term lhs, Term rhs, Annotation annot) {
 		final Term rewriteStmt = lhs.getTheory().term("=", lhs, rhs);
 		final String rewriteRule = annot.getKey();
@@ -3216,6 +3229,9 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":auxIntro":
 			subProof = convertRewriteAuxIntro(rewriteStmt, lhs, rhs);
+			break;
+		case ":bveval":
+			subProof = convertRewriteBvEval(lhs, rhs);
 			break;
 		default:
 			subProof = mProofRules.oracle(termToProofLiterals(rewriteStmt), new Annotation[] { annot });

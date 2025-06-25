@@ -331,7 +331,8 @@ Bitvector Arithmetic:
 (&bound a b)        ~(<= 0 a), (<= (& a b) a)
 (&nonneg a b)       ~(<= 0 a), (<= 0 (& a b))
 
-(bvx k):            (= (_ bvx k) ((_ nat2bv k) x))   # for 0 <= x < 2^k
+(bvconst x k):      (= (_ bvx k) ((_ nat2bv k) x))   # for 0 <= x < 2^k
+(bvliteral #l):     (= #l ((_ nat2bv k) x))          # where l is #b[01]* or #x[0-9a-f]* and x is the parsed bit-vector constant and k the length
 (bvadd a b):        (= (bvadd a b) ((_ nat2bv k) (+ (bv2nat a) (bv2nat b))))
 (bvsub a b):        (= (bvsub a b) ((_ nat2bv k) (+ (bv2nat a) (* (- 1) (bv2nat b)))))
 (bvmul a b):        (= (bvmul a b) ((_ nat2bv k) (* (bv2nat a) (bv2nat b))))

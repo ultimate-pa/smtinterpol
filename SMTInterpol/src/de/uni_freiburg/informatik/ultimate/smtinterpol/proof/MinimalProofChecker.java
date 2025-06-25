@@ -29,6 +29,7 @@ import java.util.Stack;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
@@ -1293,6 +1294,66 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term iteTerm = buildIteForMatch(matchTerm);
 
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
+			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+		}
+		case ":" + ProofRules.BVCONST: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			assert annots.length == 2;
+			final Term natTerm = (Term) annots[0].getValue();
+			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")
+					|| !(natTerm instanceof ConstantTerm)
+					|| !(((ConstantTerm) natTerm).getValue() instanceof Rational)) {
+				reportError("Expected constant integer argument");
+				return getTrueClause(theory);
+			}
+			final Rational constRational = (Rational) ((ConstantTerm) natTerm).getValue();
+			final BigInteger constValue = constRational.numerator();
+			assert annots[1].getKey().equals(ProofRules.ANNOT_BVLEN);
+			final String bitLength = (String) annots[1].getValue();
+			final Integer bitLengthInt = Integer.parseInt(bitLength);
+			if (!constRational.denominator().equals(BigInteger.ONE) || constValue.signum() < 0
+					|| constValue.bitLength() > bitLengthInt) {
+				reportError("Constant integer argument out of range");
+				return getTrueClause(theory);
+			}
+			final Term bvTerm = theory.term("bv" + constValue.toString(), new String[] { bitLength }, null);
+			final Term int2bvTerm = theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm);
+			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, bvTerm, int2bvTerm);
+			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+		}
+		case ":" + ProofRules.BVLITERAL: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			assert annots.length == 1;
+			final Term litTerm = (Term) annots[0].getValue();
+			if (!litTerm.getSort().isInternal() || !litTerm.getSort().getName().equals(SMTLIBConstants.BITVEC)
+					|| !(litTerm instanceof ConstantTerm)
+					|| !(((ConstantTerm) litTerm).getValue() instanceof String)) {
+				reportError("Expected literal argument");
+				return getTrueClause(theory);
+			}
+			final String litValue = (String) ((ConstantTerm) litTerm).getValue();
+			int bitLengthInt;
+			BigInteger constValue;
+			if (litValue.matches("#b[01]+")) {
+				constValue = new BigInteger(litValue.substring(2), 2);
+				bitLengthInt = litValue.length() -  2;
+			} else if (litValue.matches("#x[0-9a-fA-F]+")) {
+				constValue = new BigInteger(litValue.substring(2), 16);
+				bitLengthInt = 4 * (litValue.length() - 2);
+			} else {
+				reportError("Expected bit-vector literal");
+				return getTrueClause(theory);
+			}
+			final Term constTerm = Rational.valueOf(constValue, BigInteger.ONE).toTerm(theory.getNumericSort());
+			final Term int2bvTerm = theory.term(SMTLIBConstants.INT_TO_BV,
+					new String[] { String.valueOf(bitLengthInt) }, null, constTerm);
+			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, litTerm, int2bvTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
 		case ":" + ProofRules.INT2UBV2INT: {
