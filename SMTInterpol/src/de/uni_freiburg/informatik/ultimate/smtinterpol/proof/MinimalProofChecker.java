@@ -936,7 +936,7 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true) };
 		}
 		case ":" + ProofRules.TOREALDEF: {
-			if (!theory.getLogic().isIRA()) {
+			if (!theory.getLogic().hasReals() || (!theory.getLogic().isIRA() && !theory.getLogic().isBitVector())) {
 				reportError("Proof requires arithmetic");
 				return getTrueClause(theory);
 			}

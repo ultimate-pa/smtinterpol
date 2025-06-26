@@ -495,6 +495,15 @@ public class Theory {
 	}
 
 	public Term numeral(final BigInteger num) {
+		if (mLogic.isBitVector() && mLogic.hasReals() && !mLogic.hasIntegers()) {
+			// The curious case of BVLRA logics. We treat this as decimals, since we
+			// internally use LIRA logic, but the benchmark does not.
+			// This means that this is one instance where we apply transformations in the
+			// parser and these aren't tracked at all. There is no way around this,
+			// since our proof is in LIRA and thus uses a different semantics for
+			// NUMERAL than the benchmark.
+			return constant(Rational.valueOf(num, BigInteger.ONE), mRealSort);
+		}
 		if (mNumericSort != mRealSort) {
 			// For integer sort, always use Rational constants for numerals.
 			return constant(Rational.valueOf(num, BigInteger.ONE), mNumericSort);

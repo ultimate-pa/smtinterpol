@@ -279,18 +279,38 @@ public class ModelEvaluator extends TermTransformer {
 		}
 
 		case SMTLIBConstants.EQUALS:
-			for (int i = 1; i < args.length; ++i) {
-				if (args[i] != args[0]) {
-					return theory.mFalse;
+			if (fs.getDefinition() != null) {
+				// This is a LIRA equality between numbers of different types
+				final Rational arg0Value = rationalValue(args[0]);
+				for (int i = 1; i < args.length; ++i) {
+					if (rationalValue(args[i]) != arg0Value) {
+						return theory.mFalse;
+					}
+				}
+			} else {
+				for (int i = 1; i < args.length; ++i) {
+					if (args[i] != args[0]) {
+						return theory.mFalse;
+					}
 				}
 			}
 			return theory.mTrue;
 
 		case SMTLIBConstants.DISTINCT: {
-			final HashSet<Term> vals = new HashSet<>();
-			for (final Term arg : args) {
-				if (!vals.add(arg)) {
-					return theory.mFalse;
+			if (fs.getDefinition() != null) {
+				// This is a LIRA equality between numbers of different types
+				final HashSet<Rational> vals = new HashSet<>();
+				for (final Term arg : args) {
+					if (!vals.add(rationalValue(arg))) {
+						return theory.mFalse;
+					}
+				}
+			} else {
+				final HashSet<Term> vals = new HashSet<>();
+				for (final Term arg : args) {
+					if (!vals.add(arg)) {
+						return theory.mFalse;
+					}
 				}
 			}
 			return theory.mTrue;
