@@ -1168,7 +1168,8 @@ public class ProofSimplifier extends TermTransformer {
 		final int bitLengthInt = Integer.parseInt(bitLength);
 		final Term bv2intProof = mProofRules.int2ubv2int(BigInteger.valueOf(bitLengthInt), intTerm);
 		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLengthInt);
-		final Term modTerm = theory.term(SMTLIBConstants.MOD, intTerm, theory.numeral(pow2));
+		final Term pow2Term = theory.constant(Rational.valueOf(pow2, BigInteger.ONE), theory.getNumericSort());
+		final Term modTerm = theory.term(SMTLIBConstants.MOD, intTerm, pow2Term);
 		final Term modProof = convertRewriteNormalizeModulo(modTerm, goalModTerm);
 		final Term eq1 = theory.term(SMTLIBConstants.EQUALS, int2bv2intTerm, modTerm);
 		final Term eq2 = theory.term(SMTLIBConstants.EQUALS, modTerm, goalModTerm);

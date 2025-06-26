@@ -1372,7 +1372,8 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term nat2bv2nat = theory.term(SMTLIBConstants.UBV_TO_INT,
 					theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm));
 			final BigInteger pow2 = BigInteger.ONE.shiftLeft(Integer.parseInt(bitLength));
-			final Term modTerm = theory.term(SMTLIBConstants.MOD, natTerm, theory.numeral(pow2));
+			final Term pow2Term = theory.constant(Rational.valueOf(pow2, BigInteger.ONE), theory.getNumericSort());
+			final Term modTerm = theory.term(SMTLIBConstants.MOD, natTerm, pow2Term);
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, nat2bv2nat, modTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
