@@ -98,7 +98,7 @@ public class Benchmark {
 		case "QF_AUFLIA":
 		case "AUFLIA":
 			mSortTranslator.put("Array", mScript.sort("Array",
-					mScript.sort("Int"), mScript.sort("Real")));
+					mScript.sort("Int"), mScript.sort("Int")));
 			//$FALL-THROUGH$
 		case "QF_UFLIA":
 		case "QF_UFLRA":
