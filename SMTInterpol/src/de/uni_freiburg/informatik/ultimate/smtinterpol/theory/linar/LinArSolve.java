@@ -386,13 +386,21 @@ public class LinArSolve implements ITheory {
 		final LinVar var = reason.getVar();
 		LAReason chain;
 		if (reason.isUpper()) {
+			// remove a literal reason from literal reason chain
+			if (reason instanceof LiteralReason) {
+				LiteralReason litReason = var.mUpperLiteral;
+				if (litReason == reason) {
+					var.mUpperLiteral = litReason.getOldLiteralReason();
+				} else {
+					// note that any literal reason must be on the literal reason chain.
+					while (litReason.getOldLiteralReason() != reason) {
+						litReason = litReason.getOldLiteralReason();
+					}
+					litReason.setOldLiteralReason(litReason.getOldLiteralReason().getOldLiteralReason());
+				}
+			}
 			if (var.mUpper == reason) {
 				var.mUpper = reason.getOldReason();
-				if (var.mUpperLiteral == reason) {
-					var.mUpperLiteral = ((LiteralReason) reason).getOldLiteralReason();
-				} else {
-					assert reason instanceof CompositeReason;
-				}
 				if (!var.mBasic) { // NOPMD
 					if (var.getValue().compareTo(var.getLowerBound()) < 0) {
 						updateVariableValue(var, new ExactInfinitesimalNumber(var.getLowerBound()));
@@ -403,17 +411,22 @@ public class LinArSolve implements ITheory {
 				return;
 			}
 			chain = var.mUpper;
-			if (var.mUpperLiteral == reason) {
-				var.mUpperLiteral = ((LiteralReason) reason).getOldLiteralReason();
-			}
 		} else {
+			// remove it from literal reason chain
+			if (reason instanceof LiteralReason) {
+				LiteralReason litReason = var.mLowerLiteral;
+				if (litReason == reason) {
+					var.mLowerLiteral = litReason.getOldLiteralReason();
+				} else {
+					// note that any literal reason must be on the literal reason chain.
+					while (litReason.getOldLiteralReason() != reason) {
+						litReason = litReason.getOldLiteralReason();
+					}
+					litReason.setOldLiteralReason(litReason.getOldLiteralReason().getOldLiteralReason());
+				}
+			}
 			if (var.mLower == reason) {
 				var.mLower = reason.getOldReason();
-				if (var.mLowerLiteral == reason) {
-					var.mLowerLiteral = ((LiteralReason) reason).getOldLiteralReason();
-				} else {
-					assert reason instanceof CompositeReason;
-				}
 				if (!var.mBasic) { // NOPMD
 					if (var.getValue().compareTo(var.getUpperBound()) > 0) {
 						updateVariableValue(var, new ExactInfinitesimalNumber(var.getUpperBound()));
@@ -424,14 +437,8 @@ public class LinArSolve implements ITheory {
 				return;
 			}
 			chain = var.mLower;
-			if (var.mLowerLiteral == reason) {
-				var.mLowerLiteral = ((LiteralReason) reason).getOldLiteralReason();
-			}
 		}
 		while (chain != null) {
-			if (chain instanceof LiteralReason && ((LiteralReason) chain).getOldLiteralReason() == reason) {
-				((LiteralReason) chain).setOldLiteralReason(((LiteralReason) reason).getOldLiteralReason());
-			}
 			if (chain.getOldReason() == reason) {
 				chain.setOldReason(reason.getOldReason());
 				break;
@@ -471,31 +478,23 @@ public class LinArSolve implements ITheory {
 			return;
 		}
 
-		LAReason reason = var.mUpper;
-		while (reason != null && reason.getBound().lesseq(bound)) {
-			if ((reason instanceof LiteralReason) && ((LiteralReason) reason).getLiteral() == literal
-					&& reason.getLastLiteral() == reason) {
-				removeLiteralReason((LiteralReason) reason);
+		LiteralReason litReason = var.mUpperLiteral;
+		while (litReason != null && litReason.getBound().lesseq(bound)) {
+			if ((litReason instanceof LiteralReason) && litReason.getLiteral() == literal) {
+				removeLiteralReason(litReason);
 				break;
 			}
-			reason = reason.getOldReason();
-		}
-		if (var.mUpperLiteral != null && var.mUpperLiteral.getLiteral() == literal) {
-			removeLiteralReason(var.mUpperLiteral);
+			litReason = litReason.getOldLiteralReason();
 		}
 		assert var.mUpperLiteral == null || var.mUpperLiteral.getOldLiteralReason() == null
 				|| var.mUpperLiteral.getOldLiteralReason().getLiteral() != literal;
-		reason = var.mLower;
-		while (reason != null && bound.lesseq(reason.getBound())) {
-			if ((reason instanceof LiteralReason) && ((LiteralReason) reason).getLiteral() == literal
-					&& reason.getLastLiteral() == reason) {
-				removeLiteralReason((LiteralReason) reason);
+		litReason = var.mLowerLiteral;
+		while (litReason != null && bound.lesseq(litReason.getBound())) {
+			if ((litReason instanceof LiteralReason) && litReason.getLiteral() == literal) {
+				removeLiteralReason(litReason);
 				break;
 			}
-			reason = reason.getOldReason();
-		}
-		if (var.mLowerLiteral != null && var.mLowerLiteral.getLiteral() == literal) {
-			removeLiteralReason(var.mLowerLiteral);
+			litReason = litReason.getOldLiteralReason();
 		}
 		assert var.mLowerLiteral == null || var.mLowerLiteral.getOldLiteralReason() == null
 				|| var.mLowerLiteral.getOldLiteralReason().getLiteral() != literal;
