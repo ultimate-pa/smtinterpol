@@ -130,3 +130,30 @@ e.g., if the asserted formula is `(or p1 p2 p3)` and `p2` evaluates to `true`, w
 proof for `(= p2 true)` derive from it `p2` and use that to prove `(or p1 p2 p3)`.  The formulas `p1`, `p3` do not need to
 be evaluated at all.
 
+
+SAT Proofs for Formula Splitting
+--------------------------------
+
+For every input formula remember the proof of the input formula.  When there are pending `AddAsAxiom(F_i)` on the todo stack, build a proof for the clause `{~F_1, ..., ~F_n, input}`.   When `buildClause(F_i)` is called, the proof will leave `~F_i` in the proved clause.
+
+For every `BuildClause(F)` object and every literal `lit_i` in the clause that is built in the end, there is a build-clause proof that will prove `{~lit_i, F}`.   If the clause is quantified, the proof will prove the clause
+`{~lit_i(choose (x) (not (F x)), (forall (x) F)}`
+
+For every named atom `lit`, we remember a proof for  `{~F_1,...,~F_n, lit}`, where `F_i` are the axiom parameters of the `buildAuxClause` calls.
+
+Take the proof of the input clause, then iterate all clauses built for these input.
+For each of these clause, find a literal that is true, and take the proof for that literal and resolve it with the proof.
+If the literal is a named literal, take the proof for that literal `{~F_1,...,~F_n,lit}` and resolve with that.
+Again find the clauses built for the literals and find a true literal in each of them.
+We end up with a proof of `{~lit_1, ..., ~lit_n, input}`, where `lit_i` are all true basic literals.  These can be proved by looking at the current model.
+
+
+For a quantified formula, we first need to proof the quantified clause, i.e., we need a proof for
+`{lit_1(choose x F), ..., lit_n(choose x F)}`, where F is the formula that correspond to the quantified clause.
+This is the clause that model-based quantifier instantiation would prove.
+Then resolve this with the literals `{~lit_i(choose x F), forall F}` to obtain a proof for `forall F`. 
+
+
+Instead of `{~lit(choose x F), (forall x F)}`  we could build proofs for
+`{~lit(choose x F), F_i(choose x input)}`  where F_i is the formula (with free variables) from which the quantified clause is built.
+
