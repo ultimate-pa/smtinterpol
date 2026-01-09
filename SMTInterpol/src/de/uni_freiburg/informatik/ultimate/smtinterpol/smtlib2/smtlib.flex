@@ -133,6 +133,7 @@ Keyword = ":" {SMTLetterDigit}+
   "get-info"             { return symbol(LexerSymbols.GETINFO, yytext()); }
   "get-interpolants"     { return symbol(LexerSymbols.GETINTERPOLANTS, yytext()); }
   "get-model"            { return symbol(LexerSymbols.GETMODEL, yytext()); }
+  "get-model-proof"      { return symbol(LexerSymbols.GETMODELPROOF, yytext()); }
   "get-option"           { return symbol(LexerSymbols.GETOPTION, yytext()); }
   "get-proof"            { return symbol(LexerSymbols.GETPROOF, yytext()); }
   "get-unsat-core"       { return symbol(LexerSymbols.GETUNSATCORE, yytext()); }

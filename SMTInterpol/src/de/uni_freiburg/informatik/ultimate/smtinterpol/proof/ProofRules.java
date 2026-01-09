@@ -143,6 +143,7 @@ public class ProofRules {
 	public final static String ANNOT_BVLEN = ":bvlen";
 	public final static String ANNOT_UNIT = ":unit";
 	public final static String ANNOT_DEFINE_FUN = ":define-fun";
+	public final static String ANNOT_REFINE_FUN = ":refine-fun";
 	public final static String ANNOT_DECLARE_FUN = ":declare-fun";
 
 	public ProofRules(final Theory theory) {
@@ -727,6 +728,11 @@ public class ProofRules {
 				new Annotation[] { new Annotation(ANNOT_DEFINE_FUN, new Object[] { func, definition }), }, subProof);
 	}
 
+	public Term refineFun(final FunctionSymbol func, final Term definition, final Term subProof) {
+		return mTheory.annotatedTerm(
+				new Annotation[] { new Annotation(ANNOT_REFINE_FUN, new Object[] { func, definition }), }, subProof);
+	}
+
 	public Term declareFun(final FunctionSymbol func, final Term subProof) {
 		return mTheory.annotatedTerm(new Annotation[] { new Annotation(ANNOT_DECLARE_FUN, new Object[] { func }), },
 				subProof);
@@ -1012,7 +1018,8 @@ public class ProofRules {
 
 	public static boolean isDefineFun(final Term proof) {
 		return proof instanceof AnnotatedTerm
-				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN;
+				&& (((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN
+						|| ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_REFINE_FUN);
 	}
 
 	public static boolean isDeclareFun(final Term proof) {
@@ -1030,7 +1037,8 @@ public class ProofRules {
 			if (proof instanceof AnnotatedTerm) {
 				final AnnotatedTerm annotTerm = (AnnotatedTerm) proof;
 				final Annotation[] annots = annotTerm.getAnnotations();
-				if (annots.length == 1 && annots[0].getKey() == ANNOT_DEFINE_FUN) {
+				if (annots.length == 1
+						&& (annots[0].getKey() == ANNOT_DEFINE_FUN || annots[0].getKey() == ANNOT_REFINE_FUN)) {
 					final Object[] annotVal = (Object[]) annots[0].getValue();
 					assert annotVal.length == 2;
 					final FunctionSymbol func = (FunctionSymbol) annotVal[0];

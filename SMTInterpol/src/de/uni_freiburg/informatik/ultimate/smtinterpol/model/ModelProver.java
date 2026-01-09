@@ -19,8 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -494,19 +492,21 @@ public class ModelProver extends TermTransformer {
 					if (argTerms[i] == argTerms[j]) {
 						Term proof = proveEquality(origArgs[i], argProofs[i], argTerms[i], argProofs[j],
 							origArgs[j]);
-					final Term origEquality = theory.equals(origArgs[i], origArgs[j]);
-					if (argTerms.length > 2) {
-						proof = mProofUtils.res(origEquality, mProofRules.distinctElim(i, j, origTerm), proof);
+						final Term origEquality = theory.equals(origArgs[i], origArgs[j]);
+						if (argTerms.length > 2) {
+							proof = mProofUtils.res(origEquality, mProofRules.distinctElim(i, j, origTerm), proof);
+						}
+						return annotateProof(proof, theory.mFalse);
 					}
-					return annotateProof(proof, theory.mFalse);
+					final Term proof = proveDisequality(origArgs[i], argProofs[i], argTerms[i], argTerms[j],
+							argProofs[j], origArgs[j]);
+					distinctProof = mProofUtils.res(theory.equals(origArgs[i], origArgs[j]), distinctProof, proof);
 				}
-				final Term proof = proveDisequality(origArgs[i], argProofs[i], argTerms[i], argTerms[j], argProofs[j],
-						origArgs[j]);
-				distinctProof = mProofUtils.res(theory.equals(origArgs[i], origArgs[j]), distinctProof, proof);
 			}
 			return annotateProof(distinctProof, theory.mTrue);
 		}
 		}
+		throw new AssertionError("Unsupported Function");
 	}
 
 	private Term proveDisequality(Term ot1, Term eq1, Term ct1, Term ct2, Term eq2, Term ot2) {
@@ -554,7 +554,7 @@ public class ModelProver extends TermTransformer {
 
 	private Term interpret(Term origTerm, final FunctionSymbol fs, final Term[] args) {
 		final Theory theory = fs.getTheory();
-		final Term funcTerm = theory.term(fs, argTerms);
+		final Term funcTerm = theory.term(fs, args);
 		switch (fs.getName()) {
 		case SMTLIBConstants.TRUE:
 		case SMTLIBConstants.FALSE:
@@ -671,7 +671,7 @@ public class ModelProver extends TermTransformer {
 				}
 			}
 			final Term result = val.toTerm(fs.getReturnSort());
-			return annotateProof(mProofUtils.proveDivConstant(funcTerm, result), result);
+			return annotateProof(mProofUtils.proveDivEquality(funcTerm, result), result);
 		}
 
 		case SMTLIBConstants.MOD: {
@@ -683,7 +683,8 @@ public class ModelProver extends TermTransformer {
 			final Rational m = rationalValue(args[0]);
 			Rational div = m.div(n);
 			div = n.isNegative() ? div.ceil() : div.floor();
-			return m.sub(div.mul(n)).toTerm(fs.getReturnSort());
+			final Term result = m.sub(div.mul(n)).toTerm(fs.getReturnSort());
+			return annotateProof(mProofUtils.proveModConstant(funcTerm, result), result);
 		}
 
 		case SMTLIBConstants.ABS: {
@@ -695,7 +696,7 @@ public class ModelProver extends TermTransformer {
 
 		case SMTLIBConstants.DIVISIBLE: {
 			assert args.length == 1;
-			final Rational arg = rationalValue(args[0]);
+			final Term arg = args[0];
 			final String[] indices = fs.getIndices();
 			assert indices.length == 1;
 			BigInteger divisor;
@@ -704,8 +705,14 @@ public class ModelProver extends TermTransformer {
 			} catch (final NumberFormatException e) {
 				throw new SMTLIBException("index of divisible must be numeral", e);
 			}
+			// divisible-def: (= ((_ divisible d) x) (= x (* d (div x d))))
 			final Rational rdivisor = Rational.valueOf(divisor, BigInteger.ONE);
-			return arg.div(rdivisor).isIntegral() ? theory.mTrue : theory.mFalse;
+			final Term divisorTerm = rdivisor.toTerm(arg.getSort());
+			final Term divisibleDef = theory.term(SMTLIBConstants.EQUALS, arg,
+					theory.term(SMTLIBConstants.MUL, divisorTerm, theory.term(SMTLIBConstants.DIV, arg, divisorTerm)));
+			enqueueTransitivityStep(funcTerm, divisibleDef, mProofRules.divisible(divisor, arg));
+			pushTerm(divisibleDef);
+			return null;
 		}
 
 		case SMTLIBConstants.TO_INT: {
@@ -717,7 +724,7 @@ public class ModelProver extends TermTransformer {
 		case SMTLIBConstants.TO_REAL: {
 			assert args.length == 1;
 			final Rational arg = rationalValue(args[0]);
-			return arg.toTerm(fs.getReturnSort());
+			return annotateProof(mProofRules.toRealDef(funcTerm), arg.toTerm(fs.getReturnSort()));
 		}
 
 		case SMTLIBConstants.IS_INT: {
@@ -737,20 +744,22 @@ public class ModelProver extends TermTransformer {
 
 		case SMTLIBConstants.SELECT: {
 			// we assume that the array parameter is a term of the form
-			// store(store(...(const v),...))
+			// store(store(...(const v) ...))
 			ApplicationTerm array = (ApplicationTerm) args[0];
 			final Term index = args[1];
 			FunctionSymbol head = array.getFunction();
 			// go through the store chain and check if we write to the index
-			while (head.getName() == "store") {
+			while (head.getName() == SMTLIBConstants.STORE) {
 				if (array.getParameters()[1] == index) {
-					return array.getParameters()[2];
+					final Term result = array.getParameters()[2];
+					return annotateProof(mProofUtils.proveSelectOverStore(funcTerm, result), result);
 				}
 				array = (ApplicationTerm) array.getParameters()[0];
 				head = array.getFunction();
 			}
 			assert head.getName() == SMTLIBConstants.CONST;
-			return array.getParameters()[0];
+			final Term result = array.getParameters()[0];
+			return annotateProof(mProofUtils.proveSelectOverStore(funcTerm, result), result);
 		}
 
 		case SMTInterpolConstants.DIFF: {
@@ -1143,7 +1152,7 @@ public class ModelProver extends TermTransformer {
 		}
 		default:
 			if (fs.isConstructor()) {
-				return theory.term(fs, args);
+				return annotateProof(mProofRules.refl(funcTerm), funcTerm);
 			} else if (fs.isSelector()) {
 				final ApplicationTerm arg = (ApplicationTerm) args[0];
 				final DataType dataType = (DataType) arg.getSort().getSortSymbol();
@@ -1152,7 +1161,7 @@ public class ModelProver extends TermTransformer {
 				final String[] selectors = constr.getSelectors();
 				for (int i = 0; i < selectors.length; i++) {
 					if (selectors[i].equals(fs.getName())) {
-						return arg.getParameters()[i];
+						return annotateProof(mProofRules.dtProject(funcTerm), arg.getParameters()[i]);
 					}
 				}
 				// undefined case for selector on wrong constructor. use model.
@@ -1160,7 +1169,9 @@ public class ModelProver extends TermTransformer {
 			} else if (fs.getName().equals(SMTLIBConstants.IS)) {
 				final ApplicationTerm arg = (ApplicationTerm) args[0];
 				assert arg.getFunction().isConstructor();
-				return arg.getFunction().getName().equals(fs.getIndices()[0]) ? theory.mTrue : theory.mFalse;
+				final boolean isTrue = arg.getFunction().getName().equals(fs.getIndices()[0]);
+				return annotateProof(isTrue ? mProofRules.dtTestI(arg) : mProofRules.dtTestE(fs.getIndices()[0], arg),
+						isTrue ? theory.mTrue : theory.mFalse);
 			}
 			throw new AssertionError("Unknown internal function " + fs.getName());
 		}

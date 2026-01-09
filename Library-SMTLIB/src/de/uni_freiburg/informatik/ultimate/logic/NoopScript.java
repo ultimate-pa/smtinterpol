@@ -298,6 +298,11 @@ public class NoopScript implements Script {
 	}
 
 	@Override
+	public Term getModelProof() throws SMTLIBException, UnsupportedOperationException {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public Term getProof() throws SMTLIBException,
 			UnsupportedOperationException {
 		throw new UnsupportedOperationException();

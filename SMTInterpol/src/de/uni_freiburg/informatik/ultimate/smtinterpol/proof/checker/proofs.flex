@@ -121,6 +121,7 @@ Keyword = ":" {SMTLetterDigit}+
   "assume"               { return symbol(ProofSymbols.ASSUME, yytext()); }
   "res"                  { return symbol(ProofSymbols.RES, yytext()); }
   "let-proof"            { return symbol(ProofSymbols.LETPROOF, yytext()); }
+  "refine-fun"           { return symbol(ProofSymbols.REFINEFUN, yytext()); }
   "define-fun"           { return symbol(ProofSymbols.DEFINEFUN, yytext()); }
   "declare-fun"          { return symbol(ProofSymbols.DECLAREFUN, yytext()); }
   "oracle"               { return symbol(ProofSymbols.ORACLE, yytext()); }

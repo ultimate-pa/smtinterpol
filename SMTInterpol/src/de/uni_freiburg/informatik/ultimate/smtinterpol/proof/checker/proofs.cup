@@ -443,6 +443,16 @@ action code {:
 		return parser.getProofRules().defineFun(funcSym, theory.lambda(vars, definition), subProof);
 	}
 
+	public Term refineFun(String funcName, TermVariable[] vars, Term definition, Term subProof) {
+		final Theory theory = parser.getScript().getTheory();
+		final Sort[] varSorts = new Sort[vars.length];
+		for (int i = 0; i < vars.length; i++) {
+			varSorts[i] = vars[i].getSort();
+		}
+		final FunctionSymbol funcSym = theory.getFunction(funcName, varSorts);
+		return parser.getProofRules().refineFun(funcSym, theory.lambda(vars, definition), subProof);
+	}
+
 	public Term declareFun(String funcName, Sort[] paramSorts, Sort resultSort, Term subProof) {
 		Theory theory = parser.getScript().getTheory();
 		FunctionSymbol funcSym = theory.getFunctionSymbol(funcName);
@@ -475,7 +485,7 @@ scan with {: return getScanner().next_token(); :}
 terminal String UNDERSCORE, BANG,
          AS, CHOOSE, EXISTS, FORALL, LET, MATCH,
          PLUS, MINUS,
-         ASSUME, RES, LETPROOF, ORACLE, DECLAREFUN, DEFINEFUN, PAR,
+         ASSUME, RES, LETPROOF, ORACLE, DECLAREFUN, DEFINEFUN, REFINEFUN, PAR,
          FALSEE, TRUEI, NOTI, NOTE, ORI, ORE, ANDI, ANDE, IMPI, IMPE,
          IFFI1, IFFI2, IFFE1, IFFE2, XORI, XORE, FORALLI, FORALLE, EXISTSI, EXISTSE,
          EQI, EQE, DISTINCTI, DISTINCTE, ITE1, ITE2, REFL, SYMM, TRANS, CONG, EXPAND, DELANNOT,
@@ -881,6 +891,9 @@ proof ::= axiom:ax {: RESULT = ax; :}
              beginFunction(fun, varSorts, definition.getSort()); :}
              proof:subproof RPAR
           {: RESULT = defineFun(fun, vars, definition, subproof); :}
+        | LPAR LPAR REFINEFUN symbol:fun LPAR sortedVar*:vars RPAR term:definition RPAR
+             proof:subproof RPAR
+          {: RESULT = refineFun(fun, vars, definition, subproof); :}
         | LPAR LPAR DECLAREFUN symbol:fun LPAR sort*:param RPAR sort:result RPAR
           {: beginFunction(fun, param, result); :}
              proof:subproof RPAR

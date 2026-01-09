@@ -509,6 +509,26 @@ show (= (div 14 (- 3)) (- 4))
                  # valid since (3 + 12 - 14) >= 0
 
 
+show
+(= (mod a c) (mod b c))
+if res = 1/c (a - b) is integral.
+
+We first show (div a c) = res + (div b c), with trichotomy, total-int, farkas:
+
+assume (div a c) <= res + (div b c) - 1, then
+a < c*(div a c) + |c|
+c*(div b c) <= b
+c*(div a c) <= c*res + c*(div b c) - c
+--------
+0 < 0
+
+
+c*(div a c) <= a 
+b < c*(div b c) + |c|
+
+
+
+
 
 (= ((_ divisible d) x) (exists (y Int) (= x (* d y))))
 

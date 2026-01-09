@@ -179,6 +179,44 @@ public class CheckingScript extends NoopScript {
 	}
 
 	@Override
+	public Term getModelProof() {
+		mLexer.clearEOF();
+		if (mLastCheckSat == LBool.SAT) {
+			final ProofParser proofParser = new ProofParser(mLexer, mSymfactory);
+			proofParser.setFileName(mProofFile);
+			proofParser.setScript(this);
+			final Term proof;
+			try {
+				proof = (Term) proofParser.parse().value;
+			} catch (final Exception ex) {
+				throw new RuntimeException("Unexpected exception", ex);
+			}
+			final MinimalProofChecker checker = new MinimalProofChecker(this, mLogger);
+			if (checker.check(proof)) {
+				final int numberOfHoles = checker.getNumberOfHoles();
+				printResult(numberOfHoles > 0 ? "holey" : "valid");
+				printResult("holes=" + numberOfHoles);
+				printResult("assertions=" + checker.getNumberOfAssertions());
+				printResult("definefuns=" + checker.getNumberOfDefineFun());
+				printResult("axioms=" + checker.getNumberOfAxioms());
+				printResult("resolutions=" + checker.getNumberOfResolutions());
+			} else {
+				printResult("invalid");
+			}
+		} else {
+			printResult(mLastCheckSat.toString());
+			try {
+				while (mLexer.next_token().sym != ProofSymbols.EOF) {
+					// gobble tokens
+				}
+			} catch (final Exception ex) {
+				throw new RuntimeException("Unexpected exception", ex);
+			}
+		}
+		return null;
+	}
+
+	@Override
 	public Term getProof() {
 		mLexer.clearEOF();
 		if (mLastCheckSat == LBool.UNSAT) {

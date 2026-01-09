@@ -295,15 +295,32 @@ public interface Script {
 	 */
 	public Term getProof()
 		throws SMTLIBException, UnsupportedOperationException;
+
 	/**
-	 * Get the unsat core.  Note that this command is only available if unsat
-	 * core production is enabled and the last {@link #checkSat()} returned
-	 * {@link LBool#UNSAT}.  To enable unsat core production, call
-	 * {@link #setOption(String, Object) setOption}(":produce-unsat-cores",
-	 * true).
+	 * Creates a model proof and returns it. Note that this command is only
+	 * available if proof production is enabled and the last {@link #checkSat()}
+	 * returned {@link LBool#SAT}. To enable proof production, call
+	 * {@link #setOption(String, Object) setOption}(":produce-proofs", true).
+	 *
+	 * @return the proof. This is given as a big smtlib term of the internal type
+	 *         {@literal @proof}.
+	 * @throws SMTLIBException               If proof production is not enabled or
+	 *                                       the solver did not detect
+	 *                                       unsatisfiability.
+	 * @throws UnsupportedOperationException If proof generation is unsupported.
+	 */
+	public Term getModelProof() throws SMTLIBException, UnsupportedOperationException;
+
+	/**
+	 * Get the unsat core. Note that this command is only available if unsat core
+	 * production is enabled and the last {@link #checkSat()} returned
+	 * {@link LBool#UNSAT}. To enable unsat core production, call
+	 * {@link #setOption(String, Object) setOption}(":produce-unsat-cores", true).
+	 *
 	 * @return An array of terms forming an unsat core.
-	 * @throws SMTLIBException If proof production is not enabled or the solver
-	 *                         did not detect unsatisfiability.
+	 * @throws SMTLIBException               If proof production is not enabled or
+	 *                                       the solver did not detect
+	 *                                       unsatisfiability.
 	 * @throws UnsupportedOperationException If unsat core computation is
 	 *                                       unsupported.
 	 */
@@ -474,7 +491,7 @@ public interface Script {
 	 */
 	public Term quantifier(int quantor, TermVariable[] vars, Term body,
 			Term[]... patterns) throws SMTLIBException;
-	
+
 	/**
 	 * Create a lambda term.
 	 *
