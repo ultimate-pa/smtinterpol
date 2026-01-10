@@ -192,11 +192,10 @@ public class CheckingScript extends NoopScript {
 				throw new RuntimeException("Unexpected exception", ex);
 			}
 			final MinimalProofChecker checker = new MinimalProofChecker(this, mLogger);
-			if (checker.check(proof)) {
+			if (checker.checkModelProof(proof)) {
 				final int numberOfHoles = checker.getNumberOfHoles();
 				printResult(numberOfHoles > 0 ? "holey" : "valid");
 				printResult("holes=" + numberOfHoles);
-				printResult("assertions=" + checker.getNumberOfAssertions());
 				printResult("definefuns=" + checker.getNumberOfDefineFun());
 				printResult("axioms=" + checker.getNumberOfAxioms());
 				printResult("resolutions=" + checker.getNumberOfResolutions());

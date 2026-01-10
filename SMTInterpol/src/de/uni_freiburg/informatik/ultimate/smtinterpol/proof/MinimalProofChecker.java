@@ -20,10 +20,12 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
@@ -81,7 +83,7 @@ public class MinimalProofChecker extends NonRecursive {
 	 * The set of all asserted terms (collected from the script by calling
 	 * getAssertions()). This is used to check the {@literal @}asserted rules.
 	 */
-	HashSet<Term> mAssertions;
+	Set<Term> mAssertions;
 
 	/**
 	 * The SMT script (mainly used to create terms).
@@ -124,13 +126,6 @@ public class MinimalProofChecker extends NonRecursive {
 		mSkript = script;
 		mLogger = logger;
 		mProofRules = new ProofRules(script.getTheory());
-
-		final FormulaUnLet unletter = new FormulaUnLet();
-		final Term[] assertions = mSkript.getAssertions();
-		mAssertions = new HashSet<>(assertions.length);
-		for (final Term ass : assertions) {
-			mAssertions.add(unletter.transform(ass));
-		}
 	}
 
 	/**
@@ -141,13 +136,67 @@ public class MinimalProofChecker extends NonRecursive {
 	 */
 	public boolean check(final Term proof) {
 		mNumOracles = mNumResolutions = mNumAxioms = mNumAssertions = mNumDefineFun = 0;
+
 		final FormulaUnLet unletter = new FormulaUnLet();
+		final Term[] assertions = mSkript.getAssertions();
+		mAssertions = new HashSet<>(assertions.length);
+		for (final Term ass : assertions) {
+			mAssertions.add(unletter.transform(ass));
+		}
+
 		final ProofLiteral[] result = getProvedClause(unletter.unlet(proof));
 		if (result != null && result.length > 0) {
 			reportError("The proof did not yield a contradiction but %s", Arrays.asList(result));
 			return false;
 		}
 		return true;
+	}
+
+	public boolean checkModelProof(Term proof) {
+		mNumOracles = mNumResolutions = mNumAxioms = mNumAssertions = mNumDefineFun = 0;
+		mAssertions = Collections.emptySet();
+
+		final FormulaUnLet unletter = new FormulaUnLet();
+		proof = unletter.unlet(proof);
+
+		final Map<FunctionSymbol, LambdaTerm> funcDefs = new HashMap<FunctionSymbol, LambdaTerm>();
+		if (ProofRules.isRefineFun(proof)) {
+			final AnnotatedTerm refineFunTerm = (AnnotatedTerm) proof;
+			final Object[] annotValues = (Object[]) refineFunTerm.getAnnotations()[0].getValue();
+			final FunctionSymbol func = (FunctionSymbol) annotValues[0];
+			final LambdaTerm def = (LambdaTerm) annotValues[1];
+			addRefineFun(funcDefs, func, def);
+			proof = refineFunTerm.getSubterm();
+		}
+
+		final ProofLiteral[] result = getProvedClause(funcDefs, proof);
+		final Term[] assertions = mSkript.getAssertions();
+		Term destFormula = mSkript.term(SMTLIBConstants.AND, assertions);
+		destFormula = unletter.transform(destFormula);
+		if (result != null && result.length != 1 || result[0].getPolarity() != true
+				|| result[0].getAtom() != destFormula) {
+			reportError("The proof did not prove the assertions but %s", Arrays.asList(result));
+			return false;
+		}
+		return true;
+	}
+
+	public void addRefineFun(Map<FunctionSymbol, LambdaTerm> funcDefs, FunctionSymbol func, LambdaTerm def) {
+		if (func.isIntern()) {
+			// TODO: check that function definition is refinement.
+			// i.e. divison is only refined for division by 0,
+			// selector is only refined for different constructor,
+			// @diff is only refined in such a way that it returns an element where the
+			// arrays differ.
+		}
+		if (func.getDefinition() != null && (func.getDefinition() != def.getSubterm()
+				|| !Arrays.equals(func.getDefinitionVars(), def.getVariables()))) {
+			throw new AssertionError("Inconsistent function definition.");
+		}
+		if (funcDefs.containsKey(func)) {
+			throw new AssertionError("Double function definition.");
+		}
+		funcDefs.put(func, def);
 	}
 
 	public int getNumberOfHoles() {
@@ -230,6 +279,9 @@ public class MinimalProofChecker extends NonRecursive {
 	void walk(Term proofTerm) {
 		while (proofTerm instanceof AnnotatedTerm && !ProofRules.isAxiom(proofTerm)
 				&& !ProofRules.isDefineFun(proofTerm)) {
+			if (ProofRules.isRefineFun(proofTerm)) {
+				mLogger.warn("Ignoring refine-fun in the middle of the proof term", proofTerm);
+			}
 			proofTerm = ((AnnotatedTerm) proofTerm).getSubterm();
 		}
 		/* Check the cache, if the unfolding step was already done */

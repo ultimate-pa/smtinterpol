@@ -1018,8 +1018,12 @@ public class ProofRules {
 
 	public static boolean isDefineFun(final Term proof) {
 		return proof instanceof AnnotatedTerm
-				&& (((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN
-						|| ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_REFINE_FUN);
+				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN;
+	}
+
+	public static boolean isRefineFun(final Term proof) {
+		return proof instanceof AnnotatedTerm
+				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_REFINE_FUN;
 	}
 
 	public static boolean isDeclareFun(final Term proof) {

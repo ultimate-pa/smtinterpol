@@ -3,6 +3,6 @@
 (declare-fun f (Int) Int)
 (assert (forall ((x Int) (y Int)) (=> (<= x y) (<= (f x) (f y)))))
 (assert (= (f 0) 0))
-(assert (= (f 100) 0))
+(assert (= (f 100) 1))
 (check-sat)
 (get-model-proof)
