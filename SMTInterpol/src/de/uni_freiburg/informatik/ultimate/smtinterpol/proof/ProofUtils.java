@@ -198,20 +198,7 @@ public class ProofUtils {
 		return proof;
 	}
 
-	/**
-	 * Prove that divTerm equals divResult. This works for `div` terms on constants
-	 * as well as div on +/- 1 and some special div terms like `(div (+ (* 2 x) 1)
-	 * 2)`.
-	 *
-	 * The condition is that `divTerm` is a term `(div x c)` with non-zero constant
-	 * divisor and `(- (* (/ 1 c) x) divResult)` must be a rational constant between
-	 * 0 (inclusive) and 1 (exclusive).
-	 *
-	 * @param divTerm   The div term.
-	 * @param divResult The simplified result.
-	 * @return the proof for `(= divTerm divResult)`.
-	 */
-	public Term proveDivEquality(final Term divTerm, final Term divResult) {
+	private Term proveDivEqualityHelper(final Term divTerm, final Term divResult) {
 		final Theory theory = divTerm.getTheory();
 		final Sort sort = divTerm.getSort();
 
@@ -276,17 +263,39 @@ public class ProofUtils {
 	}
 
 	/**
+	 * Prove that divTerm equals divResult. This works for `div` terms on constants
+	 * as well as div on +/- 1 and some special div terms like `(div (+ (* 2 x) 1)
+	 * 2)`.
+	 *
+	 * The condition is that `divTerm` is a term `(div x c)` with non-zero constant
+	 * divisor and `(- (* (/ 1 c) x) divResult)` must be a rational constant between
+	 * 0 (inclusive) and 1 (exclusive).
+	 *
+	 * @param divTerm   The div term.
+	 * @param divResult The simplified result.
+	 * @return the proof for `(= divTerm divResult)`.
+	 */
+	public Term proveDivEquality(final Term divTerm, final Term divResult) {
+		final Theory theory = divTerm.getTheory();
+		final Term[] divArgs = ((ApplicationTerm) divTerm).getParameters();
+		final Term divEqProof = proveDivEqualityHelper(divTerm, divResult);
+		final Term zero = Rational.ZERO.toTerm(divArgs[1].getSort());
+		final Term divisorNotZero = proveTrivialDisequality(divArgs[1], zero);
+		return res(theory.term(SMTLIBConstants.EQUALS, divArgs[1], zero), divEqProof, divisorNotZero);
+	}
+
+	/**
 	 * Prove that modTerm equals modResult. This works for `mod` terms on constants
 	 * as well as div on +/- 1 and some special mod terms like `(mod (+ (* 2 x) 1)
 	 * 2)`.
 	 *
 	 * The condition is that `modTerm` is a term `(mod x c)` with non-zero constant
-	 * divisor, `modResult` is an integer constant between 0 and |c|,
-	 * and `(* (/ 1 c) (- x modResult))` must have only integer coefficients.
+	 * divisor, `modResult` is an integer constant between 0 and |c|, and `(* (/ 1
+	 * c) (- x modResult))` must have only integer coefficients.
 	 *
 	 * @param modTerm   The mod term.
 	 * @param modResult The simplified result.
-	 * @return the proof for `(= divTerm divResult)`.
+	 * @return the proof for `(= modTerm modResult)`.
 	 */
 	public Term proveModConstant(final Term modTerm, final Term modResult) {
 		final Theory theory = modTerm.getTheory();
@@ -302,14 +311,14 @@ public class ProofUtils {
 		poly.add(divisor.inverse(), divArgs[0]);
 		final Rational modulo = Polynomial.parseConstant(modResult);
 		assert modulo.signum() >= 0;
-		assert modulo.abs().compareTo(divisor) < 0;
+		assert modulo.compareTo(divisor.abs()) < 0;
 		poly.add(modulo.div(divisor).negate());
 
 		assert poly.getGcd().isIntegral();
 		final Term divResult = poly.toTerm(sort);
 		final Term divTerm = theory.term(SMTLIBConstants.DIV, divArgs);
 
-		final Term divEqProof = proveDivEquality(divTerm, divResult);
+		final Term divEqProof = proveDivEqualityHelper(divTerm, divResult);
 		final Term divModEqProof = mProofRules.modDef(divArgs[0], divArgs[1]);
 		final Term divEq = theory.term(SMTLIBConstants.EQUALS, divTerm, divResult);
 		final Term divModEq = theory.term(SMTLIBConstants.EQUALS,
@@ -318,9 +327,53 @@ public class ProofUtils {
 				divArgs[0]);
 		final Term modEq = theory.term(SMTLIBConstants.EQUALS, modTerm, modResult);
 
-		return res(divEq, divEqProof,
+		final Term zero = Rational.ZERO.toTerm(divArgs[1].getSort());
+		final Term divisorNotZero = proveTrivialDisequality(divArgs[1], zero);
+		return res(theory.term(SMTLIBConstants.EQUALS, divArgs[1], zero), res(divEq, divEqProof,
 				res(divModEq, divModEqProof, proveEqualityFromEqualities(new Term[] { modEq, divEq, divModEq },
-						new BigInteger[] { BigInteger.ONE, divisor.numerator(), BigInteger.ONE.negate() })));
+						new BigInteger[] { BigInteger.ONE, divisor.numerator(), BigInteger.ONE.negate() }))),
+				divisorNotZero);
+	}
+
+	public Term proveToIntConstant(Term funcTerm, Term result) {
+		final Theory theory = funcTerm.getTheory();
+
+		assert isApplication("to_int", funcTerm);
+		final Term arg = ((ApplicationTerm) funcTerm).getParameters()[0];
+		final Rational argRational = Polynomial.parseConstant(arg);
+		final BigInteger argFloor = argRational.floor().numerator();
+
+		final Term toReal = theory.term(SMTLIBConstants.TO_REAL, funcTerm);
+		final Term oneReal = Rational.ONE.toTerm(toReal.getSort());
+		final Term toRealPlus1 = theory.term(SMTLIBConstants.PLUS, toReal, oneReal);
+		final Term resultPlus1 = argRational.floor().add(Rational.ONE).toTerm(result.getSort());
+		final Term resultMinus1 = argRational.floor().sub(Rational.ONE).toTerm(result.getSort());
+
+		final Term argLtToIntPlus1 = theory.term(SMTLIBConstants.LT, arg, toRealPlus1);
+		final Term toIntLeqResultMinus1 = theory.term(SMTLIBConstants.LEQ, funcTerm, resultMinus1);
+		final Term resultLeqToInt = theory.term(SMTLIBConstants.LEQ, result, funcTerm);
+		final Term toIntLtResult = theory.term(SMTLIBConstants.LT, funcTerm, result);
+
+
+		final BigInteger[] oneone = new BigInteger[] { BigInteger.ONE, BigInteger.ONE };
+		final Term proof1 = res(resultLeqToInt,
+				res(toIntLeqResultMinus1, mProofRules.totalInt(funcTerm, argFloor.subtract(BigInteger.ONE)),
+				res(argLtToIntPlus1, mProofRules.toIntHigh(arg),
+								mProofRules.farkas(new Term[] { toIntLeqResultMinus1, argLtToIntPlus1 }, oneone))),
+				mProofRules.farkas(new Term[] { toIntLtResult, resultLeqToInt }, oneone));
+
+		final Term toIntLeqArg = theory.term(SMTLIBConstants.LEQ, toReal, arg);
+		final Term resultPlus1LeqToInt = theory.term(SMTLIBConstants.LEQ, resultPlus1, funcTerm);
+		final Term toIntLeqResult = theory.term(SMTLIBConstants.LEQ, funcTerm, result);
+		final Term resultLtToInt = theory.term(SMTLIBConstants.LT, result, funcTerm);
+
+		final Term proof2 = res(toIntLeqResult,
+				res(resultPlus1LeqToInt, mProofRules.totalInt(funcTerm, argFloor),
+						res(toIntLeqArg, mProofRules.toIntLow(arg),
+								mProofRules.farkas(new Term[] { resultPlus1LeqToInt, toIntLeqArg }, oneone))),
+				mProofRules.farkas(new Term[] { resultLtToInt, toIntLeqResult }, oneone));
+
+		return res(resultLtToInt, res(toIntLtResult, mProofRules.trichotomy(funcTerm, result), proof1), proof2);
 	}
 
 	/**

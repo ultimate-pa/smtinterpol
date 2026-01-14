@@ -2323,37 +2323,7 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	private Term convertRewriteToInt(final Term lhs, final Term rhs) {
-		// (to_int constant) --> floor(constant)
-		assert isApplication("to_int", lhs);
-		final Term arg = ((ApplicationTerm) lhs).getParameters()[0];
-		final Rational argConst = Polynomial.parseConstant(arg);
-		final Rational rhsConst = Polynomial.parseConstant(rhs);
-		assert argConst != null && rhsConst != null && rhsConst.equals(argConst.floor());
-
-		// use trichotomy and toIntHigh/toIntLow and total-int
-		final Theory theory = lhs.getTheory();
-		final Term diffLhsRhs = theory.term(SMTLIBConstants.PLUS, lhs, rhsConst.negate().toTerm(rhs.getSort()));
-		final Term lt = theory.term(SMTLIBConstants.LT, lhs, rhs);
-		final Term gt = theory.term(SMTLIBConstants.LT, rhs, lhs);
-		final Term leqDiffm1 = theory.term(SMTLIBConstants.LEQ, diffLhsRhs, Rational.MONE.toTerm(rhs.getSort()));
-		final Term geqDiff0 = theory.term(SMTLIBConstants.LEQ, Rational.ZERO.toTerm(rhs.getSort()), diffLhsRhs);
-		final Term leqDiff0 = theory.term(SMTLIBConstants.LEQ, diffLhsRhs, Rational.ZERO.toTerm(rhs.getSort()));
-		final Term geqDiff1 = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(rhs.getSort()), diffLhsRhs);
-		Term proof = mProofRules.trichotomy(lhs, rhs);
-		final Term one = Rational.ONE.toTerm(arg.getSort());
-		final Term toIntLowLeq = theory.term(SMTLIBConstants.LEQ, theory.term(SMTLIBConstants.TO_REAL, lhs), arg);
-		final Term toIntHighLt = theory.term(SMTLIBConstants.LT, arg,
-				theory.term(SMTLIBConstants.PLUS, theory.term(SMTLIBConstants.TO_REAL, lhs), one));
-		final BigInteger[] coeffs = new BigInteger[] { BigInteger.ONE, BigInteger.ONE };
-		proof = res(gt, proof, mProofRules.farkas(new Term[] { gt, leqDiff0 }, coeffs));
-		proof = res(leqDiff0, mProofRules.totalInt(diffLhsRhs, BigInteger.ZERO), proof);
-		proof = res(geqDiff1, proof, mProofRules.farkas(new Term[] { toIntLowLeq, geqDiff1 }, coeffs));
-		proof = res(lt, proof, mProofRules.farkas(new Term[] { lt, geqDiff0 }, coeffs));
-		proof = res(geqDiff0, mProofRules.totalInt(diffLhsRhs, BigInteger.ONE.negate()), proof);
-		proof = res(leqDiffm1, proof, mProofRules.farkas(new Term[] { toIntHighLt, leqDiffm1 }, coeffs));
-		proof = res(toIntLowLeq, mProofRules.toIntLow(arg), proof);
-		proof = res(toIntHighLt, mProofRules.toIntHigh(arg), proof);
-		return proof;
+		return mProofUtils.proveToIntConstant(lhs, rhs);
 	}
 
 	private Term convertRewriteStoreOverStore(final Term lhs, final Term rhs) {
@@ -2843,26 +2813,7 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
-	private Term convertRewriteDiv(final String ruleName, final Term lhs, final Term rhs) {
-		// div1: (div x 1) -> x
-		// div-1: (div x (- 1)) -> (- x)
-		// divConst: (div c1 c2) -> c where c1,c2 are constants, c = (div c1 c2)
-		assert isApplication("div", lhs);
-		final Term[] divArgs = ((ApplicationTerm) lhs).getParameters();
-		assert divArgs.length == 2;
-		final Rational divisor = Polynomial.parseConstant(divArgs[1]);
-		assert divisor != null && divisor.isIntegral();
-
-		final Theory theory = lhs.getTheory();
-		final Term zero = Rational.ZERO.toTerm(lhs.getSort());
-		return res(theory.term(SMTLIBConstants.EQUALS, divArgs[1], zero), proveDivWithFarkas(lhs, rhs),
-				mProofUtils.proveTrivialDisequality(divArgs[1], zero));
-	}
-
-	private Term convertRewriteModulo(final String ruleName, final Term lhs, final Term rhs) {
-		// modulo1: (mod x 1) -> 0
-		// modulo-1: (mod x (- 1)) -> 0
-		// moduloConst: (mod c1 c2) -> c where c1,c2 are constants, c = (mod c1 c2)
+	private Term convertRewriteModulo(final Term lhs, final Term rhs) {
 		// modulo: (mod x c) -> (- x (* c (div x c)))
 		assert isApplication("mod", lhs);
 		final Term[] modArgs = ((ApplicationTerm) lhs).getParameters();
@@ -2880,48 +2831,10 @@ public class ProofSimplifier extends TermTransformer {
 		final Term modDefEq = theory.term(SMTLIBConstants.EQUALS, divPlusMod, modArgs[0]);
 		final Polynomial affine = new Polynomial(modArgs[0]);
 		affine.add(divisor.negate(), divTerm);
-		Term divResult;
-		switch (ruleName) {
-		case ":modulo1": {
-			assert divisor.equals(Rational.ONE) && isZero(rhs);
-			divResult = modArgs[0];
-			break;
-		}
-		case ":modulo-1": {
-			assert divisor.equals(Rational.MONE) && isZero(rhs);
-			final Polynomial negX = new Polynomial(modArgs[0]);
-			negX.mul(Rational.MONE);
-			divResult = negX.toTerm(sort);
-			break;
-		}
-		case ":moduloConst": {
-			final Rational dividend = Polynomial.parseConstant(modArgs[0]);
-			Rational quotient = dividend.div(divisor.abs()).floor();
-			if (divisor.signum() < 0) {
-				quotient = quotient.negate();
-			}
-			divResult = quotient.toTerm(sort);
-			break;
-		}
-		case ":modulo":
-			assert new Polynomial(rhs).equals(affine);
-			divResult = divTerm;
-			break;
-		default:
-			throw new AssertionError();
-		}
-		final Term middle = divResult == divTerm ? rhs : affine.toTerm(sort);
+		assert new Polynomial(rhs).equals(affine);
 		proof = res(modDefEq, proof,
-				mProofUtils.proveEqWithMultiplier(new Term[] { divPlusMod, modArgs[0] }, new Term[] { lhs, middle },
+				mProofUtils.proveEqWithMultiplier(new Term[] { divPlusMod, modArgs[0] }, new Term[] { lhs, rhs },
 						Rational.ONE));
-		if (divResult != divTerm) {
-			final Term proof2 = res(theory.term(SMTLIBConstants.EQUALS, divTerm, divResult),
-					proveDivWithFarkas(divTerm, divResult), mProofUtils.proveEqWithMultiplier(
-							new Term[] { divTerm, divResult },
-							new Term[] { middle, rhs }, divisor.negate()));
-			proof = res(theory.term(SMTLIBConstants.EQUALS, lhs, middle), proof,
-					res(theory.term(SMTLIBConstants.EQUALS, middle, rhs), proof2, mProofRules.trans(lhs, middle, rhs)));
-		}
 		proof = res(theory.term(SMTLIBConstants.EQUALS, modArgs[1], zero), proof,
 				mProofUtils.proveTrivialDisequality(modArgs[1], zero));
 		return proof;
@@ -3157,13 +3070,15 @@ public class ProofSimplifier extends TermTransformer {
 		case ":div1":
 		case ":div-1":
 		case ":divConst":
-			subProof = convertRewriteDiv(rewriteRule, lhs, rhs);
+			subProof = mProofUtils.proveDivEquality(lhs, rhs);
 			break;
 		case ":modulo1":
 		case ":modulo-1":
 		case ":moduloConst":
+			subProof = mProofUtils.proveModConstant(lhs, rhs);
+			break;
 		case ":modulo":
-			subProof = convertRewriteModulo(rewriteRule, lhs, rhs);
+			subProof = convertRewriteModulo(lhs, rhs);
 			break;
 		case ":divisible":
 			subProof = convertRewriteDivisible(rewriteRule, lhs, rhs);

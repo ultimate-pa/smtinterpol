@@ -27,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.NonRecursive;
@@ -220,19 +221,64 @@ public class ModelProver extends TermTransformer {
 			final ApplicationTerm appTerm = (ApplicationTerm) term;
 			final FunctionSymbol fs = appTerm.getFunction();
 			if (fs.isIntern()) {
-				if (fs.getName() == SMTLIBConstants.ITE) {
+				final Theory theory = appTerm.getTheory();
+				final Term[] appParams = appTerm.getParameters();
+				switch (fs.getName()) {
+				case SMTLIBConstants.ITE:
 					enqueueWalker(new ITESelector(appTerm));
-					pushTerm(appTerm.getParameters()[0]);
+					pushTerm(appParams[0]);
 					return;
-				}
-				if (fs.getName() == SMTLIBConstants.EQUALS && fs.getDefinition() != null) {
-					// LIRA equals should be expanded before evaluating, to evaluate the toReal
-					// arguments.
-					final Term expanded = appTerm.getTheory().let(fs.getDefinitionVars(), appTerm.getParameters(),
+
+				case SMTLIBConstants.EQUALS:
+					if (fs.getDefinition() != null) {
+						// LIRA equals is expanded before evaluating, to evaluate the toReal
+						// arguments.
+						final Term expanded = appTerm.getTheory().let(fs.getDefinitionVars(), appParams,
+								fs.getDefinition());
+						enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+						pushTerm(expanded);
+						return;
+					}
+					break;
+
+				case SMTLIBConstants.LEQ:
+				case SMTLIBConstants.LT:
+				case SMTLIBConstants.GEQ:
+				case SMTLIBConstants.GT:
+					if (appParams.length > 2) {
+						// non-binary chainable comparisons are expanded before evaluating.
+						final Term[] pairs = new Term[appParams.length - 1];
+						for (int i = 0; i < pairs.length; i++) {
+							pairs[i] = theory.term(appTerm.getFunction(), appParams[i], appParams[i+1]);
+						}
+						final Term expanded = theory.term(SMTLIBConstants.AND, pairs);
+						enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+						pushTerm(expanded);
+						return;
+					}
+					// binary geq/gt is rewritten to leq/lt.
+					if (fs.getName() == SMTLIBConstants.GT) {
+						final Term expanded = theory.term(SMTLIBConstants.LT, appParams[1], appParams[0]);
+						enqueueTransitivityStep(appTerm, expanded, mProofRules.gtDef(appTerm));
+						pushTerm(expanded);
+						return;
+					}
+					if (fs.getName() == SMTLIBConstants.GEQ) {
+						final Term expanded = theory.term(SMTLIBConstants.LEQ, appParams[1], appParams[0]);
+						enqueueTransitivityStep(appTerm, expanded, mProofRules.gtDef(appTerm));
+						pushTerm(expanded);
+						return;
+					}
+					break;
+
+				case SMTLIBConstants.IS_INT: {
+					// we expand IS_INT; TODO, this should be a is-int-def proof rule, not expand.
+					final Term expanded = appTerm.getTheory().let(fs.getDefinitionVars(), appParams,
 							fs.getDefinition());
 					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
+				}
 				}
 			}
 		} else if (term instanceof QuantifiedFormula) {
@@ -308,7 +354,7 @@ public class ModelProver extends TermTransformer {
 			if (fs.getDefinition() != null) {
 				expanded = appTerm.getTheory().let(fs.getDefinitionVars(), newArgs, fs.getDefinition());
 			} else {
-				expanded = lookupFunction(fs, newArgs);
+				expanded = lookupFunction(appTerm, newArgs);
 			}
 			enqueueTransitivityStep(newTerm, expanded, mProofRules.expand(newTerm));
 			pushTerm(expanded);
@@ -379,14 +425,14 @@ public class ModelProver extends TermTransformer {
 		return transform(input);
 	}
 
-	private Term lookupFunction(final FunctionSymbol fs, final Term[] args) {
-		final FunctionValue val = mModel.getFunctionValue(fs);
-		if (val == null) {
-			final Sort sort = fs.getReturnSort();
-			return mModel.getSomeValue(sort);
-		}
-		final Term value = val.values().get(new FunctionValue.Index(args));
-		return value == null ? val.getDefault() : value;
+	private Term lookupFunction(ApplicationTerm funcTerm, final Term[] args) {
+		final FunctionValue val = mModel.getFunctionValue(funcTerm.getFunction());
+		final LambdaTerm lambda = val.getDefinition();
+		final Term expanded = funcTerm.getTheory().let(lambda.getVariables(), args,
+						lambda.getSubterm());
+		enqueueTransitivityStep(funcTerm, expanded, mProofRules.expand(funcTerm));
+		pushTerm(expanded);
+		return null;
 	}
 
 	private Term interpretWithoutCongruence(ApplicationTerm origTerm, final Term[] argTerms, final Term[] argProofs) {
@@ -554,7 +600,7 @@ public class ModelProver extends TermTransformer {
 
 	private Term interpret(Term origTerm, final FunctionSymbol fs, final Term[] args) {
 		final Theory theory = fs.getTheory();
-		final Term funcTerm = theory.term(fs, args);
+		final ApplicationTerm funcTerm = (ApplicationTerm) theory.term(fs, args);
 		switch (fs.getName()) {
 		case SMTLIBConstants.TRUE:
 		case SMTLIBConstants.FALSE:
@@ -566,6 +612,45 @@ public class ModelProver extends TermTransformer {
 		case SMTLIBConstants.DISTINCT:
 		case SMTLIBConstants.ITE:
 			throw new AssertionError("Handled by other function");
+
+		case SMTLIBConstants.XOR: {
+			int countTrue = 0;
+			int countFalse = 0;
+			for (int i = 0; i < args.length; i++) {
+				if (args[i] == theory.mTrue) {
+					countTrue++;
+				} else {
+					countFalse++;
+				}
+			}
+			final Term[] false2 = new Term[] { theory.mFalse, theory.mFalse };
+			final Term dummy = theory.term(SMTLIBConstants.XOR, false2);
+			Term result;
+			Term proof;
+			if ((countTrue % 2) == 1) {
+				// result is true
+				if ((countFalse % 2) == 1) {
+					proof = mProofRules.xorIntro(args, new Term[] { theory.mFalse }, new Term[] { theory.mTrue });
+					proof = mProofUtils.res(theory.mFalse, proof, mProofRules.falseElim());
+				} else {
+					proof = mProofRules.xorIntro(args, false2, new Term[] { theory.mTrue });
+					proof = mProofUtils.res(dummy, proof, mProofRules.xorElim(false2, false2, false2));
+				}
+				proof = mProofUtils.res(theory.mTrue, mProofRules.trueIntro(), proof);
+				result = theory.mTrue;
+			} else {
+				// result is false
+				if ((countFalse % 2) == 0) {
+					proof = mProofRules.xorElim(args, args, args);
+				} else {
+					proof = mProofRules.xorIntro(new Term[] { theory.mFalse }, false2, args);
+					proof = mProofUtils.res(dummy, proof, mProofRules.xorElim(false2, false2, false2));
+					proof = mProofUtils.res(theory.mFalse, proof, mProofRules.falseElim());
+				}
+				result = theory.mFalse;
+			}
+			return annotateProof(proof, result);
+		}
 
 		case SMTLIBConstants.PLUS: {
 			Rational val = rationalValue(args[0]);
@@ -605,7 +690,8 @@ public class ModelProver extends TermTransformer {
 			for (int i = 1; i < args.length; ++i) {
 				final Rational divisor = rationalValue(args[i]);
 				if (divisor.equals(Rational.ZERO)) {
-					val = rationalValue(lookupFunction(fs, new Term[] { val.toTerm(args[0].getSort()), args[i] }));
+					val = rationalValue(
+							lookupFunction(funcTerm, new Term[] { val.toTerm(args[0].getSort()), args[i] }));
 				} else {
 					val = val.div(divisor);
 				}
@@ -614,48 +700,31 @@ public class ModelProver extends TermTransformer {
 			return annotateProof(mProofUtils.proveDivideEquality(funcTerm, result), result);
 		}
 
-		case SMTLIBConstants.LEQ: {
-			for (int i = 1; i < args.length; ++i) {
-				final Rational arg1 = rationalValue(args[i - 1]);
-				final Rational arg2 = rationalValue(args[i]);
-				if (arg1.compareTo(arg2) > 0) {
-					return theory.mFalse;
-				}
-			}
-			return theory.mTrue;
-		}
-
+		case SMTLIBConstants.LEQ:
 		case SMTLIBConstants.LT: {
-			for (int i = 1; i < args.length; ++i) {
-				final Rational arg1 = rationalValue(args[i - 1]);
-				final Rational arg2 = rationalValue(args[i]);
-				if (arg1.compareTo(arg2) >= 0) {
-					return theory.mFalse;
+			// we expand non-binary LEQ/LT/... in convert.
+			assert args.length == 2;
+			final Rational arg1 = rationalValue(args[0]);
+			final Rational arg2 = rationalValue(args[1]);
+			final int comparison = arg1.compareTo(arg2);
+			if (fs.getName() == SMTLIBConstants.LT ? comparison < 0 : comparison <= 0) {
+				final Term inverse;
+				final Term totalAx;
+				if (fs.getName() == SMTLIBConstants.LT) {
+					inverse = theory.term(SMTLIBConstants.LEQ, args[1], args[0]);
+					totalAx = mProofRules.total(args[1], args[0]);
+				} else {
+					inverse = theory.term(SMTLIBConstants.LT, args[1], args[0]);
+					totalAx = mProofRules.total(args[0], args[1]);
 				}
+				return annotateProof(
+						mProofUtils.res(inverse, totalAx,
+								mProofRules.farkas(new Term[] { inverse }, new BigInteger[] { BigInteger.ONE })),
+						theory.mTrue);
+			} else {
+				return annotateProof(mProofRules.farkas(new Term[] { funcTerm }, new BigInteger[] { BigInteger.ONE }),
+						theory.mFalse);
 			}
-			return theory.mTrue;
-		}
-
-		case SMTLIBConstants.GEQ: {
-			for (int i = 1; i < args.length; ++i) {
-				final Rational arg1 = rationalValue(args[i - 1]);
-				final Rational arg2 = rationalValue(args[i]);
-				if (arg1.compareTo(arg2) < 0) {
-					return theory.mFalse;
-				}
-			}
-			return theory.mTrue;
-		}
-
-		case SMTLIBConstants.GT: {
-			for (int i = 1; i < args.length; ++i) {
-				final Rational arg1 = rationalValue(args[i - 1]);
-				final Rational arg2 = rationalValue(args[i]);
-				if (arg1.compareTo(arg2) <= 0) {
-					return theory.mFalse;
-				}
-			}
-			return theory.mTrue;
 		}
 
 		case SMTLIBConstants.DIV: {
@@ -664,7 +733,8 @@ public class ModelProver extends TermTransformer {
 			for (int i = 1; i < args.length; ++i) {
 				final Rational n = rationalValue(args[i]);
 				if (n.equals(Rational.ZERO)) {
-					val = rationalValue(lookupFunction(fs, new Term[] { val.toTerm(args[0].getSort()), args[i] }));
+					val = rationalValue(
+							lookupFunction(funcTerm, new Term[] { val.toTerm(args[0].getSort()), args[i] }));
 				} else {
 					final Rational div = val.div(n);
 					val = n.isNegative() ? div.ceil() : div.floor();
@@ -678,7 +748,7 @@ public class ModelProver extends TermTransformer {
 			assert args.length == 2;
 			final Rational n = rationalValue(args[1]);
 			if (n.equals(Rational.ZERO)) {
-				return lookupFunction(fs, args);
+				return lookupFunction(funcTerm, args);
 			}
 			final Rational m = rationalValue(args[0]);
 			Rational div = m.div(n);
@@ -718,19 +788,14 @@ public class ModelProver extends TermTransformer {
 		case SMTLIBConstants.TO_INT: {
 			assert args.length == 1;
 			final Rational arg = rationalValue(args[0]);
-			return arg.floor().toTerm(fs.getReturnSort());
+			final Term result = arg.floor().toTerm(fs.getReturnSort());
+			return annotateProof(mProofUtils.proveToIntConstant(funcTerm, result), result);
 		}
 
 		case SMTLIBConstants.TO_REAL: {
 			assert args.length == 1;
 			final Rational arg = rationalValue(args[0]);
 			return annotateProof(mProofRules.toRealDef(funcTerm), arg.toTerm(fs.getReturnSort()));
-		}
-
-		case SMTLIBConstants.IS_INT: {
-			assert args.length == 1;
-			final Rational arg = rationalValue(args[0]);
-			return arg.isIntegral() ? theory.mTrue : theory.mFalse;
 		}
 
 		case SMTLIBConstants.STORE: {
@@ -1148,7 +1213,7 @@ public class ModelProver extends TermTransformer {
 		}
 
 		case "@EQ": {
-			return lookupFunction(fs, args);
+			return lookupFunction(funcTerm, args);
 		}
 		default:
 			if (fs.isConstructor()) {
@@ -1165,7 +1230,7 @@ public class ModelProver extends TermTransformer {
 					}
 				}
 				// undefined case for selector on wrong constructor. use model.
-				return lookupFunction(fs, args);
+				return lookupFunction(funcTerm, args);
 			} else if (fs.getName().equals(SMTLIBConstants.IS)) {
 				final ApplicationTerm arg = (ApplicationTerm) args[0];
 				assert arg.getFunction().isConstructor();
