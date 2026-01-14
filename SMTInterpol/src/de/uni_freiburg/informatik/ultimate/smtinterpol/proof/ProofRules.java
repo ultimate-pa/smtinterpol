@@ -767,6 +767,14 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, new Term[] { matchTerm }), mAxiom);
 	}
 
+	/**
+	 * Axiom stating that `(= (_ bvconstValue bitLength) ((_ int2bv bitLength)
+	 * constValue))`.
+	 *
+	 * @param constValue A natural number.
+	 * @param bitLength  The bit length of the bitvector.
+	 * @return the axiom.
+	 */
 	public Term bvConst(final BigInteger constValue, final BigInteger bitLength) {
 		assert constValue.signum() >= 0;
 		assert bitLength.bitCount() <= 32;

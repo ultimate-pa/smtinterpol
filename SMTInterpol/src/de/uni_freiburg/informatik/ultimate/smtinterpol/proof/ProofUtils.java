@@ -2,6 +2,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
 import java.util.HashSet;
+import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -335,6 +336,151 @@ public class ProofUtils {
 				divisorNotZero);
 	}
 
+	public Term proveDivModHelper(Term arg0, Term arg1, Term divisorTerm) {
+		final Theory theory = arg0.getTheory();
+		final Sort intSort = arg0.getSort();
+		// prove (div arg0 divisor) - (div arg1 divisor) - poly == 0
+		// where poly = 1/d * (arg0 - arg1), provided that poly is an integer term.
+		final Rational divisor = Polynomial.parseConstant(divisorTerm);
+		final Polynomial poly = new Polynomial(arg0);
+		poly.add(Rational.MONE, arg1);
+		poly.mul(divisor.inverse());
+		assert divisor.isIntegral();
+		assert poly.isAllIntSummands();
+		assert poly.getGcd().isIntegral();
+
+		final Term div0 = theory.term(SMTLIBConstants.DIV, arg0, divisorTerm);
+		final Term div1 = theory.term(SMTLIBConstants.DIV, arg1, divisorTerm);
+		final Polynomial divDiffMinusPoly = new Polynomial(div0);
+		divDiffMinusPoly.add(Rational.MONE, div1);
+		divDiffMinusPoly.add(Rational.MONE, poly);
+		final Term lhs = divDiffMinusPoly.toTerm(intSort);
+		final Term zero = Rational.ZERO.toTerm(intSort);
+
+		final Term leqm1 = theory.term(SMTLIBConstants.LEQ, lhs, Rational.MONE.toTerm(intSort));
+		final Term geq1 = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(intSort), lhs);
+
+		final Term absDiv = theory.term(SMTLIBConstants.ABS, divisorTerm);
+		final Term absDivEq = theory.term(SMTLIBConstants.EQUALS, absDiv, divisor.abs().toTerm(intSort));
+		final Term mulDiv0 = theory.term(SMTLIBConstants.MUL, divisorTerm, div0);
+		final Term mulDiv1 = theory.term(SMTLIBConstants.MUL, divisorTerm, div1);
+		final Term div0Low = theory.term(SMTLIBConstants.LEQ, mulDiv0, arg0);
+		final Term div0High = theory.term(SMTLIBConstants.LT, arg0, theory.term(SMTLIBConstants.PLUS, mulDiv0, absDiv));
+		final Term div1Low = theory.term(SMTLIBConstants.LEQ, mulDiv1, arg1);
+		final Term div1High = theory.term(SMTLIBConstants.LT, arg1, theory.term(SMTLIBConstants.PLUS, mulDiv1, absDiv));
+
+		Term proofGt, proofLt;
+		if (divisor.signum() > 0) {
+			proofGt = res(div0Low, mProofRules.divLow(arg0, divisorTerm),
+					res(div1High, mProofRules.divHigh(arg1, divisorTerm),
+							mProofRules.farkas(new Term[] { div0Low, div1High, geq1, absDivEq }, new BigInteger[] {
+									BigInteger.ONE, BigInteger.ONE, divisor.numerator(), BigInteger.ONE })));
+			proofLt = res(div1Low, mProofRules.divLow(arg1, divisorTerm),
+					res(div0High, mProofRules.divHigh(arg0, divisorTerm),
+							mProofRules.farkas(new Term[] { div0High, div1Low, leqm1, absDivEq }, new BigInteger[] {
+									BigInteger.ONE, BigInteger.ONE, divisor.numerator(), BigInteger.ONE })));
+		} else {
+			proofGt = res(div1Low, mProofRules.divLow(arg1, divisorTerm),
+					res(div0High, mProofRules.divHigh(arg0, divisorTerm),
+							mProofRules.farkas(new Term[] { div1Low, div0High, geq1, absDivEq }, new BigInteger[] {
+									BigInteger.ONE, BigInteger.ONE, divisor.numerator().negate(), BigInteger.ONE })));
+			proofLt = res(div0Low, mProofRules.divLow(arg0, divisorTerm),
+					res(div1High, mProofRules.divHigh(arg1, divisorTerm),
+							mProofRules.farkas(new Term[] { div1High, div0Low, leqm1, absDivEq }, new BigInteger[] {
+									BigInteger.ONE, BigInteger.ONE, divisor.numerator().negate(), BigInteger.ONE })));
+		}
+
+		final Term geq0 = theory.term(SMTLIBConstants.LEQ, zero, lhs);
+		final Term gt0 = theory.term(SMTLIBConstants.LT, zero, lhs);
+		final Term leq0 = theory.term(SMTLIBConstants.LEQ, lhs, zero);
+		final Term lt0 = theory.term(SMTLIBConstants.LT, lhs, zero);
+
+		proofLt =
+			res(leqm1, res(geq0, mProofRules.totalInt(lhs, BigInteger.ONE.negate()),
+					mProofRules.farkas(new Term[] { lt0, geq0 }, new BigInteger[] { BigInteger.ONE, BigInteger.ONE })),
+					proofLt);
+		proofGt =
+				res(geq1, res(leq0, mProofRules.totalInt(lhs, BigInteger.ZERO),
+					mProofRules.farkas(new Term[] { gt0, leq0 }, new BigInteger[] { BigInteger.ONE, BigInteger.ONE })),
+					proofGt);
+
+		return res(absDivEq, proveAbsConstant(divisor, intSort),
+				res(lt0, res(gt0, mProofRules.trichotomy(lhs, zero), proofGt), proofLt));
+	}
+
+	public Term proveModToDiv(Term modTerm, Term rhs) {
+		// modulo: (mod x c) -> (- x' (* c (div x' c)))
+		// where x'-x is divisible by c.
+		assert isApplication("mod", modTerm);
+		final Theory theory = modTerm.getTheory();
+		final Term[] modArgs = ((ApplicationTerm) modTerm).getParameters();
+		assert modArgs.length == 2;
+		assert modArgs[1] instanceof ConstantTerm;
+		final Rational modulus = (Rational) ((ConstantTerm) modArgs[1]).getValue();
+
+		final Polynomial rhsPoly = new Polynomial(rhs);
+		// find div term;
+		final Term div0Term = theory.term(SMTLIBConstants.DIV, modArgs);
+		Term arg1 = null;
+		ApplicationTerm div1Term = null;
+		for (final Map.Entry<Map<Term, Integer>, Rational> summand : rhsPoly.getSummands().entrySet()) {
+			if (summand.getValue().negate().equals(modulus) && summand.getKey().size() == 1) {
+				final Map.Entry<Term, Integer> monoid = summand.getKey().entrySet().iterator().next();
+				if (monoid.getValue() == 1 && isApplication(SMTLIBConstants.DIV, monoid.getKey())) {
+					final ApplicationTerm appTerm = (ApplicationTerm) monoid.getKey();
+					if (appTerm.getParameters()[1] == modArgs[1]) {
+						arg1 = appTerm.getParameters()[0];
+						final Polynomial test = new Polynomial(arg1);
+						test.add(modulus.negate(), appTerm);
+						if (test.equals(rhsPoly)) {
+							div1Term = appTerm;
+							break;
+						}
+					}
+				}
+			}
+		}
+		assert div1Term != null;
+
+		final Sort intSort = modTerm.getSort();
+		final Term zero = Rational.ZERO.toTerm(intSort);
+		final Term divEqZero = theory.term(SMTLIBConstants.EQUALS, modArgs[1], zero);
+		final Term divPlusMod0 = theory.term(SMTLIBConstants.PLUS,
+				theory.term(SMTLIBConstants.MUL, modArgs[1], div0Term), modTerm);
+		final Term divPlusMod0Eq = theory.term(SMTLIBConstants.EQUALS, divPlusMod0, modArgs[0]);
+
+		Term proof;
+		if (div0Term == div1Term) {
+			proof = proveEqualityFromEqualities(
+					new Term[] { theory.term(SMTLIBConstants.EQUALS, modTerm, rhs), divPlusMod0Eq },
+					new BigInteger[] { BigInteger.ONE, BigInteger.ONE.negate() });
+		} else {
+			final Rational divisor = Polynomial.parseConstant(modArgs[1]);
+			final Polynomial poly = new Polynomial(div0Term);
+			poly.add(Rational.MONE, div1Term);
+			poly.add(divisor.inverse().negate(), modArgs[0]);
+			poly.add(divisor.inverse(), arg1);
+
+			final Term divDiffMinusPoly = poly.toTerm(intSort);
+			final Term divDiffMinusPolyEq = theory.term(SMTLIBConstants.EQUALS, divDiffMinusPoly, zero);
+			proof = proveEqualityFromEqualities(
+					new Term[] { theory.term(SMTLIBConstants.EQUALS, modTerm, rhs), divDiffMinusPolyEq, divPlusMod0Eq },
+					new BigInteger[] { BigInteger.ONE, divisor.numerator(), BigInteger.ONE.negate(), });
+			proof = res(divDiffMinusPolyEq, proveDivModHelper(modArgs[0], arg1, modArgs[1]), proof);
+		}
+		return res(divEqZero,
+				res(divPlusMod0Eq, mProofRules.modDef(modArgs[0], modArgs[1]), proof),
+				proveTrivialDisequality(modArgs[1], zero));
+	}
+
+	public Term proveModNormalize(Term lhs, Term rhs) {
+		if (rhs instanceof ConstantTerm) {
+			return proveModConstant(lhs, rhs);
+		} else {
+			return proveModToDiv(lhs, rhs);
+		}
+	}
+
 	public Term proveToIntConstant(Term funcTerm, Term result) {
 		final Theory theory = funcTerm.getTheory();
 
@@ -548,6 +694,97 @@ public class ProofUtils {
 	}
 
 	/**
+	 * Prove the equality (= ((_ int_to_bv bitLength) nat) (_ bvnat bitLength)).
+	 * Here bvnat is the canonic constant bitvector form.
+	 *
+	 * @param nat       a constant numeric term.
+	 * @param bitLength the bit-vector length.
+	 * @return the proof of the equality.
+	 */
+	public Term proveIntToBvConstant(final Term nat, BigInteger bitLength) {
+		final Theory theory = nat.getTheory();
+		final Sort intSort = theory.getSort(SMTLIBConstants.INT);
+		final BigInteger val = Polynomial.parseConstant(nat).numerator();
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
+		final BigInteger modVal = val.mod(pow2);
+		final Sort bvSort = theory.getSort(SMTLIBConstants.BITVEC, new String[] { bitLength.toString() });
+		final Term bv = theory.constant(modVal, bvSort);
+		final Term bvnat = theory.term(SMTLIBConstants.INT_TO_BV, bvSort.getIndices(), null, nat);
+		if (modVal == val) {
+			return res(theory.term(SMTLIBConstants.EQUALS, bv, bvnat), mProofRules.bvConst(modVal, bitLength),
+					mProofRules.symm(bvnat, bv));
+		} else {
+			final Term intbvnat = theory.term(SMTLIBConstants.UBV_TO_INT, bvnat);
+			final Term bvintbvnat = theory.term(SMTLIBConstants.INT_TO_BV, bvSort.getIndices(), null, intbvnat);
+			final Term modValTerm = Rational.valueOf(modVal, BigInteger.ONE).toTerm(intSort);
+			final Term bvModVal = theory.term(SMTLIBConstants.INT_TO_BV, bvSort.getIndices(), null, modValTerm);
+
+			return res(theory.term(SMTLIBConstants.EQUALS, bvnat, bvintbvnat),
+				res(theory.term(SMTLIBConstants.EQUALS, bvintbvnat, bvnat),
+							mProofRules.ubv2int2bv(bvnat), mProofRules.symm(bvnat, bvintbvnat)),
+				res(theory.term(SMTLIBConstants.EQUALS, bvintbvnat, bvModVal),
+							res(theory.term(SMTLIBConstants.EQUALS, intbvnat, modValTerm),
+								proveIntToUbvToIntConstant(nat, bitLength),
+								mProofRules.cong(bvintbvnat, bvModVal)),
+						res(theory.term(SMTLIBConstants.EQUALS, bvModVal, bv),
+							res(theory.term(SMTLIBConstants.EQUALS, bv, bvModVal),
+									mProofRules.bvConst(modVal, bitLength),
+									mProofRules.symm(bvModVal, bv)),
+							mProofRules.trans(bvnat, bvintbvnat, bvModVal, bv))));
+		}
+	}
+
+	/**
+	 * Prove the equality (= (ubv_to_int (int_to_bv nat)) natModPow2).
+	 *
+	 * @param nat       a constant integer term.
+	 * @param bitLength the length of the intermediate bit-vector.
+	 * @return the proof of the equality.
+	 */
+	public Term proveIntToUbvToIntConstant(final Term nat, BigInteger bitLength) {
+		final Theory theory = nat.getTheory();
+		final Sort intSort = nat.getSort();
+		assert intSort.getName() == SMTLIBConstants.INT;
+		final BigInteger val = Polynomial.parseConstant(nat).numerator();
+		final Term bvnat = theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength.toString() }, null, nat);
+		final Term intbvnat = theory.term(SMTLIBConstants.UBV_TO_INT, bvnat);
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
+		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
+		final Term modNat = theory.term(SMTLIBConstants.MOD, nat, pow2Term);
+		final Term natModPow2 = Rational.valueOf(val.mod(pow2), BigInteger.ONE).toTerm(intSort);
+		return res(theory.term(SMTLIBConstants.EQUALS, intbvnat, modNat), mProofRules.int2ubv2int(bitLength, nat),
+				res(theory.term(SMTLIBConstants.EQUALS, modNat, natModPow2), proveModConstant(modNat, natModPow2),
+						mProofRules.trans(intbvnat, modNat, natModPow2)));
+	}
+
+	/**
+	 * Prove the equality (= (ubv_to_int bv) const).
+	 *
+	 * @param bv A bitvector constant of the form `(_ bvConst bitLength)`
+	 * @return the proof of the equality.
+	 */
+	public Term proveUbvToIntConstant(final Term bv) {
+		final Theory theory = bv.getTheory();
+		final Sort intSort = theory.getSort(SMTLIBConstants.INT);
+		final BigInteger val = (BigInteger) ((ConstantTerm) bv).getValue();
+		final Term nat = Rational.valueOf(val, BigInteger.ONE).toTerm(intSort);
+		final Term intbv = theory.term(SMTLIBConstants.UBV_TO_INT, bv);
+		final Term bvnat = theory.term(SMTLIBConstants.INT_TO_BV, bv.getSort().getIndices(), null, nat);
+		final Term intbvnat = theory.term(SMTLIBConstants.UBV_TO_INT, bvnat);
+		final BigInteger bitLength = new BigInteger(bv.getSort().getIndices()[0]);
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
+		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
+		final Term modNat = theory.term(SMTLIBConstants.MOD, nat, pow2Term);
+		return res(theory.term(SMTLIBConstants.EQUALS, intbv, intbvnat),
+				res(theory.term(SMTLIBConstants.EQUALS, bv, bvnat),
+						mProofRules.bvConst(val, bitLength), mProofRules.cong(intbv, intbvnat)),
+				res(theory.term(SMTLIBConstants.EQUALS, intbvnat, modNat),
+					mProofRules.int2ubv2int(bitLength, nat),
+					res(theory.term(SMTLIBConstants.EQUALS, modNat, nat), proveModConstant(modNat, nat),
+								mProofRules.trans(intbv, intbvnat, modNat, nat))));
+	}
+
+	/**
 	 * Prove the disequality between two distinct bitvector constant terms.
 	 *
 	 * @param bv1 the left-hand side of the equality
@@ -562,37 +799,17 @@ public class ProofUtils {
 		final Sort intSort = theory.getSort(SMTLIBConstants.INT);
 		final Term nat1 = Rational.valueOf(val1, BigInteger.ONE).toTerm(intSort);
 		final Term nat2 = Rational.valueOf(val2, BigInteger.ONE).toTerm(intSort);
-		final Term bvnat1 = theory.term(SMTLIBConstants.INT_TO_BV, nat1);
-		final Term bvnat2 = theory.term(SMTLIBConstants.INT_TO_BV, nat2);
-		final Term intbvnat1 = theory.term(SMTLIBConstants.UBV_TO_INT, nat1);
-		final Term intbvnat2 = theory.term(SMTLIBConstants.UBV_TO_INT, nat2);
-		final BigInteger bitLength = new BigInteger(bv1.getSort().getIndices()[0]);
-		final BigInteger pow2 = BigInteger.ONE.shiftLeft(Integer.parseInt(bv1.getSort().getIndices()[0]));
-		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
-		final Term modNat1 = theory.term(SMTLIBConstants.MOD, nat1, pow2Term);
-		final Term modNat2 = theory.term(SMTLIBConstants.MOD, nat2, pow2Term);
+		final Term intbv1 = theory.term(SMTLIBConstants.UBV_TO_INT, bv1);
+		final Term intbv2 = theory.term(SMTLIBConstants.UBV_TO_INT, bv2);
 
-
-		final Term bv1EqBvNat1 = mProofRules.bvConst(val1, bitLength);
-		final Term bv2EqBvNat2 = mProofRules.bvConst(val2, bitLength);
-
-
-		/*
-		mProofRules.int2ubv2int(bitLength, nat1);
-		mProofRules.trans(modNat1, intbvnat1, intbvnat2, modNat2);
-		mProofRules.trans(bvnat1, bv1, bv2, bvnat2);
-		mProofRules.symm(bvnat1, bv1);
-		mProofRules.symm(modNat1, intbvnat1);
-		mProofRules.int2ubv2int(bitLength, nat1);
-		mProofRules.int2ubv2int(bitLength, nat2);
-		mProofRules.modDef(nat1, pow2Term);
-		mProofRules.modDef(nat2, pow2Term);
-		proveTrivialDisequality(bv1EqBvNat1, bv2EqBvNat2);
-		*/
-
-		return mProofRules.oracle(
-				new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, bv1, bv2), false) },
-				new Annotation[] { new Annotation(":bvdiseq", null) });
+		Term proof = res(theory.term(SMTLIBConstants.EQUALS, nat1, intbv1),
+				res(theory.term(SMTLIBConstants.EQUALS, intbv1, nat1), proveUbvToIntConstant(bv1),
+						mProofRules.symm(nat1, intbv1)),
+				res(theory.term(SMTLIBConstants.EQUALS, intbv2, nat2), proveUbvToIntConstant(bv2),
+						mProofRules.trans(nat1, intbv1, intbv2, nat2)));
+		proof = res(theory.term(SMTLIBConstants.EQUALS, intbv1, intbv2), mProofRules.cong(intbv1, intbv2), proof);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, nat1, nat2), proof, proveTrivialDisequality(nat1, nat2));
+		return proof;
 	}
 
 	/**

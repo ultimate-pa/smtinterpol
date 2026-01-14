@@ -57,16 +57,6 @@ public class ProofUtilsTest {
 		mSmtInterpol.declareSort("U", 0);
 	}
 
-	private Object[] shuffle(final Object[] o) {
-		for (int i = 1; i < o.length; i++) {
-			final int randomPos = rng.nextInt(i);
-			final Object swap = o[i];
-			o[i] = o[randomPos];
-			o[randomPos] = swap;
-		}
-		return o;
-	}
-
 	ProofLiteral termToProofLiteral(Term term) {
 		Term atom = term;
 		boolean polarity = true;
@@ -76,14 +66,6 @@ public class ProofUtilsTest {
 			polarity = !polarity;
 		}
 		return new ProofLiteral(atom, polarity);
-	}
-
-	ProofLiteral[] termArrayToProofLiterals(Term[] terms) {
-		final ProofLiteral[] lits = new ProofLiteral[terms.length];
-		for (int i = 0; i < terms.length; i++) {
-			lits[i] = termToProofLiteral(terms[i]);
-		}
-		return lits;
 	}
 
 	void checkProof(final Term proofTerm, final Term... lits) {
@@ -155,6 +137,79 @@ public class ProofUtilsTest {
 
 		for (int i = 0; i < rats.length; i++) {
 			checkSingleIsInt(rats[i]);
+		}
+	}
+
+	private void checkUbvToIntAndBack(BigInteger val, int bitLength) {
+		final String[] indices = new String[] { Integer.toString(bitLength) };
+		final Sort intSort = mSmtInterpol.sort(SMTLIBConstants.INT);
+
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength);
+		final BigInteger valMod = val.mod(pow2);
+
+		final Term bv = mSmtInterpol.term("bv" + valMod.toString(), indices, null);
+		final Term intbv = mSmtInterpol.term(SMTLIBConstants.UBV_TO_INT, bv);
+		final Term nat = Rational.valueOf(val, BigInteger.ONE).toTerm(intSort);
+		final Term natMod = Rational.valueOf(valMod, BigInteger.ONE).toTerm(intSort);
+		final Term bvnat = mSmtInterpol.term(SMTLIBConstants.INT_TO_BV, indices, null, nat);
+		final Term intbvnat = mSmtInterpol.term(SMTLIBConstants.UBV_TO_INT, bvnat);
+		checkProof(mProofUtils.proveIntToUbvToIntConstant(nat, BigInteger.valueOf(bitLength)),
+				mSmtInterpol.term(SMTLIBConstants.EQUALS, intbvnat, natMod));
+		if (nat == natMod) {
+			checkProof(mProofUtils.proveUbvToIntConstant(bv), mSmtInterpol.term(SMTLIBConstants.EQUALS, intbv, natMod));
+		}
+		checkProof(mProofUtils.proveIntToBvConstant(nat, BigInteger.valueOf(bitLength)),
+				mSmtInterpol.term(SMTLIBConstants.EQUALS, bvnat, bv));
+	}
+
+	@Test
+	public void testBvConst() {
+		final int[] bitLengths = { 1, 2, 7, 16, 256, 1024 };
+		final BigInteger[] values = {
+				BigInteger.ZERO, BigInteger.ONE, BigInteger.ONE.negate(),
+				BigInteger.valueOf(127),
+				BigInteger.valueOf(128),
+				BigInteger.valueOf(129),
+				BigInteger.valueOf(-5999999999999999L),
+				BigInteger.valueOf(999999999999999L),
+				new BigInteger("100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+		};
+		for (int i = 0; i < bitLengths.length; i++) {
+			for (int j = 0; j < values.length; j++) {
+				checkUbvToIntAndBack(values[j], bitLengths[i]);
+			}
+		}
+	}
+
+	private void checkBvDiseq(BigInteger val1, BigInteger val2, int bitLength) {
+		final String[] indices = new String[] { Integer.toString(bitLength) };
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength);
+		final BigInteger val1Mod = val1.mod(pow2);
+		final BigInteger val2Mod = val2.mod(pow2);
+
+		if (val1Mod.equals(val2Mod)) {
+			return;
+		}
+
+		final Term bv1 = mSmtInterpol.term("bv" + val1Mod.toString(), indices, null);
+		final Term bv2 = mSmtInterpol.term("bv" + val2Mod.toString(), indices, null);
+		checkProof(mProofUtils.proveDisequality(bv1, bv2),
+				mSmtInterpol.term(SMTLIBConstants.NOT, mSmtInterpol.term(SMTLIBConstants.EQUALS, bv1, bv2)));
+	}
+
+	@Test
+	public void testBvDiseqs() {
+		final int[] bitLengths = { 1, 2, 7, 16, 256, 1024 };
+		final BigInteger[] values = { BigInteger.ZERO, BigInteger.ONE, BigInteger.ONE.negate(), BigInteger.valueOf(127),
+				BigInteger.valueOf(128), BigInteger.valueOf(129), BigInteger.valueOf(-5999999999999999L),
+				BigInteger.valueOf(999999999999999L), new BigInteger(
+						"100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000") };
+		for (int i = 0; i < bitLengths.length; i++) {
+			for (int j = 0; j < values.length; j++) {
+				for (int k = 0; k < j; k++) {
+					checkBvDiseq(values[j], values[k], bitLengths[i]);
+				}
+			}
 		}
 	}
 }
