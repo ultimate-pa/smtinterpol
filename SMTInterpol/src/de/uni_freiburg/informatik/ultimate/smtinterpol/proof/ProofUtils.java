@@ -785,6 +785,57 @@ public class ProofUtils {
 	}
 
 	/**
+	 * Prove the equality between two int_to_bv terms provided there arguments are
+	 * equal modulo pow2(bitlength).
+	 *
+	 * @param bv1 the first int_to_bv term.
+	 * @param bv2 the second int_to_bv term.
+	 * @return the proof for `(= bv1 bv2)`.
+	 */
+	public Term proveInt2BvEquality(Term bv1, Term bv2) {
+		assert isApplication(SMTLIBConstants.INT_TO_BV, bv1);
+		assert isApplication(SMTLIBConstants.INT_TO_BV, bv2);
+		if (bv1 == bv2) {
+			return mProofRules.refl(bv1);
+		}
+		final Theory theory = bv1.getTheory();
+		final FunctionSymbol intToBv = ((ApplicationTerm) bv1).getFunction();
+		final Term int1 = ((ApplicationTerm) bv1).getParameters()[0];
+		final Term int2 = ((ApplicationTerm) bv2).getParameters()[0];
+		final BigInteger bitLength = new BigInteger(intToBv.getIndices()[0]);
+		final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength.intValue()), BigInteger.ONE);
+		final Term pow2Term = pow2.toTerm(int1.getSort());
+		final Term mod1 = theory.term(SMTLIBConstants.MOD, int1, pow2Term);
+		final Term mod2 = theory.term(SMTLIBConstants.MOD, int2, pow2Term);
+		final Polynomial poly = new Polynomial(int2);
+		poly.add(pow2.negate(), theory.term(SMTLIBConstants.DIV, int2, pow2Term));
+		final Term modAsDiv2 = poly.toTerm(int2.getSort());
+		final Term modProof1 = proveModNormalize(mod1, modAsDiv2);
+		final Term modProof2 = res(theory.term(SMTLIBConstants.EQUALS, mod2, modAsDiv2),
+				proveModNormalize(mod2, modAsDiv2), mProofRules.symm(modAsDiv2, mod2));
+		final Term intbvint1 = theory.term(SMTLIBConstants.UBV_TO_INT, bv1);
+		final Term intbvint2 = theory.term(SMTLIBConstants.UBV_TO_INT, bv2);
+		Term proof = res(theory.term(SMTLIBConstants.EQUALS, intbvint1, mod1), mProofRules.int2ubv2int(bitLength, int1),
+				res(theory.term(SMTLIBConstants.EQUALS, mod1, modAsDiv2), modProof1,
+						res(theory.term(SMTLIBConstants.EQUALS, modAsDiv2, mod2), modProof2,
+						res(theory.term(SMTLIBConstants.EQUALS, mod2, intbvint2),
+								res(theory.term(SMTLIBConstants.EQUALS, intbvint2, mod2),
+										mProofRules.int2ubv2int(bitLength, int2), mProofRules.symm(mod2, intbvint2)),
+										mProofRules.trans(intbvint1, mod1, modAsDiv2, mod2, intbvint2)))));
+		final Term bvintbvint1 = theory.term(intToBv, intbvint1);
+		final Term bvintbvint2 = theory.term(intToBv, intbvint2);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, intbvint1, intbvint2), proof,
+				mProofRules.cong(bvintbvint1, bvintbvint2));
+		proof = res(theory.term(SMTLIBConstants.EQUALS, bv1, bvintbvint1),
+				res(theory.term(SMTLIBConstants.EQUALS, bvintbvint1, bv1), mProofRules.ubv2int2bv(bv1),
+						mProofRules.symm(bv1, bvintbvint1)),
+				res(theory.term(SMTLIBConstants.EQUALS, bvintbvint1, bvintbvint2), proof,
+						res(theory.term(SMTLIBConstants.EQUALS, bvintbvint2, bv2), mProofRules.ubv2int2bv(bv2),
+								mProofRules.trans(bv1, bvintbvint1, bvintbvint2, bv2))));
+		return proof;
+	}
+
+	/**
 	 * Prove the disequality between two distinct bitvector constant terms.
 	 *
 	 * @param bv1 the left-hand side of the equality

@@ -127,6 +127,11 @@ public class ProofRules {
 	public final static String BVLITERAL = "bvliteral";
 	public final static String INT2UBV2INT = "int2ubv2int";
 	public final static String UBV2INT2BV = "ubv2int2bv";
+	public final static String BVADDDEF = "bvadddef";
+	public final static String BVMULDEF = "bvmuldef";
+	public final static String BVSUBDEF = "bvsubdef";
+	public final static String BVUDIVDEF = "bvudivdef";
+	public final static String BVUDIV0 = "bvudiv0";
 
 	/**
 	 * sort name for proofs.
@@ -215,6 +220,22 @@ public class ProofRules {
 			}
 		}
 		return sexpr.toArray(new Object[sexpr.size()]);
+	}
+
+	/**
+	 * Check whether all terms have the same sort.
+	 *
+	 * @param terms an array of terms to check.
+	 * @return true, iff all terms have the same sort.
+	 */
+	private static boolean equalSorts(Term[] terms) {
+		final Sort sort = terms[0].getSort();
+		for (int i = 1; i < terms.length; i++) {
+			if (terms[i].getSort() != sort) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public Term resolutionRule(final Term pivot, final Term proofPos, final Term proofNeg) {
@@ -451,6 +472,7 @@ public class ProofRules {
 
 	public Term trans(final Term... terms) {
 		assert terms.length > 2;
+		assert equalSorts(terms);
 		return mTheory.annotatedTerm(annotate(":" + TRANS, terms), mAxiom);
 	}
 
@@ -792,6 +814,14 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + BVLITERAL, litTerm), mAxiom);
 	}
 
+	/**
+	 * Axiom stating `(= (ubv_to_int ((_ int_to_bv bitLength) natTerm)) (mod natTerm
+	 * 2^bitLength))`
+	 *
+	 * @param bitLength the length of the bit vector.
+	 * @param natTerm   the nat term that is converted to bv and back.
+	 * @return the axiom.
+	 */
 	public Term int2ubv2int(final BigInteger bitLength, final Term natTerm) {
 		assert natTerm.getSort().isInternal() && natTerm.getSort().getName().equals("Int");
 		assert bitLength.bitCount() <= 32;
@@ -799,9 +829,59 @@ public class ProofRules {
 				annotate(":" + INT2UBV2INT, natTerm, new Annotation(ANNOT_BVLEN, bitLength.toString())), mAxiom);
 	}
 
+	/**
+	 * Axiom stating `(= ((_ int_to_bv bitLength) (ubv_to_int bvTerm)) bvTerm)`.
+	 * Here bitLength is the size of the bitvector bvTerm (so that the equality
+	 * type-checks).
+	 *
+	 * @param bvTerm the bv term that is converted to int and back.
+	 * @return the axiom.
+	 */
 	public Term ubv2int2bv(final Term bvTerm) {
 		assert bvTerm.getSort().isBitVecSort();
 		return mTheory.annotatedTerm(annotate(":" + UBV2INT2BV, bvTerm), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvadd a b) ((_ int_to_bv bl) (+ (ubv_to_int a) (ubv_to_int
+	 * b))))`.
+	 *
+	 * @param term the term `(bvadd a b)`.
+	 * @return the axiom.
+	 */
+	public Term bvAddDef(final Term... args) {
+		assert args.length >= 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVADDDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvsub a b) ((_ int_to_bv bl) (+ (ubv_to_int a) (* (- 1)
+	 * (ubv_to_int b)))))`.
+	 *
+	 * @param term the term `(bvsub a b)`.
+	 * @return the axiom.
+	 */
+	public Term bvSubDef(final Term... args) {
+		assert args.length >= 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVSUBDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvmul a b) ((_ int_to_bv bl) (* (ubv_to_int a) (ubv_to_int
+	 * b))))`.
+	 *
+	 * @param term the term `(bvmul a b)`.
+	 * @return the axiom.
+	 */
+	public Term bvMulDef(final Term... args) {
+		assert args.length >= 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVMULDEF, args), mAxiom);
 	}
 
 	public static void printProof(final Appendable appender, final Term proof) {
@@ -1164,6 +1244,11 @@ public class ProofRules {
 					case ":" + SELECTSTORE2:
 					case ":" + EXTDIFF:
 					case ":" + CONST:
+					case ":" + BVADDDEF:
+					case ":" + BVMULDEF:
+					case ":" + BVSUBDEF:
+					case ":" + BVUDIVDEF:
+					case ":" + BVUDIV0:
 					case ":" + DT_PROJECT:
 					case ":" + DT_CONS:
 					case ":" + DT_TESTI:

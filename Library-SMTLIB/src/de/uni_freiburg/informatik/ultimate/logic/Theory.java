@@ -800,8 +800,9 @@ public class Theory {
 				if (indices == null || indices.length != 1) {
 					throw new IllegalArgumentException("BitVec needs one index");
 				}
-				if (toNumeral(indices[0]).signum() <= 0) {
-					throw new IllegalArgumentException("BitVec index must be positive");
+				final BigInteger bitLength = toNumeral(indices[0]);
+				if (bitLength.signum() <= 0 || bitLength.bitCount() > 32) {
+					throw new IllegalArgumentException("BitVec index must be positive and below 2^31");
 				}
 				if (arity != 0) {
 					throw new IllegalArgumentException("BitVec has no parameters");
