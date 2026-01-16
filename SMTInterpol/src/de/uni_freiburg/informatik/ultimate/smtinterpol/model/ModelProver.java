@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 
 import java.math.BigInteger;
+import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -26,6 +27,7 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
@@ -130,7 +132,8 @@ public class ModelProver extends TermTransformer {
 					eval.pushTerm(theory.let(mMatch.getVariables()[i][0], dataTerm, mMatch.getCases()[i]));
 					return;
 				} else if (dataTerm.getFunction().getName() == cons.getName()) {
-					eval.pushTerm(theory.let(mMatch.getVariables()[i], dataTerm.getParameters(), mMatch.getCases()[i]));
+					eval.pushTerm(eval.mUnletter.unlet(
+							theory.let(mMatch.getVariables()[i], dataTerm.getParameters(), mMatch.getCases()[i])));
 					return;
 				}
 			}
@@ -145,6 +148,7 @@ public class ModelProver extends TermTransformer {
 
 	private final ProofRules mProofRules;
 	private final ProofUtils mProofUtils;
+	private final FormulaUnLet mUnletter;
 
 	/**
 	 * The scoped let map. Each scope corresponds to a partially executed let or a
@@ -233,8 +237,8 @@ public class ModelProver extends TermTransformer {
 					if (fs.getDefinition() != null) {
 						// LIRA equals is expanded before evaluating, to evaluate the toReal
 						// arguments.
-						final Term expanded = appTerm.getTheory().let(fs.getDefinitionVars(), appParams,
-								fs.getDefinition());
+						final Term expanded = mUnletter
+								.unlet(appTerm.getTheory().let(fs.getDefinitionVars(), appParams, fs.getDefinition()));
 						enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 						pushTerm(expanded);
 						return;
@@ -249,7 +253,7 @@ public class ModelProver extends TermTransformer {
 						// non-binary chainable comparisons are expanded before evaluating.
 						final Term[] pairs = new Term[appParams.length - 1];
 						for (int i = 0; i < pairs.length; i++) {
-							pairs[i] = theory.term(appTerm.getFunction(), appParams[i], appParams[i+1]);
+							pairs[i] = theory.term(appTerm.getFunction(), appParams[i], appParams[i + 1]);
 						}
 						final Term expanded = theory.term(SMTLIBConstants.AND, pairs);
 						enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
@@ -273,8 +277,8 @@ public class ModelProver extends TermTransformer {
 
 				case SMTLIBConstants.IS_INT: {
 					// we expand IS_INT; TODO, this should be a is-int-def proof rule, not expand.
-					final Term expanded = appTerm.getTheory().let(fs.getDefinitionVars(), appParams,
-							fs.getDefinition());
+					final Term expanded = mUnletter
+							.unlet(appTerm.getTheory().let(fs.getDefinitionVars(), appParams, fs.getDefinition()));
 					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
@@ -312,7 +316,7 @@ public class ModelProver extends TermTransformer {
 			case SMTLIBConstants.IMPLIES:
 			case SMTLIBConstants.EQUALS:
 			case SMTLIBConstants.DISTINCT:
-				interpretWithoutCongruence(appTerm, argTerms, argProofs);
+				setResult(interpretWithoutCongruence(appTerm, argTerms, argProofs));
 				return;
 			}
 		}
@@ -323,7 +327,7 @@ public class ModelProver extends TermTransformer {
 			for (int i = 0; i < newArgs.length; i++) {
 				Term eqProof;
 				final Term origTerm = appTerm.getParameters()[i];
-				final Term equality = theory.equals(origTerm, argTerms[i]);
+				final Term equality = theory.term(SMTLIBConstants.EQUALS, origTerm, argTerms[i]);
 				if (origTerm.getSort().getName() == SMTLIBConstants.BOOL) {
 					if (argTerms[i] == theory.mTrue) {
 						eqProof = mProofUtils.res(origTerm, argProofs[i], mProofRules.iffIntro2(equality));
@@ -348,13 +352,17 @@ public class ModelProver extends TermTransformer {
 				setResult(annotateProof(mProofRules.expand(appTerm), modelVal));
 			}
 		} else if (fs.isIntern()) {
-			setResult(interpret(appTerm, fs, argTerms));
+			final Term result = interpret(appTerm, fs, argTerms);
+			if (result != null) {
+				setResult(result);
+			}
 		} else {
 			Term expanded;
 			if (fs.getDefinition() != null) {
-				expanded = appTerm.getTheory().let(fs.getDefinitionVars(), newArgs, fs.getDefinition());
+				expanded = mUnletter
+						.unlet(appTerm.getTheory().let(fs.getDefinitionVars(), argTerms, fs.getDefinition()));
 			} else {
-				expanded = lookupFunction(appTerm, newArgs);
+				expanded = lookupFunction(appTerm, argTerms);
 			}
 			enqueueTransitivityStep(newTerm, expanded, mProofRules.expand(newTerm));
 			pushTerm(expanded);
@@ -388,11 +396,12 @@ public class ModelProver extends TermTransformer {
 		final Theory theory = origTerm.getTheory();
 		final Term endTerm = getAnnotation(converted);
 		final Term proofEq2 = getProof(converted);
-		final Term equality1 = theory.equals(origTerm, midTerm);
+		final Term equality1 = theory.term(SMTLIBConstants.EQUALS, origTerm, midTerm);
 		Term proof;
 		if (endTerm.getSort().isInternal() && endTerm.getSort().getName() == SMTLIBConstants.BOOL) {
 			if (endTerm == endTerm.getTheory().mTrue) {
-				proof = mProofUtils.res(midTerm, proofEq2, mProofUtils.res(equality1, proofEq1, mProofRules.iffElim1(equality1)));
+				proof = mProofUtils.res(midTerm, proofEq2,
+						mProofUtils.res(equality1, proofEq1, mProofRules.iffElim1(equality1)));
 			} else {
 				assert endTerm == endTerm.getTheory().mFalse;
 				proof = mProofUtils.res(midTerm, mProofUtils.res(equality1, proofEq1, mProofRules.iffElim2(equality1)),
@@ -402,8 +411,9 @@ public class ModelProver extends TermTransformer {
 			if (midTerm == endTerm) {
 				proof = proofEq1;
 			} else {
-				final Term equality2 = theory.equals(midTerm, endTerm);
-				proof = mProofUtils.res(equality2, proofEq2, mProofUtils.res(equality1, proofEq1, mProofRules.trans(origTerm, midTerm, endTerm)));
+				final Term equality2 = theory.term(SMTLIBConstants.EQUALS, midTerm, endTerm);
+				proof = mProofUtils.res(equality2, proofEq2,
+						mProofUtils.res(equality1, proofEq1, mProofRules.trans(origTerm, midTerm, endTerm)));
 			}
 		}
 		setResult(annotateProof(proof, endTerm));
@@ -419,6 +429,7 @@ public class ModelProver extends TermTransformer {
 		mModel = model;
 		mProofRules = new ProofRules(model.getTheory());
 		mProofUtils = new ProofUtils(mProofRules);
+		mUnletter = new FormulaUnLet();
 	}
 
 	public Term evaluate(final Term input) {
@@ -428,11 +439,15 @@ public class ModelProver extends TermTransformer {
 	private Term lookupFunction(ApplicationTerm funcTerm, final Term[] args) {
 		final FunctionValue val = mModel.getFunctionValue(funcTerm.getFunction());
 		final LambdaTerm lambda = val.getDefinition();
-		final Term expanded = funcTerm.getTheory().let(lambda.getVariables(), args,
-						lambda.getSubterm());
+		final Term expanded = mUnletter
+				.unlet(funcTerm.getTheory().let(lambda.getVariables(), args, lambda.getSubterm()));
+		return expanded;
+	}
+
+	private void expandFunction(ApplicationTerm funcTerm, final Term[] args) {
+		final Term expanded = lookupFunction(funcTerm, args);
 		enqueueTransitivityStep(funcTerm, expanded, mProofRules.expand(funcTerm));
 		pushTerm(expanded);
-		return null;
 	}
 
 	private Term interpretWithoutCongruence(ApplicationTerm origTerm, final Term[] argTerms, final Term[] argProofs) {
@@ -513,7 +528,7 @@ public class ModelProver extends TermTransformer {
 				if (argTerms[i] != argTerms[0]) {
 					Term proof = proveDisequality(origArgs[0], argProofs[0], argTerms[0], argTerms[i], argProofs[i],
 							origArgs[i]);
-					final Term origEquality = theory.equals(origArgs[0], origArgs[i]);
+					final Term origEquality = theory.term(SMTLIBConstants.EQUALS, origArgs[0], origArgs[i]);
 					if (argTerms.length > 2) {
 						proof = mProofUtils.res(origEquality, mProofRules.equalsElim(0, i, origTerm), proof);
 					}
@@ -521,7 +536,8 @@ public class ModelProver extends TermTransformer {
 				}
 				final Term proof = proveEquality(origArgs[i - 1], argProofs[i - 1], argTerms[i - 1], argProofs[i],
 						origArgs[i]);
-				eqProof = mProofUtils.res(theory.equals(origArgs[i - 1], origArgs[i]), proof, eqProof);
+				eqProof = mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, origArgs[i - 1], origArgs[i]), proof,
+						eqProof);
 			}
 			return annotateProof(eqProof, theory.mTrue);
 		}
@@ -536,9 +552,8 @@ public class ModelProver extends TermTransformer {
 			for (int i = 0; i < argTerms.length; i++) {
 				for (int j = i + 1; j < argTerms.length; j++) {
 					if (argTerms[i] == argTerms[j]) {
-						Term proof = proveEquality(origArgs[i], argProofs[i], argTerms[i], argProofs[j],
-							origArgs[j]);
-						final Term origEquality = theory.equals(origArgs[i], origArgs[j]);
+						Term proof = proveEquality(origArgs[i], argProofs[i], argTerms[i], argProofs[j], origArgs[j]);
+						final Term origEquality = theory.term(SMTLIBConstants.EQUALS, origArgs[i], origArgs[j]);
 						if (argTerms.length > 2) {
 							proof = mProofUtils.res(origEquality, mProofRules.distinctElim(i, j, origTerm), proof);
 						}
@@ -546,7 +561,8 @@ public class ModelProver extends TermTransformer {
 					}
 					final Term proof = proveDisequality(origArgs[i], argProofs[i], argTerms[i], argTerms[j],
 							argProofs[j], origArgs[j]);
-					distinctProof = mProofUtils.res(theory.equals(origArgs[i], origArgs[j]), distinctProof, proof);
+					distinctProof = mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, origArgs[i], origArgs[j]),
+							distinctProof, proof);
 				}
 			}
 			return annotateProof(distinctProof, theory.mTrue);
@@ -557,7 +573,7 @@ public class ModelProver extends TermTransformer {
 
 	private Term proveDisequality(Term ot1, Term eq1, Term ct1, Term ct2, Term eq2, Term ot2) {
 		final Theory theory = ot1.getTheory();
-		final Term destEq = theory.equals(ot1, ot2);
+		final Term destEq = theory.term(SMTLIBConstants.EQUALS, ot1, ot2);
 		if (ct1.getSort() == theory.getBooleanSort()) {
 			if (ct1 == theory.mTrue) {
 				// ct1 = true, ct2 = false
@@ -567,18 +583,35 @@ public class ModelProver extends TermTransformer {
 				return mProofUtils.res(ot2, eq2, mProofUtils.res(ot1, mProofRules.iffElim1(destEq), eq1));
 			}
 		}
-		return mProofUtils.res(theory.equals(ct1, ct2),
-				mProofUtils.res(theory.equals(ot1, ct1), eq1,
-						mProofUtils.res(theory.equals(ct2, ot2),
-								mProofUtils.res(theory.equals(ot2, ct2), eq2, mProofRules.symm(ct2, ot2)),
-								mProofRules.trans(ot1, ct1, ct2, ot2))),
-				mProofUtils.proveDisequality(ct1, ct2));
+		if (ot1 != ct1 && ot2 != ct2) {
+			return mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ct2),
+					mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct1), eq1,
+							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct2, ot2),
+									mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot2, ct2), eq2,
+											mProofRules.symm(ct2, ot2)),
+									mProofRules.trans(ot1, ct1, ct2, ot2))),
+					mProofUtils.proveDisequality(ct1, ct2));
+		} else {
+			final Term proof = mProofUtils.proveDisequality(ct1, ct2);
+			if (ot1 != ct1) {
+				mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct1), eq1,
+						mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ct2), mProofRules.trans(ot1, ct1, ct2),
+								proof));
+			}
+			if (ot2 != ct2) {
+				mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct2, ot2),
+						mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot2, ct2), eq2, mProofRules.symm(ct2, ot2)),
+						mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct2), mProofRules.trans(ot1, ct2, ot2),
+								proof));
+			}
+			return proof;
+		}
 	}
 
 	private Term proveEquality(Term ot1, Term eq1, Term ct, Term eq2, Term ot2) {
 		final Theory theory = ot1.getTheory();
 		if (ct.getSort() == theory.getBooleanSort()) {
-			final Term destEq = theory.equals(ot1, ot2);
+			final Term destEq = theory.term(SMTLIBConstants.EQUALS, ot1, ot2);
 			final boolean isTrue = ct == theory.mTrue;
 			if (isTrue) {
 				return mProofUtils.res(ot2, eq2, mProofUtils.res(ot1, eq1, mProofRules.iffIntro2(destEq)));
@@ -589,12 +622,13 @@ public class ModelProver extends TermTransformer {
 			if (ot2 == ct) {
 				return eq1;
 			}
-			final Term eq2S = mProofUtils.res(theory.equals(ot2, ct), eq2, mProofRules.symm(ct, ot2));
+			final Term eq2S = mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot2, ct), eq2,
+					mProofRules.symm(ct, ot2));
 			if (ot1 == ct) {
 				return eq2S;
 			}
-			return mProofUtils.res(theory.equals(ot1, ct), eq1,
-					mProofUtils.res(theory.equals(ct, ot2), eq2S, mProofRules.trans(ot1, ct, ot2)));
+			return mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct), eq1, mProofUtils
+					.res(theory.term(SMTLIBConstants.EQUALS, ct, ot2), eq2S, mProofRules.trans(ot1, ct, ot2)));
 		}
 	}
 
@@ -690,8 +724,9 @@ public class ModelProver extends TermTransformer {
 			for (int i = 1; i < args.length; ++i) {
 				final Rational divisor = rationalValue(args[i]);
 				if (divisor.equals(Rational.ZERO)) {
-					val = rationalValue(
-							lookupFunction(funcTerm, new Term[] { val.toTerm(args[0].getSort()), args[i] }));
+					assert args.length == 2;
+					expandFunction(funcTerm, args);
+					return null;
 				} else {
 					val = val.div(divisor);
 				}
@@ -733,8 +768,9 @@ public class ModelProver extends TermTransformer {
 			for (int i = 1; i < args.length; ++i) {
 				final Rational n = rationalValue(args[i]);
 				if (n.equals(Rational.ZERO)) {
-					val = rationalValue(
-							lookupFunction(funcTerm, new Term[] { val.toTerm(args[0].getSort()), args[i] }));
+					assert args.length == 2;
+					expandFunction(funcTerm, args);
+					return null;
 				} else {
 					final Rational div = val.div(n);
 					val = n.isNegative() ? div.ceil() : div.floor();
@@ -748,7 +784,8 @@ public class ModelProver extends TermTransformer {
 			assert args.length == 2;
 			final Rational n = rationalValue(args[1]);
 			if (n.equals(Rational.ZERO)) {
-				return lookupFunction(funcTerm, args);
+				expandFunction(funcTerm, args);
+				return null;
 			}
 			final Rational m = rationalValue(args[0]);
 			Rational div = m.div(n);
@@ -1001,27 +1038,31 @@ public class ModelProver extends TermTransformer {
 		case SMTLIBConstants.BVNAND: {
 			assert args.length == 2;
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			final BigInteger value = modulo.subtract(BigInteger.ONE).subtract(bitvectorValue(args[0]).and(bitvectorValue(args[1])));
+			final BigInteger value = modulo.subtract(BigInteger.ONE)
+					.subtract(bitvectorValue(args[0]).and(bitvectorValue(args[1])));
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
 
 		case SMTLIBConstants.BVNOR: {
 			assert args.length == 2;
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			final BigInteger value = modulo.subtract(BigInteger.ONE).subtract(bitvectorValue(args[0]).or(bitvectorValue(args[1])));
+			final BigInteger value = modulo.subtract(BigInteger.ONE)
+					.subtract(bitvectorValue(args[0]).or(bitvectorValue(args[1])));
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
 
 		case SMTLIBConstants.BVXNOR: {
 			assert args.length == 2;
 			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			final BigInteger value = modulo.subtract(BigInteger.ONE).subtract(bitvectorValue(args[0]).xor(bitvectorValue(args[1])));
+			final BigInteger value = modulo.subtract(BigInteger.ONE)
+					.subtract(bitvectorValue(args[0]).xor(bitvectorValue(args[1])));
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
 
 		case SMTLIBConstants.BVCOMP: {
 			assert args.length == 2;
-			final BigInteger value = bitvectorValue(args[0]).equals(bitvectorValue(args[1])) ? BigInteger.ONE : BigInteger.ZERO;
+			final BigInteger value = bitvectorValue(args[0]).equals(bitvectorValue(args[1])) ? BigInteger.ONE
+					: BigInteger.ZERO;
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
 
@@ -1172,7 +1213,7 @@ public class ModelProver extends TermTransformer {
 			assert args.length == 1;
 			final int sizeIn = getBitVecSize(args[0].getSort());
 			final int count = Integer.parseInt(fs.getIndices()[0]);
-			final BigInteger multiplier = BigInteger.ONE.shiftLeft(sizeIn*count).subtract(BigInteger.ONE)
+			final BigInteger multiplier = BigInteger.ONE.shiftLeft(sizeIn * count).subtract(BigInteger.ONE)
 					.divide(BigInteger.ONE.shiftLeft(sizeIn).subtract(BigInteger.ONE));
 			final BigInteger value = bitvectorValue(args[0]).multiply(multiplier);
 			return createBitvectorTerm(value, fs.getReturnSort());
@@ -1213,7 +1254,8 @@ public class ModelProver extends TermTransformer {
 		}
 
 		case "@EQ": {
-			return lookupFunction(funcTerm, args);
+			expandFunction(funcTerm, args);
+			return null;
 		}
 		default:
 			if (fs.isConstructor()) {
@@ -1230,7 +1272,8 @@ public class ModelProver extends TermTransformer {
 					}
 				}
 				// undefined case for selector on wrong constructor. use model.
-				return lookupFunction(funcTerm, args);
+				expandFunction(funcTerm, args);
+				return null;
 			} else if (fs.getName().equals(SMTLIBConstants.IS)) {
 				final ApplicationTerm arg = (ApplicationTerm) args[0];
 				assert arg.getFunction().isConstructor();
@@ -1261,5 +1304,18 @@ public class ModelProver extends TermTransformer {
 
 	private BigInteger getBVModulo(Sort sort) {
 		return BigInteger.ONE.shiftLeft(getBitVecSize(sort));
+	}
+
+	public Term buildModelProof(List<Term> assertions) {
+		final Term[] andArgs = assertions.toArray(new Term[assertions.size()]);
+		final Term andTerm = mModel.getTheory().and(andArgs);
+		final Term provedTerm = transform(mUnletter.transform(andTerm));
+		assert getAnnotation(provedTerm) == provedTerm.getTheory().mTrue;
+		Term proof = getProof(provedTerm);
+		for (final FunctionSymbol fs : mModel.getDefinedFunctions()) {
+			final Term definition = mModel.getFunctionDefinition(fs);
+			proof = mProofRules.refineFun(fs, definition, proof);
+		}
+		return proof;
 	}
 }

@@ -60,6 +60,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.NamedAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.model.ModelProver;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap.CopyMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
@@ -1027,6 +1028,16 @@ public class SMTInterpol extends NoopScript {
 		}
 		buildModel();
 		return mModel;
+	}
+
+	@Override
+	public Term getModelProof() {
+		if (mEngine == null) {
+			throw new SMTLIBException("No logic set!");
+		}
+		buildModel();
+		final ModelProver modelProver = new ModelProver(mModel);
+		return modelProver.buildModelProof(mAssertions);
 	}
 
 	@Override
