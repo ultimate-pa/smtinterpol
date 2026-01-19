@@ -336,25 +336,49 @@ Bitvector Arithmetic:
 (bvadd a b):        (= (bvadd a b) ((_ nat2bv k) (+ (bv2nat a) (bv2nat b))))
 (bvsub a b):        (= (bvsub a b) ((_ nat2bv k) (+ (bv2nat a) (* (- 1) (bv2nat b)))))
 (bvmul a b):        (= (bvmul a b) ((_ nat2bv k) (* (bv2nat a) (bv2nat b))))
-(bvudiv a b):       (= (bvudiv a b) ((_ nat2bv k) (div (bv2nat a) (bv2nat b))))
-(bvurem a b):       (= (bvurem a b) ((_ nat2bv k) (mod (bv2nat a) (bv2nat b))))
+(bvudiv a b):       (= (bvudiv a b) ((_ nat2bv k) (div (bv2nat a) (bv2nat b)))), ~(= (bv2nat b) 0)
+(bvudiv0 a b):      (= (bvudiv a b) ((_ nat2bv k) (- 1))), (= (bv2nat b) 0)
+(bvurem a b):       (= (bvurem a b) ((_ nat2bv k) (mod (bv2nat a) (bv2nat b)))), ~(= (bv2nat b) 0)
+(bvurem0 a b):      (= (bvurem a b) ((_ nat2bv k) a)), (= (bv2nat b) 0)
 (bvneg a):          (= (bvneg a) ((_ nat2bv k) (- (bv2nat a)) (bv2nat b))))
 (bvnot a):          (= (bvnot a) ((_ nat2bv k) (+ (* (- 1) (bv2nat a)) (- 1))))
 (bvand a b):        (= (bvand a b) ((_ nat2bv k) (intand (bv2nat a) (bv2nat b))))
 (bvor a b):         (= (bvor a b) ((_ nat2bv k) (+ (bv2nat a) (bv2nat b) (* (- 1) (intand (bv2nat a) (bv2nat b))))))
-(bvxor a b):        (= (bvor a b) ((_ nat2bv k) (+ (bv2nat a) (bv2nat b) (* (- 2) (intand (bv2nat a) (bv2nat b))))))
+(bvxor a b):        (= (bvxor a b) ((_ nat2bv k) (+ (bv2nat a) (bv2nat b) (* (- 2) (intand (bv2nat a) (bv2nat b))))))
+(bvand a b):        (= (bvnand a b) ((_ nat2bv k) (+ (* (- 1) (intand (bv2nat a) (bv2nat b)))) (- 1)))
+(bvor a b):         (= (bvnor a b) ((_ nat2bv k) (+ (* (- 1) (bv2nat a)) (* (- 1) (bv2nat b)) (intand (bv2nat a) (bv2nat b)) (- 1))))
+(bvxor a b):        (= (bvxnor a b) ((_ nat2bv k) (+ (* (- 1) (bv2nat a)) (* (- 1) (bv2nat b)) (* 2 (intand (bv2nat a) (bv2nat b)))) (- 1)))
 (bvshl a b):        (= (bvshl a b) ((_ nat2bv k) (* (bv2nat a) (pow2 (bv2nat b)))))
-(bvlshr a b):        (= (bvshl a b) ((_ nat2bv k) (div (bv2nat a) (pow2 (bv2nat b)))))
+(bvlshr a b):       (= (bvlshr a b) ((_ nat2bv k) (div (bv2nat a) (pow2 (bv2nat b)))))
+(bvashr a b):       (= (bvashr a b) ((_ nat2bv k) (div (sbv_to_int a) (pow2 (bv2nat b)))))
 (concat a b):       (= (concat a b) ((_ nat2bv (ka+kb)) (* 2^kb (bv2nat a) (bv2nat b))))
 (extract i j a):    (= ((_ extract i j) a) ((_ nat2bv (i-j+1)) (div (bv2nat a) 2^j)))
 (zeroextend k a):   (= ((_ zeroextend k) a) ((_nat2bv (k+ka)) (bv2nat a)))
 (signextend k a):   (= ((_ signextend k) a) ((_nat2bv (k+ka)) (+ (bv2nat a) (* (- 2^ka) (div (bv2nat a) 2^(ka-1))))))
+(sbv_to_int a):     (= (sbv_to_int a) (+ (bv2nat a) (* (- 2^k) (div (+ (bv2nat a) (- 2^(k-1))) 2^k))))
+(bvcomp a b):       (= (bvcomp a b) (ite (= a b) ((_ nat2bv 1) 1) ((_ nat2bv 1) 0)))
 (bvule a b):        (= (bvule a b) (<= (bv2nat a) (bv2nat b)))
-(bvsle a b):        (= (bvule a b) (<= (+ (bv2nat a) (* (- 2^k) (div (bv2nat a) 2^(k-1)))) (+ (bv2nat b) (* (- 2^k) (div (bv2nat b) 2^(k-1)))))))
-...
+(bvsle a b):        (= (bvule a b) (<= (sbv_to_int a) (sbv_to_int b)))
+(bvult a b):        (= (bvule a b) (< (bv2nat a) (bv2nat b)))
+(bvslt a b):        (= (bvule a b) (< (sbv_to_int a) (sbv_to_int b)))
+(bvuge a b):        (= (bvule a b) (>= (bv2nat a) (bv2nat b)))
+(bvsge a b):        (= (bvule a b) (>= (sbv_to_int a) (sbv_to_int b)))
+(bvugt a b):        (= (bvule a b) (> (bv2nat a) (bv2nat b)))
+(bvsgt a b):        (= (bvule a b) (> (sbv_to_int a) (sbv_to_int b)))
 (repeat j a):       (= ((_ repeat j) a) ((_ nat2bv k*j) (* ((2^(k*j)-1)/(2^k-1)) (bv2nat a))  # where a is of type (_ BitVec k)
-
-
+bvsdiv
+bvsrem
+bvsmod
+rotate_left
+rotate_right
+bvuaddo
+bvsaddo
+bvusubo
+bvssubo
+bvumulo
+bvsmulo
+bvsdivo
+bvnego
 
 (bvor (bvand s (bvnot t)) (bvand (bvnot s) t))
 = (s&~t) + (~s&t) - (s&~t&~s&t)

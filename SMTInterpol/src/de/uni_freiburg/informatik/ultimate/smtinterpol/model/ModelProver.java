@@ -245,6 +245,21 @@ public class ModelProver extends TermTransformer {
 					}
 					break;
 
+				case SMTLIBConstants.DIVIDE:
+				case SMTLIBConstants.DIV:
+					if (appParams.length > 2) {
+						// non-binary left-associative operators are expanded before evaluating.
+						// this simplifies division by 0.
+						Term expanded = appParams[0];
+						for (int i = 1; i < appParams.length; i++) {
+							expanded = theory.term(appTerm.getFunction(), expanded, appParams[1]);
+						}
+						enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+						pushTerm(expanded);
+						return;
+					}
+					break;
+
 				case SMTLIBConstants.LEQ:
 				case SMTLIBConstants.LT:
 				case SMTLIBConstants.GEQ:
@@ -720,19 +735,16 @@ public class ModelProver extends TermTransformer {
 		}
 
 		case SMTLIBConstants.DIVIDE: {
-			Rational val = rationalValue(args[0]);
-			for (int i = 1; i < args.length; ++i) {
-				final Rational divisor = rationalValue(args[i]);
-				if (divisor.equals(Rational.ZERO)) {
-					assert args.length == 2;
-					expandFunction(funcTerm, args);
-					return null;
-				} else {
-					val = val.div(divisor);
-				}
+			final Rational divisor = rationalValue(args[1]);
+			if (divisor.equals(Rational.ZERO)) {
+				assert args.length == 2;
+				expandFunction(funcTerm, args);
+				return null;
+			} else {
+				final Rational val = rationalValue(args[0]).div(divisor);
+				final Term result = val.toTerm(fs.getReturnSort());
+				return annotateProof(mProofUtils.proveDivideEquality(funcTerm, result), result);
 			}
-			final Term result = val.toTerm(fs.getReturnSort());
-			return annotateProof(mProofUtils.proveDivideEquality(funcTerm, result), result);
 		}
 
 		case SMTLIBConstants.LEQ:
@@ -763,21 +775,17 @@ public class ModelProver extends TermTransformer {
 		}
 
 		case SMTLIBConstants.DIV: {
-			// From the standard...
-			Rational val = rationalValue(args[0]);
-			for (int i = 1; i < args.length; ++i) {
-				final Rational n = rationalValue(args[i]);
-				if (n.equals(Rational.ZERO)) {
-					assert args.length == 2;
-					expandFunction(funcTerm, args);
-					return null;
-				} else {
-					final Rational div = val.div(n);
-					val = n.isNegative() ? div.ceil() : div.floor();
-				}
+			assert args.length == 2;
+			final Rational n = rationalValue(args[1]);
+			if (n.equals(Rational.ZERO)) {
+				expandFunction(funcTerm, args);
+				return null;
+			} else {
+				Rational val = rationalValue(args[0]).div(n);
+				val = n.isNegative() ? val.ceil() : val.floor();
+				final Term result = val.toTerm(fs.getReturnSort());
+				return annotateProof(mProofUtils.proveDivEquality(funcTerm, result), result);
 			}
-			final Term result = val.toTerm(fs.getReturnSort());
-			return annotateProof(mProofUtils.proveDivEquality(funcTerm, result), result);
 		}
 
 		case SMTLIBConstants.MOD: {
@@ -786,12 +794,13 @@ public class ModelProver extends TermTransformer {
 			if (n.equals(Rational.ZERO)) {
 				expandFunction(funcTerm, args);
 				return null;
+			} else {
+				final Rational m = rationalValue(args[0]);
+				Rational div = m.div(n);
+				div = n.isNegative() ? div.ceil() : div.floor();
+				final Term result = m.sub(div.mul(n)).toTerm(fs.getReturnSort());
+				return annotateProof(mProofUtils.proveModConstant(funcTerm, result), result);
 			}
-			final Rational m = rationalValue(args[0]);
-			Rational div = m.div(n);
-			div = n.isNegative() ? div.ceil() : div.floor();
-			final Term result = m.sub(div.mul(n)).toTerm(fs.getReturnSort());
-			return annotateProof(mProofUtils.proveModConstant(funcTerm, result), result);
 		}
 
 		case SMTLIBConstants.ABS: {
