@@ -202,6 +202,21 @@ Keyword = ":" {SMTLetterDigit}+
   "bvliteral"            { return symbol(ProofSymbols.BVLITERAL, yytext()); }
   "ubv2int2bv"           { return symbol(ProofSymbols.UBV2INT2BV, yytext()); }
   "int2ubv2int"          { return symbol(ProofSymbols.INT2UBV2INT, yytext()); }
+  "bvadddef"             { return symbol(ProofSymbols.BVADDDEF, yytext()); }
+  "bvsubdef"             { return symbol(ProofSymbols.BVSUBDEF, yytext()); }
+  "bvmuldef"             { return symbol(ProofSymbols.BVMULDEF, yytext()); }
+  "bvudivdef"            { return symbol(ProofSymbols.BVUDIVDEF, yytext()); }
+  "bvudiv0"              { return symbol(ProofSymbols.BVUDIV0, yytext()); }
+  "bvuremdef"            { return symbol(ProofSymbols.BVUREMDEF, yytext()); }
+  "bvurem0"              { return symbol(ProofSymbols.BVUREM0, yytext()); }
+  "bvnegdef"             { return symbol(ProofSymbols.BVNEGDEF, yytext()); }
+  "bvnotdef"             { return symbol(ProofSymbols.BVNOTDEF, yytext()); }
+  "bvanddef"             { return symbol(ProofSymbols.BVANDDEF, yytext()); }
+  "bvordef"              { return symbol(ProofSymbols.BVORDEF, yytext()); }
+  "bvxordef"             { return symbol(ProofSymbols.BVXORDEF, yytext()); }
+  "bvnanddef"            { return symbol(ProofSymbols.BVNANDDEF, yytext()); }
+  "bvnordef"             { return symbol(ProofSymbols.BVNORDEF, yytext()); }
+  "bvxnordef"            { return symbol(ProofSymbols.BVXNORDEF, yytext()); }
 
   /* Predefined Keywords */
   ":named"               { return symbol(ProofSymbols.CNAMED, yytext()); }

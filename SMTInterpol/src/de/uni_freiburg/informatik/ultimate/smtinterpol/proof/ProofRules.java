@@ -132,6 +132,16 @@ public class ProofRules {
 	public final static String BVSUBDEF = "bvsubdef";
 	public final static String BVUDIVDEF = "bvudivdef";
 	public final static String BVUDIV0 = "bvudiv0";
+	public final static String BVUREMDEF = "bvuremdef";
+	public final static String BVUREM0 = "bvurem0";
+	public final static String BVNOTDEF = "bvnotdef";
+	public final static String BVNEGDEF = "bvnegdef";
+	public final static String BVANDDEF = "bvanddef";
+	public final static String BVORDEF = "bvordef";
+	public final static String BVXORDEF = "bvxordef";
+	public final static String BVNANDDEF = "bvnanddef";
+	public final static String BVNORDEF = "bvnordef";
+	public final static String BVXNORDEF = "bvxnordef";
 
 	/**
 	 * sort name for proofs.
@@ -843,10 +853,10 @@ public class ProofRules {
 	}
 
 	/**
-	 * Axiom stating `(= (bvadd a b) ((_ int_to_bv bl) (+ (ubv_to_int a) (ubv_to_int
-	 * b))))`.
+	 * Axiom stating `(= (bvadd a1 ... an) ((_ int_to_bv bl) (+ (ubv_to_int a1) ...
+	 * (ubv_to_int an))))`.
 	 *
-	 * @param term the term `(bvadd a b)`.
+	 * @param args the terms a1 ... an.
 	 * @return the axiom.
 	 */
 	public Term bvAddDef(final Term... args) {
@@ -857,10 +867,10 @@ public class ProofRules {
 	}
 
 	/**
-	 * Axiom stating `(= (bvsub a b) ((_ int_to_bv bl) (+ (ubv_to_int a) (* (- 1)
-	 * (ubv_to_int b)))))`.
+	 * Axiom stating `(= (bvsub a1 a2 ... an) ((_ int_to_bv bl) (+ (ubv_to_int a1)
+	 * (* (- 1) (ubv_to_int a2) ... (* (- 1) an)))))`.
 	 *
-	 * @param term the term `(bvsub a b)`.
+	 * @param args the terms a1 ... an.
 	 * @return the axiom.
 	 */
 	public Term bvSubDef(final Term... args) {
@@ -871,10 +881,10 @@ public class ProofRules {
 	}
 
 	/**
-	 * Axiom stating `(= (bvmul a b) ((_ int_to_bv bl) (* (ubv_to_int a) (ubv_to_int
-	 * b))))`.
+	 * Axiom stating `(= (bvmul a1 ... an) ((_ int_to_bv bl) (* (ubv_to_int a1) ...
+	 * (ubv_to_int an))))`.
 	 *
-	 * @param term the term `(bvmul a b)`.
+	 * @param args the terms a1 ... an.
 	 * @return the axiom.
 	 */
 	public Term bvMulDef(final Term... args) {
@@ -882,6 +892,166 @@ public class ProofRules {
 		assert args[0].getSort().isBitVecSort();
 		assert equalSorts(args);
 		return mTheory.annotatedTerm(annotate(":" + BVMULDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvudiv a1 a2) ((_ int_to_bv bl) (div (ubv_to_int a1)
+	 * (ubv_to_int a2))))`.
+	 *
+	 * @param args the terms a1 a2.
+	 * @return the axiom.
+	 */
+	public Term bvUDivDef(final Term... args) {
+		assert args.length == 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVUDIVDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvudiv a 0) (_ bv2^k-1 k))`.
+	 *
+	 * @param args the terms a.
+	 * @return the axiom.
+	 */
+	public Term bvUDiv0(final Term arg) {
+		assert arg.getSort().isBitVecSort();
+		return mTheory.annotatedTerm(annotate(":" + BVUDIV0, arg), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvurem a1 a2) ((_ int_to_bv bl) (mod (ubv_to_int a1)
+	 * (ubv_to_int a2))))`.
+	 *
+	 * @param args the terms a1 a2.
+	 * @return the axiom.
+	 */
+	public Term bvURemDef(final Term... args) {
+		assert args.length == 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVUREMDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvurem a 0) a)`.
+	 *
+	 * @param args the terms a.
+	 * @return the axiom.
+	 */
+	public Term bvURem0(final Term arg) {
+		assert arg.getSort().isBitVecSort();
+		return mTheory.annotatedTerm(annotate(":" + BVUREM0, arg), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvnot a) ((_ int_to_bv bl) (+ (- 1) (* (- 1) (ubv_to_int
+	 * a)))))`.
+	 *
+	 * @param arg the term a.
+	 * @return the axiom.
+	 */
+	public Term bvNotDef(final Term arg) {
+		assert arg.getSort().isBitVecSort();
+		return mTheory.annotatedTerm(annotate(":" + BVNOTDEF, arg), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvneg a) ((_ int_to_bv bl) (* (- 1) (ubv_to_int a))))`.
+	 *
+	 * @param arg the term a.
+	 * @return the axiom.
+	 */
+	public Term bvNegDef(final Term arg) {
+		assert arg.getSort().isBitVecSort();
+		return mTheory.annotatedTerm(annotate(":" + BVNEGDEF, arg), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvand a1 ... an) ((_ int_to_bv bl) (& (ubv_to_int a1) ...
+	 * (ubv_to_int an))))`.
+	 *
+	 * @param term the terms a1 ... an.
+	 * @return the axiom.
+	 */
+	public Term bvAndDef(final Term... args) {
+		assert args.length >= 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVANDDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvor a1 ... an) (_ int_to_bv bl) (+ (ubv_to_int a1) ...
+	 * (ubv_to_int an) (* (- 1) (& (ubv_to_int a1) ... (ubv_to_int an)))))`.
+	 *
+	 * @param term the terms a1 ... an.
+	 * @return the axiom.
+	 */
+	public Term bvOrDef(final Term... args) {
+		assert args.length >= 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVORDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvxor a1 ... an) (_ int_to_bv bl) (+ (ubv_to_int a1) ...
+	 * (ubv_to_int an) (* (- 2) (& (ubv_to_int a1) ... (ubv_to_int an)))))`.
+	 *
+	 * @param term the terms a1 ... an.
+	 * @return the axiom.
+	 */
+	public Term bvXorDef(final Term... args) {
+		assert args.length >= 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVXORDEF, args), mAxiom);
+	}
+
+
+	/**
+	 * Axiom stating `(= (bvnand a1 a2) ((_ int_to_bv bl) (+ (- 1) (* (- 1) (&
+	 * (ubv_to_int a1) (ubv_to_int a2)))))`.
+	 *
+	 * @param term the terms a1 a2.
+	 * @return the axiom.
+	 */
+	public Term bvNAndDef(final Term... args) {
+		assert args.length == 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVNANDDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvor a1 ... an) (_ int_to_bv bl) (+ (- 1) (* (- 1)
+	 * (ubv_to_int a1)) (* (- 1) (ubv_to_int a2)) (& (ubv_to_int a1) (ubv_to_int
+	 * a2))))`.
+	 *
+	 * @param term the terms a1 a2.
+	 * @return the axiom.
+	 */
+	public Term bvNOrDef(final Term... args) {
+		assert args.length == 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVNORDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= (bvxnor a1 ... an) (_ int_to_bv bl) (+ (- 1) (* (- 1)
+	 * (ubv_to_int a1)) (* (- 1) (ubv_to_int a2)) (* 2 (& (ubv_to_int a1)
+	 * (ubv_to_int a2)))))`.
+	 *
+	 * @param term the terms a1 a2.
+	 * @return the axiom.
+	 */
+	public Term bvXNorDef(final Term... args) {
+		assert args.length == 2;
+		assert args[0].getSort().isBitVecSort();
+		assert equalSorts(args);
+		return mTheory.annotatedTerm(annotate(":" + BVXNORDEF, args), mAxiom);
 	}
 
 	public static void printProof(final Appendable appender, final Term proof) {
@@ -1213,7 +1383,11 @@ public class ProofRules {
 					case ":" + ITE2:
 					case ":" + EQI:
 					case ":" + DISTINCTI:
-					case ":" + UBV2INT2BV: {
+					case ":" + UBV2INT2BV:
+					case ":" + BVUDIV0:
+					case ":" + BVUREM0:
+					case ":" + BVNOTDEF:
+					case ":" + BVNEGDEF: {
 						assert annots.length == 1;
 						final Term param = (Term) annots[0].getValue();
 						mTodo.add(")");
@@ -1248,7 +1422,13 @@ public class ProofRules {
 					case ":" + BVMULDEF:
 					case ":" + BVSUBDEF:
 					case ":" + BVUDIVDEF:
-					case ":" + BVUDIV0:
+					case ":" + BVUREMDEF:
+					case ":" + BVANDDEF:
+					case ":" + BVORDEF:
+					case ":" + BVXORDEF:
+					case ":" + BVNANDDEF:
+					case ":" + BVNORDEF:
+					case ":" + BVXNORDEF:
 					case ":" + DT_PROJECT:
 					case ":" + DT_CONS:
 					case ":" + DT_TESTI:

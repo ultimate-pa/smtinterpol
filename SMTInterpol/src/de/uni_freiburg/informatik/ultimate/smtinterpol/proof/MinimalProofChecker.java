@@ -1496,6 +1496,54 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term bvMulDef = theory.term(SMTLIBConstants.EQUALS, bvMul, bvMulTerm);
 			return new ProofLiteral[] { new ProofLiteral(bvMulDef, true) };
 		}
+		case ":" + ProofRules.BVNEGDEF: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			final Term origArg = (Term) annots[0].getValue();
+			final Term convArg = theory.term(SMTLIBConstants.UBV_TO_INT, origArg);
+			final Term bvNeg = theory.term(SMTLIBConstants.BVNEG, origArg);
+			final Term minusOne = Rational.MONE.toTerm(convArg.getSort());
+			final Term negTerm = theory.term(SMTLIBConstants.MUL, minusOne, convArg);
+			final Term bvNegTerm = theory.term(SMTLIBConstants.INT_TO_BV, origArg.getSort().getIndices(), null,
+					negTerm);
+			final Term bvNegDef = theory.term(SMTLIBConstants.EQUALS, bvNeg, bvNegTerm);
+			return new ProofLiteral[] { new ProofLiteral(bvNegDef, true) };
+		}
+		case ":" + ProofRules.BVNOTDEF: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			final Term origArg = (Term) annots[0].getValue();
+			final Term convArg = theory.term(SMTLIBConstants.UBV_TO_INT, origArg);
+			final Term bvNot = theory.term(SMTLIBConstants.BVNOT, origArg);
+			final Term minusOne = Rational.MONE.toTerm(convArg.getSort());
+			final Term negTerm = theory.term(SMTLIBConstants.MUL, minusOne, convArg);
+			final Term notTerm = theory.term(SMTLIBConstants.PLUS, minusOne, negTerm);
+			final Term bvNotTerm = theory.term(SMTLIBConstants.INT_TO_BV, origArg.getSort().getIndices(), null,
+					notTerm);
+			final Term bvNotDef = theory.term(SMTLIBConstants.EQUALS, bvNot, bvNotTerm);
+			return new ProofLiteral[] { new ProofLiteral(bvNotDef, true) };
+		}
+		case ":" + ProofRules.BVANDDEF: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			final Term[] origArgs = (Term[]) annots[0].getValue();
+			final Term[] convArgs = new Term[origArgs.length];
+			for (int i = 0; i < convArgs.length; i++) {
+				convArgs[i] = theory.term(SMTLIBConstants.UBV_TO_INT, origArgs[i]);
+			}
+			final Term bvAnd = theory.term(SMTLIBConstants.BVMUL, origArgs);
+			final Term mulTerm = theory.term(SMTInterpolConstants.INTAND, convArgs);
+			final Term bvAndTerm = theory.term(SMTLIBConstants.INT_TO_BV, origArgs[0].getSort().getIndices(), null,
+					mulTerm);
+			final Term bvAndDef = theory.term(SMTLIBConstants.EQUALS, bvAnd, bvAndTerm);
+			return new ProofLiteral[] { new ProofLiteral(bvAndDef, true) };
+		}
 		default:
 			reportError("Unknown axiom %s", axiom);
 			return getTrueClause(axiom.getTheory());

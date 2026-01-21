@@ -2793,7 +2793,7 @@ public class ProofSimplifier extends TermTransformer {
 		assert isApplication(SMTLIBConstants.BVADD, lhs);
 		assert isApplication(SMTLIBConstants.INT_TO_BV, rhs);
 		final Term[] args = ((ApplicationTerm) lhs).getParameters();
-		assert args.length == 2;
+		assert args.length >= 2;
 		final Term[] ubv2intArgs = new Term[args.length];
 		final Term[] simpArgs = new Term[args.length];
 		for (int i = 0; i < args.length; i++) {
@@ -2843,6 +2843,251 @@ public class ProofSimplifier extends TermTransformer {
 		proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigPlus, rhs), proof,
 				res(theory.term(SMTLIBConstants.EQUALS, lhs, bvOrigPlus), mProofRules.bvAddDef(args),
 						mProofRules.trans(lhs, bvOrigPlus, rhs)));
+		return proof;
+	}
+
+	private Term convertRewriteBvSub2Int(final Term lhs, final Term rhs) {
+		final Theory theory = lhs.getTheory();
+		final Sort intSort = theory.getSort(SMTLIBConstants.INT);
+		assert isApplication(SMTLIBConstants.BVSUB, lhs);
+		assert isApplication(SMTLIBConstants.INT_TO_BV, rhs);
+		final Term[] args = ((ApplicationTerm) lhs).getParameters();
+		assert args.length >= 2;
+		final Term[] ubv2intArgs = new Term[args.length];
+		final Term[] simpArgs = new Term[args.length];
+		final Term minusOne = Rational.MONE.toTerm(intSort);
+		for (int i = 0; i < args.length; i++) {
+			ubv2intArgs[i] = theory.term(SMTLIBConstants.UBV_TO_INT, args[i]);
+			simpArgs[i] = computeBv2Int(args[i]);
+			if (i > 0) {
+				ubv2intArgs[i] = theory.term(SMTLIBConstants.MUL, minusOne, ubv2intArgs[i]);
+				simpArgs[i] = theory.term(SMTLIBConstants.MUL, minusOne, simpArgs[i]);
+			}
+		}
+		final Term origPlus = theory.term(SMTLIBConstants.PLUS, ubv2intArgs);
+		final Term simpPlus = theory.term(SMTLIBConstants.PLUS, simpArgs);
+
+		final BigInteger bitLength = new BigInteger(lhs.getSort().getIndices()[0]);
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
+		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
+
+		Term proof = mProofRules.refl(origPlus);
+		if (origPlus != simpPlus) {
+			proof = mProofRules.cong(origPlus, simpPlus);
+			boolean needReflMinusOne = false;
+			for (int i = 0; i < args.length; i++) {
+				Term subProof;
+				if (ubv2intArgs[i] == simpArgs[i]) {
+					subProof = mProofRules.refl(simpArgs[i]);
+				} else {
+					final Term ubv2int = i == 0 ? ubv2intArgs[i]
+							: ((ApplicationTerm) ubv2intArgs[i]).getParameters()[1];
+					final Term simp = i == 0 ? simpArgs[i] : ((ApplicationTerm) simpArgs[i]).getParameters()[1];
+					subProof = proveBv2IntRewrite(ubv2int, simp, bitLength, pow2Term);
+					if (i > 0) {
+						subProof = res(theory.term(SMTLIBConstants.EQUALS, ubv2int, simp), subProof,
+								mProofRules.cong(ubv2intArgs[i], simpArgs[i]));
+						needReflMinusOne = true;
+					}
+				}
+				proof = res(theory.term(SMTLIBConstants.EQUALS, ubv2intArgs[i], simpArgs[i]), subProof, proof);
+			}
+			if (needReflMinusOne) {
+				proof = res(theory.term(SMTLIBConstants.EQUALS, minusOne, minusOne), mProofRules.refl(minusOne), proof);
+			}
+		}
+		final Polynomial plusPoly = new Polynomial();
+		for (int i = 0; i < args.length; i++) {
+			plusPoly.add(Rational.ONE, simpArgs[i]);
+		}
+		final Term polyTerm = plusPoly.toTerm(intSort);
+		if (simpPlus != polyTerm) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, simpPlus, polyTerm),
+					mProofRules.polyAdd(simpPlus, polyTerm),
+					res(theory.term(SMTLIBConstants.EQUALS, origPlus, simpPlus), proof,
+							mProofRules.trans(origPlus, simpPlus, polyTerm)));
+		}
+
+		final Term bvOrigPlus = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, origPlus);
+		final Term bvPolyTerm = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, polyTerm);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, origPlus, polyTerm), proof,
+				mProofRules.cong(bvOrigPlus, bvPolyTerm));
+		if (bvPolyTerm != rhs) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigPlus, bvPolyTerm), proof,
+					res(theory.term(SMTLIBConstants.EQUALS, bvPolyTerm, rhs),
+							mProofUtils.proveInt2BvEquality(bvPolyTerm, rhs),
+							mProofRules.trans(bvOrigPlus, bvPolyTerm, rhs)));
+		}
+		proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigPlus, rhs), proof,
+				res(theory.term(SMTLIBConstants.EQUALS, lhs, bvOrigPlus), mProofRules.bvSubDef(args),
+						mProofRules.trans(lhs, bvOrigPlus, rhs)));
+		return proof;
+	}
+
+	private Term convertRewriteBvMul2Int(final Term lhs, final Term rhs) {
+		final Theory theory = lhs.getTheory();
+		final Sort intSort = theory.getSort(SMTLIBConstants.INT);
+		assert isApplication(SMTLIBConstants.BVMUL, lhs);
+		assert isApplication(SMTLIBConstants.INT_TO_BV, rhs);
+		final Term[] args = ((ApplicationTerm) lhs).getParameters();
+		assert args.length >= 2;
+		final Term[] ubv2intArgs = new Term[args.length];
+		final Term[] simpArgs = new Term[args.length];
+		for (int i = 0; i < args.length; i++) {
+			ubv2intArgs[i] = theory.term(SMTLIBConstants.UBV_TO_INT, args[i]);
+			simpArgs[i] = computeBv2Int(args[i]);
+		}
+		final Term origMul = theory.term(SMTLIBConstants.MUL, ubv2intArgs);
+		final Term simpMul = theory.term(SMTLIBConstants.MUL, simpArgs);
+
+		final BigInteger bitLength = new BigInteger(lhs.getSort().getIndices()[0]);
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
+		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
+
+		Term proof = mProofRules.refl(origMul);
+		if (origMul != simpMul) {
+			proof = mProofRules.cong(origMul, simpMul);
+			for (int i = 0; i < args.length; i++) {
+				Term subProof;
+				if (ubv2intArgs[i] == simpArgs[i]) {
+					subProof = mProofRules.refl(simpArgs[i]);
+				} else {
+					subProof = proveBv2IntRewrite(ubv2intArgs[i], simpArgs[i], bitLength, pow2Term);
+				}
+				proof = res(theory.term(SMTLIBConstants.EQUALS, ubv2intArgs[i], simpArgs[i]), subProof, proof);
+			}
+		}
+		final Polynomial mulPoly = new Polynomial(simpArgs[0]);
+		for (int i = 1; i < args.length; i++) {
+			mulPoly.mul(new Polynomial(simpArgs[i]));
+		}
+		final Term polyTerm = mulPoly.toTerm(intSort);
+		if (simpMul != polyTerm) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, simpMul, polyTerm),
+					mProofRules.polyMul(simpMul, polyTerm),
+					res(theory.term(SMTLIBConstants.EQUALS, origMul, simpMul), proof,
+							mProofRules.trans(origMul, simpMul, polyTerm)));
+		}
+
+		final Term bvOrigMul = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, origMul);
+		final Term bvPolyTerm = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, polyTerm);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, origMul, polyTerm), proof,
+				mProofRules.cong(bvOrigMul, bvPolyTerm));
+		if (bvPolyTerm != rhs) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigMul, bvPolyTerm), proof,
+					res(theory.term(SMTLIBConstants.EQUALS, bvPolyTerm, rhs),
+							mProofUtils.proveInt2BvEquality(bvPolyTerm, rhs),
+							mProofRules.trans(bvOrigMul, bvPolyTerm, rhs)));
+		}
+		proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigMul, rhs), proof,
+				res(theory.term(SMTLIBConstants.EQUALS, lhs, bvOrigMul), mProofRules.bvMulDef(args),
+						mProofRules.trans(lhs, bvOrigMul, rhs)));
+		return proof;
+	}
+
+	private Term convertRewriteBvNeg2Int(final Term lhs, final Term rhs) {
+		final Theory theory = lhs.getTheory();
+		final Sort intSort = theory.getSort(SMTLIBConstants.INT);
+		assert isApplication(SMTLIBConstants.BVNEG, lhs);
+		assert isApplication(SMTLIBConstants.INT_TO_BV, rhs);
+		final Term[] args = ((ApplicationTerm) lhs).getParameters();
+		assert args.length == 1;
+		final Term minusOne = Rational.MONE.toTerm(intSort);
+		final Term arg = args[0];
+		final Term ubv2intArg = theory.term(SMTLIBConstants.UBV_TO_INT, arg);
+		final Term simpArg = computeBv2Int(arg);
+		final Term origNeg = theory.term(SMTLIBConstants.MUL, minusOne, ubv2intArg);
+		final Term simpNeg = theory.term(SMTLIBConstants.MUL, minusOne, simpArg);
+
+		final BigInteger bitLength = new BigInteger(lhs.getSort().getIndices()[0]);
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
+		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
+
+		Term proof = mProofRules.refl(origNeg);
+		if (origNeg != simpNeg) {
+			proof = mProofRules.cong(origNeg, simpNeg);
+			final Term subProof = proveBv2IntRewrite(ubv2intArg, simpArg, bitLength, pow2Term);
+			proof = res(theory.term(SMTLIBConstants.EQUALS, ubv2intArg, simpArg), subProof, proof);
+			proof = res(theory.term(SMTLIBConstants.EQUALS, minusOne, minusOne), mProofRules.refl(minusOne), proof);
+		}
+		final Polynomial negPoly = new Polynomial(simpArg);
+		negPoly.mul(Rational.MONE);
+		final Term polyTerm = negPoly.toTerm(intSort);
+		if (simpNeg != polyTerm)
+		{
+			proof = res(theory.term(SMTLIBConstants.EQUALS, simpNeg, polyTerm), mProofRules.polyMul(simpNeg, polyTerm),
+					res(theory.term(SMTLIBConstants.EQUALS, origNeg, simpNeg), proof,
+							mProofRules.trans(origNeg, simpNeg, polyTerm)));
+		}
+
+		final Term bvOrigNeg = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, origNeg);
+		final Term bvPolyTerm = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, polyTerm);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, origNeg, polyTerm), proof,
+				mProofRules.cong(bvOrigNeg, bvPolyTerm));
+		if (bvPolyTerm != rhs) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigNeg, bvPolyTerm), proof,
+					res(theory.term(SMTLIBConstants.EQUALS, bvPolyTerm, rhs),
+							mProofUtils.proveInt2BvEquality(bvPolyTerm, rhs),
+							mProofRules.trans(bvOrigNeg, bvPolyTerm, rhs)));
+		}
+		proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigNeg, rhs), proof,
+				res(theory.term(SMTLIBConstants.EQUALS, lhs, bvOrigNeg), mProofRules.bvNegDef(arg),
+						mProofRules.trans(lhs, bvOrigNeg, rhs)));
+		return proof;
+	}
+
+	private Term convertRewriteBvNot2Int(final Term lhs, final Term rhs) {
+		final Theory theory = lhs.getTheory();
+		final Sort intSort = theory.getSort(SMTLIBConstants.INT);
+		assert isApplication(SMTLIBConstants.BVNOT, lhs);
+		assert isApplication(SMTLIBConstants.INT_TO_BV, rhs);
+		final Term[] args = ((ApplicationTerm) lhs).getParameters();
+		assert args.length == 1;
+		final Term minusOne = Rational.MONE.toTerm(intSort);
+		final Term arg = args[0];
+		final Term ubv2intArg = theory.term(SMTLIBConstants.UBV_TO_INT, arg);
+		final Term simpArg = computeBv2Int(arg);
+		final Term origNeg = theory.term(SMTLIBConstants.MUL, minusOne, ubv2intArg);
+		final Term simpNeg = theory.term(SMTLIBConstants.MUL, minusOne, simpArg);
+		final Term origNot = theory.term(SMTLIBConstants.PLUS, minusOne, origNeg);
+		final Term simpNot = theory.term(SMTLIBConstants.PLUS, minusOne, simpNeg);
+
+		final BigInteger bitLength = new BigInteger(lhs.getSort().getIndices()[0]);
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
+		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
+
+		Term proof = mProofRules.refl(origNot);
+		if (origNot != simpNot) {
+			proof = mProofRules.cong(origNeg, simpNeg);
+			final Term subProof = proveBv2IntRewrite(ubv2intArg, simpArg, bitLength, pow2Term);
+			proof = res(theory.term(SMTLIBConstants.EQUALS, ubv2intArg, simpArg), subProof, proof);
+			proof = res(theory.term(SMTLIBConstants.EQUALS, minusOne, minusOne), mProofRules.refl(minusOne), proof);
+			proof = res(theory.term(SMTLIBConstants.EQUALS, origNeg, simpNeg), proof,
+					mProofRules.cong(origNot, simpNot));
+		}
+		final Polynomial negPoly = new Polynomial(simpArg);
+		negPoly.mul(Rational.MONE);
+		negPoly.add(Rational.MONE);
+		final Term polyTerm = negPoly.toTerm(intSort);
+		if (simpNot != polyTerm) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, simpNot, polyTerm), mProofRules.polyAdd(simpNot, polyTerm),
+					res(theory.term(SMTLIBConstants.EQUALS, origNot, simpNot), proof,
+							mProofRules.trans(origNot, simpNot, polyTerm)));
+		}
+
+		final Term bvOrigNot = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, origNot);
+		final Term bvPolyTerm = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, polyTerm);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, origNot, polyTerm), proof,
+				mProofRules.cong(bvOrigNot, bvPolyTerm));
+		if (bvPolyTerm != rhs) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigNot, bvPolyTerm), proof,
+					res(theory.term(SMTLIBConstants.EQUALS, bvPolyTerm, rhs),
+							mProofUtils.proveInt2BvEquality(bvPolyTerm, rhs),
+							mProofRules.trans(bvOrigNot, bvPolyTerm, rhs)));
+		}
+		proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigNot, rhs), proof,
+				res(theory.term(SMTLIBConstants.EQUALS, lhs, bvOrigNot), mProofRules.bvNotDef(arg),
+						mProofRules.trans(lhs, bvOrigNot, rhs)));
 		return proof;
 	}
 
@@ -2969,6 +3214,18 @@ public class ProofSimplifier extends TermTransformer {
 			break;
 		case ":bvadd2int":
 			subProof = convertRewriteBvAdd2Int(lhs, rhs);
+			break;
+		case ":bvsub2int":
+			subProof = convertRewriteBvSub2Int(lhs, rhs);
+			break;
+		case ":bvmul2int":
+			subProof = convertRewriteBvMul2Int(lhs, rhs);
+			break;
+		case ":bvneg2int":
+			subProof = convertRewriteBvNeg2Int(lhs, rhs);
+			break;
+		case ":bvnot2int":
+			subProof = convertRewriteBvNot2Int(lhs, rhs);
 			break;
 		default:
 			subProof = mProofRules.oracle(termToProofLiterals(rewriteStmt), new Annotation[] { annot });
