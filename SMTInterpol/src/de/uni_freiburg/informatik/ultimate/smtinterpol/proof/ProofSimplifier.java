@@ -2853,19 +2853,26 @@ public class ProofSimplifier extends TermTransformer {
 		assert isApplication(SMTLIBConstants.INT_TO_BV, rhs);
 		final Term[] args = ((ApplicationTerm) lhs).getParameters();
 		assert args.length >= 2;
-		final Term[] ubv2intArgs = new Term[args.length];
-		final Term[] simpArgs = new Term[args.length];
+		final Term[] posUbv2intArgs = new Term[args.length];
+		final Term[] posSimpArgs = new Term[args.length];
+		final Term[] negUbv2intArgs = new Term[args.length];
+		final Term[] negSimpArgs = new Term[args.length];
 		final Term minusOne = Rational.MONE.toTerm(intSort);
 		for (int i = 0; i < args.length; i++) {
-			ubv2intArgs[i] = theory.term(SMTLIBConstants.UBV_TO_INT, args[i]);
-			simpArgs[i] = computeBv2Int(args[i]);
+			posUbv2intArgs[i] = theory.term(SMTLIBConstants.UBV_TO_INT, args[i]);
+			posSimpArgs[i] = computeBv2Int(args[i]);
 			if (i > 0) {
-				ubv2intArgs[i] = theory.term(SMTLIBConstants.MUL, minusOne, ubv2intArgs[i]);
-				simpArgs[i] = theory.term(SMTLIBConstants.MUL, minusOne, simpArgs[i]);
+				negUbv2intArgs[i] = theory.term(SMTLIBConstants.MUL, minusOne, posUbv2intArgs[i]);
+				final Polynomial poly = new Polynomial(posSimpArgs[i]);
+				poly.mul(Rational.MONE);
+				negSimpArgs[i] = poly.toTerm(intSort);
+			} else {
+				negUbv2intArgs[i] = posUbv2intArgs[i];
+				negSimpArgs[i] = posSimpArgs[i];
 			}
 		}
-		final Term origPlus = theory.term(SMTLIBConstants.PLUS, ubv2intArgs);
-		final Term simpPlus = theory.term(SMTLIBConstants.PLUS, simpArgs);
+		final Term origPlus = theory.term(SMTLIBConstants.PLUS, negUbv2intArgs);
+		final Term simpPlus = theory.term(SMTLIBConstants.PLUS, negSimpArgs);
 
 		final BigInteger bitLength = new BigInteger(lhs.getSort().getIndices()[0]);
 		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
@@ -2874,31 +2881,24 @@ public class ProofSimplifier extends TermTransformer {
 		Term proof = mProofRules.refl(origPlus);
 		if (origPlus != simpPlus) {
 			proof = mProofRules.cong(origPlus, simpPlus);
-			boolean needReflMinusOne = false;
 			for (int i = 0; i < args.length; i++) {
 				Term subProof;
-				if (ubv2intArgs[i] == simpArgs[i]) {
-					subProof = mProofRules.refl(simpArgs[i]);
+				if (negUbv2intArgs[i] == negSimpArgs[i]) {
+					subProof = mProofRules.refl(negSimpArgs[i]);
 				} else {
-					final Term ubv2int = i == 0 ? ubv2intArgs[i]
-							: ((ApplicationTerm) ubv2intArgs[i]).getParameters()[1];
-					final Term simp = i == 0 ? simpArgs[i] : ((ApplicationTerm) simpArgs[i]).getParameters()[1];
-					subProof = proveBv2IntRewrite(ubv2int, simp, bitLength, pow2Term);
+					subProof = posUbv2intArgs[i] == posSimpArgs[i] ? mProofRules.refl(posUbv2intArgs[i])
+							: proveBv2IntRewrite(posUbv2intArgs[i], posSimpArgs[i], bitLength, pow2Term);
 					if (i > 0) {
-						subProof = res(theory.term(SMTLIBConstants.EQUALS, ubv2int, simp), subProof,
-								mProofRules.cong(ubv2intArgs[i], simpArgs[i]));
-						needReflMinusOne = true;
+						subProof = proveCongruenceWithNegate(posUbv2intArgs[i], posSimpArgs[i], subProof,
+								negUbv2intArgs[i], negSimpArgs[i]);
 					}
 				}
-				proof = res(theory.term(SMTLIBConstants.EQUALS, ubv2intArgs[i], simpArgs[i]), subProof, proof);
-			}
-			if (needReflMinusOne) {
-				proof = res(theory.term(SMTLIBConstants.EQUALS, minusOne, minusOne), mProofRules.refl(minusOne), proof);
+				proof = res(theory.term(SMTLIBConstants.EQUALS, negUbv2intArgs[i], negSimpArgs[i]), subProof, proof);
 			}
 		}
 		final Polynomial plusPoly = new Polynomial();
 		for (int i = 0; i < args.length; i++) {
-			plusPoly.add(Rational.ONE, simpArgs[i]);
+			plusPoly.add(Rational.ONE, negSimpArgs[i]);
 		}
 		final Term polyTerm = plusPoly.toTerm(intSort);
 		if (simpPlus != polyTerm) {
@@ -2921,6 +2921,28 @@ public class ProofSimplifier extends TermTransformer {
 		proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigPlus, rhs), proof,
 				res(theory.term(SMTLIBConstants.EQUALS, lhs, bvOrigPlus), mProofRules.bvSubDef(args),
 						mProofRules.trans(lhs, bvOrigPlus, rhs)));
+		return proof;
+	}
+
+	private Term proveCongruenceWithNegate(Term posTerm1, Term posTerm2, Term eqProof, Term negTerm1,
+			Term normNegTerm2) {
+		final Theory theory = posTerm1.getTheory();
+		final Term minusOne = Rational.MONE.toTerm(posTerm1.getSort());
+		final Term negTerm2 = theory.term(SMTLIBConstants.MUL, minusOne, posTerm2);
+		Term proof;
+		if (negTerm1 == negTerm2) {
+			proof = mProofRules.refl(negTerm1);
+		} else {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, posTerm1, posTerm2), eqProof,
+					res(theory.term(SMTLIBConstants.EQUALS, minusOne, minusOne), mProofRules.refl(minusOne),
+							mProofRules.cong(negTerm1, negTerm2)));
+		}
+		if (negTerm2 != normNegTerm2) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, negTerm1, negTerm2), proof,
+					res(theory.term(SMTLIBConstants.EQUALS, negTerm2, normNegTerm2),
+							mProofRules.polyMul(negTerm2, normNegTerm2),
+							mProofRules.trans(negTerm1, negTerm2, normNegTerm2)));
+		}
 		return proof;
 	}
 
@@ -2997,32 +3019,22 @@ public class ProofSimplifier extends TermTransformer {
 		final Term ubv2intArg = theory.term(SMTLIBConstants.UBV_TO_INT, arg);
 		final Term simpArg = computeBv2Int(arg);
 		final Term origNeg = theory.term(SMTLIBConstants.MUL, minusOne, ubv2intArg);
-		final Term simpNeg = theory.term(SMTLIBConstants.MUL, minusOne, simpArg);
-
+		final Polynomial negPoly = new Polynomial(simpArg);
+		negPoly.mul(Rational.MONE);
+		final Term simpNeg = negPoly.toTerm(intSort);
 		final BigInteger bitLength = new BigInteger(lhs.getSort().getIndices()[0]);
 		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
 		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
 
 		Term proof = mProofRules.refl(origNeg);
 		if (origNeg != simpNeg) {
-			proof = mProofRules.cong(origNeg, simpNeg);
-			final Term subProof = proveBv2IntRewrite(ubv2intArg, simpArg, bitLength, pow2Term);
-			proof = res(theory.term(SMTLIBConstants.EQUALS, ubv2intArg, simpArg), subProof, proof);
-			proof = res(theory.term(SMTLIBConstants.EQUALS, minusOne, minusOne), mProofRules.refl(minusOne), proof);
-		}
-		final Polynomial negPoly = new Polynomial(simpArg);
-		negPoly.mul(Rational.MONE);
-		final Term polyTerm = negPoly.toTerm(intSort);
-		if (simpNeg != polyTerm)
-		{
-			proof = res(theory.term(SMTLIBConstants.EQUALS, simpNeg, polyTerm), mProofRules.polyMul(simpNeg, polyTerm),
-					res(theory.term(SMTLIBConstants.EQUALS, origNeg, simpNeg), proof,
-							mProofRules.trans(origNeg, simpNeg, polyTerm)));
+			proof = proveBv2IntRewrite(ubv2intArg, simpArg, bitLength, pow2Term);
+			proof = proveCongruenceWithNegate(ubv2intArg, simpArg, proof, origNeg, simpNeg);
 		}
 
 		final Term bvOrigNeg = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, origNeg);
-		final Term bvPolyTerm = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, polyTerm);
-		proof = res(theory.term(SMTLIBConstants.EQUALS, origNeg, polyTerm), proof,
+		final Term bvPolyTerm = theory.term(SMTLIBConstants.INT_TO_BV, lhs.getSort().getIndices(), null, simpNeg);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, origNeg, simpNeg), proof,
 				mProofRules.cong(bvOrigNeg, bvPolyTerm));
 		if (bvPolyTerm != rhs) {
 			proof = res(theory.term(SMTLIBConstants.EQUALS, bvOrigNeg, bvPolyTerm), proof,
@@ -3048,27 +3060,29 @@ public class ProofSimplifier extends TermTransformer {
 		final Term ubv2intArg = theory.term(SMTLIBConstants.UBV_TO_INT, arg);
 		final Term simpArg = computeBv2Int(arg);
 		final Term origNeg = theory.term(SMTLIBConstants.MUL, minusOne, ubv2intArg);
-		final Term simpNeg = theory.term(SMTLIBConstants.MUL, minusOne, simpArg);
-		final Term origNot = theory.term(SMTLIBConstants.PLUS, minusOne, origNeg);
-		final Term simpNot = theory.term(SMTLIBConstants.PLUS, minusOne, simpNeg);
-
+		final Polynomial notPoly = new Polynomial(simpArg);
+		notPoly.mul(Rational.MONE);
+		final Term simpNeg = notPoly.toTerm(intSort);
 		final BigInteger bitLength = new BigInteger(lhs.getSort().getIndices()[0]);
 		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bitLength.intValue());
 		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
 
-		Term proof = mProofRules.refl(origNot);
-		if (origNot != simpNot) {
-			proof = mProofRules.cong(origNeg, simpNeg);
-			final Term subProof = proveBv2IntRewrite(ubv2intArg, simpArg, bitLength, pow2Term);
-			proof = res(theory.term(SMTLIBConstants.EQUALS, ubv2intArg, simpArg), subProof, proof);
-			proof = res(theory.term(SMTLIBConstants.EQUALS, minusOne, minusOne), mProofRules.refl(minusOne), proof);
+		Term proof = mProofRules.refl(origNeg);
+		if (origNeg != simpNeg) {
+			proof = proveBv2IntRewrite(ubv2intArg, simpArg, bitLength, pow2Term);
+			proof = proveCongruenceWithNegate(ubv2intArg, simpArg, proof, origNeg, simpNeg);
+		}
+		final Term origNot = theory.term(SMTLIBConstants.PLUS, minusOne, origNeg);
+		final Term simpNot = theory.term(SMTLIBConstants.PLUS, minusOne, simpNeg);
+
+		if (origNot == simpNot) {
+			proof = mProofRules.refl(origNot);
+		} else {
 			proof = res(theory.term(SMTLIBConstants.EQUALS, origNeg, simpNeg), proof,
 					mProofRules.cong(origNot, simpNot));
 		}
-		final Polynomial negPoly = new Polynomial(simpArg);
-		negPoly.mul(Rational.MONE);
-		negPoly.add(Rational.MONE);
-		final Term polyTerm = negPoly.toTerm(intSort);
+		notPoly.add(Rational.MONE);
+		final Term polyTerm = notPoly.toTerm(intSort);
 		if (simpNot != polyTerm) {
 			proof = res(theory.term(SMTLIBConstants.EQUALS, simpNot, polyTerm), mProofRules.polyAdd(simpNot, polyTerm),
 					res(theory.term(SMTLIBConstants.EQUALS, origNot, simpNot), proof,
