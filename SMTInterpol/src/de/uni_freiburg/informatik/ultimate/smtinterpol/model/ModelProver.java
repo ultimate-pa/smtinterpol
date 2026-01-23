@@ -44,7 +44,9 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.BitvectorRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.MinimalProofChecker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofUtils;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -298,6 +300,84 @@ public class ModelProver extends TermTransformer {
 					pushTerm(expanded);
 					return;
 				}
+
+				// expand most of the bit-vector operations
+				case SMTLIBConstants.BVADD: {
+					final Term expanded = BitvectorRules.expandBvAdd(appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvAddDef(appParams));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVSUB: {
+					final Term expanded = BitvectorRules.expandBvSub(appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvSubDef(appParams));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVMUL: {
+					final Term expanded = BitvectorRules.expandBvMul(appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvMulDef(appParams));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVNEG: {
+					assert appParams.length == 1;
+					final Term expanded = BitvectorRules.expandBvNeg(appParams[0]);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvNegDef(appParams[0]));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVNOT: {
+					assert appParams.length == 1;
+					final Term expanded = BitvectorRules.expandBvNot(appParams[0]);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvNotDef(appParams[0]));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVAND: {
+					assert appParams.length >= 2;
+					final Term expanded = BitvectorRules.expandBvAnd(appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvAndDef(appParams));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVOR: {
+					assert appParams.length >= 2;
+					final Term expanded = BitvectorRules.expandBvOr(appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvOrDef(appParams));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVXOR: {
+					assert appParams.length >= 2;
+					final Term expanded = BitvectorRules.expandBvXor(appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvXorDef(appParams));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVNAND: {
+					assert appParams.length == 2;
+					final Term expanded = BitvectorRules.expandBvNAnd(appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvNAndDef(appParams));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.CONCAT: {
+					assert appParams.length >= 2;
+					final Term expanded = BitvectorRules.expandConcat(appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.concatDef(appParams));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.EXTRACT: {
+					assert appParams.length == 1;
+					final int high = Integer.parseInt(fs.getIndices()[0]);
+					final int low = Integer.parseInt(fs.getIndices()[1]);
+					final Term expanded = BitvectorRules.expandExtract(high, low, appParams[0]);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.extractDef(high, low, appParams[0]));
+					pushTerm(expanded);
+					return;
+				}
 				}
 			}
 		} else if (term instanceof QuantifiedFormula) {
@@ -543,8 +623,8 @@ public class ModelProver extends TermTransformer {
 				if (argTerms[i] != argTerms[0]) {
 					Term proof = proveDisequality(origArgs[0], argProofs[0], argTerms[0], argTerms[i], argProofs[i],
 							origArgs[i]);
-					final Term origEquality = theory.term(SMTLIBConstants.EQUALS, origArgs[0], origArgs[i]);
 					if (argTerms.length > 2) {
+						final Term origEquality = theory.term(SMTLIBConstants.EQUALS, origArgs[0], origArgs[i]);
 						proof = mProofUtils.res(origEquality, mProofRules.equalsElim(0, i, origTerm), proof);
 					}
 					return annotateProof(proof, theory.mFalse);
@@ -600,23 +680,23 @@ public class ModelProver extends TermTransformer {
 		}
 		if (ot1 != ct1 && ot2 != ct2) {
 			return mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ct2),
-					mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct1), eq1,
-							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct2, ot2),
-									mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot2, ct2), eq2,
-											mProofRules.symm(ct2, ot2)),
-									mProofRules.trans(ot1, ct1, ct2, ot2))),
+					mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ot1),
+							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct1), eq1,
+									mProofRules.symm(ct1, ot1)),
+							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct2, ot2), eq2,
+									mProofRules.trans(ct1, ot1, ot2, ct2))),
 					mProofUtils.proveDisequality(ct1, ct2));
 		} else {
-			final Term proof = mProofUtils.proveDisequality(ct1, ct2);
+			Term proof = mProofUtils.proveDisequality(ct1, ct2);
 			if (ot1 != ct1) {
-				mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct1), eq1,
-						mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ct2), mProofRules.trans(ot1, ct1, ct2),
+				proof = mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ot1),
+						mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct1), eq1, mProofRules.symm(ct1, ot1)),
+						mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ct2), mProofRules.trans(ct1, ot1, ct2),
 								proof));
 			}
 			if (ot2 != ct2) {
-				mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct2, ot2),
-						mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot2, ct2), eq2, mProofRules.symm(ct2, ot2)),
-						mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct2), mProofRules.trans(ot1, ct2, ot2),
+				proof = mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot2, ct2), eq2, mProofUtils
+						.res(theory.term(SMTLIBConstants.EQUALS, ct1, ct2), mProofRules.trans(ct1, ot2, ct2),
 								proof));
 			}
 			return proof;
@@ -884,164 +964,30 @@ public class ModelProver extends TermTransformer {
 			final Rational n = rationalValue(args[0]);
 			assert n.isIntegral();
 			final BigInteger mask = getBVModulo(fs.getReturnSort()).subtract(BigInteger.ONE);
-			return createBitvectorTerm(n.numerator().and(mask), fs.getReturnSort());
+			final Term result = createBitvectorTerm(n.numerator().and(mask), fs.getReturnSort());
+			return annotateProof(mProofUtils.proveIntToBvConstant(args[0], new BigInteger(fs.getIndices()[0])), result);
 		}
 
 		case SMTLIBConstants.UBV_TO_INT: {
 			assert args.length == 1;
 			final BigInteger value = bitvectorValue(args[0]);
-			return Rational.valueOf(value, BigInteger.ONE).toTerm(fs.getReturnSort());
+			final Term result = Rational.valueOf(value, BigInteger.ONE).toTerm(fs.getReturnSort());
+			return annotateProof(mProofUtils.proveUbvToIntConstant(args[0]), result);
 		}
 
-		case SMTLIBConstants.BVADD: {
-			final BigInteger mask = getBVModulo(fs.getReturnSort()).subtract(BigInteger.ONE);
-			BigInteger value = bitvectorValue(args[0]);
+		case SMTInterpolConstants.INTAND: {
+			BigInteger value = rationalValue(args[0]).numerator();
 			for (int i = 1; i < args.length; i++) {
-				value = value.add(bitvectorValue(args[i]));
-			}
-			value = value.and(mask);
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-		case SMTLIBConstants.BVSUB: {
-			final BigInteger mask = getBVModulo(fs.getReturnSort()).subtract(BigInteger.ONE);
-			BigInteger value = bitvectorValue(args[0]);
-			for (int i = 1; i < args.length; i++) {
-				value = value.add(bitvectorValue(args[i]).negate());
-			}
-			value = value.and(mask);
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVMUL: {
-			final BigInteger mask = getBVModulo(fs.getReturnSort()).subtract(BigInteger.ONE);
-			BigInteger value = bitvectorValue(args[0]);
-			for (int i = 1; i < args.length; i++) {
-				value = value.multiply(bitvectorValue(args[i]));
-				value = value.and(mask);
-			}
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVUDIV: {
-			assert args.length == 2;
-			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			BigInteger value = bitvectorValue(args[0]);
-			final BigInteger arg = bitvectorValue(args[1]);
-			value = arg.signum() == 0 ? modulo.subtract(BigInteger.ONE) : value.divide(arg);
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVUREM: {
-			assert args.length == 2;
-			BigInteger value = bitvectorValue(args[0]);
-			final BigInteger arg = bitvectorValue(args[1]);
-			value = arg.signum() == 0 ? value : value.mod(arg);
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-		case SMTLIBConstants.BVSDIV: {
-			assert args.length == 2;
-			final int signBit = getBitVecSize(fs.getReturnSort()) - 1;
-			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			BigInteger value = bitvectorValue(args[0]);
-			boolean isNegative = value.testBit(signBit);
-			if (isNegative) {
-				value = modulo.subtract(value);
-			}
-			BigInteger arg = bitvectorValue(args[1]);
-			if (arg.testBit(signBit)) {
-				arg = modulo.subtract(arg);
-				isNegative = !isNegative;
-			}
-			value = arg.signum() == 0 ? modulo.subtract(BigInteger.ONE) : value.divide(arg);
-			if (isNegative && value.signum() != 0) {
-				value = modulo.subtract(value);
-			}
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVSREM: {
-			assert args.length == 2;
-			final int signBit = getBitVecSize(fs.getReturnSort()) - 1;
-			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			BigInteger value = bitvectorValue(args[0]);
-			final boolean isNegative = value.testBit(signBit);
-			if (isNegative) {
-				value = modulo.subtract(value);
-			}
-			BigInteger arg = bitvectorValue(args[1]);
-			if (arg.testBit(signBit)) {
-				arg = modulo.subtract(arg);
-			}
-			value = arg.signum() == 0 ? value : value.mod(arg);
-			if (isNegative && value.signum() != 0) {
-				value = modulo.subtract(value);
-			}
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVSMOD: {
-			assert args.length == 2;
-			final int signBit = getBitVecSize(fs.getReturnSort()) - 1;
-			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			final BigInteger origValue = bitvectorValue(args[0]);
-			BigInteger value = origValue;
-			if (value.testBit(signBit)) {
-				value = value.subtract(modulo);
-			}
-			BigInteger arg = bitvectorValue(args[1]);
-			final boolean isNegative = arg.testBit(signBit);
-			if (isNegative) {
-				arg = modulo.subtract(arg);
-			}
-			value = arg.signum() == 0 ? origValue : value.mod(arg);
-			if (isNegative && value.signum() != 0) {
-				value = value.add(modulo).subtract(arg);
-			}
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVNOT: {
-			assert args.length == 1;
-			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			final BigInteger value = bitvectorValue(args[0]).xor(modulo.subtract(BigInteger.ONE));
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVNEG: {
-			assert args.length == 1;
-			final BigInteger modulo = getBVModulo(fs.getReturnSort());
-			BigInteger value = bitvectorValue(args[0]);
-			if (value.signum() != 0) {
-				value = modulo.subtract(value);
-			}
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVAND: {
-			BigInteger value = bitvectorValue(args[0]);
-			for (int i = 1; i < args.length; i++) {
-				final BigInteger arg = bitvectorValue(args[i]);
+				final BigInteger arg = rationalValue(args[i]).numerator();
 				value = value.and(arg);
 			}
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVOR: {
-			BigInteger value = bitvectorValue(args[0]);
-			for (int i = 1; i < args.length; i++) {
-				final BigInteger arg = bitvectorValue(args[i]);
-				value = value.or(arg);
-			}
-			return createBitvectorTerm(value, fs.getReturnSort());
-		}
-
-		case SMTLIBConstants.BVXOR: {
-			BigInteger value = bitvectorValue(args[0]);
-			for (int i = 1; i < args.length; i++) {
-				final BigInteger arg = bitvectorValue(args[i]);
-				value = value.xor(arg);
-			}
-			return createBitvectorTerm(value, fs.getReturnSort());
+			final Term result = Rational.valueOf(value, BigInteger.ONE).toTerm(origTerm.getSort());
+			final Term defEq = theory.term(SMTLIBConstants.EQUALS, funcTerm, result);
+			final ProofLiteral[] proofLits = new ProofLiteral[] {
+					new ProofLiteral(defEq, true)
+			};
+			return annotateProof(
+					mProofRules.oracle(proofLits, new Annotation[] { new Annotation(":intand-const", args) }), result);
 		}
 
 		case SMTLIBConstants.BVNAND: {

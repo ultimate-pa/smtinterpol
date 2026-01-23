@@ -142,6 +142,8 @@ public class ProofRules {
 	public final static String BVNANDDEF = "bvnanddef";
 	public final static String BVNORDEF = "bvnordef";
 	public final static String BVXNORDEF = "bvxnordef";
+	public final static String CONCATDEF = "concatdef";
+	public final static String EXTRACTDEF = "extractdef";
 
 	/**
 	 * sort name for proofs.
@@ -1054,6 +1056,36 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + BVXNORDEF, args), mAxiom);
 	}
 
+	/**
+	 * Axiom stating `(= (concat a1 ... an) ((_ int_to_bv bl) (+ (... (ubv_to_int
+	 * a1) ... (ubv_to_int an))))`.
+	 *
+	 * @param args the terms a1 ... an.
+	 * @return the axiom.
+	 */
+	public Term concatDef(final Term... args) {
+		assert args.length >= 2;
+		assert args[0].getSort().isBitVecSort();
+		return mTheory.annotatedTerm(annotate(":" + CONCATDEF, args), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= ((_ extract j i) a) ((_ int_to_bv j-i+1) (div (ubv_to_int
+	 * a) 2^i)))`.
+	 *
+	 * @param high the value j.
+	 * @param low  the value i.
+	 * @param arg  the terms a.
+	 * @return the axiom.
+	 */
+	public Term extractDef(int high, int low, final Term arg) {
+		assert arg.getSort().isBitVecSort();
+		assert high >= low;
+		assert low >= 0;
+		assert Integer.parseInt(arg.getSort().getIndices()[0]) > high;
+		return mTheory.annotatedTerm(annotate(":" + EXTRACTDEF, new Object[] { high, low, arg }), mAxiom);
+	}
+
 	public static void printProof(final Appendable appender, final Term proof) {
 		new PrintProof().append(appender, proof);
 	}
@@ -1429,6 +1461,7 @@ public class ProofRules {
 					case ":" + BVNANDDEF:
 					case ":" + BVNORDEF:
 					case ":" + BVXNORDEF:
+					case ":" + CONCATDEF:
 					case ":" + DT_PROJECT:
 					case ":" + DT_CONS:
 					case ":" + DT_TESTI:
@@ -1560,6 +1593,18 @@ public class ProofRules {
 							mTodo.add(func.getApplicationString());
 						}
 						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
+						return;
+					}
+					case ":" + EXTRACTDEF: {
+						assert annots.length == 1;
+						final Object[] extractParams = (Object[]) annots[0].getValue();
+						assert extractParams.length == 3;
+						mTodo.add(")");
+						for (int i = extractParams.length - 1; i >= 0; i--) {
+							mTodo.add(extractParams[i]);
+							mTodo.add(" ");
+						}
+						mTodo.add("(" + annots[0].getKey().substring(1));
 						return;
 					}
 					case ":" + FORALLE:

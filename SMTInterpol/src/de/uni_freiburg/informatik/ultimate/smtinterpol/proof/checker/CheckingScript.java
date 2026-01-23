@@ -31,10 +31,16 @@ import com.github.jhoenicke.javacup.runtime.Scanner;
 import com.github.jhoenicke.javacup.runtime.SimpleSymbolFactory;
 import com.github.jhoenicke.javacup.runtime.Symbol;
 
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Logics;
 import de.uni_freiburg.informatik.ultimate.logic.NoopScript;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.MinimalProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 
@@ -46,6 +52,29 @@ public class CheckingScript extends NoopScript {
 
 	private LBool mLastCheckSat;
 	private SExprLexer mLexer;
+	
+	private static class TheoryExtensionSetup extends Theory.SolverSetup {
+
+		public TheoryExtensionSetup() {
+		}
+
+		@Override
+		public void setLogic(final Theory theory, final Logics logic) {
+			if (logic.isBitVector()) {
+				declareBitVectorExtensions(theory);
+			}
+		}
+
+		private static final void declareBitVectorExtensions(final Theory theory) {
+			final Sort intSort = theory.getSort(SMTLIBConstants.INT, EMPTY_SORT_ARRAY);
+			final Sort[] intSort1 = new Sort[] { intSort };
+			final Sort[] intSort2 = new Sort[] { intSort, intSort };
+			declareInternalFunction(theory, SMTInterpolConstants.INTAND, intSort2, intSort, FunctionSymbol.LEFTASSOC);
+			declareInternalFunction(theory, SMTInterpolConstants.INTPOW2, intSort1, intSort, 0);
+			declareInternalFunction(theory, SMTInterpolConstants.INTLOG2, intSort1, intSort, 0);
+		}
+	}
+
 
 	public class SExprLexer implements Scanner {
 		private final Scanner mLexer;
@@ -91,6 +120,12 @@ public class CheckingScript extends NoopScript {
 		mLogger = logger;
 		mProofFile = proofFile;
 		setProofReader(proofReader);
+	}
+
+	@Override
+	public void setLogic(final Logics logic) throws UnsupportedOperationException, SMTLIBException {
+		mSolverSetup = new TheoryExtensionSetup();
+		super.setLogic(logic);
 	}
 
 	public void setProofReader(final Reader proofReader) {

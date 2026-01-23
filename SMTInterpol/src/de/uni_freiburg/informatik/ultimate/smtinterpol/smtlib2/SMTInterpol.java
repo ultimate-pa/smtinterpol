@@ -149,6 +149,9 @@ public class SMTInterpol extends NoopScript {
 			if (logic.isArray()) {
 				declareArraySymbols(theory);
 			}
+			if (logic.isBitVector()) {
+				declareBitVectorExtensions(theory);
+			}
 		}
 
 		private static final void declareArraySymbols(final Theory theory) {
@@ -157,6 +160,15 @@ public class SMTInterpol extends NoopScript {
 			final Sort array = theory.getSort("Array", vars);
 			declareInternalPolymorphicFunction(theory, SMTInterpolConstants.DIFF, vars, new Sort[] { array, array },
 					vars[0], FunctionSymbol.UNINTERPRETEDINTERNAL);
+		}
+
+		private static final void declareBitVectorExtensions(final Theory theory) {
+			Sort intSort = theory.getSort(SMTLIBConstants.INT, EMPTY_SORT_ARRAY);
+			Sort[] intSort1 = new Sort[] { intSort };
+			Sort[] intSort2 = new Sort[] { intSort, intSort };
+			declareInternalFunction(theory, SMTInterpolConstants.INTAND, intSort2, intSort, FunctionSymbol.LEFTASSOC);
+			declareInternalFunction(theory, SMTInterpolConstants.INTPOW2, intSort1, intSort, 0);
+			declareInternalFunction(theory, SMTInterpolConstants.INTLOG2, intSort1, intSort, 0);
 		}
 	}
 

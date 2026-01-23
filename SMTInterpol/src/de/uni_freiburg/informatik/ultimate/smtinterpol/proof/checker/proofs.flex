@@ -217,6 +217,8 @@ Keyword = ":" {SMTLetterDigit}+
   "bvnanddef"            { return symbol(ProofSymbols.BVNANDDEF, yytext()); }
   "bvnordef"             { return symbol(ProofSymbols.BVNORDEF, yytext()); }
   "bvxnordef"            { return symbol(ProofSymbols.BVXNORDEF, yytext()); }
+  "concatdef"            { return symbol(ProofSymbols.CONCATDEF, yytext()); }
+  "extractdef"           { return symbol(ProofSymbols.EXTRACTDEF, yytext()); }
 
   /* Predefined Keywords */
   ":named"               { return symbol(ProofSymbols.CNAMED, yytext()); }

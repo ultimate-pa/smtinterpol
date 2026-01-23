@@ -495,7 +495,8 @@ terminal String UNDERSCORE, BANG,
          DT_PROJECT, DT_CONS, DT_TESTI, DT_TESTE, DT_EXHAUST, DT_ACYCLIC, DT_MATCH,
          BVCONST, BVLITERAL, UBV2INT2BV, INT2UBV2INT, BVADDDEF, BVMULDEF, BVSUBDEF,
          BVUDIVDEF, BVUDIV0, BVUREMDEF, BVUREM0, BVNEGDEF, BVNOTDEF,
-         BVANDDEF, BVORDEF, BVXORDEF, BVNANDDEF, BVNORDEF, BVXNORDEF;
+         BVANDDEF, BVORDEF, BVXORDEF, BVNANDDEF, BVNORDEF, BVXNORDEF,
+         CONCATDEF, EXTRACTDEF;
 
 /* Predefined Keywords */
 terminal String /* attribute */
@@ -865,11 +866,11 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
           {: RESULT = parser.getProofRules().bvNegDef(t); :}
         | LPAR BVNOTDEF term:t RPAR
           {: RESULT = parser.getProofRules().bvNotDef(t); :}
-        | LPAR BVANDDEF term*:ts RPAR
+        | LPAR BVANDDEF term+:ts RPAR
           {: RESULT = parser.getProofRules().bvAndDef(ts); :}
-        | LPAR BVORDEF term*:ts RPAR
+        | LPAR BVORDEF term+:ts RPAR
           {: RESULT = parser.getProofRules().bvOrDef(ts); :}
-        | LPAR BVXORDEF term*:ts RPAR
+        | LPAR BVXORDEF term+:ts RPAR
           {: RESULT = parser.getProofRules().bvXorDef(ts); :}
         | LPAR BVNANDDEF term:t1 term:t2 RPAR
           {: RESULT = parser.getProofRules().bvNAndDef(t1, t2); :}
@@ -877,6 +878,10 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
           {: RESULT = parser.getProofRules().bvNOrDef(t1, t2); :}
         | LPAR BVXNORDEF term:t1 term:t2 RPAR
           {: RESULT = parser.getProofRules().bvXNorDef(t1, t2); :}
+        | LPAR EXTRACTDEF NUMERAL:high NUMERAL:low term:t RPAR
+          {: RESULT = parser.getProofRules().extractDef(high.intValue(), low.intValue(), t); :}
+        | LPAR CONCATDEF term+:ts RPAR
+          {: RESULT = parser.getProofRules().concatDef(ts); :}
         | LPAR BANG proof:p attribute+:attr RPAR
           {: RESULT = p; :}
         ;
