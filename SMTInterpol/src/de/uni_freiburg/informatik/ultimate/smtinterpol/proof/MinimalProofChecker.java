@@ -1472,7 +1472,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			final Term[] origArgs = (Term[]) annots[0].getValue();
 			final Term bvMul = theory.term(SMTLIBConstants.BVMUL, origArgs);
-			final Term expanded = BitvectorRules.expandBvSub(origArgs);
+			final Term expanded = BitvectorRules.expandBvMul(origArgs);
 			final Term bvMulDef = theory.term(SMTLIBConstants.EQUALS, bvMul, expanded);
 			return new ProofLiteral[] { new ProofLiteral(bvMulDef, true) };
 		}

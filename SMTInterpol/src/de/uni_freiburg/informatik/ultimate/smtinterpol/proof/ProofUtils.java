@@ -199,6 +199,39 @@ public class ProofUtils {
 		return proof;
 	}
 
+	/**
+	 * Prove that integer terms lhs and rhs are equal, from a proof that not lhs -
+	 * rhs >= 1 and not lhs - rhs <= -1.
+	 *
+	 * @param lhs     an integer term.
+	 * @param rhs     an integer term.
+	 * @param diff    the term lhs - rhs.
+	 * @param proofLt the proof of ~(diff >= 1).
+	 * @param proofGt the proof of ~(diff <= -1).
+	 * @return the proof of lhs == rhs.
+	 */
+	private Term proveIntEqualityWithLowHigh(final Term lhs, final Term rhs, final Term diff, final Term proofGt,
+			final Term proofLt) {
+		final Theory theory = lhs.getTheory();
+		final Sort sort = lhs.getSort();
+		final Term zero = Rational.ZERO.toTerm(lhs.getSort());
+		final Term lhsLtRhs = theory.term(SMTLIBConstants.LT, lhs, rhs);
+		final Term lhsGtRhs = theory.term(SMTLIBConstants.LT, rhs, lhs);
+		final Term leqZero = theory.term(SMTLIBConstants.LEQ, diff, zero);
+		final Term geqZero = theory.term(SMTLIBConstants.LEQ, zero, diff);
+		final Term leqMone = theory.term(SMTLIBConstants.LEQ, diff, Rational.MONE.toTerm(sort));
+		final Term geqOne = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(sort), diff);
+		final BigInteger[] twoOnes = new BigInteger[] { BigInteger.ONE, BigInteger.ONE };
+		return res(lhsLtRhs, res(lhsGtRhs,
+				mProofRules.trichotomy(lhs, rhs),
+				res(leqZero,
+						res(geqOne, mProofRules.totalInt(diff, BigInteger.ZERO), proofLt),
+						mProofRules.farkas(new Term[] { lhsGtRhs, leqZero }, twoOnes))),
+				res(geqZero,
+						res(leqMone, mProofRules.totalInt(diff, BigInteger.ONE.negate()), proofGt),
+						mProofRules.farkas(new Term[] { lhsLtRhs, geqZero }, twoOnes)));
+	}
+
 	private Term proveDivEqualityHelper(final Term divTerm, final Term divResult) {
 		final Theory theory = divTerm.getTheory();
 		final Sort sort = divTerm.getSort();
@@ -286,6 +319,110 @@ public class ProofUtils {
 	}
 
 	/**
+	 * Prove that (div (div a b) c) equals (div a (b*c)), where b,c are non-zero
+	 * constants and a an arbitrary term.
+	 *
+	 * @param divTerm   The (div (div a b) c) term.
+	 * @param divResult The simplified result.
+	 * @return the proof for `(= divTerm divResult)`.
+	 */
+	public Term proveDivDiv(final Term divTerm, final Term divResult) {
+		final Theory theory = divTerm.getTheory();
+		final Sort intSort = divTerm.getSort();
+		// prove (div arg0 divisor) - (div arg1 divisor) - poly == 0
+		// where poly = 1/d * (arg0 - arg1), provided that poly is an integer term.
+		assert isApplication(SMTLIBConstants.DIV, divTerm);
+		final Term[] div1Args = ((ApplicationTerm) divTerm).getParameters();
+		assert isApplication(SMTLIBConstants.DIV, div1Args[0]);
+		final Term div2Term = div1Args[0];
+		final Term[] div2Args = ((ApplicationTerm) div2Term).getParameters();
+		assert isApplication(SMTLIBConstants.DIV, divResult);
+		final Term[] div3Args = ((ApplicationTerm) divResult).getParameters();
+		assert div2Args[0] == div3Args[0];
+		final Term arg = div2Args[0];
+
+		final Rational divisor1 = Polynomial.parseConstant(div1Args[1]);
+		final Rational divisor2 = Polynomial.parseConstant(div2Args[1]);
+		final Rational divisor3 = Polynomial.parseConstant(div3Args[1]);
+		assert divisor1.isIntegral();
+		assert divisor2.isIntegral();
+		assert divisor2.signum() > 0;
+		assert divisor1.signum() != 0;
+		assert divisor1.mul(divisor2).equals(divisor3);
+
+		final Polynomial poly = new Polynomial(divTerm);
+		poly.add(Rational.MONE, divResult);
+		final Term diff = poly.toTerm(intSort);
+		final Term zero = Rational.ZERO.toTerm(intSort);
+
+		final Term absDiv1 = theory.term(SMTLIBConstants.ABS, div1Args[1]);
+		final Term absDiv2 = theory.term(SMTLIBConstants.ABS, div2Args[1]);
+		final Term absDiv3 = theory.term(SMTLIBConstants.ABS, div3Args[1]);
+		final Term absDiv1Eq = theory.term(SMTLIBConstants.EQUALS, absDiv1, divisor1.abs().toTerm(intSort));
+		final Term absDiv2Eq = theory.term(SMTLIBConstants.EQUALS, absDiv2, div2Args[1]);
+		final Term absDiv3Eq = theory.term(SMTLIBConstants.EQUALS, absDiv3, divisor3.abs().toTerm(intSort));
+		final Term mulDiv1 = theory.term(SMTLIBConstants.MUL, div1Args[1], divTerm);
+		final Term mulDiv2 = theory.term(SMTLIBConstants.MUL, div2Args[1], div2Term);
+		final Term mulDiv3 = theory.term(SMTLIBConstants.MUL, div3Args[1], divResult);
+		final Term div1Low = theory.term(SMTLIBConstants.LEQ, mulDiv1, div2Term);
+		final Term div2Low = theory.term(SMTLIBConstants.LEQ, mulDiv2, arg);
+		final Term div3Low = theory.term(SMTLIBConstants.LEQ, mulDiv3, arg);
+		final Term div1High = theory.term(SMTLIBConstants.LT, div2Term,
+				theory.term(SMTLIBConstants.PLUS, mulDiv1, absDiv1));
+		final Term div2High = theory.term(SMTLIBConstants.LT, arg,
+				theory.term(SMTLIBConstants.PLUS, mulDiv2, absDiv2));
+		final Term div3High = theory.term(SMTLIBConstants.LT, arg,
+				theory.term(SMTLIBConstants.PLUS, mulDiv3, absDiv3));
+		final Polynomial div1HighPoly = new Polynomial(div2Term);
+		div1HighPoly.add(divisor1.negate(), divTerm);
+		div1HighPoly.add(divisor1.abs().sub(Rational.ONE).negate());
+		final Term div1HighDiff = div1HighPoly.toTerm(intSort);
+		final Term div1HighStrong = theory.term(SMTLIBConstants.LEQ, div1HighDiff, zero);
+
+		final Term leqm1 = theory.term(SMTLIBConstants.LEQ, diff, Rational.MONE.toTerm(intSort));
+		final Term geq1 = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(intSort), diff);
+
+		final BigInteger[] coeffs = new BigInteger[] { divisor2.numerator(), BigInteger.ONE, BigInteger.ONE, BigInteger.ONE,
+				divisor3.abs().numerator() };
+		Term proofGt, proofLt;
+		proofGt = res(absDiv3Eq, proveAbsConstant(divisor3, intSort),
+				res(div1Low, mProofRules.divLow(div2Term, div1Args[1]),
+				res(div2Low, mProofRules.divLow(arg, div2Args[1]),
+						res(div3High, mProofRules.divHigh(arg, div3Args[1]), mProofRules.farkas(
+						new Term[] { div1Low, div2Low, div3High, absDiv3Eq,
+								divisor3.signum() > 0 ? geq1 : leqm1 },
+										coeffs)))));
+		final Term div1HighGeq = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(intSort), div1HighDiff);
+		final Term div1HighStrongProof =
+				res(absDiv1Eq, proveAbsConstant(divisor1, intSort),
+				res(div1High, mProofRules.divHigh(div2Term, div1Args[1]),
+					res(div1HighGeq, mProofRules.totalInt(div1HighDiff, BigInteger.ZERO),
+							mProofRules.farkas(new Term[] { div1HighGeq, div1High, absDiv1Eq },
+									new BigInteger[] { BigInteger.ONE, BigInteger.ONE, BigInteger.ONE }))));
+		proofLt = res(absDiv2Eq, proveAbsConstant(divisor2, intSort),
+					res(div1HighStrong, div1HighStrongProof,
+					res(div2High, mProofRules.divHigh(arg, div2Args[1]),
+								res(div3Low, mProofRules.divLow(arg, div3Args[1]),
+								mProofRules.farkas(
+										new Term[] { div1HighStrong, div2High, div3Low, absDiv2Eq,
+												divisor3.signum() > 0 ? leqm1 : geq1 },
+												coeffs)))));
+
+		Term proof = proveIntEqualityWithLowHigh(divTerm, divResult, diff,
+				divisor3.signum() > 0 ? proofLt : proofGt,
+				divisor3.signum() > 0 ? proofGt : proofLt);
+		proof = res(theory.term(SMTLIBConstants.EQUALS, div1Args[1], zero), proof,
+				proveTrivialDisequality(div1Args[1], zero));
+		if (div1Args[1] != div2Args[1]) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, div2Args[1], zero), proof,
+					proveTrivialDisequality(div2Args[1], zero));
+		}
+		proof = res(theory.term(SMTLIBConstants.EQUALS, div3Args[1], zero), proof,
+				proveTrivialDisequality(div3Args[1], zero));
+		return proof;
+	}
+
+	/**
 	 * Prove that modTerm equals modResult. This works for `mod` terms on constants
 	 * as well as div on +/- 1 and some special mod terms like `(mod (+ (* 2 x) 1)
 	 * 2)`.
@@ -357,8 +494,6 @@ public class ProofUtils {
 		final Term lhs = divDiffMinusPoly.toTerm(intSort);
 		final Term zero = Rational.ZERO.toTerm(intSort);
 
-		final Term leqm1 = theory.term(SMTLIBConstants.LEQ, lhs, Rational.MONE.toTerm(intSort));
-		final Term geq1 = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(intSort), lhs);
 
 		final Term absDiv = theory.term(SMTLIBConstants.ABS, divisorTerm);
 		final Term absDivEq = theory.term(SMTLIBConstants.EQUALS, absDiv, divisor.abs().toTerm(intSort));
@@ -369,43 +504,21 @@ public class ProofUtils {
 		final Term div1Low = theory.term(SMTLIBConstants.LEQ, mulDiv1, arg1);
 		final Term div1High = theory.term(SMTLIBConstants.LT, arg1, theory.term(SMTLIBConstants.PLUS, mulDiv1, absDiv));
 
+		final Term leqm1 = theory.term(SMTLIBConstants.LEQ, lhs, Rational.MONE.toTerm(intSort));
+		final Term geq1 = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(intSort), lhs);
+
+		final BigInteger[] coeffs = new BigInteger[] { BigInteger.ONE, BigInteger.ONE, BigInteger.ONE,
+				divisor.numerator() };
 		Term proofGt, proofLt;
-		if (divisor.signum() > 0) {
-			proofGt = res(div0Low, mProofRules.divLow(arg0, divisorTerm),
-					res(div1High, mProofRules.divHigh(arg1, divisorTerm),
-							mProofRules.farkas(new Term[] { div0Low, div1High, geq1, absDivEq }, new BigInteger[] {
-									BigInteger.ONE, BigInteger.ONE, divisor.numerator(), BigInteger.ONE })));
-			proofLt = res(div1Low, mProofRules.divLow(arg1, divisorTerm),
-					res(div0High, mProofRules.divHigh(arg0, divisorTerm),
-							mProofRules.farkas(new Term[] { div0High, div1Low, leqm1, absDivEq }, new BigInteger[] {
-									BigInteger.ONE, BigInteger.ONE, divisor.numerator(), BigInteger.ONE })));
-		} else {
-			proofGt = res(div1Low, mProofRules.divLow(arg1, divisorTerm),
-					res(div0High, mProofRules.divHigh(arg0, divisorTerm),
-							mProofRules.farkas(new Term[] { div1Low, div0High, geq1, absDivEq }, new BigInteger[] {
-									BigInteger.ONE, BigInteger.ONE, divisor.numerator().negate(), BigInteger.ONE })));
-			proofLt = res(div0Low, mProofRules.divLow(arg0, divisorTerm),
-					res(div1High, mProofRules.divHigh(arg1, divisorTerm),
-							mProofRules.farkas(new Term[] { div1High, div0Low, leqm1, absDivEq }, new BigInteger[] {
-									BigInteger.ONE, BigInteger.ONE, divisor.numerator().negate(), BigInteger.ONE })));
-		}
-
-		final Term geq0 = theory.term(SMTLIBConstants.LEQ, zero, lhs);
-		final Term gt0 = theory.term(SMTLIBConstants.LT, zero, lhs);
-		final Term leq0 = theory.term(SMTLIBConstants.LEQ, lhs, zero);
-		final Term lt0 = theory.term(SMTLIBConstants.LT, lhs, zero);
-
-		proofLt =
-			res(leqm1, res(geq0, mProofRules.totalInt(lhs, BigInteger.ONE.negate()),
-					mProofRules.farkas(new Term[] { lt0, geq0 }, new BigInteger[] { BigInteger.ONE, BigInteger.ONE })),
-					proofLt);
-		proofGt =
-				res(geq1, res(leq0, mProofRules.totalInt(lhs, BigInteger.ZERO),
-					mProofRules.farkas(new Term[] { gt0, leq0 }, new BigInteger[] { BigInteger.ONE, BigInteger.ONE })),
-					proofGt);
-
+		proofGt = res(div0Low, mProofRules.divLow(arg0, divisorTerm),
+				res(div1High, mProofRules.divHigh(arg1, divisorTerm), mProofRules.farkas(
+						new Term[] { div0Low, div1High, absDivEq, divisor.signum() > 0 ? geq1 : leqm1 }, coeffs)));
+		proofLt = res(div1Low, mProofRules.divLow(arg1, divisorTerm),
+				res(div0High, mProofRules.divHigh(arg0, divisorTerm), mProofRules.farkas(
+						new Term[] { div0High, div1Low, absDivEq, divisor.signum() > 0 ? leqm1 : geq1 }, coeffs)));
 		return res(absDivEq, proveAbsConstant(divisor, intSort),
-				res(lt0, res(gt0, mProofRules.trichotomy(lhs, zero), proofGt), proofLt));
+				proveIntEqualityWithLowHigh(lhs, zero, lhs, divisor.signum() > 0 ? proofLt : proofGt,
+						divisor.signum() > 0 ? proofGt : proofLt));
 	}
 
 	public Term proveModToDiv(Term modTerm, Term rhs) {

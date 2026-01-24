@@ -3079,7 +3079,8 @@ public class ProofSimplifier extends TermTransformer {
 			proof = mProofRules.refl(origNot);
 		} else {
 			proof = res(theory.term(SMTLIBConstants.EQUALS, origNeg, simpNeg), proof,
-					mProofRules.cong(origNot, simpNot));
+					res(theory.term(SMTLIBConstants.EQUALS, minusOne, minusOne), mProofRules.refl(minusOne),
+							mProofRules.cong(origNot, simpNot)));
 		}
 		notPoly.add(Rational.MONE);
 		final Term polyTerm = notPoly.toTerm(intSort);
@@ -3198,6 +3199,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":div-1":
 		case ":divConst":
 			subProof = mProofUtils.proveDivEquality(lhs, rhs);
+			break;
+		case ":divDiv":
+			subProof = mProofUtils.proveDivDiv(lhs, rhs);
 			break;
 		case ":modulo1":
 		case ":modulo-1":
