@@ -40,6 +40,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.MinimalProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
@@ -47,12 +48,13 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 public class CheckingScript extends NoopScript {
 	private final String mProofFile;
 	private final LogProxy mLogger;
+	private final OptionMap mOptions;
 	private final ScopedArrayList<Term> mAssertions = new ScopedArrayList<>();
 	final SimpleSymbolFactory mSymfactory = new SimpleSymbolFactory();
 
 	private LBool mLastCheckSat;
 	private SExprLexer mLexer;
-	
+
 	private static class TheoryExtensionSetup extends Theory.SolverSetup {
 
 		public TheoryExtensionSetup() {
@@ -110,14 +112,16 @@ public class CheckingScript extends NoopScript {
 		}
 	}
 
-	public CheckingScript(final LogProxy logger, final String proofFile) {
-		mLogger = logger;
+	public CheckingScript(final OptionMap options, final String proofFile) {
+		mOptions = options;
+		mLogger = options.getLogProxy();
 		mProofFile = proofFile;
 		setProofReader(openProofReader(proofFile));
 	}
 
-	public CheckingScript(final LogProxy logger, final String proofFile, final Reader proofReader) {
-		mLogger = logger;
+	public CheckingScript(final OptionMap options, final String proofFile, final Reader proofReader) {
+		mOptions = options;
+		mLogger = options.getLogProxy();
 		mProofFile = proofFile;
 		setProofReader(proofReader);
 	}
@@ -126,6 +130,11 @@ public class CheckingScript extends NoopScript {
 	public void setLogic(final Logics logic) throws UnsupportedOperationException, SMTLIBException {
 		mSolverSetup = new TheoryExtensionSetup();
 		super.setLogic(logic);
+	}
+
+	@Override
+	public void setOption(final String opt, final Object value) throws UnsupportedOperationException, SMTLIBException {
+		mOptions.set(opt, value);
 	}
 
 	public void setProofReader(final Reader proofReader) {

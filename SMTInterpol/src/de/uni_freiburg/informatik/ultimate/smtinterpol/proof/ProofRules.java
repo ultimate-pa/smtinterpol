@@ -144,6 +144,8 @@ public class ProofRules {
 	public final static String BVXNORDEF = "bvxnordef";
 	public final static String CONCATDEF = "concatdef";
 	public final static String EXTRACTDEF = "extractdef";
+	public final static String SIGNEXTENDDEF = "signextenddef";
+	public final static String ZEROEXTENDDEF = "zeroextenddef";
 
 	/**
 	 * sort name for proofs.
@@ -1086,6 +1088,32 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + EXTRACTDEF, new Object[] { high, low, arg }), mAxiom);
 	}
 
+	/**
+	 * Axiom stating `(= ((_ zeroextend j) a) ((_ int_to_bv j+k) (sbv_to_int a)))`.
+	 * Where k is the bit size of a.
+	 *
+	 * @param newBits the number of inserted bits j.
+	 * @param arg     the term a.
+	 * @return the axiom.
+	 */
+	public Term signExtendDef(int newBits, final Term arg) {
+		assert arg.getSort().isBitVecSort();
+		return mTheory.annotatedTerm(annotate(":" + SIGNEXTENDDEF, new Object[] { newBits, arg }), mAxiom);
+	}
+
+	/**
+	 * Axiom stating `(= ((_ zeroextend j) a) ((_ int_to_bv j+k) (ubv_to_int a)))`.
+	 * Where k is the bit size of a.
+	 *
+	 * @param newBits the number of inserted bits j.
+	 * @param arg     the term a.
+	 * @return the axiom.
+	 */
+	public Term zeroExtendDef(int newBits, final Term arg) {
+		assert arg.getSort().isBitVecSort();
+		return mTheory.annotatedTerm(annotate(":" + ZEROEXTENDDEF, new Object[] { newBits, arg }), mAxiom);
+	}
+
 	public static void printProof(final Appendable appender, final Term proof) {
 		new PrintProof().append(appender, proof);
 	}
@@ -1595,13 +1623,14 @@ public class ProofRules {
 						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
 					}
-					case ":" + EXTRACTDEF: {
+					case ":" + EXTRACTDEF:
+					case ":" + ZEROEXTENDDEF:
+					case ":" + SIGNEXTENDDEF: {
 						assert annots.length == 1;
-						final Object[] extractParams = (Object[]) annots[0].getValue();
-						assert extractParams.length == 3;
+						final Object[] params = (Object[]) annots[0].getValue();
 						mTodo.add(")");
-						for (int i = extractParams.length - 1; i >= 0; i--) {
-							mTodo.add(extractParams[i]);
+						for (int i = params.length - 1; i >= 0; i--) {
+							mTodo.add(params[i]);
 							mTodo.add(" ");
 						}
 						mTodo.add("(" + annots[0].getKey().substring(1));

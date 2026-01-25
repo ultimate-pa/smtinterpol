@@ -11,7 +11,6 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
@@ -57,7 +56,7 @@ public class BvToIntUtils extends BvUtils {
 						final Rational rat = (Rational) ((ConstantTerm) argument).getValue();
 						return rat.sub(maxNumber.mul(rat.div(maxNumber).floor())).toTerm(mInteger);
 					} else {
-						return theory.term("mod", argument, maxNumber.toTerm(mInteger));
+						return normalizeMod(argument, maxNumber);
 					}
 				} else {
 					return argument;
@@ -74,13 +73,16 @@ public class BvToIntUtils extends BvUtils {
 	public Term int2bv(final Term param, final String[] width) {
 		final Theory theory = param.getTheory();
 		assert param.getSort().isNumericSort();
-		return theory.term(SMTLIBConstants.INT_TO_BV, width, null, param);
+		final Polynomial arg0 = new Polynomial(param);
+		final Rational maxNumber = pow2(Integer.parseInt(width[0]));
+		arg0.mod(maxNumber);
+		return theory.term(SMTLIBConstants.INT_TO_BV, width, null, arg0.toTerm(param.getSort()));
 	}
 
 	public Term normalizeMod(final Term lhs, final Rational maxNumber) {
 		final Theory theory = lhs.getTheory();
 		final Sort sort = lhs.getSort();
-		final SMTAffineTerm arg0 = new SMTAffineTerm(lhs);
+		final Polynomial arg0 = new Polynomial(lhs);
 		arg0.mod(maxNumber);
 		final Term div = arg0.isConstant() ? arg0.getConstant().div(maxNumber).floor().toTerm(sort)
 				: theory.term("div", arg0.toTerm(sort), maxNumber.toTerm(sort));
@@ -601,7 +603,18 @@ public class BvToIntUtils extends BvUtils {
 		Annotation proofRule;
 		final int inputWidth = Integer.valueOf(params[0].getSort().getIndices()[0]);
 		final Term transformed = uts(inputWidth, ubv2int(params[0], false));
-		proofRule = ProofConstants.RW_BV_EXPAND_DEF;
+		proofRule = ProofConstants.RW_BV2NAT;
 		return trackBvRewrite(convertedApp, transformed, proofRule);
+	}
+
+	public Term translateIntToBv(IProofTracker tracker, FunctionSymbol fsym, Term convertedApp) {
+		final Term appTerm = tracker.getProvedTerm(convertedApp);
+		final Term[] params = ((ApplicationTerm) appTerm).getParameters();
+		final Term rhs = int2bv(params[0], fsym.getReturnSort().getIndices());
+		if (rhs == appTerm) {
+			return convertedApp;
+		} else {
+			return trackBvRewrite(convertedApp, rhs, ProofConstants.RW_NAT2BV);
+		}
 	}
 }

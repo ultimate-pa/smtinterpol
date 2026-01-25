@@ -43,6 +43,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.interpolate.Interpolator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.BitvectorRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvToIntUtils;
@@ -208,6 +209,11 @@ public class TermCompiler extends TermTransformer {
 	private void repush(Term termWithProof) {
 		enqueueWalker(new TransitivityStep(termWithProof));
 		pushTerm(mTracker.getProvedTerm(termWithProof));
+	}
+
+	private void expandWithRule(Term convertedApp, Term expanded, Annotation proofrule) {
+		final Term expandedProof = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), expanded, proofrule);
+		repush(mTracker.transitivity(convertedApp, expandedProof));
 	}
 
 	@Override
@@ -556,27 +562,24 @@ public class TermCompiler extends TermTransformer {
 				}
 				break;
 			}
-			case "bvmul": {
-				repush(mBvToIntUtils.translateBvArithmetic(mTracker, appTerm.getFunction(), convertedApp));
+			case "bvadd":
+				expandWithRule(convertedApp, BitvectorRules.expandBvAdd(params), ProofConstants.RW_BVADD2INT);
 				return;
-			}
 			case "bvsub":
-			case "bvadd": {
-				repush(mBvToIntUtils.translateBvArithmetic(mTracker, appTerm.getFunction(), convertedApp));
+				expandWithRule(convertedApp, BitvectorRules.expandBvSub(params), ProofConstants.RW_BVSUB2INT);
 				return;
-			}
-			case "bvneg": {
-				repush(mBvToIntUtils.translateBvNeg(mTracker, appTerm.getFunction(), convertedApp));
+			case "bvmul":
+				expandWithRule(convertedApp, BitvectorRules.expandBvMul(params), ProofConstants.RW_BVMUL2INT);
 				return;
-			}
-			case "bvnot": {
-				repush(mBvToIntUtils.translateBvNot(mTracker, appTerm.getFunction(), convertedApp));
+			case "bvneg":
+				expandWithRule(convertedApp, BitvectorRules.expandBvNeg(params[0]), ProofConstants.RW_BVNEG2INT);
 				return;
-			}
-			case "concat": {
-				repush(mBvToIntUtils.translateConcat(mTracker, appTerm.getFunction(), convertedApp));
+			case "bvnot":
+				expandWithRule(convertedApp, BitvectorRules.expandBvNot(params[0]), ProofConstants.RW_BVNOT2INT);
 				return;
-			}
+			case "bvconcat":
+				expandWithRule(convertedApp, BitvectorRules.expandConcat(params), ProofConstants.RW_CONCAT2INT);
+				return;
 			case "bvudiv": {
 				repush(mBvToIntUtils.translateBvudiv(mTracker, appTerm.getFunction(), convertedApp));
 				return;
@@ -625,9 +628,16 @@ public class TermCompiler extends TermTransformer {
 				repush(rewrite);
 				return;
 			}
-			case "zero_extend":
+			case "zero_extend": {
+				final int newBits = Integer.parseInt(appTerm.getFunction().getIndices()[0]);
+				expandWithRule(convertedApp, BitvectorRules.expandZeroExtend(newBits, params[0]),
+						ProofConstants.RW_ZEROEXTEND);
+				return;
+			}
 			case "sign_extend": {
-				repush(mBvToIntUtils.translateExtend(mTracker, appTerm.getFunction(), convertedApp));
+				final int newBits = Integer.parseInt(appTerm.getFunction().getIndices()[0]);
+				expandWithRule(convertedApp, BitvectorRules.expandSignExtend(newBits, params[0]),
+						ProofConstants.RW_SIGNEXTEND);
 				return;
 			}
 			case "rotate_left": {
@@ -721,6 +731,9 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			case SMTLIBConstants.INT_TO_BV:
+				convertedApp = mBvToIntUtils.translateIntToBv(mTracker, fsym, convertedApp);
+				break;
+
 			case "intand":
 			case "true":
 			case "false":

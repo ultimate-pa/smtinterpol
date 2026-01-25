@@ -127,7 +127,7 @@ public final class Main {
 		final String proofFilename = param[paramctr++];
 
 		final OptionMap options = new OptionMap(logger, true);
-		final Script solver = new CheckingScript(logger, proofFilename);
+		final Script solver = new CheckingScript(options, proofFilename);
 		for (final Option opt : optionList) {
 			solver.setOption(opt.getName(), opt.getValue());
 		}

@@ -1558,6 +1558,34 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term extractDef = theory.term(SMTLIBConstants.EQUALS, extract, expanded);
 			return new ProofLiteral[] { new ProofLiteral(extractDef, true) };
 		}
+		case ":" + ProofRules.SIGNEXTENDDEF: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			final Object[] origArgs = (Object[]) annots[0].getValue();
+			final int newBits = (Integer) origArgs[0];
+			final Term arg = (Term) origArgs[1];
+			final Term extract = theory.term(SMTLIBConstants.SIGN_EXTEND, new String[] { Integer.toString(newBits) },
+					null, arg);
+			final Term expanded = BitvectorRules.expandSignExtend(newBits, arg);
+			final Term extractDef = theory.term(SMTLIBConstants.EQUALS, extract, expanded);
+			return new ProofLiteral[] { new ProofLiteral(extractDef, true) };
+		}
+		case ":" + ProofRules.ZEROEXTENDDEF: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			final Object[] origArgs = (Object[]) annots[0].getValue();
+			final int newBits = (Integer) origArgs[0];
+			final Term arg = (Term) origArgs[1];
+			final Term extract = theory.term(SMTLIBConstants.ZERO_EXTEND, new String[] { Integer.toString(newBits) },
+					null, arg);
+			final Term expanded = BitvectorRules.expandZeroExtend(newBits, arg);
+			final Term extractDef = theory.term(SMTLIBConstants.EQUALS, extract, expanded);
+			return new ProofLiteral[] { new ProofLiteral(extractDef, true) };
+		}
 		default:
 			reportError("Unknown axiom %s", axiom);
 			return getTrueClause(axiom.getTheory());

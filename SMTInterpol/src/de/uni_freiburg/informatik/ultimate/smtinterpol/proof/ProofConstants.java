@@ -100,6 +100,7 @@ public interface ProofConstants {
 	public final static Annotation RW_AUX_INTRO = new Annotation(":auxIntro", null);
 	public final static Annotation RW_INTERN = new Annotation(":intern", null);
 	public static final Annotation RW_BV2NAT = new Annotation(":bv2nat", null);
+	public static final Annotation RW_NAT2BV = new Annotation(":nat2bv", null);
 
 	//// ==== Tautologies ====
 	public final static Annotation TAUT_TRUE_NOT_FALSE = new Annotation(":trueNotFalse", null);

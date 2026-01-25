@@ -496,7 +496,7 @@ terminal String UNDERSCORE, BANG,
          BVCONST, BVLITERAL, UBV2INT2BV, INT2UBV2INT, BVADDDEF, BVMULDEF, BVSUBDEF,
          BVUDIVDEF, BVUDIV0, BVUREMDEF, BVUREM0, BVNEGDEF, BVNOTDEF,
          BVANDDEF, BVORDEF, BVXORDEF, BVNANDDEF, BVNORDEF, BVXNORDEF,
-         CONCATDEF, EXTRACTDEF;
+         CONCATDEF, EXTRACTDEF, SIGNEXTENDDEF, ZEROEXTENDDEF;
 
 /* Predefined Keywords */
 terminal String /* attribute */
@@ -882,6 +882,10 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
           {: RESULT = parser.getProofRules().extractDef(high.intValue(), low.intValue(), t); :}
         | LPAR CONCATDEF term+:ts RPAR
           {: RESULT = parser.getProofRules().concatDef(ts); :}
+        | LPAR ZEROEXTENDDEF NUMERAL:bits term:t RPAR
+          {: RESULT = parser.getProofRules().zeroExtendDef(bits.intValue(), t); :}
+        | LPAR SIGNEXTENDDEF NUMERAL:bits term:t RPAR
+          {: RESULT = parser.getProofRules().signExtendDef(bits.intValue(), t); :}
         | LPAR BANG proof:p attribute+:attr RPAR
           {: RESULT = p; :}
         ;
