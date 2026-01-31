@@ -47,6 +47,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.BitvectorRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvToIntUtils;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IPolynomialUnifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.TermUtils;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
@@ -58,7 +59,7 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
  *
  * @author Jochen Hoenicke, Juergen Christ
  */
-public class TermCompiler extends TermTransformer {
+public class TermCompiler extends TermTransformer implements IPolynomialUnifier {
 
 	private Map<Term, Set<String>> mNames;
 	UnifyHash<Term> mCanonicalPolys = new UnifyHash<>();
@@ -562,92 +563,92 @@ public class TermCompiler extends TermTransformer {
 				}
 				break;
 			}
-			case "bvadd":
+			case SMTLIBConstants.BVADD:
 				expandWithRule(convertedApp, BitvectorRules.expandBvAdd(params), ProofConstants.RW_BVADD2INT);
 				return;
-			case "bvsub":
+			case SMTLIBConstants.BVSUB:
 				expandWithRule(convertedApp, BitvectorRules.expandBvSub(params), ProofConstants.RW_BVSUB2INT);
 				return;
-			case "bvmul":
+			case SMTLIBConstants.BVMUL:
 				expandWithRule(convertedApp, BitvectorRules.expandBvMul(params), ProofConstants.RW_BVMUL2INT);
 				return;
-			case "bvneg":
+			case SMTLIBConstants.BVNEG:
 				expandWithRule(convertedApp, BitvectorRules.expandBvNeg(params[0]), ProofConstants.RW_BVNEG2INT);
 				return;
-			case "bvnot":
+			case SMTLIBConstants.BVNOT:
 				expandWithRule(convertedApp, BitvectorRules.expandBvNot(params[0]), ProofConstants.RW_BVNOT2INT);
 				return;
-			case "bvconcat":
+			case SMTLIBConstants.CONCAT:
 				expandWithRule(convertedApp, BitvectorRules.expandConcat(params), ProofConstants.RW_CONCAT2INT);
 				return;
-			case "bvudiv": {
+			case SMTLIBConstants.BVUDIV: {
 				repush(mBvToIntUtils.translateBvudiv(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "bvurem": {
+			case SMTLIBConstants.BVUREM: {
 				repush(mBvToIntUtils.translateBvurem(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "bvlshr": {
+			case SMTLIBConstants.BVLSHR: {
 				repush(mBvToIntUtils.translateBvlshr(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "bvshl": {
+			case SMTLIBConstants.BVSHL: {
 				repush(mBvToIntUtils.translateBvshl(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "bvand": {
+			case SMTLIBConstants.BVAND: {
 				repush(mBvToIntUtils.translateBvandSum(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "bvor": { // x or y = (x + y ) - (x and y)
+			case SMTLIBConstants.BVOR: { // x or y = (x + y ) - (x and y)
 				repush(mBvToIntUtils.translateBvor(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "bvxor": { // x or y = (x + y ) - (x and y)
+			case SMTLIBConstants.BVXOR: { // x or y = (x + y ) - (x and y)
 				repush(mBvToIntUtils.translateBvxor(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "bvuge":
-			case "bvslt":
-			case "bvule":
-			case "bvsle":
-			case "bvugt":
-			case "bvsgt":
-			case "bvsge":
-			case "bvult": {
+			case SMTLIBConstants.BVUGE:
+			case SMTLIBConstants.BVSLT:
+			case SMTLIBConstants.BVULE:
+			case SMTLIBConstants.BVSLE:
+			case SMTLIBConstants.BVUGT:
+			case SMTLIBConstants.BVSGT:
+			case SMTLIBConstants.BVSGE:
+			case SMTLIBConstants.BVULT: {
 				repush(mBvToIntUtils.translateRelations(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "extract": {
+			case SMTLIBConstants.EXTRACT: {
 				repush(mBvToIntUtils.translateExtract(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
-			case "repeat": {
+			case SMTLIBConstants.REPEAT: {
 				final Term rewrite = mBvToIntUtils.translateRepeat(params, fsym, convertedApp);
 				repush(rewrite);
 				return;
 			}
-			case "zero_extend": {
+			case SMTLIBConstants.ZERO_EXTEND: {
 				final int newBits = Integer.parseInt(appTerm.getFunction().getIndices()[0]);
 				expandWithRule(convertedApp, BitvectorRules.expandZeroExtend(newBits, params[0]),
 						ProofConstants.RW_ZEROEXTEND);
 				return;
 			}
-			case "sign_extend": {
+			case SMTLIBConstants.SIGN_EXTEND: {
 				final int newBits = Integer.parseInt(appTerm.getFunction().getIndices()[0]);
 				expandWithRule(convertedApp, BitvectorRules.expandSignExtend(newBits, params[0]),
 						ProofConstants.RW_SIGNEXTEND);
 				return;
 			}
-			case "rotate_left": {
+			case SMTLIBConstants.ROTATE_LEFT: {
 				final Term rhs = mBvToIntUtils.transformRotateleft(params, fsym, convertedApp);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
 						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "rotate_right": {
+			case SMTLIBConstants.ROTATE_RIGHT: {
 				final Term rhs = mBvToIntUtils.transformRotateright(params, fsym, convertedApp);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
 						ProofConstants.RW_BV_EXPAND_DEF);
@@ -655,7 +656,7 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 			// From here on all bv function do pushTerm
-			case "bvnand": {
+			case SMTLIBConstants.BVNAND: {
 				// (bvnand s t) abbreviates (bvnot (bvand s t))
 				final Term rhs = theory.term("bvnot", theory.term("bvand", params));
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
@@ -663,7 +664,7 @@ public class TermCompiler extends TermTransformer {
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "bvnor": {
+			case SMTLIBConstants.BVNOR: {
 				// (bvnor s t) abbreviates (bvnot (bvor s t))
 				final Term rhs = theory.term("bvnot", theory.term("bvor", params));
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
@@ -671,7 +672,7 @@ public class TermCompiler extends TermTransformer {
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "bvxnor": {
+			case SMTLIBConstants.BVXNOR: {
 				assert params.length == 2;
 				final Term rhs = mBvToIntUtils.transformBvxnor(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
@@ -679,7 +680,7 @@ public class TermCompiler extends TermTransformer {
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "bvcomp": {
+			case SMTLIBConstants.BVCOMP: {
 				final Term rhs = mBvToIntUtils.transformBvcomp(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
 						ProofConstants.RW_BV_EXPAND_DEF);
@@ -687,28 +688,28 @@ public class TermCompiler extends TermTransformer {
 				return;
 			}
 
-			case "bvsdiv": {
+			case SMTLIBConstants.BVSDIV: {
 				final Term rhs = mBvToIntUtils.transformBvsdiv(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
 						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "bvsrem": {
+			case SMTLIBConstants.BVSREM: {
 				final Term rhs = mBvToIntUtils.transformBvsrem(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
 						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "bvsmod": {
+			case SMTLIBConstants.BVSMOD: {
 				final Term rhs = mBvToIntUtils.transformBvsmod(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
 						ProofConstants.RW_BV_EXPAND_DEF);
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case "bvashr": {
+			case SMTLIBConstants.BVASHR: {
 				final Term rhs = mBvToIntUtils.transformBvashr(params);
 				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
 						ProofConstants.RW_BV_EXPAND_DEF);
@@ -834,6 +835,7 @@ public class TermCompiler extends TermTransformer {
 	 *            the Sort of the resulting term.
 	 * @return the canonic summation term.
 	 */
+	@Override
 	public Term unifyPolynomial(final Polynomial poly, final Sort sort) {
 		final int hash = poly.hashCode() ^ sort.hashCode();
 		for (final Term canonic : mCanonicalPolys.iterateHashCode(hash)) {

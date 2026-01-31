@@ -13,6 +13,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IPolynomialUnifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 
 public class BvToIntUtils extends BvUtils {
@@ -20,12 +21,14 @@ public class BvToIntUtils extends BvUtils {
 	private final Sort mInteger;
 	IProofTracker mTracker;
 	boolean mDealWithBvToNatAndNatToBvInPreprocessing;
+	private final IPolynomialUnifier mPolyUnifier;
 
 	public BvToIntUtils(Theory theory, final IProofTracker tracker,
-			final boolean dealWithBvToNatAndNatToBvInPreprocessing) {
+			final boolean dealWithBvToNatAndNatToBvInPreprocessing, final IPolynomialUnifier polyUnifier) {
 		mTracker = tracker;
 		mInteger = theory.getSort(SMTLIBConstants.INT);
 		mDealWithBvToNatAndNatToBvInPreprocessing = dealWithBvToNatAndNatToBvInPreprocessing;
+		mPolyUnifier = polyUnifier;
 	}
 
 	/*
@@ -76,7 +79,9 @@ public class BvToIntUtils extends BvUtils {
 		final Polynomial arg0 = new Polynomial(param);
 		final Rational maxNumber = pow2(Integer.parseInt(width[0]));
 		arg0.mod(maxNumber);
-		return theory.term(SMTLIBConstants.INT_TO_BV, width, null, arg0.toTerm(param.getSort()));
+		final Sort sort = param.getSort();
+		final Term inner = mPolyUnifier.unifyPolynomial(arg0, sort);
+		return theory.term(SMTLIBConstants.INT_TO_BV, width, null, inner);
 	}
 
 	public Term normalizeMod(final Term lhs, final Rational maxNumber) {

@@ -1208,8 +1208,8 @@ public class Clausifier {
 			final Polynomial leq0UpperBound = new Polynomial(at);
 			leq0UpperBound.add(modulus.sub(Rational.ONE).negate());
 			final Term zero = Rational.ZERO.toTerm(intSort);
-			final Term axiomLowerBound2 = mTheory.term("<=", leq0LowerBound.toTerm(intSort), zero);
-			final Term axiomUpperBound2 = mTheory.term("<=", leq0UpperBound.toTerm(intSort), zero);
+			final Term axiomLowerBound2 = mTheory.term("<=", mCompiler.unifyPolynomial(leq0LowerBound, intSort), zero);
+			final Term axiomUpperBound2 = mTheory.term("<=", mCompiler.unifyPolynomial(leq0UpperBound, intSort), zero);
 
 			buildClause(mTracker.tautology(axiomLowerBound2, ProofConstants.TAUT_UBV2INTLOW), source);
 			buildClause(mTracker.tautology(axiomUpperBound2, ProofConstants.TAUT_UBV2INTHIGH), source);
@@ -1306,8 +1306,8 @@ public class Clausifier {
 	private Term createMonomial(final Map<Term, Integer> monomial) {
 		final Polynomial p = new Polynomial();
 		p.add(Rational.ONE, monomial);
-		return p.toTerm(
-				p.isAllIntSummands() ? mTheory.getSort(SMTLIBConstants.INT) : mTheory.getSort(SMTLIBConstants.REAL));
+		final Sort sort = p.isAllIntSummands() ? mTheory.getSort(SMTLIBConstants.INT) : mTheory.getSort(SMTLIBConstants.REAL);
+		return mCompiler.unifyPolynomial(p, sort);
 	}
 
 	public MutableAffineTerm createMutableAffinTerm(final Polynomial at, final SourceAnnotation source) {
@@ -1575,7 +1575,7 @@ public class Clausifier {
 		mTracker = proofLevel == ProofMode.NONE || proofLevel == ProofMode.CLAUSES ? new NoopProofTracker()
 				: new ProofTracker(theory);
 		mUtils = new LogicSimplifier(mTracker);
-		mBvToIntUtils = new BvToIntUtils(theory, mTracker, true);
+		mBvToIntUtils = new BvToIntUtils(theory, mTracker, true, mCompiler);
 		mCompiler.setProofTracker(mTracker, mUtils, mBvToIntUtils);
 	}
 

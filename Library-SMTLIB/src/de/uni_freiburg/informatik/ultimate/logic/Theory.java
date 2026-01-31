@@ -495,6 +495,9 @@ public class Theory {
 	}
 
 	public Term numeral(final BigInteger num) {
+		if (!mLogic.hasIntegers() && !mLogic.hasReals()) {
+			throw new SMTLIBException("Numerals without arithmetic");
+		}
 		if (mNumericSort != mRealSort) {
 			// For integer sort, always use Rational constants for numerals.
 			//
@@ -504,7 +507,7 @@ public class Theory {
 			// parser and these aren't tracked at all. There is no way around this,
 			// since our proof is in LIRA and thus uses a different semantics for
 			// NUMERAL than the benchmark.
-			return constant(Rational.valueOf(num, BigInteger.ONE), 
+			return constant(Rational.valueOf(num, BigInteger.ONE),
 				mLogic.isBitVector() && !mLogic.hasIntegers() ? mRealSort : mNumericSort);
 		}
 		// For real arithmetic using Rational would convert to decimal, which we want to avoid.

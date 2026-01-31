@@ -1,6 +1,6 @@
 (set-option :produce-proofs true)
 (set-option :produce-models true)
-(set-logic QF_BV)
+(set-logic QF_BVLIA)
 
 (declare-const a (_ BitVec 32))
 (declare-const b (_ BitVec 32))
