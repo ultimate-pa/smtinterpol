@@ -819,16 +819,17 @@ public class ModelEvaluator extends TermTransformer {
 			assert args.length == 2;
 			final BigInteger shiftArg = bitvectorValue(args[1]);
 			BigInteger value = bitvectorValue(args[0]);
-			if (shiftArg.compareTo(BigInteger.valueOf(size)) < 0) {
-				assert shiftArg.bitLength() <= 32;
-				final int shiftInt = shiftArg.intValue();
-				final BigInteger signBits = value.testBit(size - 1)
-						? BigInteger.ONE.shiftLeft(size - shiftInt).subtract(BigInteger.ONE).shiftLeft(shiftInt)
-						: BigInteger.ZERO;
-				value = value.shiftRight(shiftInt).or(signBits);
-			} else {
-				value = value.testBit(size - 1) ? BigInteger.ONE.shiftLeft(size).subtract(BigInteger.ONE)
-						: BigInteger.ZERO;
+			final BigInteger pow2 = BigInteger.ONE.shiftLeft(size);
+			if (value.testBit(size - 1)) {
+				// interpret as negative number
+				value = value.subtract(pow2);
+			}
+			// cap shift to bit size (to keep it integer).
+			final int shiftInt = shiftArg.compareTo(BigInteger.valueOf(size)) < 0 ? shiftArg.intValue() : size;
+			value = value.shiftRight(shiftInt);
+			if (value.signum() < 0) {
+				// convert back to positive number
+				value = value.add(pow2);
 			}
 			return createBitvectorTerm(value, fs.getReturnSort());
 		}
