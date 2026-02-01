@@ -589,8 +589,9 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 				repush(mBvToIntUtils.translateBvurem(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
+			case SMTLIBConstants.BVASHR:
 			case SMTLIBConstants.BVLSHR: {
-				repush(mBvToIntUtils.translateBvlshr(mTracker, appTerm.getFunction(), convertedApp));
+				repush(mBvToIntUtils.translateBvshr(mTracker, appTerm.getFunction(), convertedApp));
 				return;
 			}
 			case SMTLIBConstants.BVSHL: {
@@ -709,27 +710,15 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 				repush(mTracker.transitivity(convertedApp, rewrite));
 				return;
 			}
-			case SMTLIBConstants.BVASHR: {
-				final Term rhs = mBvToIntUtils.transformBvashr(params);
-				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_BV_EXPAND_DEF);
-				repush(mTracker.transitivity(convertedApp, rewrite));
-				return;
-			}
+			case SMTLIBConstants.UBV_TO_INT:
 			case SMTLIBConstants.SBV_TO_INT: {
-				repush(mBvToIntUtils.translateSbvToInt(mTracker, appTerm.getFunction(), convertedApp));
-				return;
-			}
-			case SMTLIBConstants.UBV_TO_INT: {
-				final Term rhs = mBvToIntUtils.ubv2int(params[0], true);
-				if (rhs == mTracker.getProvedTerm(convertedApp)) {
-					setResult(convertedApp);
-				} else {
-					final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-							ProofConstants.RW_BV2NAT);
-					repush(mTracker.transitivity(convertedApp, rewrite));
+				final Term transformed = mBvToIntUtils.translateBvToInt(mTracker, appTerm.getFunction(), convertedApp);
+				if (transformed != convertedApp) {
+					repush(transformed);
+					return;
 				}
-				return;
+				/* nothing to do */
+				break;
 			}
 			case SMTLIBConstants.INT_TO_BV:
 				convertedApp = mBvToIntUtils.translateIntToBv(mTracker, fsym, convertedApp);

@@ -155,6 +155,7 @@ public interface ProofConstants {
 	public static final Annotation RW_BVSHL2INT = new Annotation(":bvshl2int", null);
 	public static final Annotation RW_BVUREM2INT = new Annotation(":bvurem2int", null);
 	public static final Annotation RW_BVLSHR2INT = new Annotation(":bvlshr2int", null);
+	public static final Annotation RW_BVASHR2INT = new Annotation(":bvashr2int", null);
 	public static final Annotation RW_EXTRACT2INT = new Annotation(":extract2int", null);
 	public static final Annotation RW_BVEQ2INT = new Annotation(":bveq2int", null);
 	public static final Annotation RW_BVULT2INT = new Annotation(":bvult2int", null);
@@ -167,6 +168,7 @@ public interface ProofConstants {
 	public static final Annotation RW_BVSGE2INT = new Annotation(":bvsge2int", null);
 	public static final Annotation RW_BVADD2INT = new Annotation(":bvadd2int", null);
 	public static final Annotation RW_BVBLAST = new Annotation(":bvblast", null);
+	public static final Annotation RW_BVLIFTITE = new Annotation(":bvliftite", null);
 	public static final Annotation RW_BV_EXPAND_DEF = new Annotation(":bvexpand", null);
 	public static final Annotation RW_SIGNEXTEND = new Annotation(":signextend", null);
 	public static final Annotation RW_ZEROEXTEND = new Annotation(":zeroextend", null);
