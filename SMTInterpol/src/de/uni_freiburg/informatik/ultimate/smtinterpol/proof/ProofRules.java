@@ -126,6 +126,7 @@ public class ProofRules {
 	public final static String BVCONST = "bvconst";
 	public final static String BVLITERAL = "bvliteral";
 	public final static String INT2UBV2INT = "int2ubv2int";
+	public final static String INT2SBV2INT = "int2sbv2int";
 	public final static String UBV2INT2BV = "ubv2int2bv";
 	public final static String BVADDDEF = "bvadddef";
 	public final static String BVMULDEF = "bvmuldef";
@@ -844,6 +845,21 @@ public class ProofRules {
 	}
 
 	/**
+	 * Axiom stating `(= (sbv_to_int ((_ int_to_bv bitLength) natTerm)) (+ (mod (+
+	 * natTerm 2^(bitlength-1)) 2^bitLength) (- 2^(bitlength-1)))`
+	 *
+	 * @param bitLength the length of the bit vector.
+	 * @param natTerm   the nat term that is converted to bv and back.
+	 * @return the axiom.
+	 */
+	public Term int2sbv2int(final BigInteger bitLength, final Term natTerm) {
+		assert natTerm.getSort().isInternal() && natTerm.getSort().getName().equals("Int");
+		assert bitLength.bitCount() <= 32;
+		return mTheory.annotatedTerm(
+				annotate(":" + INT2SBV2INT, natTerm, new Annotation(ANNOT_BVLEN, bitLength.toString())), mAxiom);
+	}
+
+	/**
 	 * Axiom stating `(= ((_ int_to_bv bitLength) (ubv_to_int bvTerm)) bvTerm)`.
 	 * Here bitLength is the size of the bitvector bvTerm (so that the equality
 	 * type-checks).
@@ -1089,7 +1105,7 @@ public class ProofRules {
 	}
 
 	/**
-	 * Axiom stating `(= ((_ zeroextend j) a) ((_ int_to_bv j+k) (sbv_to_int a)))`.
+	 * Axiom stating `(= ((_ signextend j) a) ((_ int_to_bv j+k) (sbv_to_int a)))`.
 	 * Where k is the bit size of a.
 	 *
 	 * @param newBits the number of inserted bits j.
@@ -1537,7 +1553,8 @@ public class ProofRules {
 						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
 						return;
 					}
-					case ":" + INT2UBV2INT: {
+					case ":" + INT2UBV2INT:
+					case ":" + INT2SBV2INT: {
 						final Term param = (Term) annots[0].getValue();
 						assert annots.length == 2;
 						assert annots[1].getKey() == ANNOT_BVLEN;

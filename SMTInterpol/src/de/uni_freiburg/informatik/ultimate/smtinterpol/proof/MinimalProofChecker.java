@@ -104,8 +104,8 @@ public class MinimalProofChecker extends NonRecursive {
 	HashMap<Term, ProofLiteral[]> mCacheConv;
 
 	/**
-	 * Map from auxiliary function symbol to its definition. The auxiliary
-	 * functions are functions defined in the proof term with define-fun.
+	 * Map from auxiliary function symbol to its definition. The auxiliary functions
+	 * are functions defined in the proof term with define-fun.
 	 */
 	HashMap<FunctionSymbol, LambdaTerm> mFunctionDefinitions;
 
@@ -286,7 +286,7 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		/* Check the cache, if the unfolding step was already done */
 		if (mCacheConv.containsKey(proofTerm)) {
-			stackPush(mCacheConv.get(proofTerm), proofTerm);
+			mStackResults.push(mCacheConv.get(proofTerm));
 			return;
 		}
 		if (ProofRules.isDefineFun(proofTerm)) {
@@ -1427,6 +1427,31 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term pow2Term = theory.constant(Rational.valueOf(pow2, BigInteger.ONE), theory.getNumericSort());
 			final Term modTerm = theory.term(SMTLIBConstants.MOD, natTerm, pow2Term);
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, nat2bv2nat, modTerm);
+			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+		}
+		case ":" + ProofRules.INT2SBV2INT: {
+			if (!theory.getLogic().isBitVector()) {
+				reportError("Proof requires bit vector theory");
+				return getTrueClause(theory);
+			}
+			assert annots.length == 2;
+			final Term natTerm = (Term) annots[0].getValue();
+			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")) {
+				reportError("Expected integer argument");
+				return getTrueClause(natTerm.getTheory());
+			}
+			assert annots[1].getKey().equals(ProofRules.ANNOT_BVLEN);
+			final Sort intSort = natTerm.getSort();
+			final String bitLength = (String) annots[1].getValue();
+			final int bl = Integer.parseInt(bitLength);
+			final Term nat2bv2nat = theory.term(SMTLIBConstants.SBV_TO_INT,
+					theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm));
+			final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bl), BigInteger.ONE);
+			final Rational pow2sign = Rational.valueOf(BigInteger.ONE.shiftLeft(bl - 1), BigInteger.ONE);
+			final Term shiftTerm = theory.term(SMTLIBConstants.PLUS, natTerm, pow2sign.toTerm(intSort));
+			final Term modTerm = theory.term(SMTLIBConstants.MOD, shiftTerm, pow2.toTerm(intSort));
+			final Term resultTerm = theory.term(SMTLIBConstants.PLUS, modTerm, pow2sign.negate().toTerm(intSort));
+			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, nat2bv2nat, resultTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
 		case ":" + ProofRules.UBV2INT2BV: {

@@ -79,17 +79,10 @@ public class ProofUtils {
 	 * @return the proof for the equality.
 	 */
 	public Term proveUMinusEquality(final Term minusTerm, final Term canonicalTerm) {
-		final Theory theory = minusTerm.getTheory();
 		assert ((ApplicationTerm) minusTerm).getParameters().length == 1;
 		final Term minusToPlus = ProofRules.computePolyMinus(minusTerm);
-		if (minusToPlus == canonicalTerm) {
-			// this can happen for positive constants.
-			return mProofRules.minusDef(minusTerm);
-		}
-		final Term proof = res(theory.term(SMTLIBConstants.EQUALS, minusTerm, minusToPlus), mProofRules.minusDef(minusTerm),
-				mProofRules.trans(minusTerm, minusToPlus, canonicalTerm));
-		return res(theory.term(SMTLIBConstants.EQUALS, minusToPlus, canonicalTerm), mProofRules.polyMul(minusToPlus, canonicalTerm),
-				proof);
+		return proveTransitivity(minusTerm, minusToPlus, canonicalTerm, mProofRules.minusDef(minusTerm),
+				mProofRules.polyMul(minusToPlus, canonicalTerm));
 	}
 
 	/**
@@ -109,32 +102,29 @@ public class ProofUtils {
 		final Term[] expectedArgs = new Term[lhsArgs.length];
 		expectedArgs[0] = lhsArgs[0];
 		for (int i = 1; i < lhsArgs.length; i++) {
-			final Polynomial affineTerm = new Polynomial();
-			affineTerm.add(Rational.MONE, lhsArgs[i]);
+			final Polynomial affineTerm = new Polynomial(lhsArgs[i]);
+			affineTerm.mul(Rational.MONE);
 			expectedArgs[i] = affineTerm.toTerm(lhsArgs[i].getSort());
 		}
 		final Term expectedPlus = theory.term(SMTLIBConstants.PLUS, expectedArgs);
-		Term proof;
-		if (expectedPlus != canonicalTerm) {
-			proof = res(theory.term(SMTLIBConstants.EQUALS, expectedPlus, canonicalTerm),
-					mProofRules.polyAdd(expectedPlus, canonicalTerm),
-					mProofRules.trans(minusTerm, minusToPlus, expectedPlus, canonicalTerm));
-		} else {
-			proof = mProofRules.trans(minusTerm, minusToPlus, expectedPlus);
-		}
-		proof = res(theory.term(SMTLIBConstants.EQUALS, minusTerm, minusToPlus), mProofRules.minusDef(minusTerm),
-				proof);
-		proof = res(theory.term(SMTLIBConstants.EQUALS, minusToPlus, expectedPlus),
-				mProofRules.cong(minusToPlus, expectedPlus), proof);
-		final HashSet<Term> seenEqs = new HashSet<>();
-		final Term[] minusToPlusArgs = ((ApplicationTerm) minusToPlus).getParameters();
-		for (int i = 0; i < minusToPlusArgs.length; i++) {
-			final Term eq = theory.term(SMTLIBConstants.EQUALS, minusToPlusArgs[i], expectedArgs[i]);
-			if (seenEqs.add(eq)) {
-				final Term proofEq = minusToPlusArgs[i] == expectedArgs[i] ? mProofRules.refl(minusToPlusArgs[i])
-						: mProofRules.polyMul(minusToPlusArgs[i], expectedArgs[i]);
-				proof = res(eq, proofEq, proof);
+		Term proof = mProofRules.minusDef(minusTerm);
+		if (minusToPlus != expectedPlus) {
+			proof = proveTransitivity(minusTerm, minusToPlus, expectedPlus, proof,
+					mProofRules.cong(minusToPlus, expectedPlus));
+			final HashSet<Term> seenEqs = new HashSet<>();
+			final Term[] minusToPlusArgs = ((ApplicationTerm) minusToPlus).getParameters();
+			for (int i = 0; i < minusToPlusArgs.length; i++) {
+				final Term eq = theory.term(SMTLIBConstants.EQUALS, minusToPlusArgs[i], expectedArgs[i]);
+				if (seenEqs.add(eq)) {
+					final Term proofEq = minusToPlusArgs[i] == expectedArgs[i] ? mProofRules.refl(minusToPlusArgs[i])
+							: mProofRules.polyMul(minusToPlusArgs[i], expectedArgs[i]);
+					proof = res(eq, proofEq, proof);
+				}
 			}
+		}
+		if (expectedPlus != canonicalTerm) {
+			proof = proveTransitivity(minusTerm, expectedPlus, canonicalTerm, proof,
+					mProofRules.polyAdd(expectedPlus, canonicalTerm));
 		}
 		return proof;
 	}
@@ -182,21 +172,16 @@ public class ProofUtils {
 		final Term ltXZero = theory.term("<", t, zero);
 		final Term absxDef = theory.term("ite", ltXZero, theory.term("-", t), t);
 		Term proof;
-		if (t != absT) {
-			final Term minusT = theory.term("-", t);
-			proof = minusT == absT ? mProofRules.trans(litAbsT, absxDef, minusT)
-					: mProofRules.trans(litAbsT, absxDef, minusT, absT);
-			proof = res(theory.term(SMTLIBConstants.EQUALS, absxDef, minusT), mProofRules.ite1(absxDef), proof);
-			final Term eqMinusX = theory.term(SMTLIBConstants.EQUALS, minusT, absT);
-			if (minusT != absT) {
-				proof = res(eqMinusX, proveUMinusEquality(minusT, absT), proof);
-			}
+		if (t == absT) {
+			proof = mProofRules.ite2(absxDef);
 		} else {
-			proof = mProofRules.trans(litAbsT, absxDef, t);
-			proof = res(theory.term(SMTLIBConstants.EQUALS, absxDef, t), mProofRules.ite2(absxDef), proof);
+			proof = mProofRules.ite1(absxDef);
+			final Term minusT = theory.term("-", t);
+			if (minusT != absT) {
+				proof = proveTransitivity(absxDef, minusT, absT, proof, proveUMinusEquality(minusT, absT));
+			}
 		}
-		proof = res(theory.term(SMTLIBConstants.EQUALS, litAbsT, absxDef), mProofRules.expand(litAbsT), proof);
-		return proof;
+		return proveTransitivity(litAbsT, absxDef, absT, mProofRules.expand(litAbsT), proof);
 	}
 
 	/**
@@ -794,10 +779,10 @@ public class ProofUtils {
 		Term mulTerm = theory.term("*", mulTermArgs);
 		if (mulTermArgs.length > 2) {
 			final Term mulShortTerm = theory.term("*", multiplier.toTerm(sort), divideTerm);
-			proofDivDef = res(theory.term(SMTLIBConstants.EQUALS, mulShortTerm, mulTerm),
+			proofDivDef = proveTransitivity(mulShortTerm, mulTerm, divideArgs[0],
 					res(theory.term(SMTLIBConstants.EQUALS, mulTerm, mulShortTerm),
 							mProofRules.polyMul(mulTerm, mulShortTerm), mProofRules.symm(mulShortTerm, mulTerm)),
-					mProofRules.trans(mulShortTerm, mulTerm, divideArgs[0]));
+					proofDivDef);
 			mulTerm = mulShortTerm;
 		}
 		// now mulTerm is (* multiplier lhs)
@@ -865,9 +850,8 @@ public class ProofUtils {
 		final Term pow2Term = Rational.valueOf(pow2, BigInteger.ONE).toTerm(intSort);
 		final Term modNat = theory.term(SMTLIBConstants.MOD, nat, pow2Term);
 		final Term natModPow2 = Rational.valueOf(val.mod(pow2), BigInteger.ONE).toTerm(intSort);
-		return res(theory.term(SMTLIBConstants.EQUALS, intbvnat, modNat), mProofRules.int2ubv2int(bitLength, nat),
-				res(theory.term(SMTLIBConstants.EQUALS, modNat, natModPow2), proveModConstant(modNat, natModPow2),
-						mProofRules.trans(intbvnat, modNat, natModPow2)));
+		return proveTransitivity(intbvnat, modNat, natModPow2, mProofRules.int2ubv2int(bitLength, nat),
+				proveModConstant(modNat, natModPow2));
 	}
 
 	/**
@@ -954,9 +938,7 @@ public class ProofUtils {
 						res(theory.term(SMTLIBConstants.EQUALS, bvintbvint2, midTerm), mProofRules.ubv2int2bv(midTerm),
 								mProofRules.trans(bv1, bvintbvint1, bvintbvint2, midTerm))));
 		if (midTerm != bv2) {
-			proof = res(theory.term(SMTLIBConstants.EQUALS, bv1, midTerm), proof,
-					res(theory.term(SMTLIBConstants.EQUALS, midTerm, bv2), mProofRules.ubv2int2bv(bv2),
-							mProofRules.trans(bv1, midTerm, bv2)));
+			proof = proveTransitivity(bv1, midTerm, bv2, proof, mProofRules.ubv2int2bv(bv2));
 		}
 		return proof;
 	}
@@ -1186,5 +1168,27 @@ public class ProofUtils {
 					new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, t1, t2), false) },
 					new Annotation[] { new Annotation(":trivialdiseq", null) });
 		}
+	}
+
+	/**
+	 * Prove (= t1 t3) from (= t1 t2) and (= t2 t3).
+	 *
+	 * @param t1        first term.
+	 * @param t2        second term.
+	 * @param t3        third term.
+	 * @param prooft1t2 proof of (= t1 t2).
+	 * @param prooft2t3 proof of (= t2 t3).
+	 * @return proof of (= t1 t3).
+	 */
+	public Term proveTransitivity(Term t1, Term t2, Term t3, Term prooft1t2, Term prooft2t3) {
+		if (t1 == t2) {
+			return prooft2t3;
+		}
+		if (t2 == t3) {
+			return prooft1t2;
+		}
+		final Theory theory = t1.getTheory();
+		return res(theory.term(SMTLIBConstants.EQUALS, t1, t2), prooft1t2,
+				res(theory.term(SMTLIBConstants.EQUALS, t2, t3), prooft2t3, mProofRules.trans(t1, t2, t3)));
 	}
 }
