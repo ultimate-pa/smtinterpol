@@ -1131,6 +1131,10 @@ public class DPLLEngine {
 			mLogger.debug("Using cached unsatisfiability");
 			return false;
 		}
+		if (mCompleteness == INCOMPLETE_CANCELLED) {
+			// this can happen if an assert timed out before.
+			return true;
+		}
 		try {
 			if (Config.INITIAL_PHASE_BIAS_JW) {
 				// Compute for all remaining atoms an initial polarity according

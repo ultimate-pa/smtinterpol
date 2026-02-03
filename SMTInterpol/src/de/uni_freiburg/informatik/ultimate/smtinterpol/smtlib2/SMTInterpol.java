@@ -98,7 +98,9 @@ public class SMTInterpol extends NoopScript {
 		FULL {
 			@Override
 			boolean check(final DPLLEngine engine) {
-				engine.setCompleteness(DPLLEngine.COMPLETE);
+				if (engine.getCompleteness() != DPLLEngine.INCOMPLETE_CANCELLED) {
+					engine.setCompleteness(DPLLEngine.COMPLETE);
+				}
 				return engine.solve();
 			}
 		},
@@ -163,9 +165,9 @@ public class SMTInterpol extends NoopScript {
 		}
 
 		private static final void declareBitVectorExtensions(final Theory theory) {
-			Sort intSort = theory.getSort(SMTLIBConstants.INT, EMPTY_SORT_ARRAY);
-			Sort[] intSort1 = new Sort[] { intSort };
-			Sort[] intSort2 = new Sort[] { intSort, intSort };
+			final Sort intSort = theory.getSort(SMTLIBConstants.INT, EMPTY_SORT_ARRAY);
+			final Sort[] intSort1 = new Sort[] { intSort };
+			final Sort[] intSort2 = new Sort[] { intSort, intSort };
 			declareInternalFunction(theory, SMTInterpolConstants.INTAND, intSort2, intSort, FunctionSymbol.LEFTASSOC);
 			declareInternalFunction(theory, SMTInterpolConstants.INTPOW2, intSort1, intSort, 0);
 			declareInternalFunction(theory, SMTInterpolConstants.INTLOG2, intSort1, intSort, 0);
