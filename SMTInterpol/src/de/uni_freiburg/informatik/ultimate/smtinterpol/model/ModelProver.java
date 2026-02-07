@@ -1261,9 +1261,14 @@ public class ModelProver extends TermTransformer {
 		return BigInteger.ONE.shiftLeft(getBitVecSize(sort));
 	}
 
+	private Term createAnd(Term[] args) {
+		final Theory theory = mModel.getTheory();
+		return args.length == 0 ? theory.mTrue : args.length == 1 ? args[0] : theory.term(SMTLIBConstants.AND, args);
+	}
+
 	public Term buildModelProof(List<Term> assertions) {
 		final Term[] andArgs = assertions.toArray(new Term[assertions.size()]);
-		final Term andTerm = mModel.getTheory().and(andArgs);
+		final Term andTerm = createAnd(andArgs);
 		final Term provedTerm = transform(mUnletter.transform(andTerm));
 		assert getAnnotation(provedTerm) == provedTerm.getTheory().mTrue;
 		Term proof = getProof(provedTerm);

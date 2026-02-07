@@ -152,6 +152,11 @@ public class MinimalProofChecker extends NonRecursive {
 		return true;
 	}
 
+	private Term createAnd(Term[] args) {
+		final Theory theory = mSkript.getTheory();
+		return args.length == 0 ? theory.mTrue : args.length == 1 ? args[0] : theory.term(SMTLIBConstants.AND, args);
+	}
+
 	public boolean checkModelProof(Term proof) {
 		mNumOracles = mNumResolutions = mNumAxioms = mNumAssertions = mNumDefineFun = 0;
 		mAssertions = Collections.emptySet();
@@ -170,8 +175,7 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 
 		final ProofLiteral[] result = getProvedClause(funcDefs, proof);
-		final Term[] assertions = mSkript.getAssertions();
-		Term destFormula = mSkript.term(SMTLIBConstants.AND, assertions);
+		Term destFormula = createAnd(mSkript.getAssertions());
 		destFormula = unletter.transform(destFormula);
 		if (result != null && result.length != 1 || result[0].getPolarity() != true
 				|| result[0].getAtom() != destFormula) {

@@ -28,6 +28,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Version;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SExpression;
 
 /**
  * Main class for checking lowlevel proofs.
@@ -134,6 +135,9 @@ public final class Main {
 		final ParseEnvironment parseEnv = new ParseEnvironment(solver, options)  {
 			@Override
 			public void printResponse(final Object response) {
+				if (response instanceof SExpression) {
+					super.printResponse(response);
+				}
 			}
 		};
 		parseEnv.parseScript(scriptFilename);

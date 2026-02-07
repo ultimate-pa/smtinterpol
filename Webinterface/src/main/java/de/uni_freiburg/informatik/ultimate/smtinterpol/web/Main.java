@@ -1,19 +1,21 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.web;
 
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.io.StringWriter;
+
+import org.teavm.jso.JSBody;
+
 import de.uni_freiburg.informatik.ultimate.logic.FormulaLet;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.checker.CheckingScript;
-import org.teavm.jso.JSBody;
-
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.io.PrintWriter;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SExpression;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 public class Main implements SolverInterface {
 
@@ -32,34 +34,40 @@ public class Main implements SolverInterface {
 		new Main().run();
 	}
 
+	@Override
 	public void runSMTInterpol(String inputString) {
 		final DefaultLogger logger = new DefaultLogger();
 		final OptionMap options = new OptionMap(logger, true);
 
-		SMTInterpol solver = new SMTInterpol(null, options);
-		WebEnvironment pe = new WebEnvironment(solver, options);
+		final SMTInterpol solver = new SMTInterpol(null, options);
+		final WebEnvironment pe = new WebEnvironment(solver, options);
 		pe.parseStream(new StringReader(inputString), "<webinput>");
 	}
 
+	@Override
 	public void runProofChecker(String inputString, String proofString) {
 		final DefaultLogger logger = new DefaultLogger();
 		final OptionMap options = new OptionMap(logger, true);
 
-		Script solver = new CheckingScript(logger, "<proofinput>", new StringReader(proofString)) {
+		final Script solver = new CheckingScript(options, "<proofinput>", new StringReader(proofString)) {
+			@Override
 			public void printResult(Object result) {
 				postMessage(result.toString());
 			}
 		};
-		WebEnvironment pe = new WebEnvironment(solver, options) {
+		final WebEnvironment pe = new WebEnvironment(solver, options) {
 			@Override
 			public void printResponse(Object response) {
+				if (response instanceof SExpression) {
+					postMessage(response.toString());
+				}
 			}
 		};
 		try {
 			pe.parseStream(new StringReader(inputString), "<webinput>");
-		} catch (Exception ex) {
-			StringWriter sw = new StringWriter();
-			PrintWriter pw = new PrintWriter(sw);
+		} catch (final Exception ex) {
+			final StringWriter sw = new StringWriter();
+			final PrintWriter pw = new PrintWriter(sw);
 			ex.printStackTrace(pw);
 			pw.close();
 			postMessage(sw.toString());
@@ -71,6 +79,7 @@ public class Main implements SolverInterface {
 			super(script, options);
 		}
 
+		@Override
 		public void exitWithStatus(int status) {
 			/* can't exit */
 		}
@@ -78,12 +87,13 @@ public class Main implements SolverInterface {
 		/**
 		 * Post response from SMTInterpol directly to the client.
 		 */
+		@Override
 		public void printResponse(Object response) {
 			if (response instanceof Term) {
-				Term term = (Term) response;
-				Term lettedTerm = new FormulaLet().let(term);
+				final Term term = (Term) response;
+				final Term lettedTerm = new FormulaLet().let(term);
 				if (ProofRules.isProof(term)) {
-					StringBuilder sb = new StringBuilder();
+					final StringBuilder sb = new StringBuilder();
 					ProofRules.printProof(sb, lettedTerm);
 					postMessage(sb.toString());
 				} else {
