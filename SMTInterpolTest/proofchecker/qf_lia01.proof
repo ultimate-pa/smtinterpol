@@ -1,0 +1,2 @@
+sat
+((refine-fun x () 2) (let ((.cse0 (+ 1 1))) (res (= .cse0 2) (poly+ .cse0 2) (res (= 2 x) (res (= x 2) (expand x) (symm 2 x)) (trans .cse0 2 x)))))

@@ -485,7 +485,7 @@ terminal String UNDERSCORE, BANG,
          DEFINESORT, DEFINEFUN, ERRORSYM,
          EXISTS, EXIT, FALSE, FORALL, GETASSERTIONS, GETASSIGNMENT, GETINFO,
          GETINTERPOLANTS,
-         GETMODEL, GETMODELPROOF, GETOPTION, GETPROOF, GETUNSATCORE, GETVALUE, IMMEDIATEEXIT,
+         GETMODEL, GETOPTION, GETPROOF, GETUNSATCORE, GETVALUE, IMMEDIATEEXIT,
          INCOMPLETE, LAMBDA, LET, LOGIC, NONE, NUMERALSYM, MATCH, MEMOUT, PAR, POP, PUSH,
          DECIMALSYM, SAT, SUCCESS, SETLOGIC, SETINFO, SETOPTION, STRINGSYM,
          THEORY, TRUE, UNKNOWN, UNSUPPORTED, UNSAT,
@@ -1132,16 +1132,6 @@ command ::= SETLOGIC symbol:logic
             {: try {
                 Model model = parser.env.getScript().getModel();
                 parser.env.printResponse(model);
-            } catch (SMTLIBException se) {
-                parser.report_error(se.getMessage());
-                parser.env.printError(getError());
-            } catch (UnsupportedOperationException uoe) {
-                parser.env.printUnsupported();
-            } :}
-          | GETMODELPROOF
-            {: try {
-                Term modelProof = parser.env.getScript().getModelProof();
-                parser.env.printResponse(modelProof);
             } catch (SMTLIBException se) {
                 parser.report_error(se.getMessage());
                 parser.env.printError(getError());

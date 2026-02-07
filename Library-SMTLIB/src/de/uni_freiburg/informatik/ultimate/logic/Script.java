@@ -282,25 +282,13 @@ public interface Script {
 	 * @throws SMTLIBException If interactive mode is not enabled.
 	 */
 	public Term[] getAssertions() throws SMTLIBException;
-	/**
-	 * Trigger a call to a proof processor.  Note that this command is only
-	 * available if proof production is enabled and the last {@link #checkSat()}
-	 *  returned {@link LBool#UNSAT}.  To enable proof production, call
-	 * {@link #setOption(String, Object) setOption}(":produce-proofs", true).
-	 * @return the proof.  This is given as a big smtlib term of the internal
-	 * type {@literal @proof}.
-	 * @throws SMTLIBException If proof production is not enabled or the solver
-	 *                         did not detect unsatisfiability.
-	 * @throws UnsupportedOperationException If proof generation is unsupported.
-	 */
-	public Term getProof()
-		throws SMTLIBException, UnsupportedOperationException;
 
 	/**
-	 * Creates a model proof and returns it. Note that this command is only
-	 * available if proof production is enabled and the last {@link #checkSat()}
-	 * returned {@link LBool#SAT}. To enable proof production, call
-	 * {@link #setOption(String, Object) setOption}(":produce-proofs", true).
+	 * Trigger a call to a proof processor. Note that this command is only available
+	 * if proof production is enabled and the last {@link #checkSat()} returned
+	 * {@link LBool#UNSAT} or {@link LBool#SAT}. To enable proof production, call
+	 * {@link #setOption(String, Object) setOption}(":produce-proofs", true). For
+	 * sat results you also need to enable model production.
 	 *
 	 * @return the proof. This is given as a big smtlib term of the internal type
 	 *         {@literal @proof}.
@@ -309,7 +297,8 @@ public interface Script {
 	 *                                       unsatisfiability.
 	 * @throws UnsupportedOperationException If proof generation is unsupported.
 	 */
-	public Term getModelProof() throws SMTLIBException, UnsupportedOperationException;
+	public Term getProof()
+		throws SMTLIBException, UnsupportedOperationException;
 
 	/**
 	 * Get the unsat core. Note that this command is only available if unsat core

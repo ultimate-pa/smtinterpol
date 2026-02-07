@@ -798,21 +798,32 @@ public class SMTInterpol extends NoopScript {
 			throw new SMTLIBException("No logic set!");
 		}
 		checkAssertionStackModified();
-		final Clause unsat = retrieveProof();
-		if (Config.CHECK_PROP_PROOF) {
-			final PropProofChecker ppc = new PropProofChecker();
-			final boolean correct = ppc.check(unsat);
-			assert correct;
-		}
-		try {
-			final ProofTermGenerator generator = new ProofTermGenerator(new ProofRules(getTheory()));
-			Term res = generator.convert(unsat);
-			if (proofMode == ProofMode.LOWLEVEL) {
-				res = new ProofSimplifier(this).transformProof(res);
+		if (mStatus == LBool.UNSAT) {
+			final Clause unsat = retrieveProof();
+			if (Config.CHECK_PROP_PROOF) {
+				final PropProofChecker ppc = new PropProofChecker();
+				final boolean correct = ppc.check(unsat);
+				assert correct;
 			}
-			return res;
-		} catch (final Exception exc) {
-			throw new SMTLIBException(exc.getMessage() == null ? exc.toString() : exc.getMessage());
+			try {
+				final ProofTermGenerator generator = new ProofTermGenerator(new ProofRules(getTheory()));
+				Term res = generator.convert(unsat);
+				if (proofMode == ProofMode.LOWLEVEL) {
+					res = new ProofSimplifier(this).transformProof(res);
+				}
+				return res;
+			} catch (final Exception exc) {
+				throw new SMTLIBException(exc.getMessage() == null ? exc.toString() : exc.getMessage());
+			}
+		} else if (mStatus == LBool.SAT) {
+			buildModel();
+			final ModelProver modelProver = new ModelProver(mModel);
+			return modelProver.buildModelProof(mAssertions);
+		} else {
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.GET_PROOF_BUT_UNKNOWN);
+			}
+			throw new SMTLIBException("status is unknown");
 		}
 	}
 
@@ -1045,16 +1056,6 @@ public class SMTInterpol extends NoopScript {
 	}
 
 	@Override
-	public Term getModelProof() {
-		if (mEngine == null) {
-			throw new SMTLIBException("No logic set!");
-		}
-		buildModel();
-		final ModelProver modelProver = new ModelProver(mModel);
-		return modelProver.buildModelProof(mAssertions);
-	}
-
-	@Override
 	public void setInfo(final String info, final Object value) {
 		if (info.equals(SMTLIBConstants.STATUS)) {
 			if (value.equals(SMTLIBConstants.SAT)) {
@@ -1190,7 +1191,7 @@ public class SMTInterpol extends NoopScript {
 		final Clause unsat = mEngine.getProof();
 		if (unsat == null) {
 			if (mErrorCallback != null) {
-				mErrorCallback.notifyError(ErrorReason.GET_PROOF_BUT_SAT);
+				mErrorCallback.notifyError(ErrorReason.GET_PROOF_BUT_UNKNOWN);
 			}
 			throw new SMTLIBException("Logical context not inconsistent!");
 		}

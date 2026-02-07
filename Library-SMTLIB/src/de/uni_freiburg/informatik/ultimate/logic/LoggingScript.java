@@ -367,12 +367,6 @@ public class LoggingScript extends WrapperScript {
 	}
 
 	@Override
-	public Term getModelProof() throws SMTLIBException, UnsupportedOperationException {
-		mPw.println("(get-model-proof)");
-		return super.getModelProof();
-	}
-
-	@Override
 	public Term getProof() throws SMTLIBException, UnsupportedOperationException {
 		mPw.println("(get-proof)");
 		return super.getProof();

@@ -174,11 +174,6 @@ public abstract class WrapperScript implements Script {
 	}
 
 	@Override
-	public Term getModelProof() throws SMTLIBException, UnsupportedOperationException {
-		return mScript.getModelProof();
-	}
-
-	@Override
 	public Term getProof() throws SMTLIBException, UnsupportedOperationException {
 		return mScript.getProof();
 	}
