@@ -223,7 +223,7 @@ stage:             Upload new version to Maven Central (owner only)
         </exec>
         <echo>
           Now copy the files:
-          scp SMTInterpol/web/html/gen/* webserver:/export/server/httpd/ultimate/smtinterpol
+          scp SMTInterpol/web/html/web/* webserver:/export/server/httpd/ultimate/smtinterpol
           scp Webinterface/target/smtinterpol-web-1.0-SNAPSHOT.war webserver:.
           ssh webserver 'umask 022 &amp;&amp; unzip -o -q -d /export/server/httpd/ultimate/smtinterpol/online/ ~/smtinterpol-web-1.0-SNAPSHOT.war'
         </echo>
