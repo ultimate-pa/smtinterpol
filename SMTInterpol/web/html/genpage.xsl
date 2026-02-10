@@ -138,9 +138,9 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
   </xsl:template>
 
   <xsl:template match="txt">
-    <div>
+    <p>
       <xsl:apply-templates />
-    </div>
+    </p>
   </xsl:template>
 
   <xsl:template match="b">
@@ -224,7 +224,10 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
   </xsl:template>
 
   <xsl:template match="versionlink">
-    <a href="smtinterpol-{$version}{@suffix}.jar">smtinterpol-<xsl:value-of select="$version" /><xsl:value-of select="@suffix" />.jar</a><br />(Checksum: <a href="smtinterpol-{$version}{@suffix}.jar.sha">SHA 256</a>)
+    <xsl:variable name="hashes" select="document('gen/hashes.xml')/hashes"/>
+    <xsl:variable name="filename" select="concat('smtinterpol-',$version,@suffix,'.jar')"/>
+    <a href="$filename"><xsl:value-of select="$filename"/></a><br />
+    <span class="chksum">(SHA256:&#160;<xsl:value-of select="$hashes/file[@path=$filename]/@sha256"/>)</span>
   </xsl:template>
 
   <xsl:template match="downloads">

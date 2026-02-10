@@ -9,9 +9,19 @@
 <page id="news">
   <name>News</name>
   <content>
+    <head1>Proofs</head1>
+    <txt><s /> comes with its own proof format RESOLUTE and tracks every step of the solver.
+    We have <a href="proof-format.html">a documentation of the proof format</a>.
+    There is also a stand-alone proof checker included, which you can run with
+    <pre>java -cp smtinterpol.jar de.uni_freiburg.informatik.ultimate.smtinterpol.proof.checker.Main &lt;benchmark&gt; &lt;solver-output&gt;</pre>
+    </txt>
+    <txt>
+    We have a separate <a href="online/proof.html">web interface for proofs</a>.
+    </txt>
+
   	<head1>Web interface</head1>
   	<txt>
-  	<s /> now has a web interface.
+  	<s /> now has a <a href="online/">web interface</a>.
   	More precisely, our web interface runs <s /> in the browser.
   	It was created by Andrea Qosja using TeaVM to compile <s /> into JavaScript.
   	</txt>

@@ -21,11 +21,11 @@ License</link> for more details.</txt>
 <col>Binary</col>
 </headrow>
 <row>
-<col>Precompiled binary (version <version/>)</col>
+<col>Precompiled binary</col>
 <col><versionlink suffix="" /></col>
 </row>
 <row>
-<col>Sources (version <version/>)</col>
+<col>Sources</col>
 <col><versionlink suffix="-sources" /></col>
 </row>
 </table>

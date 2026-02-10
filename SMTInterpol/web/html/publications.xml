@@ -11,10 +11,27 @@
   <content>
     <head1>Publications about <s /></head1>
     <list>
-    <paper conf="SMT 2021">
+    <paper conf="SMT 2024">
+    <authors>Max Barth and Matthias Heizmann</authors>
+    <title>A Bit-vector to Integer Translation with bv2nat and nat2bv</title>
+    <pdf>https://ceur-ws.org/Vol-3725/short9.pdf</pdf>
+    </paper>
+    <paper conf="CADE 2023">
+    <authors>Elisabeth Henkel, Jochen Hoenicke and Tanja Schindler</authors>
+    <title>Choose Your Colour: Tree Interpolation for Quantified Formulas in SMT</title>
+    <pdf>https://arxiv.org/pdf/2305.11667</pdf>
+    <doi>https://doi.org/10.1007/978-3-031-38499-8_15</doi>
+    <bib>https://dblp.org/rec/conf/cade/HenkelHS23.html</bib>
+      </paper>
+     <paper conf="SMT 2022">
+    <authors>Jochen Hoenicke and Tanja Schindler</authors>
+    <title>A Simple Proof Format for SMT</title>
+    <pdf>https://ultimate.informatik.uni-freiburg.de/smtinterpol/smt2022.pdf</pdf>
+      </paper>
+     <paper conf="SMT 2021">
     <authors>Elisabeth Henkel, Jochen Hoenicke and Tanja Schindler</authors>
     <title>Proof Tree Preserving Sequence Interpolation of Quantified Formulas in the Theory of Equality</title>
-    <pdf>http://ceur-ws.org/Vol-2908/short12.pdf</pdf>
+    <pdf>https://ceur-ws.org/Vol-2908/short12.pdf</pdf>
       </paper>
       <paper conf="VMCAI 2021">
     <authors>Jochen Hoenicke and Tanja Schindler</authors>
@@ -64,7 +81,7 @@
       <paper conf="SPIN 2012">
 	<authors>J&uuml;rgen Christ, Jochen Hoenicke, and Alexander Nutz</authors>
 	<title>SMTInterpol: An Interpolating SMT Solver</title>
-	<pdf>http://www.jochen-hoenicke.de/docs/chn12-spin.pdf</pdf>
+	<pdf>https://jhoenicke.de/docs/chn12-spin.pdf</pdf>
 	<doi>https://doi.org/10.1007/978-3-642-31759-0_19</doi>
 	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/spin/ChristHN12</bib>
       </paper>
@@ -92,14 +109,14 @@
       <paper conf="VMCAI 2012">
 	<authors>Evren Ermis, Jochen Hoenicke, and Andreas Podelski</authors>
 	<title>Splitting via Interpolants</title>
-	<pdf>http://www.jochen-hoenicke.de/docs/ehp12-vmcai.pdf</pdf>
+	<pdf>https://jhoenicke.de/docs/ehp12-vmcai.pdf</pdf>
 	<doi>https://doi.org/10.1007/978-3-642-27940-9_13</doi>
 	<bib>https://dblp.uni-trier.de/rec/bibtex/conf/vmcai/ErmisHP12</bib>
       </paper>
       <paper conf="FM 2012">
 	<authors>Evren Ermis, Martin Sch&auml;f, and Thomas Wies</authors>
 	<title>Error Invariants</title>
-	<pdf>http://cs.nyu.edu/wies/publ/error_invariants.pdf</pdf>
+	<pdf>https://cs.nyu.edu/wies/publ/error_invariants.pdf</pdf>
 	<doi>https://doi.org/10.1007/978-3-642-32759-9_17</doi>
 	<bib>https://dblp.org/rec/bibtex/conf/fm/ErmisSW12</bib>
       </paper>

@@ -40,6 +40,8 @@ coverage
 # the documentation directory (is automatically generated)
 doc-smtinterpol
 /SMTInterpol/web/html/gen/
+/SMTInterpol/web/html/node_modules
+/SMTInterpol/web/html/proof-format.xml
 
 # smtlib files and generated jars except in certain directories
 *.smt2

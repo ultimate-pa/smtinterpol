@@ -1,42 +1,57 @@
 SHELL=/bin/bash
-XMLFILES=$(wildcard *.xml)
+XMLFILES=docu.xml download.xml examples.xml index.xml news.xml proof-format.xml proofs.xml publications.xml
 DATE:=$(shell LANG=C date)
 VERSION:=$(shell git describe 2>/dev/null || echo untagged)
 OTHERFILES := HTML5_Logo.svg CSS3_Logo.svg smtinterpol.css goedel.jpg floc2014.jpg floc2018.jpg
 SMT2FILES := usage.smt2 unsat.smt2 subannot.smt2 interpolation.smt2 mccarthy1.smt2 mccarthy2.smt2
 JARFILES := smtinterpol-$(VERSION).jar smtinterpol-$(VERSION)-sources.jar
 
-CHECKSUMS = $(patsubst %,gen/%.sha,$(JARFILES) $(SMT2FILES))
-
+PROOF_DOC=intro.md eq_diamond2-proof.md grammar.md equality.md lowlevel-calculus.md theory-extensions.md
+PANDOCOPT=--filter node_modules/.bin/mathjax-pandoc-filter -t html5
 
 # UsageStub.java InterpolationUsageStub.java \
 # fmcad11.tar.bz2 interpolations.tar.bz2
 
 
-all: $(addprefix gen/,$(subst .xml,.html,$(XMLFILES))) $(CHECKSUMS)
-all: $(addprefix gen/,$(OTHERFILES))
+all: $(addprefix web/,$(subst .xml,.html,$(XMLFILES)))
+all: $(addprefix web/,$(OTHERFILES))
 
-$(addprefix gen/,$(JARFILES)): gen/%: ../../../dist/%
+
+
+proof-doc/proof-format.html: $(addprefix proof-doc/,$(PROOF_DOC))
+	test -d node-modules/mathjax-pandoc-filter || npm install
+	cat $^ | pandoc $(PANDOCOPT) -o $@
+proof-format.xml: proof-doc/header.xml proof-doc/proof-format.html proof-doc/footer.xml
+	cat $^ > $@
+
+$(addprefix web/,$(JARFILES)): web/%: ../../../dist/%
+	@mkdir -p web
 	cp $< $@
 
-$(addprefix gen/,$(OTHERFILES) $(SMT2FILES)): gen/%: ../%
+$(addprefix web/,$(OTHERFILES) $(SMT2FILES)): web/%: ../%
+	@mkdir -p web
 	cp $< $@
 
-$(CHECKSUMS): gen/%.sha: gen/%
-	cd gen; sha256sum $* > $*.sha
+gen/hashes.xml: $(addprefix web/,$(JARFILES))
+	@mkdir -p gen
+	@echo '<hashes>' > $@
+	@for i in $(JARFILES); do \
+		echo '  <file path="'$$i'" sha256="'$$(sha256sum web/$$i | cut -d' ' -f1)'"/>' >> $@ ; \
+	done
+	@echo '</hashes>' >> $@
 
 clean:
-	@rm -rf gen
+	@rm -rf gen web proof-format.xml
 
 gen/navi.xml: file.lst $(XMLFILES) gennavi.xsl
 	@mkdir -p gen
 	xsltproc -o $@ gennavi.xsl $<
 
-gen/%.html: %.xml gen/navi.xml genpage.xsl
-	@mkdir -p gen
+web/%.html: %.xml gen/navi.xml gen/hashes.xml genpage.xsl
+	@mkdir -p web
 	xsltproc --stringparam version "$(VERSION)" --stringparam date "$(DATE)" -o $@ genpage.xsl $<
 
 distribution: clean all
-	@echo "run scp SMTInterpol/web/html/gen/* <your destination>"
+	@echo "run scp SMTInterpol/web/html/web/* <your destination>"
 
 .PHONY: all distclean distributable downloadpage distribution

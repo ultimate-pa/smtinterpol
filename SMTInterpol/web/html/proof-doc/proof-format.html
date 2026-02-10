@@ -1,0 +1,1043 @@
+<h1 id="resolute-a-simple-proof-format-for-smt-lib">RESOLUTE – A Simple
+Proof Format for SMT-LIB</h1>
+<p>Although the SMT-LIB format defines a command for obtaining proofs,
+it does not prescribe the format for these proofs. The only requirement
+is that the result follows the grammar rule for s-expr. This document
+explains the proof format RESOLUTE, which is the lowlevel proof format
+returned by the SMT solver SMTInterpol.</p>
+<p>SMTInterpol internally can switch between different proof levels. The
+lowlevel proof format described in this document can be activated by
+<code>(set-option :proof-level lowlevel)</code>. The goal of the
+lowlevel proof format is an easy to check format. There are also the
+proof-levels clauses (which adds all input clauses as oracles) and full,
+which uses the internal proof rules using oracle clauses.</p>
+<p>We have a <a
+href="https://ultimate.informatik.uni-freiburg.de/smtinterpol/online/proof.html">proof
+checker</a> for these proofs.</p>
+<h2 id="resolution-proofs">Resolution proofs</h2>
+<p>The proof is given as a resolution proof. Each subproof proves the
+validity of a clause where a clause is a set of literals and a literal
+is a positive or negative atom. An atom is an SMT-LIB term of sort Bool,
+in other words, an SMT-LIB formula. In particular input formulas are
+seen as unit clauses with a single positive atom. We use
+<code>+ t</code> to denote the positive literal for the term
+<code>t</code> and <code>- t</code> for the negative literal. A clause
+is dentoed by an S-Expression <code>( +/- t1 ... +/- tn)</code>. As
+usual, a positive literal represents the fact that the term is true, a
+negative literal that the term is false, and a clause represents the
+fact that at least one of its literals hold.</p>
+<p>A proof is build from the resolution rule, axioms, and assumptions. A
+proof is valid, if the side conditions for every axiom is fulfilled and
+it proves the empty clause. The main rule is the resolution rule:</p>
+<p><p><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="26.804ex" height="6.176ex" style="vertical-align: -2.671ex;" viewBox="0 -1508.9 11540.6 2659.1" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E1-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-32" d="M109 429Q82 429 66 447T50 491Q50 562 103 614T235 666Q326 666 387 610T449 465Q449 422 429 383T381 315T301 241Q265 210 201 149L142 93L218 92Q375 92 385 97Q392 99 409 186V189H449V186Q448 183 436 95T421 3V0H50V19V31Q50 38 56 46T86 81Q115 113 136 137Q145 147 170 174T204 211T233 244T261 278T284 308T305 340T320 369T333 401T340 431T343 464Q343 527 309 573T212 619Q179 619 154 602T119 569T109 550Q109 549 114 549Q132 549 151 535T170 489Q170 464 154 447T109 429Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-28" d="M94 250Q94 319 104 381T127 488T164 576T202 643T244 695T277 729T302 750H315H319Q333 750 333 741Q333 738 316 720T275 667T226 581T184 443T167 250T184 58T225 -81T274 -167T316 -220T333 -241Q333 -250 318 -250H315H302L274 -226Q180 -141 137 -14T94 250Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-2216" d="M56 731Q56 740 62 745T75 750Q85 750 92 740Q96 733 270 255T444 -231Q444 -239 438 -244T424 -250Q414 -250 407 -240Q404 -236 230 242T56 731Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-7B" d="M434 -231Q434 -244 428 -250H410Q281 -250 230 -184Q225 -177 222 -172T217 -161T213 -148T211 -133T210 -111T209 -84T209 -47T209 0Q209 21 209 53Q208 142 204 153Q203 154 203 155Q189 191 153 211T82 231Q71 231 68 234T65 250T68 266T82 269Q116 269 152 289T203 345Q208 356 208 377T209 529V579Q209 634 215 656T244 698Q270 724 324 740Q361 748 377 749Q379 749 390 749T408 750H428Q434 744 434 732Q434 719 431 716Q429 713 415 713Q362 710 332 689T296 647Q291 634 291 499V417Q291 370 288 353T271 314Q240 271 184 255L170 250L184 245Q202 239 220 230T262 196T290 137Q291 131 291 1Q291 -134 296 -147Q306 -174 339 -192T415 -213Q429 -213 431 -216Q434 -219 434 -231Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-2B" d="M56 237T56 250T70 270H369V420L370 570Q380 583 389 583Q402 583 409 568V270H707Q722 262 722 250T707 230H409V-68Q401 -82 391 -82H389H387Q375 -82 369 -68V230H70Q56 237 56 250Z"></path>
+<path stroke-width="1" id="E1-MJMATHI-74" d="M26 385Q19 392 19 395Q19 399 22 411T27 425Q29 430 36 430T87 431H140L159 511Q162 522 166 540T173 566T179 586T187 603T197 615T211 624T229 626Q247 625 254 615T261 596Q261 589 252 549T232 470L222 433Q222 431 272 431H323Q330 424 330 420Q330 398 317 385H210L174 240Q135 80 135 68Q135 26 162 26Q197 26 230 60T283 144Q285 150 288 151T303 153H307Q322 153 322 145Q322 142 319 133Q314 117 301 95T267 48T216 6T155 -11Q125 -11 98 4T59 56Q57 64 57 83V101L92 241Q127 382 128 383Q128 385 77 385H26Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-7D" d="M65 731Q65 745 68 747T88 750Q171 750 216 725T279 670Q288 649 289 635T291 501Q292 362 293 357Q306 312 345 291T417 269Q428 269 431 266T434 250T431 234T417 231Q380 231 345 210T298 157Q293 143 292 121T291 -28V-79Q291 -134 285 -156T256 -198Q202 -250 89 -250Q71 -250 68 -247T65 -230Q65 -224 65 -223T66 -218T69 -214T77 -213Q91 -213 108 -210T146 -200T183 -177T207 -139Q208 -134 209 3L210 139Q223 196 280 230Q315 247 330 250Q305 257 280 270Q225 304 212 352L210 362L209 498Q208 635 207 640Q195 680 154 696T77 713Q68 713 67 716T65 731Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-29" d="M60 749L64 750Q69 750 74 750H86L114 726Q208 641 251 514T294 250Q294 182 284 119T261 12T224 -76T186 -143T145 -194T113 -227T90 -246Q87 -249 86 -250H74Q66 -250 63 -250T58 -247T55 -238Q56 -237 66 -225Q221 -64 221 250T66 725Q56 737 55 738Q55 746 60 749Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-222A" d="M591 598H592Q604 598 611 583V376Q611 345 611 296Q610 162 606 148Q605 146 605 145Q586 68 507 23T333 -22Q268 -22 209 -1T106 66T56 173Q55 180 55 384L56 585Q66 598 75 598Q85 598 95 585V378L96 172L98 162Q112 95 181 57T332 18Q415 18 487 58T570 175Q571 180 571 383V583Q579 598 591 598Z"></path>
+<path stroke-width="1" id="E1-MJMAIN-2212" d="M84 237T84 250T98 270H679Q694 262 694 250T679 230H98Q84 237 84 250Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+<g transform="translate(120,0)">
+<rect stroke="none" width="11300" height="60" x="0" y="220"></rect>
+<g transform="translate(3480,676)">
+ <use xlink:href="#E1-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E1-MJMAIN-31" x="1011" y="-213"></use>
+<g transform="translate(3169,0)">
+ <use xlink:href="#E1-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E1-MJMAIN-32" x="1011" y="-213"></use>
+</g>
+</g>
+<g transform="translate(60,-771)">
+ <use xlink:href="#E1-MJMAIN-28" x="0" y="0"></use>
+<g transform="translate(389,0)">
+ <use xlink:href="#E1-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E1-MJMAIN-31" x="1011" y="-213"></use>
+</g>
+ <use xlink:href="#E1-MJMAIN-2216" x="1781" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-7B" x="2503" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-2B" x="3004" y="0"></use>
+ <use xlink:href="#E1-MJMATHI-74" x="3782" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-7D" x="4144" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-29" x="4644" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-222A" x="5256" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-28" x="6146" y="0"></use>
+<g transform="translate(6535,0)">
+ <use xlink:href="#E1-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E1-MJMAIN-32" x="1011" y="-213"></use>
+</g>
+ <use xlink:href="#E1-MJMAIN-2216" x="7927" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-7B" x="8650" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-2212" x="9150" y="0"></use>
+ <use xlink:href="#E1-MJMATHI-74" x="9929" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-7D" x="10290" y="0"></use>
+ <use xlink:href="#E1-MJMAIN-29" x="10791" y="0"></use>
+</g>
+</g>
+</g>
+</svg></p></p>
+<p>The concrete syntax for the resolution rule is
+<code>(res t proof1 proof2)</code> where <code>t</code> is the pivot
+atom (an SMT-LIB term), <code>proof1</code> a proof for a clause
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2.716ex" height="2.509ex" style="vertical-align: -0.671ex;" viewBox="0 -791.3 1169.4 1080.4" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E2-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E2-MJMAIN-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E2-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E2-MJMAIN-31" x="1011" y="-213"></use>
+</g>
+</svg>, and <code>proof2</code> a proof for a clause
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2.716ex" height="2.509ex" style="vertical-align: -0.671ex;" viewBox="0 -791.3 1169.4 1080.4" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E3-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E3-MJMAIN-32" d="M109 429Q82 429 66 447T50 491Q50 562 103 614T235 666Q326 666 387 610T449 465Q449 422 429 383T381 315T301 241Q265 210 201 149L142 93L218 92Q375 92 385 97Q392 99 409 186V189H449V186Q448 183 436 95T421 3V0H50V19V31Q50 38 56 46T86 81Q115 113 136 137Q145 147 170 174T204 211T233 244T261 278T284 308T305 340T320 369T333 401T340 431T343 464Q343 527 309 573T212 619Q179 619 154 602T119 569T109 550Q109 549 114 549Q132 549 151 535T170 489Q170 464 154 447T109 429Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E3-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E3-MJMAIN-32" x="1011" y="-213"></use>
+</g>
+</svg>. The proof <code>(res t proof1 proof2)</code> is then a proof for
+a new clause containing all literals from
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="9.883ex" height="2.843ex" style="vertical-align: -0.838ex;" viewBox="0 -863.1 4255.4 1223.9" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E4-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E4-MJMAIN-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path>
+<path stroke-width="1" id="E4-MJMAIN-2216" d="M56 731Q56 740 62 745T75 750Q85 750 92 740Q96 733 270 255T444 -231Q444 -239 438 -244T424 -250Q414 -250 407 -240Q404 -236 230 242T56 731Z"></path>
+<path stroke-width="1" id="E4-MJMAIN-7B" d="M434 -231Q434 -244 428 -250H410Q281 -250 230 -184Q225 -177 222 -172T217 -161T213 -148T211 -133T210 -111T209 -84T209 -47T209 0Q209 21 209 53Q208 142 204 153Q203 154 203 155Q189 191 153 211T82 231Q71 231 68 234T65 250T68 266T82 269Q116 269 152 289T203 345Q208 356 208 377T209 529V579Q209 634 215 656T244 698Q270 724 324 740Q361 748 377 749Q379 749 390 749T408 750H428Q434 744 434 732Q434 719 431 716Q429 713 415 713Q362 710 332 689T296 647Q291 634 291 499V417Q291 370 288 353T271 314Q240 271 184 255L170 250L184 245Q202 239 220 230T262 196T290 137Q291 131 291 1Q291 -134 296 -147Q306 -174 339 -192T415 -213Q429 -213 431 -216Q434 -219 434 -231Z"></path>
+<path stroke-width="1" id="E4-MJMAIN-2B" d="M56 237T56 250T70 270H369V420L370 570Q380 583 389 583Q402 583 409 568V270H707Q722 262 722 250T707 230H409V-68Q401 -82 391 -82H389H387Q375 -82 369 -68V230H70Q56 237 56 250Z"></path>
+<path stroke-width="1" id="E4-MJMATHI-74" d="M26 385Q19 392 19 395Q19 399 22 411T27 425Q29 430 36 430T87 431H140L159 511Q162 522 166 540T173 566T179 586T187 603T197 615T211 624T229 626Q247 625 254 615T261 596Q261 589 252 549T232 470L222 433Q222 431 272 431H323Q330 424 330 420Q330 398 317 385H210L174 240Q135 80 135 68Q135 26 162 26Q197 26 230 60T283 144Q285 150 288 151T303 153H307Q322 153 322 145Q322 142 319 133Q314 117 301 95T267 48T216 6T155 -11Q125 -11 98 4T59 56Q57 64 57 83V101L92 241Q127 382 128 383Q128 385 77 385H26Z"></path>
+<path stroke-width="1" id="E4-MJMAIN-7D" d="M65 731Q65 745 68 747T88 750Q171 750 216 725T279 670Q288 649 289 635T291 501Q292 362 293 357Q306 312 345 291T417 269Q428 269 431 266T434 250T431 234T417 231Q380 231 345 210T298 157Q293 143 292 121T291 -28V-79Q291 -134 285 -156T256 -198Q202 -250 89 -250Q71 -250 68 -247T65 -230Q65 -224 65 -223T66 -218T69 -214T77 -213Q91 -213 108 -210T146 -200T183 -177T207 -139Q208 -134 209 3L210 139Q223 196 280 230Q315 247 330 250Q305 257 280 270Q225 304 212 352L210 362L209 498Q208 635 207 640Q195 680 154 696T77 713Q68 713 67 716T65 731Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E4-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E4-MJMAIN-31" x="1011" y="-213"></use>
+ <use xlink:href="#E4-MJMAIN-2216" x="1391" y="0"></use>
+ <use xlink:href="#E4-MJMAIN-7B" x="2114" y="0"></use>
+ <use xlink:href="#E4-MJMAIN-2B" x="2614" y="0"></use>
+ <use xlink:href="#E4-MJMATHI-74" x="3393" y="0"></use>
+ <use xlink:href="#E4-MJMAIN-7D" x="3754" y="0"></use>
+</g>
+</svg> and
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="9.883ex" height="2.843ex" style="vertical-align: -0.838ex;" viewBox="0 -863.1 4255.4 1223.9" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E5-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E5-MJMAIN-32" d="M109 429Q82 429 66 447T50 491Q50 562 103 614T235 666Q326 666 387 610T449 465Q449 422 429 383T381 315T301 241Q265 210 201 149L142 93L218 92Q375 92 385 97Q392 99 409 186V189H449V186Q448 183 436 95T421 3V0H50V19V31Q50 38 56 46T86 81Q115 113 136 137Q145 147 170 174T204 211T233 244T261 278T284 308T305 340T320 369T333 401T340 431T343 464Q343 527 309 573T212 619Q179 619 154 602T119 569T109 550Q109 549 114 549Q132 549 151 535T170 489Q170 464 154 447T109 429Z"></path>
+<path stroke-width="1" id="E5-MJMAIN-2216" d="M56 731Q56 740 62 745T75 750Q85 750 92 740Q96 733 270 255T444 -231Q444 -239 438 -244T424 -250Q414 -250 407 -240Q404 -236 230 242T56 731Z"></path>
+<path stroke-width="1" id="E5-MJMAIN-7B" d="M434 -231Q434 -244 428 -250H410Q281 -250 230 -184Q225 -177 222 -172T217 -161T213 -148T211 -133T210 -111T209 -84T209 -47T209 0Q209 21 209 53Q208 142 204 153Q203 154 203 155Q189 191 153 211T82 231Q71 231 68 234T65 250T68 266T82 269Q116 269 152 289T203 345Q208 356 208 377T209 529V579Q209 634 215 656T244 698Q270 724 324 740Q361 748 377 749Q379 749 390 749T408 750H428Q434 744 434 732Q434 719 431 716Q429 713 415 713Q362 710 332 689T296 647Q291 634 291 499V417Q291 370 288 353T271 314Q240 271 184 255L170 250L184 245Q202 239 220 230T262 196T290 137Q291 131 291 1Q291 -134 296 -147Q306 -174 339 -192T415 -213Q429 -213 431 -216Q434 -219 434 -231Z"></path>
+<path stroke-width="1" id="E5-MJMAIN-2212" d="M84 237T84 250T98 270H679Q694 262 694 250T679 230H98Q84 237 84 250Z"></path>
+<path stroke-width="1" id="E5-MJMATHI-74" d="M26 385Q19 392 19 395Q19 399 22 411T27 425Q29 430 36 430T87 431H140L159 511Q162 522 166 540T173 566T179 586T187 603T197 615T211 624T229 626Q247 625 254 615T261 596Q261 589 252 549T232 470L222 433Q222 431 272 431H323Q330 424 330 420Q330 398 317 385H210L174 240Q135 80 135 68Q135 26 162 26Q197 26 230 60T283 144Q285 150 288 151T303 153H307Q322 153 322 145Q322 142 319 133Q314 117 301 95T267 48T216 6T155 -11Q125 -11 98 4T59 56Q57 64 57 83V101L92 241Q127 382 128 383Q128 385 77 385H26Z"></path>
+<path stroke-width="1" id="E5-MJMAIN-7D" d="M65 731Q65 745 68 747T88 750Q171 750 216 725T279 670Q288 649 289 635T291 501Q292 362 293 357Q306 312 345 291T417 269Q428 269 431 266T434 250T431 234T417 231Q380 231 345 210T298 157Q293 143 292 121T291 -28V-79Q291 -134 285 -156T256 -198Q202 -250 89 -250Q71 -250 68 -247T65 -230Q65 -224 65 -223T66 -218T69 -214T77 -213Q91 -213 108 -210T146 -200T183 -177T207 -139Q208 -134 209 3L210 139Q223 196 280 230Q315 247 330 250Q305 257 280 270Q225 304 212 352L210 362L209 498Q208 635 207 640Q195 680 154 696T77 713Q68 713 67 716T65 731Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E5-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E5-MJMAIN-32" x="1011" y="-213"></use>
+ <use xlink:href="#E5-MJMAIN-2216" x="1391" y="0"></use>
+ <use xlink:href="#E5-MJMAIN-7B" x="2114" y="0"></use>
+ <use xlink:href="#E5-MJMAIN-2212" x="2614" y="0"></use>
+ <use xlink:href="#E5-MJMATHI-74" x="3393" y="0"></use>
+ <use xlink:href="#E5-MJMAIN-7D" x="3754" y="0"></use>
+</g>
+</svg> where
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="7.256ex" height="2.843ex" style="vertical-align: -0.838ex;" viewBox="0 -863.1 3123.9 1223.9" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E6-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E6-MJMAIN-2216" d="M56 731Q56 740 62 745T75 750Q85 750 92 740Q96 733 270 255T444 -231Q444 -239 438 -244T424 -250Q414 -250 407 -240Q404 -236 230 242T56 731Z"></path>
+<path stroke-width="1" id="E6-MJMAIN-7B" d="M434 -231Q434 -244 428 -250H410Q281 -250 230 -184Q225 -177 222 -172T217 -161T213 -148T211 -133T210 -111T209 -84T209 -47T209 0Q209 21 209 53Q208 142 204 153Q203 154 203 155Q189 191 153 211T82 231Q71 231 68 234T65 250T68 266T82 269Q116 269 152 289T203 345Q208 356 208 377T209 529V579Q209 634 215 656T244 698Q270 724 324 740Q361 748 377 749Q379 749 390 749T408 750H428Q434 744 434 732Q434 719 431 716Q429 713 415 713Q362 710 332 689T296 647Q291 634 291 499V417Q291 370 288 353T271 314Q240 271 184 255L170 250L184 245Q202 239 220 230T262 196T290 137Q291 131 291 1Q291 -134 296 -147Q306 -174 339 -192T415 -213Q429 -213 431 -216Q434 -219 434 -231Z"></path>
+<path stroke-width="1" id="E6-MJMAIN-2113" d="M345 104T349 104T361 95T369 80T352 59Q268 -20 206 -20Q170 -20 146 3T113 53T99 104L94 129Q94 130 79 116T48 86T28 70Q22 70 15 79T7 94Q7 98 12 103T58 147L91 179V185Q91 186 91 191T92 200Q92 282 128 400T223 612T336 705Q397 705 397 636V627Q397 453 194 233Q185 223 180 218T174 211T171 208T165 201L163 186Q159 142 159 123Q159 17 208 17Q228 17 253 30T293 56T335 94Q345 104 349 104ZM360 634Q360 655 354 661T336 668Q328 668 322 666T302 645T272 592Q252 547 229 467T192 330L179 273Q179 272 186 280T204 300T221 322Q327 453 355 590Q360 612 360 634Z"></path>
+<path stroke-width="1" id="E6-MJMAIN-7D" d="M65 731Q65 745 68 747T88 750Q171 750 216 725T279 670Q288 649 289 635T291 501Q292 362 293 357Q306 312 345 291T417 269Q428 269 431 266T434 250T431 234T417 231Q380 231 345 210T298 157Q293 143 292 121T291 -28V-79Q291 -134 285 -156T256 -198Q202 -250 89 -250Q71 -250 68 -247T65 -230Q65 -224 65 -223T66 -218T69 -214T77 -213Q91 -213 108 -210T146 -200T183 -177T207 -139Q208 -134 209 3L210 139Q223 196 280 230Q315 247 330 250Q305 257 280 270Q225 304 212 352L210 362L209 498Q208 635 207 640Q195 680 154 696T77 713Q68 713 67 716T65 731Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E6-MJMATHI-43" x="0" y="0"></use>
+ <use xlink:href="#E6-MJMAIN-2216" x="982" y="0"></use>
+ <use xlink:href="#E6-MJMAIN-7B" x="1705" y="0"></use>
+ <use xlink:href="#E6-MJMAIN-2113" x="2205" y="0"></use>
+ <use xlink:href="#E6-MJMAIN-7D" x="2623" y="0"></use>
+</g>
+</svg> denotes the clause
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1.766ex" height="2.176ex" style="vertical-align: -0.338ex;" viewBox="0 -791.3 760.5 936.9" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E7-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E7-MJMATHI-43" x="0" y="0"></use>
+</g>
+</svg> with any occurrence of the literal
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="0.97ex" height="2.176ex" style="vertical-align: -0.338ex;" viewBox="0 -791.3 417.5 936.9" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E8-MJMAIN-2113" d="M345 104T349 104T361 95T369 80T352 59Q268 -20 206 -20Q170 -20 146 3T113 53T99 104L94 129Q94 130 79 116T48 86T28 70Q22 70 15 79T7 94Q7 98 12 103T58 147L91 179V185Q91 186 91 191T92 200Q92 282 128 400T223 612T336 705Q397 705 397 636V627Q397 453 194 233Q185 223 180 218T174 211T171 208T165 201L163 186Q159 142 159 123Q159 17 208 17Q228 17 253 30T293 56T335 94Q345 104 349 104ZM360 634Q360 655 354 661T336 668Q328 668 322 666T302 645T272 592Q252 547 229 467T192 330L179 273Q179 272 186 280T204 300T221 322Q327 453 355 590Q360 612 360 634Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E8-MJMAIN-2113" x="0" y="0"></use>
+</g>
+</svg> removed. A clause is seen as a set of literals and literals
+appearing in both
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2.716ex" height="2.509ex" style="vertical-align: -0.671ex;" viewBox="0 -791.3 1169.4 1080.4" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E9-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E9-MJMAIN-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E9-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E9-MJMAIN-31" x="1011" y="-213"></use>
+</g>
+</svg> and
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2.716ex" height="2.509ex" style="vertical-align: -0.671ex;" viewBox="0 -791.3 1169.4 1080.4" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E10-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E10-MJMAIN-32" d="M109 429Q82 429 66 447T50 491Q50 562 103 614T235 666Q326 666 387 610T449 465Q449 422 429 383T381 315T301 241Q265 210 201 149L142 93L218 92Q375 92 385 97Q392 99 409 186V189H449V186Q448 183 436 95T421 3V0H50V19V31Q50 38 56 46T86 81Q115 113 136 137Q145 147 170 174T204 211T233 244T261 278T284 308T305 340T320 369T333 401T340 431T343 464Q343 527 309 573T212 619Q179 619 154 602T119 569T109 550Q109 549 114 549Q132 549 151 535T170 489Q170 464 154 447T109 429Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E10-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E10-MJMAIN-32" x="1011" y="-213"></use>
+</g>
+</svg> appear only once in the conclusion.</p>
+<p>Furthermore, there are several axioms for the different theories. In
+particular, the core theory defines the axioms for the logical
+operators. As an example, the axiom <code>(or+ 1 t0 t1 t2)</code> where
+<code>t0</code>, <code>t1</code>, and <code>t2</code> are arbitrary
+terms is a proof for the valid clause
+<code>(+(or t0 t1 t2) - t1)</code>.</p>
+<p>Facts from the SMT-LIB script can be introduced using the syntax
+<code>(assume term)</code>, which is a proof of the unit clause
+<code>(+ term)</code> provided the SMT-LIB script contains the assertion
+<code>(assert term)</code>. A proof of the unsatisfiability of an
+SMT-LIB input script is a proof of the empty clause that only uses the
+assumptions appearing in the SMT-LIB script.</p>
+<h2 id="axioms-for-core-theory">Axioms for core theory</h2>
+<p>The meaning of logical operators is expressed by a set of core axioms
+that are available in every SMT-LIB theory. The axioms explicitly
+support associative SMT-LIB operators like <code>and</code>,
+<code>or</code>, <code>=&gt;</code> with more than two arguments.</p>
+<pre><code>; axioms are written as name-of-axiom: (clause)
+; logical operators
+true+: (+ true)                      false-: (- false)
+ not+: (+(not p0) + p0)                not-: (-(not p0 ) - p0)
+ and+: (+(and p0 … pn) - p0 … - pn)    and-: (-(and p0 … pn) + pi)
+  or+: (+(or p0 … pn) - pi )            or-: (-(or p0 … pn) + p0 … + pn)
+  =&gt;+: (+(=&gt; p0 … pn) +/- pi )          =&gt;-: (-(=&gt; p0 … pn) - p0 … + pn)
+  =+1: (+(= p0 p1) + p0 + p1)           =-1: (-(= p0 p1) + p0 - p1)
+  =+2: (+(= p0 p1) - p0 - p1)           =-2: (-(= p0 p1) - p0 + p1)
+ xor+: (+(xor l1) +(xor l2) -(xor l3)) xor-: (-(xor l1) -(xor l2) -xor(l3))
+    where each term in l1,l2,l3 occurs an even number of times.
+
+; quantifiers
+forall+: (+(forall x (F x)) -(F (choose x (F x))))
+forall-: (-(forall x (F x)) +(F t))
+exists+: (+(exists x (F x)) -(F t))
+exists-: (-(exists x (F x)) +(F (choose x (F x))))
+
+; equality axioms
+     refl: (+(= t t))                    symm: (+(= t0 t1) -(= t1 t0))
+    trans: (+(= t0 tn) -(= t0 t1) … -(= tn-1 tn))
+     cong: (+(= (f t0 … tn) (f t0&#39; … tn&#39;)) -(= t0 t0&#39;) … -(= tn tn&#39;))
+       =+: (+(= t0 … tn) -(= t0 t1) … -(= tn-1 tn))
+       =-: (-(= t0 … tn) +(= ti tj))
+distinct+: (+(distinct t0 … tn) +(= t0 t1) … +(= t0 tn) … +(= tn-1 tn))
+distinct-: (-(distinct t0 … tn) -(= ti tj))   where i != j
+
+; ite, define-fun, annotations
+  ite1: (+(= (ite t0 t1 t2) t1) - t0)   ite2: (+(= (ite t0 t1 t2) t2) + t0)
+  del!: (+(= (! t :annotation…) t))
+expand: (+(= (f t0 … tn) (let ((x0 t0)…(xn tn)) d)))
+   where f is defined by (define-fun f ((x0 τ0)…(xn τn)) τ d)</code></pre>
+<p>A detailed explanation of the axioms will be given in the section
+Core Axioms below.</p>
+<h2 id="syntactic-extensions">Syntactic extensions</h2>
+<p>Conceptually a resolution proof is just a big proof term applying the
+resolution rule <code>res</code> to axioms and assumptions. However,
+there are a few important extensions to concisely express large
+proof.</p>
+<h3 id="let-terms">let-terms</h3>
+<p>A large proof may use the same large term multiple times. These large
+terms can be shared between different clauses in the proof. To express
+proofs in a concise manner, we support the <code>let</code> syntax from
+SMT-LIB to bind terms to variables. Such <code>let</code> terms are seen
+as syntactic sugar and are equal to their expanded form, i.e., no proof
+rule is required to expand a <code>let</code>. In particular, the
+resolution rule will also remove the pivot literal from the proved
+sub-clause if they are only identical after let expansion.</p>
+<p>To bind a proof to a variable, the <code>let-proof</code> keyword is
+used with the same syntax as <code>let</code>. This can be used to avoid
+repeating the same subproof multiple times. This proof variable may then
+be used whereever a proof is expected, e.g., as arguments of the
+resolution rule.</p>
+<p>The <code>let-proof</code> syntax is also useful for expressing the
+proofs in a linear form. A solver may choose to print its proof on the
+fly by printing each learned clause and binding it to a variable until
+it derives the empty clause:</p>
+<pre><code>(let-proof ((C1 (assume …)))
+(let-proof ((C2 (res … C1 …)))
+…
+ C100 ; empty clause
+)…)</code></pre>
+<h3 id="function-definitions">Function definitions</h3>
+<p>The proof format also supports custom defined functions that are only
+used inside the proof. This can be usefule for auxiliary functions that
+are created by Skolemization or by CNF conversion of quantified
+formulas. The syntax for this is
+<code>((define-fun f ((x0 τ0)…(xn τn)) d) subproof)</code> where
+subproof may use the function symbol <code>f</code> and the
+<code>cong</code> and <code>expand</code> axioms for this function
+symbol.</p>
+<h3 id="extended-resolution">Extended resolution</h3>
+<p>The proof calculus trivially supports extended resolution, where a
+new literal <code>p</code> is introduced that represents
+<code>(and p0 p1)</code> and the three clauses
+<code>(- p0 - p1 + p)</code>, <code>(- p + p0)</code>, and
+<code>(- p + p1)</code> are added. This is facilitated by the
+<code>let</code> syntax and the axioms for logical operators as
+follows:</p>
+<pre><code>(let ((p (and p0 p1)))
+  (let-proof ((C1 (and+ p))
+              (C2 (and- 0 p))
+              (C3 (and- 1 p)))
+    …))</code></pre>
+<p>Resolution proofs are usually only refutation complete, i.e., they
+can prove the empty clause if the conjunction of the input clauses are
+unsatisfiable. However, the addition of the core axioms makes the
+calculus complete in the sense that for every valid SMT-LIB formula
+<code>t</code> there is a proof that proves the unit clause
+<code>(+ t)</code>.</p>
+<p>The proof calculus does not support RUP proofs directly. They need to
+be converted to applications of <code>res</code> by explicitly listing
+the clauses and pivot term used in the unit propagation subproof. More
+importantly DRAT proofs are not supported and there is no syntax for
+deleting clauses. Instead they need to be converted to extended
+resolution (which blows up the proof quadratically). On the other hand,
+this simplifies the proof checker, which would otherwise need to
+rediscover the necessary clauses and subproofs.</p>
+<h2 id="example-proof-eq-diamond2">Example Proof: eq-diamond2</h2>
+<p>We give an example proof for the following simple benchmark from the
+SMT-LIB benchmark set.</p>
+<pre class="smt2"><code>(set-option :produce-proofs true)
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun x0 () U)
+(declare-fun y0 () U)
+(declare-fun z0 () U)
+(declare-fun x1 () U)
+(declare-fun y1 () U)
+(declare-fun z1 () U)
+(assert (and (or (and (= x0 y0) (= y0 x1)) (and (= x0 z0) (= z0 x1))) (not (= x0 x1))))
+(check-sat)
+(get-proof)</code></pre>
+<p>A valid output for this benchmark would be the following.</p>
+<pre class="smt2"><code>unsat
+(let ((t1 (= x0 y0))
+      (t2 (= y0 x1))
+      (t3 (= x0 z0))
+      (t4 (= z0 x1))
+      (t5 (= x0 x1)))
+(let ((t6 (and t1 t2))
+      (t7 (and t3 t4))
+      (t8 (not t5)))
+(let ((t9 (or t6 t7)))
+(let ((t10 (and t9 t8)))
+(let-proof ((C0 (assume t10)))
+(let-proof ((C1 (res t9 (res t10 C0 (and- 0 t10)) (or- t9))))
+(let-proof ((C2 (res t8 (res t10 C0 (and- 1 t10)) (not- t8))))
+(let-proof ((C3 (and- 0 t6)))
+(let-proof ((C4 (and- 1 t6)))
+(let-proof ((C5 (and- 0 t7)))
+(let-proof ((C6 (and- 1 t7)))
+(let-proof ((C7 (res t5 (res t1 C3 (res t2 C4 (trans x0 y0 x1))) C2)))
+    (res t5 (res t6 (res t7 C1 (res t4 C6 (res t3 C5 (trans x0 z0 x1)))) C7) C2)
+))))))))))))</code></pre>
+<p>As mentioned earlier, the proof follows mostly the syntax of SMT-LIB
+terms. In particular it uses <code>let</code> and <code>let-proof</code>
+to bind expression and sub-proofs to variables. Let us now explain how
+such a proof can be created.</p>
+<h3 id="introducing-names-for-subterms">Introducing names for
+subterms</h3>
+<p>The first ten lines define names for the sub-terms of the formula
+from bottom to top. Note that <code>t10</code> is the asserted formula
+in the input file (after variable expansion of letted variables). It is
+not required to introduce an identifier for every subterm, but it is
+recommended to keep the proof size small.</p>
+<h3 id="cnf-conversion">CNF conversion</h3>
+<p>Then <code>C0</code> is defined, which is an input clause. Using the
+<code>assume</code> rule an input clause can be proved as a unit clause.
+As usual a clause is a list of literals, which are atoms with positive
+or negative polarity. In our proof calculus the atoms are SMT-LIB terms
+of type Boolean. So the input formula is represented by a unit clause
+containing one positive atom that is the asserted term.</p>
+<p>Every proof rule produces a proof for a clause. The
+<code>assume</code> rule produces the proof that the unit clause
+<code>( + t10 )</code> holds. Clauses are written by listing the
+literals in parenthesis and the <code>+</code> indicates that the
+literal has positive polarity. This proof is then assigned to the
+variable <code>C0</code> so it can be referenced in later proofs.</p>
+<p>The next step is to convert the input formula into CNF. We use
+<code>C1</code>–<code>C7</code> for the clauses resulting from the
+conversion (or more precise, they are the proofs for the clauses of the
+CNF). So lets look how this is done here. The input formula
+<code>t10</code> is</p>
+<pre><code>(and (or t6 t7) (not t5))</code></pre>
+<p>Thus, we want to split it into <code>C1: (+ t6, + t7)</code> and
+<code>C2: (- t5)</code>. To split the <code>and</code>-formula, we use
+the and-elimination rule. In this example the axiom
+<code>(and- 0 t10)</code> is used to proof <code>t9</code> from
+<code>t10</code>. Note that <code>t10</code> is just an abbreviation for
+<code>(and t9 t8)</code> and that <code>t9</code> is the 0th argument.
+So the axiom <code>(and- 0 t10)</code> proves the tautology clause
+<code>(- t10 + t9)</code>, which states that <code>t9</code> is implied
+by <code>t10</code>. By resolving this clause with the input formula
+<code>t10</code>, we get a proof for <code>t9</code>. The resolution is
+written as <code>(res t10 C0 (and- 0 t10))</code>, where
+<code>t10</code> is the pivot literal, C0 the proof of a clause
+containing it positively, and <code>(and- 0 t10)</code> a proof
+containing it negatively. The result is a proof for
+<code>( + t9 )</code>.</p>
+<p>The next step is to eliminate <code>(or t6 t7)</code>, that is
+<code>t9</code>, using the or-elimination rule. The axiom
+<code>(or- t9)</code> proves the tautology clause
+<code>( -t9 + t6 + t7) )</code> and resolving it with the previous proof
+on the pivot <code>t9</code> we finally obtain <code>C1</code> which is
+a proof for <code>(+ t6 + t7)</code>.</p>
+<pre><code>(let-proof ((C1 (res t9 (res t10 C0 (and- 0 t10)) (or- t9))))</code></pre>
+<p>Similarly we use the other and-elimination rule
+<code>(and- 1 t10)</code> and the not-elimination rule
+<code>(not- t8)</code> to obtain from <code>C0</code> the clause
+<code>C2</code> that proves <code>(- t5)</code>.</p>
+<pre><code>(let-proof ((C2 (res t8 (res t10 C0 (and- 1 t10)) (not- t8))))</code></pre>
+<p>Furthermore, we add the clauses of the Plaisted–Greenbaum-encoding
+<code>C3</code>–<code>C6</code>. These clauses are just the
+and-elimination clauses, but this time for <code>(and t1 t2)</code> and
+<code>(and t3 t4)</code>. This gives us the full CNF of the input:</p>
+<pre><code>C1: (+ t6 + t7)
+C2: (- t5)
+C3: (- t6 + t1)
+C4: (- t6 + t2)
+C5: (- t7 + t3)
+C6: (- t7 + t4)</code></pre>
+<h3 id="smt-solving">SMT solving</h3>
+<p>The only unit clause <code>C2</code> propagates <code>-t5</code>. We
+assume, the DPLL-engine now decides the literal <code>+t6</code> and
+propagates <code>+t1</code> and <code>+t2</code> by unit-propagation.
+Then the theory solver finds the conflict involving transitivity:</p>
+<pre><code>(trans x0 y0 x1): (- t1 - t2 + t5)</code></pre>
+<p>By definition <code>t1</code> is <code>(= x0 y0)</code>,
+<code>t2</code> is <code>(= y0 x1)</code> and <code>t5</code> is
+<code>(= x0 x1)</code>, so the transitivity axiom for
+<code>x0 = y0 = x1</code> has exactly this form.</p>
+<p>CDCL now explains the conflict to obtain <code>C7: (- t6)</code></p>
+<pre><code>(let-proof ((C7 (res t5 (res t2 C4 (res t1 C3 (trans x0 y0 x1))) C2)))</code></pre>
+<p>Now unit resolution propagates <code>-t6</code>, <code>+t7</code>,
+<code>+t3</code>, and <code>+t4</code> and again a theory conflict is
+found:</p>
+<pre><code>(trans x0 z0 x1): (- t3 - t4 + t5)</code></pre>
+<p>The explanation yields the empty clause.</p>
+<pre><code>(res t5 (res t6 (res t7 C1 (res t4 C6 (res t3 C5 (trans x0 z0 x1)))) C7) C2)</code></pre>
+<p>This concludes the proof.</p>
+<h2 id="grammar">Grammar</h2>
+<p>The grammar for proofs uses the grammar for ⟨numeral⟩, ⟨term⟩,
+⟨sort⟩, ⟨symbol⟩, ⟨sorted_var⟩, ⟨attribute⟩ from the SMT-LIB standard,
+version 2.6. It is given below:</p>
+<pre><code>⟨term_or_proof⟩ ::= ⟨term⟩ | ⟨proof⟩
+⟨polarity⟩ ::= + | -
+⟨literal⟩ ::= ⟨polarity⟩ ⟨term⟩
+⟨clause⟩ ::= ( ⟨literal⟩ ⃰ )
+⟨proof⟩ ::= (res ⟨term⟩ ⟨proof⟩ ⟨proof⟩)
+          | (let ((⟨symbol⟩ ⟨term⟩)⁺) ⟨proof⟩)
+          | (let-proof ((⟨symbol⟩ ⟨proof⟩)⁺) ⟨proof⟩)
+          | ⟨symbol⟩
+          | ((define-fun ⟨symbol⟩ (⟨sorted_var⟩⁺) ⟨sort⟩ ⟨term⟩) ⟨proof⟩)
+          | ((declare-fun ⟨symbol⟩ (⟨sort⟩⁺) ⟨sort⟩) ⟨proof⟩)
+          | ((refine-fun ⟨symbol⟩ (⟨sorted_var⟩⁺) ⟨sort⟩ ⟨term⟩) ⟨proof⟩)
+          | (assume ⟨term⟩)
+          | (oracle ⟨clause⟩ ⟨attributes⟩ ⃰)
+          | ⟨core-axiom⟩
+          | ⟨arith-axiom⟩
+          | ⟨datatype-axiom⟩
+          | ⟨bitvector-axiom⟩</code></pre>
+<p>In our settings, an atom is an SMT-LIB term. A literal is a term with
+a polarity + or -. A clause is a set of literal, written as a sequence
+with a pair of parenthesis around it.</p>
+<p>Every proof proves a clause. The whole proof given by an SMT-solver
+as the solution, should prove the empty clause. A proof may be produced
+from subproofs and for this purpose a subproof may be bound to a
+variable symbol, so it can be efficiently used multiple times.</p>
+<p>The rule <code>(res t p1 p2)</code> is the resolution rule, the main
+work-horse of this proof format. Here <code>p1</code> is a proof that
+proves some clause
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2.716ex" height="2.509ex" style="vertical-align: -0.671ex;" viewBox="0 -791.3 1169.4 1080.4" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E11-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E11-MJMAIN-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E11-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E11-MJMAIN-31" x="1011" y="-213"></use>
+</g>
+</svg> and <code>p2</code> a proof that proves
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2.716ex" height="2.509ex" style="vertical-align: -0.671ex;" viewBox="0 -791.3 1169.4 1080.4" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E12-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E12-MJMAIN-32" d="M109 429Q82 429 66 447T50 491Q50 562 103 614T235 666Q326 666 387 610T449 465Q449 422 429 383T381 315T301 241Q265 210 201 149L142 93L218 92Q375 92 385 97Q392 99 409 186V189H449V186Q448 183 436 95T421 3V0H50V19V31Q50 38 56 46T86 81Q115 113 136 137Q145 147 170 174T204 211T233 244T261 278T284 308T305 340T320 369T333 401T340 431T343 464Q343 527 309 573T212 619Q179 619 154 602T119 569T109 550Q109 549 114 549Q132 549 151 535T170 489Q170 464 154 447T109 429Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E12-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E12-MJMAIN-32" x="1011" y="-213"></use>
+</g>
+</svg>. The side-condition is that <code>+ t</code> occurs in
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2.716ex" height="2.509ex" style="vertical-align: -0.671ex;" viewBox="0 -791.3 1169.4 1080.4" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E13-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E13-MJMAIN-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E13-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E13-MJMAIN-31" x="1011" y="-213"></use>
+</g>
+</svg> and <code>- t</code> in
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="2.716ex" height="2.509ex" style="vertical-align: -0.671ex;" viewBox="0 -791.3 1169.4 1080.4" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E14-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E14-MJMAIN-32" d="M109 429Q82 429 66 447T50 491Q50 562 103 614T235 666Q326 666 387 610T449 465Q449 422 429 383T381 315T301 241Q265 210 201 149L142 93L218 92Q375 92 385 97Q392 99 409 186V189H449V186Q448 183 436 95T421 3V0H50V19V31Q50 38 56 46T86 81Q115 113 136 137Q145 147 170 174T204 211T233 244T261 278T284 308T305 340T320 369T333 401T340 431T343 464Q343 527 309 573T212 619Q179 619 154 602T119 569T109 550Q109 549 114 549Q132 549 151 535T170 489Q170 464 154 447T109 429Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E14-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E14-MJMAIN-32" x="1011" y="-213"></use>
+</g>
+</svg> (the order of the arguments <code>p1</code></p>
+<p>and <code>p2</code> is important). The resulting proof term proves
+the clause
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="25.968ex" height="2.843ex" style="vertical-align: -0.838ex;" viewBox="0 -863.1 11180.6 1223.9" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E15-MJMAIN-28" d="M94 250Q94 319 104 381T127 488T164 576T202 643T244 695T277 729T302 750H315H319Q333 750 333 741Q333 738 316 720T275 667T226 581T184 443T167 250T184 58T225 -81T274 -167T316 -220T333 -241Q333 -250 318 -250H315H302L274 -226Q180 -141 137 -14T94 250Z"></path>
+<path stroke-width="1" id="E15-MJMATHI-43" d="M50 252Q50 367 117 473T286 641T490 704Q580 704 633 653Q642 643 648 636T656 626L657 623Q660 623 684 649Q691 655 699 663T715 679T725 690L740 705H746Q760 705 760 698Q760 694 728 561Q692 422 692 421Q690 416 687 415T669 413H653Q647 419 647 422Q647 423 648 429T650 449T651 481Q651 552 619 605T510 659Q484 659 454 652T382 628T299 572T226 479Q194 422 175 346T156 222Q156 108 232 58Q280 24 350 24Q441 24 512 92T606 240Q610 253 612 255T628 257Q648 257 648 248Q648 243 647 239Q618 132 523 55T319 -22Q206 -22 128 53T50 252Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-31" d="M213 578L200 573Q186 568 160 563T102 556H83V602H102Q149 604 189 617T245 641T273 663Q275 666 285 666Q294 666 302 660V361L303 61Q310 54 315 52T339 48T401 46H427V0H416Q395 3 257 3Q121 3 100 0H88V46H114Q136 46 152 46T177 47T193 50T201 52T207 57T213 61V578Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-2216" d="M56 731Q56 740 62 745T75 750Q85 750 92 740Q96 733 270 255T444 -231Q444 -239 438 -244T424 -250Q414 -250 407 -240Q404 -236 230 242T56 731Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-7B" d="M434 -231Q434 -244 428 -250H410Q281 -250 230 -184Q225 -177 222 -172T217 -161T213 -148T211 -133T210 -111T209 -84T209 -47T209 0Q209 21 209 53Q208 142 204 153Q203 154 203 155Q189 191 153 211T82 231Q71 231 68 234T65 250T68 266T82 269Q116 269 152 289T203 345Q208 356 208 377T209 529V579Q209 634 215 656T244 698Q270 724 324 740Q361 748 377 749Q379 749 390 749T408 750H428Q434 744 434 732Q434 719 431 716Q429 713 415 713Q362 710 332 689T296 647Q291 634 291 499V417Q291 370 288 353T271 314Q240 271 184 255L170 250L184 245Q202 239 220 230T262 196T290 137Q291 131 291 1Q291 -134 296 -147Q306 -174 339 -192T415 -213Q429 -213 431 -216Q434 -219 434 -231Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-2B" d="M56 237T56 250T70 270H369V420L370 570Q380 583 389 583Q402 583 409 568V270H707Q722 262 722 250T707 230H409V-68Q401 -82 391 -82H389H387Q375 -82 369 -68V230H70Q56 237 56 250Z"></path>
+<path stroke-width="1" id="E15-MJMATHI-74" d="M26 385Q19 392 19 395Q19 399 22 411T27 425Q29 430 36 430T87 431H140L159 511Q162 522 166 540T173 566T179 586T187 603T197 615T211 624T229 626Q247 625 254 615T261 596Q261 589 252 549T232 470L222 433Q222 431 272 431H323Q330 424 330 420Q330 398 317 385H210L174 240Q135 80 135 68Q135 26 162 26Q197 26 230 60T283 144Q285 150 288 151T303 153H307Q322 153 322 145Q322 142 319 133Q314 117 301 95T267 48T216 6T155 -11Q125 -11 98 4T59 56Q57 64 57 83V101L92 241Q127 382 128 383Q128 385 77 385H26Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-7D" d="M65 731Q65 745 68 747T88 750Q171 750 216 725T279 670Q288 649 289 635T291 501Q292 362 293 357Q306 312 345 291T417 269Q428 269 431 266T434 250T431 234T417 231Q380 231 345 210T298 157Q293 143 292 121T291 -28V-79Q291 -134 285 -156T256 -198Q202 -250 89 -250Q71 -250 68 -247T65 -230Q65 -224 65 -223T66 -218T69 -214T77 -213Q91 -213 108 -210T146 -200T183 -177T207 -139Q208 -134 209 3L210 139Q223 196 280 230Q315 247 330 250Q305 257 280 270Q225 304 212 352L210 362L209 498Q208 635 207 640Q195 680 154 696T77 713Q68 713 67 716T65 731Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-29" d="M60 749L64 750Q69 750 74 750H86L114 726Q208 641 251 514T294 250Q294 182 284 119T261 12T224 -76T186 -143T145 -194T113 -227T90 -246Q87 -249 86 -250H74Q66 -250 63 -250T58 -247T55 -238Q56 -237 66 -225Q221 -64 221 250T66 725Q56 737 55 738Q55 746 60 749Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-222A" d="M591 598H592Q604 598 611 583V376Q611 345 611 296Q610 162 606 148Q605 146 605 145Q586 68 507 23T333 -22Q268 -22 209 -1T106 66T56 173Q55 180 55 384L56 585Q66 598 75 598Q85 598 95 585V378L96 172L98 162Q112 95 181 57T332 18Q415 18 487 58T570 175Q571 180 571 383V583Q579 598 591 598Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-32" d="M109 429Q82 429 66 447T50 491Q50 562 103 614T235 666Q326 666 387 610T449 465Q449 422 429 383T381 315T301 241Q265 210 201 149L142 93L218 92Q375 92 385 97Q392 99 409 186V189H449V186Q448 183 436 95T421 3V0H50V19V31Q50 38 56 46T86 81Q115 113 136 137Q145 147 170 174T204 211T233 244T261 278T284 308T305 340T320 369T333 401T340 431T343 464Q343 527 309 573T212 619Q179 619 154 602T119 569T109 550Q109 549 114 549Q132 549 151 535T170 489Q170 464 154 447T109 429Z"></path>
+<path stroke-width="1" id="E15-MJMAIN-2212" d="M84 237T84 250T98 270H679Q694 262 694 250T679 230H98Q84 237 84 250Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E15-MJMAIN-28" x="0" y="0"></use>
+<g transform="translate(389,0)">
+ <use xlink:href="#E15-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E15-MJMAIN-31" x="1011" y="-213"></use>
+</g>
+ <use xlink:href="#E15-MJMAIN-2216" x="1781" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-7B" x="2503" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-2B" x="3004" y="0"></use>
+ <use xlink:href="#E15-MJMATHI-74" x="3782" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-7D" x="4144" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-29" x="4644" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-222A" x="5256" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-28" x="6146" y="0"></use>
+<g transform="translate(6535,0)">
+ <use xlink:href="#E15-MJMATHI-43" x="0" y="0"></use>
+ <use transform="scale(0.707)" xlink:href="#E15-MJMAIN-32" x="1011" y="-213"></use>
+</g>
+ <use xlink:href="#E15-MJMAIN-2216" x="7927" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-7B" x="8650" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-2212" x="9150" y="0"></use>
+ <use xlink:href="#E15-MJMATHI-74" x="9929" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-7D" x="10290" y="0"></use>
+ <use xlink:href="#E15-MJMAIN-29" x="10791" y="0"></use>
+</g>
+</svg>.</p>
+<p>The let binder <code>let ((x t)) p</code> binds the value of
+<code>t</code> to a symbol <code>x</code>. Here <code>t</code> can be an
+arbitrary term. The symbol <code>x</code> can then be used in terms as
+free variable. Similarly, the let binder
+<code>let-proof ((x p1)) p</code> binds a proof <code>p1</code> to the
+variable <code>x</code> and <code>x</code> can be referenced in
+<code>p</code> using the ⟨symbol⟩ rule. The scope of <code>x</code> is
+the proof <code>p</code> and the resulting proof proves the same clause
+as <code>p</code>.</p>
+<p>The rule <code>(assume t)</code> where <code>t</code> is a term,
+proves the unit clause <code>(+ t)</code>. Its side condition (checked
+by the proof checker) is that it was asserted in the input problem by an
+SMT-LIB <code>assert</code> command.</p>
+<p>The oracle rule can be used to introduce clauses that cannot be
+easily explained. It should be used as a last resort, if a full
+low-level proof is too tedious, or if the axioms for the theory are
+missing. The proof-checker allows any oracle clause but will warn about
+these clauses.</p>
+<p>The remaining rules are the low-level axioms of the proof format.
+Each of them creates a tautological clause. They are given in the next
+section.</p>
+<h2 id="equality-between-terms">Equality between terms</h2>
+<p>A proof calculus needs to define which terms are intrinsically equal.
+This equality relation needs to be decidable, but it should also simple
+for efficient implementation of proof checkers. To get a consensus when
+a proof is correct we need to formally define this intrinsic
+equality.</p>
+<p>Equality is used by the proof checker in two places. The first is for
+the side-condition of the <code>assume</code> rule that states that the
+assumed term must be equal to a formula asserted in the input problem.
+The second is for the set operations in the resolution rule that require
+that the pivot literal is contained in the clause, is removed from the
+clause, and for the union operation that will remove duplicated elements
+in the resolvent.</p>
+<p>In type theory equality is usally defined by α,β,δ,…-reduction. Here
+we define our own reduction rules in form of a rewrite system. Two terms
+are equal, if they are rewritten to the same canonical term.</p>
+<p>The rules are</p>
+<pre><code>x → t                where x in the current context is bound to t by a let
+(let (...) t) → t    where t has no variable bound by let
+|symbol| → symbol    where symbol is a valid SMT-LIB symbol
+numeral → numeral.0  only for LRA/NRA logics where numeral is of sort Real</code></pre>
+<h3 id="discussion">Discussion</h3>
+<p>The above rules are minimal to keep the canonicalization of terms
+simple. The let rules are necessary for efficient proof representation.
+The <code>|symbol|</code> rule should help solvers whose internal
+representation may not differentiate between quoted and unquoted
+terms.</p>
+<p>The last rule for <code>numeral</code> is only used for matching the
+input formula of the benchmark with the asserted formula in the proof.
+It is necessary, because a proof is parsed as a term in the logic LIRA
+when bitvectors are present, because our bitvector rules use integers.
+This means that every numeral in the input formula must be written as
+the corresponding decimal in the proof.</p>
+<p>Note that any change to these rules can make existing proofs invalid.
+If new rules are added this may cause resolution steps to be superfluous
+and cause an error message that the pivot literal was not found in the
+antecedent clause. This could be solved by making the resolution rule
+more lenient, but such a change would make debugging faulty proofs much
+harder as then only the final emptiness check for the proved clause
+fails.</p>
+<h3 id="clashing-variable-names">Clashing variable names</h3>
+<p>For the rewrite system above variable names can clash. As an example
+consider the following term.</p>
+<pre><code>(exists ((x Int)) (let ((y x)) (exists (x Int) (not (= x y)))))</code></pre>
+<p>When rewriting the above term using the let rules and replacing
+<code>y</code> by its definition <code>x</code>, the proof validator
+needs to remember that it binds to the outer quantifier and not to the
+inner one. In particular the above term is not equal (not even
+equivalent) to the term</p>
+<pre><code>(exists ((x Int)) (exists (x Int) (not (= x x))))</code></pre>
+<p>Instead the term could be represented by</p>
+<pre><code>(exists ((x₁ Int)) (exists (x₂ Int) (not (= x₂ x₁))))</code></pre>
+<h2 id="core-axioms">Core Axioms</h2>
+<p>The core axioms are ⟨proof⟩ objects that prove a tautological
+clauses. Their inputs are usually ⟨term⟩s. We distinguish the following
+categories.</p>
+<h3 id="logical-axioms-elimination-and-introduction">Logical axioms –
+elimination and introduction</h3>
+<p>For every logical operator we have the usual elimination and
+introduction rules. In our calculus they take the form of a clause where
+the premises have negative polarity and the conclusion has positive
+polarity. They are also identical to the clauses that Tseitin-encoding
+gives. The following list the axioms and the corresponding clause proved
+by this axiom. In this list <code>t, t0,…</code> denote terms,
+<code>n,i,j</code> denote numerals. The elimination rules are indicated
+by <code>-</code> and the introduction rules are indicated by
+<code>+</code>.</p>
+<pre><code>⟨core-axiom⟩ ::=
+ | (false-)               ;( - false )
+ | (true+)                ;( + true )
+ | (not+ (not t))         ;( +(not t) + t )
+ | (not- (not t))         ;( -(not t) - t )
+ | (and+ (and t0 … tn))   ;( +(and t0 … tn) - t0 … - tn)
+ | (and- i (and t0 … tn)) ;( -(and t0 … tn) + ti)
+ | (or+ i (or t0 … tn))   ;( +(or t0 … tn) - ti)
+ | (or- (or t0 … tn))     ;( -(or t0 … tn) + t0 … + tn)
+ | (=&gt;+ (=&gt; i t0 … tn))   ;( +(=&gt; t0 … tn) + ti)        (for i &lt; n)
+ | (=&gt;+ n (=&gt; t0 … tn))   ;( +(=&gt; t0 … tn) - tn)
+ | (=&gt;- (=&gt; t0 … tn))     ;( -(=&gt; t0 … tn) - t0 … - tn-1 + tn)
+ | (=+1 (= t0 t1))        ;( +(= t0 t1) + t0 + t1)      (only for Boolean t0/t1)
+ | (=+2 (= t0 t1))        ;( +(= t0 t1) - t0 - t1)      (only for Boolean t0/t1)
+ | (=-1 (= t0 t1))        ;( -(= t0 t1) + t0 - t1)      (only for Boolean t0/t1)
+ | (=-2 (= t0 t1))        ;( -(= t0 t1) - t0 + t1)      (only for Boolean t0/t1)
+ | …                      ;;; see next section</code></pre>
+<p>All rules containing <code>i</code> have the implicit constraint
+<code>0 &lt;= i &lt;= n</code>.</p>
+<h3 id="equality-rules">Equality rules</h3>
+<p>We support the usual axioms of reflexivity, symmetry, transitivity
+(with arbitrarily long chains), and congruence:</p>
+<pre><code>⟨core-axiom⟩ ::= …
+ | (refl t):              ;( +(= t t) )
+ | (symm t0 t2):          ;( +(= t0 t1) -(= t1 t0) )
+ | (trans t0 … tn):       ;( +(= t0 tn) -(= t0 t1) … -(= tn-1 tn) )  (for n &gt;= 2)
+ | (cong (f t0 … tn) (f t&#39;0 … t&#39;n))
+                       ;( +(= (f t0 … tn) (f t&#39;0 … t&#39;n))
+                       ;  -(= t0 t&#39;0) … -(= tn t&#39;n))</code></pre>
+<p>Additionally we have elimination and introduction rules for equality
+chains and for distinct:</p>
+<pre><code>⟨core-axiom⟩ ::= …
+ | (=+ (= t0 … tn)):              ;( +(= t0 … tn) -(= t0 t1) … -(= tn-1 tn))
+ | (=- i j (= t0 … tn)):          ;( -(= t0 … tn) +(= ti tj))
+ | (distinct+ (distinct t0 … tn)) ;( +(distinct t0 … tn)
+                                  ;  +(= t0 t1) … +(= t0 tn)
+                                  ;  +(= t1 t2) … +(= t2 tn)…
+                                  ;  +(= tn-1 tn))
+ | (distinct- i j (distinct t0 … tn)); ( -(distinct t0 … tn) -(= ti tj))      (for i != j)</code></pre>
+<p>The rules containing <code>i,j</code> have the implicit constraint
+<code>0 &lt;= i &lt;= n</code>, <code>0 &lt;= j &lt;= n</code>. For
+<code>=</code> we have n &gt;= 2. for <code>distinct</code> we have
+<code>n &gt;= 1</code>.</p>
+<h3 id="ite-rules">ite rules</h3>
+<p>To support ite terms, we have two simple axioms (<code>t0</code> is
+the condition).</p>
+<pre><code>⟨core-axiom⟩ ::= …
+ | (ite1 (ite t0 t1 t2))   ;( - t0 +(= (ite t0 t1 t2) t1) )
+ | (ite2 (ite t0 t1 t2))   ;( + t0 +(= (ite t0 t1 t2) t2) )</code></pre>
+<h3 id="xor-rules">xor rules</h3>
+<p>For efficient <code>xor</code> reasoning we allow arbitrary split and
+reordering of the xor arguments between three xor terms. The rules
+are</p>
+<pre><code>⟨core-axiom⟩ ::= …
+ | (xor+ (t̅0) (t̅1) (t̅2)   ;( +(xor t̅0) +(xor t̅1) -(xor t̅2) )
+ | (xor- (t̅0) (t̅1) (t̅2)   ;( -(xor t̅0) -(xor t̅1) -(xor t̅2) )</code></pre>
+<p>where <code>t̅0,t̅1,t̅2</code> are three non-empty sequences of terms
+that in total contain every term an even number of times. Furthermore,
+if one of the sequences <code>t̅i</code> consists of only a single term
+<code>ti</code> then the clause contains the atom <code>ti</code>
+instead of the corresponding xor-term. For example:</p>
+<pre><code>(xor+ (t0 t1 t2) (t1) (t2 t0)): ( +(xor t0 t1 t2) + t1 -(xor t2 t0) )
+(xor- (t t) (t t) (t t)):       ( -(xor t t) )</code></pre>
+<p>Note that the last rule uses the fact that a clause is a set of
+literals, so multiple occurrences of literals are implicitly
+removed.</p>
+<h3 id="quantifier-instantiation-and-skolemization">Quantifier
+instantiation and Skolemization</h3>
+<p>The rules for quantifier introduction and elimination bind the
+quantified variables either by an arbitrary term or use the choose
+operator (the Hilbert epsilon operator).</p>
+<pre><code>⟨core-axiom⟩ ::= …
+ | (forall+ (forall ((x0 X0) … (xn Xn)) F))
+    ;( +(forall ((x0 X0) … (xn Xn)) F)
+    ;  -(let ((x0 (choose (x0 X0) (not (forall ((x1… xn Xn)) F)))))
+    ;    (let ((x1 (choose (x1 X1) (not (forall ((x2… xn Xn)) F)))))
+    ;     …
+    ;     (let ((xn (choose (xn X)) (not F))) F)..)) )
+ | (forall- (t0 … tn) (forall ((x0 X0) … (xn Xn)) F)):
+    ;( -(forall ((x0 X0) … (xn Xn)) F) +(let ((x0 t0) … (xn tn)) F) )
+ | (exists+ (t0 … tn) (exists ((x0 X0) … (xn Xn)) F)):
+    ;( +(exists ((x0 X0) … (xn Xn)) F) -(let ((x0 t0) … (xn tn)) F) )
+ | (exists- (exists ((x0 X0) … (xn Xn)) F))
+    ;( -(exists ((x0 X0) … (xn Xn)) F)
+    ;  +(let ((x0 (choose (x0 X0) (exists ((x1… xn Xn)) F))))
+    ;    (let ((x1 (choose (x1 X1) (exists ((x2… xn Xn)) F))))
+    ;     …
+    ;      (let ((xn (choose (xn X)) F)) F)…)) )</code></pre>
+<p>In forall- and exists+, <code>Xi</code> is the type of
+<code>ti</code>.</p>
+<h3 id="miscellaneous-rules">Miscellaneous rules</h3>
+<p>For every symbol defined by <code>define-fun</code> we have a rule
+that expands the function definition. Assume <code>f</code> is defined
+as</p>
+<pre><code>(define-fun f ((x0 X0) … (xn Xn)) X t)</code></pre>
+<p>then the expand rule for <code>f</code> is</p>
+<pre><code>⟨core-axiom⟩ ::= …
+ | (expand (f t0 … tn)) ;( +(= (f t0 … tn) (let ((x0 t0) … (xn tn)) t)))</code></pre>
+<p>Note that the <code>:named</code> attribute is implicitly expanded to
+define-fun according to the standard and therefore the expand rule can
+also be used for named terms.</p>
+<p>Proofs can also contain <code>define-fun</code> with the same syntax.
+These will define the function symbol for the subproof and enable the
+<code>expand</code> rule there. The defined function symbol must not be
+used outside the subproof. The <code>declare-fun</code> will add the
+function, but will not allow any <code>expand</code> of this function,
+only congruence is allowed.</p>
+<p>There is also a <code>refine-fun</code> which adds a function
+definition to an already declared function. It is only allowed on the
+outermost layer of satisfiability proofs and is used to fix the model
+for uninterpreted function occuring in the benchmark.</p>
+<p>For some internal functions, the expand rule is also applicable. For
+every function with the LEFTASSOC, RIGHTASSOC, CHAINABLE, or PAIRWISE
+attribute and more than two arguments expand will apply the
+transformation given by the SMT-LIB standard, e.g.:</p>
+<pre><code>(expand (or t0 … tn)): ( +(= (or t0 … tn)
+                              (or … (or t0 t1) … tn)))
+(expand (=&gt; t0 … tn)): ( +(= (=&gt; t0 … tn)
+                              (or t0 … (or tn-1 tn) … )))
+(expand (&lt; t0 … tn)):  ( +(= (&lt; t0 … tn)
+                              (and (&lt; t0 t1) … (tn-1 tn))))</code></pre>
+<p>Theories have their own expand rules for some of the theory
+functions, like <code>abs</code> or <code>(_ divisible k</code>. These
+are listed in the section describing the theory extensions.</p>
+<p>We also have a simple rule to delete attributes from input terms</p>
+<pre><code>⟨core-axiom⟩ ::= …
+ | (del! t :attributes…)  ;( +(= (! t :attributes…) t) )</code></pre>
+<h2 id="extensions-for-other-theories">Extensions for other
+theories</h2>
+<p>When adding more theories, we need to add more axioms to support
+these theories. Here we will look into some of them.</p>
+<h3 id="array-theory">Array Theory</h3>
+<p>We add the McCarthy axioms and an axiom for extensionality. We choose
+the axiom with an explicit <code>@diff</code> operator that returns some
+index where two arrays differ, if they differ.</p>
+<pre><code>⟨array-axiom⟩ ::=
+ | (selectstore1 a i v)   ;( +(= (select (store a i v) i) v) )
+ | (selectstore2 a i j v) ;( +(= (select (store a i v) j) (select a j)) +(= i j))
+ | (extdiff a b)   ;( +(= a b) -(= (select a (@diff a b)) (select b (@diff a b))))</code></pre>
+<p>For supporting const arrays one additional axiom is needed:</p>
+<pre><code> | (const v i)  ;( +(= (select (@const v) i) v) )</code></pre>
+<h3 id="arithmetic">Arithmetic</h3>
+<p>For arithmetic we need to manipulate polynomials. Polynomials are
+represented by an SMT-LIB term of the following form.</p>
+<pre><code>  (+ (* c1 t11 … t1m) … (* cn tn1 … tnm))</code></pre>
+<p>Here c1, .., cn are constants (NUMERALS, DECIMALS, or integer/real
+numbers in canonical form). All <code>(ti1 … tim)</code> are different
+multi-sets, the head symbol of tij is not <code>+</code> or
+<code>*</code>. All ci,tij have the same type (Real or Int). The
+constant <code>ci</code> can be omitted, if it is 1 (except if there is
+no <code>ti1 … tin</code>), <code>*</code>/<code>+</code> is omitted if
+it has only one argument. The zero polynomial is represented by 0.</p>
+<p>When multiplying polynomials or adding them together the usual rules
+of distributivity, commutativity and associativity are applied to bring
+them into the above normal form again.</p>
+<p>We have four rules that manipulate these polynomial. The first two
+are doing polynom addition and multiplication:</p>
+<pre><code>⟨arith-axiom⟩ ::=
+ | (poly+ (+ a1 … an) a):  ;( +(= (+ a1 … an) a) )  where a1+…+an = a
+ | (poly* (* a1 … an) a):  ;( +(= (* a1 … an) a) )  where a1*…*an = a
+ | …</code></pre>
+<p>Here <code>a1</code>, …, <code>an</code>, <code>a</code> are
+polynomials. The side-condition <code>a1+…+an=a</code> states that the
+polynomial resulting from adding <code>a1</code> to <code>an</code>
+together yields a polynomial equal to <code>a</code>, i.e. has the same
+monomials with the same coefficients, but can differ in the order of the
+terms. Similarly for <code>a1*…*an=a</code>.</p>
+<p>Then we have one rule for <code>to_real</code>:</p>
+<pre><code>⟨arith-axiom⟩ ::= …
+ | (to_real-def a)  ;( +(= (to_real a) a&#39;) )</code></pre>
+<p>where <code>a</code> is a polynomial
+<code>(+ … (* ci … tij …))</code> with integer terms and <code>a'</code>
+is the polynomial <code>(+ … (* ci' … (to_real tij) …))</code> where
+<code>ci'</code> is the real representation of the integer
+<code>ci</code>, i.e., an integer <code>NUM</code> is replaced with
+<code>NUM.0</code> and <code>(- NUM)</code> is replaced with
+<code>(- NUM.0)</code>. Every other term t is replaced by (to_real
+t).</p>
+<p>The heart of the proof system is the following rule proving the
+inconsistency between multiple inequalities by using Farkas’ Lemma.
+(Note that this is only complete for linear arithmetic).</p>
+<pre><code>⟨arith-axiom⟩ ::= …
+ | (farkas c1 (&lt;=? a1 b1) … cn (&lt;=? an bn)): ( -(&lt;=? a1 b1) … -(&lt;=? an bn) )</code></pre>
+<p>where <code>ci</code> are positive integers, <code>&lt;=?</code>
+stands for <code>&lt;</code>, <code>&lt;=</code>, or <code>=</code>,
+<code>ai</code>,<code>bi</code> are polynomials. The weighted sum of
+these polynomials, <code>c1*(a1-b1) + ... + cn*(an-bn)</code> is a
+(rational or integer) constant <code>c</code> where
+<code>c &gt;= 0</code>. If <code>c = 0</code>, then at least one
+inequality must be strict. If some inequalities are Int and some are
+Real, all inequalites are implicitly converted to Real by converting all
+coefficients in ai/bi to real and replacing all terms t in ai/bi with
+(to_real t).</p>
+<p>The remaining axioms work with arbitrary terms and do not require
+adding or multiplying polynomials:</p>
+<pre><code>⟨arith-axiom⟩ ::= …
+ | (trichotomy a b)   ;( +(&lt; a b) +(= a b) +(&lt; b a) )
+ | (total a b)        ;( +(&lt;= a b), (&lt; b a) )</code></pre>
+<p>The only side condition is that the terms in the clause type check.
+For integer reasoning we use the following axiom that states that there
+is no number between <code>c</code> and <code>c+1</code>:</p>
+<pre><code>⟨arith-axiom⟩ ::= …
+ | (total-int a c)    ;( +(&lt;= a c) +(&lt;= (c+1) a) )</code></pre>
+<p>where <code>c</code> is an integer constant (NUMERAL or negated
+NUMERAL) and <code>(c+1)</code> is the SMT-LIB representation of that
+constant plus one. The term <code>a</code> is an arbitrary term of sort
+<code>Int</code>. Remark: an alternative would be to restrict the axiom
+to c=0, i.e., <code>(total-int a)</code> proves
+<code>( +(&lt;= a 0) +(&lt;= 1 a) )</code></p>
+<p>Also we need the following axioms for handling division and modulo.
+The rules are for the theories that contain the corresponding function
+symbols. Note that these rules are syntactically. No polynomial
+normalization is performed int these rules.</p>
+<pre><code>⟨arith-axiom⟩ ::= …
+ | (/def a b1 ... bn) ;( +(= a (* b1 ... bn (/ a b1 ... bn))) +(= b1 0) ... +(= bn 0) )
+ | (div-low x d):       ;( +(&lt;= (* d (div x d)) x) +(= d 0) )
+ | (div-high x d):      ;( +(&lt;  x (+ (* d (div x d)) (abs d))) +(= d 0) )
+ | (mod-def x d):       ;( +(= (mod x d) (- x (* d (div x d)))) +(= d 0) )
+ | (to_int-low x):      ;( +(&lt;= (to_real (to_int x)) x) )
+ | (to_int-high x):     ;( +(&lt;  x (+ (to_real (to_int x)) 1.0)) )
+)</code></pre>
+<p>In addition to the axioms above we also add new definitions for the
+<code>expand</code> axioms. These are given in the following table</p>
+<pre><code>(define-fun - ((x Int)) Int (* (- 1) x))
+(define-fun - ((x Real)) Real (* (- 1) x))
+(define-fun - ((x Int) Int (y Int)) (+ x (* (- 1) y)))
+(define-fun - ((x Real) Real (y Real)) (+ x (* (- 1.0) y)))
+(define-fun &gt; ((x Int) Bool (y Int)) (&lt; y x))
+(define-fun &gt; ((x Real) Bool (y Real)) (&lt; y x))
+(define-fun &gt;= ((x Int) Bool (y Int)) (&lt;= y x))
+(define-fun &gt;= ((x Real) Bool (y Real)) (&lt;= y x))
+(define-fun abs ((x Int)) Int (ite (&lt; x 0) (- x) x))
+(define-fun abs ((x Real)) Real (ite (&lt; x 0) (- x) x))
+(define-fun (_ divisible c) ((x Int)) Bool (= x (* c (div x c))))
+(define-fun is_int ((x Real)) Bool (= x (to_real (to_int x))))</code></pre>
+<p>The other proof rules do not use the symbols <code>-</code>,
+<code>/</code>, <code>&gt;=</code>, <code>&gt;</code>. A solver should
+first rewrite them using these definitions and then only work with
+<code>&lt;=</code>, <code>&lt;</code>, <code>*</code>, <code>+</code>.
+Note that in <code>(divisible-def c x)</code> the constant
+<code>c</code> must be a positive numeral larger than zero, to make the
+term <code>((_ divisible c) x)</code> syntactically correct.</p>
+<p>Also for every internal binary function in LIRA that takes two reals,
+the functions for automatically casting the to real are defined. This is
+also supported by the expand function, even if the function is not used
+with more than two arguments. Here <code>i0</code>, <code>i2</code> are
+terms of sort <code>Int</code> and <code>r1</code>, <code>r3</code> are
+terms of sort <code>Real</code>.</p>
+<pre><code>(expand (+ i0 r1 i2 r3)): ( +(= (+ i0 r1 i2 r3)
+                                 (+(to_real i0) r1 (to_real i2) r3)))</code></pre>
+<p>Note that the axiom <code>farkas</code> is the only axiom with
+negated literals. It can be used in a resolution proof to rewrite a
+positive literals into the corresponding negative literal. On the other
+hand, the axiom <code>total</code> and <code>total-int</code> can be
+used to rewrite a negative literal into the corresponding positive
+literal.</p>
+<h3 id="data-types">Data Types</h3>
+<p>For reasoning about data types, the following rules are used</p>
+<pre><code>⟨datatype-axiom⟩ ::= …
+ | (dt_project seli a1 … an)       ;( +(= (seli (cons a1 ... an)) ai) )
+ | (dt_cons cons x)                ;( -((_ is cons) x) +(= (cons (sel1 x) ... (seln x)) x) )
+ | (dt_test cons (cons a1 … an))   ;( +((_ is cons) (cons a1 ... an)) )
+ | (dt_test cons&#39; (cons a1 … an))  ;( -((_ is cons&#39;) (cons a1 ... an)) )
+ | (dt_exhaust x)                  ;( +((_ is cons1) x) ... +((_ is consn) x) )
+ | (dt_acyclic (cons …(cons… x …)…) x) ;( -(= (cons …(cons… x …)…) x) )
+   ; where (cons …(cons… x …)…) is a term containing x and on the around x
+   ; only constructor functions appear.
+ | (dt_match (match t …))
+   ;( +(= (match t ((p1 x1) c1) …) (ite ((_ is p1) t) (let (x1 (sel1 t)) c1) …)) )</code></pre>
+<h3 id="bit-vectors">Bit Vectors</h3>
+<p>The idea is to translate bit vectors into integer arithmetic. We make
+use of the new functions <code>ubv_to_int</code> and
+<code>int_to_bv</code> to convert between integers and bitvectors.</p>
+<p>We have the following correspondences:</p>
+<pre><code>⟨bitvector-axiom⟩ ::=
+ | (int2ubv2int k t0)  ;( +(= (ubv_to_int ((_ int_to_bv k) t0)) (mod t0 2^k)) )
+ | (int2sbv2int k t0)  ;( +(= (sbv_to_int ((_ int_to_bv k) t0)) (+ (mod (+ t0 2^(k-1)) 2^k) (- 2^(k-1)))) )
+ | (ubv2int2bv t0)     ;( +(= ((_ int_to_bv k) (ubv_to_int t0)) t0)    where a is of type (_ BitVec k)</code></pre>
+<p>In these axioms 2^k, 2^(k-1) stand for the corresponding numerals,
+e.g., for
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="5.472ex" height="2.176ex" style="vertical-align: -0.338ex;" viewBox="0 -791.3 2356.1 936.9" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<path stroke-width="1" id="E16-MJMATHI-6B" d="M121 647Q121 657 125 670T137 683Q138 683 209 688T282 694Q294 694 294 686Q294 679 244 477Q194 279 194 272Q213 282 223 291Q247 309 292 354T362 415Q402 442 438 442Q468 442 485 423T503 369Q503 344 496 327T477 302T456 291T438 288Q418 288 406 299T394 328Q394 353 410 369T442 390L458 393Q446 405 434 405H430Q398 402 367 380T294 316T228 255Q230 254 243 252T267 246T293 238T320 224T342 206T359 180T365 147Q365 130 360 106T354 66Q354 26 381 26Q429 26 459 145Q461 153 479 153H483Q499 153 499 144Q499 139 496 130Q455 -11 378 -11Q333 -11 305 15T277 90Q277 108 280 121T283 145Q283 167 269 183T234 206T200 217T182 220H180Q168 178 159 139T145 81T136 44T129 20T122 7T111 -2Q98 -11 83 -11Q66 -11 57 -1T48 16Q48 26 85 176T158 471L195 616Q196 629 188 632T149 637H144Q134 637 131 637T124 640T121 647Z"></path>
+<path stroke-width="1" id="E16-MJMAIN-3D" d="M56 347Q56 360 70 367H707Q722 359 722 347Q722 336 708 328L390 327H72Q56 332 56 347ZM56 153Q56 168 72 173H708Q722 163 722 153Q722 140 707 133H70Q56 140 56 153Z"></path>
+<path stroke-width="1" id="E16-MJMAIN-33" d="M127 463Q100 463 85 480T69 524Q69 579 117 622T233 665Q268 665 277 664Q351 652 390 611T430 522Q430 470 396 421T302 350L299 348Q299 347 308 345T337 336T375 315Q457 262 457 175Q457 96 395 37T238 -22Q158 -22 100 21T42 130Q42 158 60 175T105 193Q133 193 151 175T169 130Q169 119 166 110T159 94T148 82T136 74T126 70T118 67L114 66Q165 21 238 21Q293 21 321 74Q338 107 338 175V195Q338 290 274 322Q259 328 213 329L171 330L168 332Q166 335 166 348Q166 366 174 366Q202 366 232 371Q266 376 294 413T322 525V533Q322 590 287 612Q265 626 240 626Q208 626 181 615T143 592T132 580H135Q138 579 143 578T153 573T165 566T175 555T183 540T186 520Q186 498 172 481T127 463Z"></path>
+</defs>
+<g stroke="currentColor" fill="currentColor" stroke-width="0" transform="matrix(1 0 0 -1 0 0)">
+ <use xlink:href="#E16-MJMATHI-6B" x="0" y="0"></use>
+ <use xlink:href="#E16-MJMAIN-3D" x="799" y="0"></use>
+ <use xlink:href="#E16-MJMAIN-33" x="1855" y="0"></use>
+</g>
+</svg> the axiom <code>(int2sbv2int 3 t0)</code> proves the clause
+<code>( +(= (sbv_to_int ((_ int_to_bv 3) t0)) (+ (mod (+ t0 4) 8) (- 4))))</code>.
+The axiom is syntactic, i.e., the term <code>(+ t0 4)</code> is not
+simplified.</p>
+<p>The following definitons handle arithmetic:</p>
+<pre><code>(define-fun bvadd ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (+ (ubv_to_int x) (ubv_to_int y))))
+(define-fun bvsub ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (+ (ubv_to_int x) (* (- 1) (ubv_to_int y)))))
+(define-fun bvneg ((x (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (* (- 1) (ubv_to_int x))))
+(define-fun bvmul ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (* (ubv_to_int x) (ubv_to_int y))))
+(define-fun bvudiv ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (ite (= (ubv_to_int y) 0) (- 1) (div (ubv_to_int x) (ubv_to_int y)))))
+(define-fun bvurem ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   (ite (= (ubv_to_int y) 0) x ((_ int_to_bv k) (mod (ubv_to_int x) (ubv_to_int y)))))
+(define-fun bvsdiv ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
+   ((_ int_to_bv k) (ite (&lt; ix 0)
+            (ite (&lt; iy 0) (div (- ix) (- iy)) (ite (= iy 0) 1 (- (div (- ix) iy))))
+            (ite (&lt; iy 0) (- (div ix (- iy))) (ite (= iy 0) (- 1) (div ix iy)))))))
+(define-fun bvsrem ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
+   ((_ int_to_bv k) (ite (= iy 0) ix
+            (ite (&lt; ix 0) (- (mod (- ix) iy)) (mod ix iy))))))
+(define-fun bvsmod ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
+   ((_ int_to_bv k) (ite (= iy 0) ix (ite (&lt; iy 0) (+ (mod (+ ix (- 1)) (- iy)) iy 1) (mod ix iy)))))
+(define-fun bvnego ((x (_ BitVec k))) Bool
+   (= (ubv_to_int x) 2^(k-1)))
+(define-fun bvuaddo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (&lt;= 2^k (+ (ubv_to_int x) (ubv_to_int y))))
+(define-fun bvsaddo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (or (&lt; (+ (sbv_to_int x) (sbv_to_int y)) 2^(k-1)) (&lt;= 2^(k-1) (+ (sbv_to_int x) (sbv_to_int y)))))
+(define-fun bvumulo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (&lt;= 2^k (* (ubv_to_int x) (ubv_to_int y))))
+(define-fun bvsmulo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (or (&lt; (* (sbv_to_int x) (sbv_to_int y)) 2^(k-1)) (&lt;= 2^(k-1) (* (sbv_to_int x) (sbv_to_int y)))))
+(define-fun bvsdivo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (and (= (ubv_to_int x) 2^(k-1)) (= (sbv_to_int y) (- 1))))
+(define-fun bvusubo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (&lt; (ubv_to_int x) (ubv_to_int y)))
+(define-fun bvssubo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (or (&lt; (sbv_to_int x) (+ (sbv_to_int y)) 2^(k-1)) (&lt;= (+ (sbv_to_int y) 2^(k-1)) (sbv_to_int x))))</code></pre>
+<p>For shifts, we define a function <code>pow2</code> for shifts and its
+inverse <code>log2</code>. We add a few axioms.</p>
+<pre><code>⟨bitvector-axiom⟩ ::=
+ | (pow2const k) ;( +(= (pow2 k) 2^k) )    # where 0&lt;=k is a constant
+ | (pow2add n m) ;( -(&lt;= 0 n) -(&lt;= 0 m) +(= (pow2 (+ n m)) (* (pow2 n) (pow2 m))) )
+ | (log2low a)   ;( -(&lt;= 0 a) +(&lt;= (pow2 (log2 a)) a) )
+ | (log2high a)  ;( -(&lt;= 0 a) +(&lt; a (* 2 (pow2 (log2 a)))) )</code></pre>
+<pre><code>(define-fun bvshl ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (* (pow2 (ubv_to_int y)) (ubv_to_int x)))
+(define-fun bvlshr ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (div (ubv_to_int x) (pow2 (ubv_to_int y))))
+(define-fun bvashr ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (div (sbv_to_int x) (pow2 (ubv_to_int y))))</code></pre>
+<p>For logical operations we use a new integer binary and
+<code>:funs (&amp; Int Int Int :left-assoc)</code>, that computes
+logical and for integers. It returns a negative number if and only if
+both arguments are negative and ensures that no bits are truncated
+before doing the logical and.</p>
+<pre><code>⟨bitvector-axiom⟩ ::=
+ | (&amp;flat (&amp; (&amp; a_ij)) (&amp; bi))
+      ;( +(= (&amp; (&amp; a_11 ...) ... (&amp; an1 ...)) (&amp; b_1 ... b_m)) ) where {b_i} \union {-1} = { a_ij }
+      ;     ( if an &quot;&amp;&quot; has only one parameter, the &amp; is omitted)
+ | (&amp;shift a b k)      ;( -(&lt;= 0 k) +(= (* (&amp; (div a (pow2 k)) b) (pow2 k)) (&amp; a (* b (pow2 k)))) )
+ | (&amp;split a b)        ;( +(= (+ (&amp; a b) (&amp; a (+ (* (- 1) b) (- 1)))) a) )
+ | (&amp;bound a b)        ;( -(&lt;= 0 a) +(&lt;= (&amp; a b) a) )
+ | (&amp;nonneg a b)       ;( -(&lt;= 0 a) +(&lt;= 0 (&amp; a b)) )</code></pre>
+<p>Using this function we can define the logical operators:</p>
+<pre><code>(define-fun bvnot ((x (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (+ (- 1) (* (- 1) (ubv_to_int x)))))
+(define-fun bvand ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (&amp; (ubv_to_int x) (ubv_to_int y))))
+(define-fun bvor ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (+ (ubv_to_int x) (ubv_to_int y) (* (- 1) (&amp; (ubv_to_int x) (ubv_to_int y))))))
+(define-fun bvxor ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (+ (ubv_to_int x) (ubv_to_int y) (* (- 2) (&amp;
+   (ubv_to_int x) (ubv_to_int y))))))
+(define-fun bvnand ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k) (bvnot (bvand x y))
+(define-fun bvnor  ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k) (bvnot (bvor x y))
+(define-fun bvxnor ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k) (bvnot (bvxor x y))</code></pre>
+<p>Comparisons:</p>
+<pre><code>(define-fun bvule ((x (_ BitVec k)) (y (_ BitVec k))) Bool (&lt;= (ubv_to_int x) (ubv_to_int y)))
+(define-fun bvult ((x (_ BitVec k)) (y (_ BitVec k))) Bool (&lt; (ubv_to_int x) (ubv_to_int y)))
+(define-fun bvuge ((x (_ BitVec k)) (y (_ BitVec k))) Bool (&lt;= (ubv_to_int y) (ubv_to_int x)))
+(define-fun bvugt ((x (_ BitVec k)) (y (_ BitVec k))) Bool (&lt; (ubv_to_int y) (ubv_to_int x)))
+(define-fun bvsle ((x (_ BitVec k)) (y (_ BitVec k))) Bool (&lt;= (sbv_to_int x) (sbv_to_int y)))
+(define-fun bvslt ((x (_ BitVec k)) (y (_ BitVec k))) Bool (&lt; (sbv_to_int x) (sbv_to_int y)))
+(define-fun bvsge ((x (_ BitVec k)) (y (_ BitVec k))) Bool (&lt;= (sbv_to_int y) (sbv_to_int x)))
+(define-fun bvsgt ((x (_ BitVec k)) (y (_ BitVec k))) Bool (&lt; (sbv_to_int y) (sbv_to_int x)))
+(define-fun bvcomp ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec 1)
+   (ite (= x y) (_ bv1 1) (_ bv0 0)))</code></pre>
+<p>Miscellanous:</p>
+<pre><code>(define-fun (_ zero_extend i) ((x (_ BitVec k))) (_ BitVec i+k)
+   ((_ int_to_bv (i+k)) (ubv_to_int x)))
+(define-fun (_ sign_extend i) ((x (_ BitVec k))) (_ BitVec i+k)
+   ((_ int_to_bv (i+k)) (sbv_to_int x)))
+(define-fun concat ((x (_ BitVec k1)) (y (_ BitVec k2))) (_ BitVec k1+k2)
+   ((_ int_to_bv (k1+k2)) (+ (* (2^k2) (ubv_to_int x)) (ubv_to_int y))))
+(define-fun (_ extract i j) ((x (_ BitVec k1))) (_ BitVec i-j+1)
+   ((_ int_to_bv (i-j+1)) (div (ubv_to_int x) 2^j)))
+(define-fun (_repeat i) ((x (_ BitVec k))) (_ BitVec i*k)
+   ((_ int_to_bv (i*k)) (* ((2^(i*k)-1)/(2^k-1)) (ubv_to_int x))))
+(define-fun (_ rotate_left i)  ((x (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (+ (* 2^(i mod k) (ubv_to_int x)) (div (ubv_to_int x) 2^(-i mod k)))))
+(define-fun (_ rotate_right i)  ((x (_ BitVec k))) (_ BitVec k)
+   ((_ int_to_bv k) (+ (* 2^(-i mod k) (ubv_to_int x)) (div (ubv_to_int x) 2^(i mod k)))))</code></pre>

@@ -1,6 +1,7 @@
 body {
-    font-family: helvetica, sans-serif;
+    font-family: verdana, arial, sans-serif;
     font-size: 12pt;
+    line-height: 1.5;
     margin:0;
 }
 
@@ -80,6 +81,8 @@ td:first-child {
     border-bottom: 1px solid black;
 }
 
+.chksum { font-size: 80% }
+
 footer {
     text-align: right;
     clear: both;
@@ -91,7 +94,7 @@ footer {
 }
 
 p, blockquote, ul, ol, dl, li, table, pre {
-	margin: 15px 0;
+	//margin: 15px 0;
 }
 
 code, pre, #ws, #message {

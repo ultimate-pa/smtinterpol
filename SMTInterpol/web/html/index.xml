@@ -24,7 +24,7 @@
 
     <head1>Status</head1>
     <txt>The current version of <s /> supports the combination of the theories of
-    uninterpreted functions, linear real arithmetic, linear integer
+    uninterpreted functions, bit-vector, linear real arithmetic, linear integer
     arithmetic, arrays including constant arrays, and datatypes.</txt>
     <txt><s /> supports quantifiers for all supported theories except for datatypes,
     and it supports interpolation for the quantifier-free fragments of all supported theories except datatypes.</txt>
@@ -36,9 +36,8 @@
 
     <head1>Current Team</head1>
     <txt><s /> is developed by <link
-    url="https://swt.informatik.uni-freiburg.de/staff/hoenicke">Jochen
-    Hoenicke</link> in the context of the project "Quantified Formulas in Interpolating SMT Solvers"
-    and by <link url="https://swt.informatik.uni-freiburg.de/staff/henkel">Elisabeth Henkel</link> and <link url="https://swt.informatik.uni-freiburg.de/staff/schindler">Tanja
+    url="https://jhoenicke.de/">Jochen
+    Hoenicke</link>, <link url="https://swt.informatik.uni-freiburg.de/staff/henkel">Elisabeth Henkel</link> and <link url="https://swt.informatik.uni-freiburg.de/staff/schindler">Tanja
     Schindler</link>.
     If you have any questions, suggestions,
     or if you want to contribute, feel free to contact us.</txt>
