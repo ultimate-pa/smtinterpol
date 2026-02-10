@@ -394,6 +394,7 @@ public class SMTInterpol extends NoopScript {
 		if (mAssertions != null) {
 			mAssertions.clear();
 		}
+		mEngine.setCompleteness(DPLLEngine.COMPLETE);
 		setupClausifier(getTheory().getLogic());
 	}
 
@@ -479,19 +480,20 @@ public class SMTInterpol extends NoopScript {
 			mResourceLimit.setResourceLimit(resouceLimit);
 		}
 
-		LBool result = LBool.UNKNOWN;
 		mReasonUnknown = ReasonUnknown.INCOMPLETE;
 		mEngine.setRandomSeed(mSolverOptions.getRandomSeed());
+		boolean isConsistent;
 		try {
-			result = mSolverOptions.getCheckType().check(mEngine) ? LBool.SAT : LBool.UNSAT;
+			isConsistent = mSolverOptions.getCheckType().check(mEngine);
 		} catch (final RuntimeException eUnknown) {
 			if (mErrorCallback != null) {
 				mErrorCallback.notifyError(ErrorReason.EXCEPTION_ON_CHECKSAT);
 			}
 			throw eUnknown;
 		}
-		if (result == LBool.SAT) {
+		if (isConsistent) {
 			if (mEngine.hasModel()) {
+				mStatus = LBool.SAT;
 				if (mSolverOptions.isModelCheckModeActive()) {
 					try {
 						mModel = new de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model(mClausifier,
@@ -521,7 +523,7 @@ public class SMTInterpol extends NoopScript {
 								if (mErrorCallback != null) {
 									mErrorCallback.notifyError(ErrorReason.INVALID_MODEL);
 								}
-								result = LBool.UNKNOWN;
+								mStatus = LBool.UNKNOWN;
 								mReasonUnknown = ReasonUnknown.CRASHED;
 							}
 						}
@@ -532,7 +534,7 @@ public class SMTInterpol extends NoopScript {
 					}
 				}
 			} else {
-				result = LBool.UNKNOWN;
+				mStatus = LBool.UNKNOWN;
 				switch (mEngine.getCompleteness()) {
 				case DPLLEngine.COMPLETE:
 					if (mSolverOptions.getCheckType() == CheckType.FULL) {
@@ -565,6 +567,7 @@ public class SMTInterpol extends NoopScript {
 				mLogger.debug("Got %s as reason to return unknown", mEngine.getCompletenessReason());
 			}
 		} else {
+			mStatus = LBool.UNSAT;
 			if (mSolverOptions.isProofCheckModeActive()) {
 				final MinimalProofChecker proofchecker = new MinimalProofChecker(this, getLogger());
 				if (!proofchecker.check(getProof())) {
@@ -576,9 +579,8 @@ public class SMTInterpol extends NoopScript {
 				}
 			}
 		}
-		mStatus = result;
-		if (Config.CHECK_STATUS_SET && isStatusSet() && result != LBool.UNKNOWN && !result.equals(mStatusInfo)) {
-			mLogger.warn("Status differs: User said %s but we got %s", mStatusInfo, result);
+		if (Config.CHECK_STATUS_SET && isStatusSet() && mStatus != LBool.UNKNOWN && !mStatus.equals(mStatusInfo)) {
+			mLogger.warn("Status differs: User said %s but we got %s", mStatusInfo, mStatus);
 			if (mErrorCallback != null) {
 				mErrorCallback.notifyError(ErrorReason.CHECKSAT_STATUS_DIFFERS);
 			}
@@ -586,7 +588,7 @@ public class SMTInterpol extends NoopScript {
 		mStatusInfo = LBool.UNKNOWN;
 		mTimeout.clearTimeout();
 		mResourceLimit.clearResourceLimit();
-		return result;
+		return mStatus;
 	}
 
 	private final boolean isStatusSet() {
