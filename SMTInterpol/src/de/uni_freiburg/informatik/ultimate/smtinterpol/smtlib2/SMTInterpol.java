@@ -834,6 +834,12 @@ public class SMTInterpol extends NoopScript {
 		if (getProofMode() == ProofMode.NONE || mAssertions == null) {
 			throw new SMTLIBException("Option :produce-interpolants not set to true");
 		}
+		if (mStatus != LBool.UNSAT) {
+			if (mErrorCallback != null) {
+				mErrorCallback.notifyError(ErrorReason.GET_INTERPOLANTS_BUT_NOT_UNSAT);
+			}
+			throw new SMTLIBException("get-interpolants: status is " + mStatus);
+		}
 		return getInterpolants(partition, startOfSubtree, getProof(ProofMode.CLAUSES));
 	}
 

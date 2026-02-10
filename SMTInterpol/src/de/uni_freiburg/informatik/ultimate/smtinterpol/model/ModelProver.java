@@ -286,7 +286,7 @@ public class ModelProver extends TermTransformer {
 					}
 					if (fs.getName() == SMTLIBConstants.GEQ) {
 						final Term expanded = theory.term(SMTLIBConstants.LEQ, appParams[1], appParams[0]);
-						enqueueTransitivityStep(appTerm, expanded, mProofRules.gtDef(appTerm));
+						enqueueTransitivityStep(appTerm, expanded, mProofRules.geqDef(appTerm));
 						pushTerm(expanded);
 						return;
 					}
@@ -589,7 +589,7 @@ public class ModelProver extends TermTransformer {
 					proof = mProofUtils.res(origArgs[i], mProofRules.impIntro(i, origTerm), argProofs[i]);
 					return annotateProof(proof, theory.mTrue);
 				}
-				assert argTerms[i] == theory.mFalse;
+				assert argTerms[i] == theory.mTrue;
 				proof = mProofUtils.res(origArgs[i], argProofs[i], proof);
 			}
 			if (argTerms[last] == theory.mTrue) {
@@ -729,7 +729,7 @@ public class ModelProver extends TermTransformer {
 
 	private Term interpret(Term origTerm, final FunctionSymbol fs, final Term[] args) {
 		final Theory theory = fs.getTheory();
-		final ApplicationTerm funcTerm = (ApplicationTerm) theory.term(fs, args);
+		final Term funcTerm = theory.term(fs, args);
 		switch (fs.getName()) {
 		case SMTLIBConstants.TRUE:
 		case SMTLIBConstants.FALSE:
@@ -795,6 +795,9 @@ public class ModelProver extends TermTransformer {
 			if (args.length == 1) {
 				val = val.negate();
 				final Term result = val.toTerm(fs.getReturnSort());
+				if (result == funcTerm) {
+					return annotateProof(mProofRules.refl(funcTerm), funcTerm);
+				}
 				return annotateProof(mProofUtils.proveUMinusEquality(funcTerm, result), result);
 			} else {
 				for (int i = 1; i < args.length; ++i) {
@@ -818,11 +821,14 @@ public class ModelProver extends TermTransformer {
 			final Rational divisor = rationalValue(args[1]);
 			if (divisor.equals(Rational.ZERO)) {
 				assert args.length == 2;
-				expandFunction(funcTerm, args);
+				expandFunction((ApplicationTerm) funcTerm, args);
 				return null;
 			} else {
 				final Rational val = rationalValue(args[0]).div(divisor);
 				final Term result = val.toTerm(fs.getReturnSort());
+				if (result == funcTerm) {
+					return annotateProof(mProofRules.refl(funcTerm), funcTerm);
+				}
 				return annotateProof(mProofUtils.proveDivideEquality(funcTerm, result), result);
 			}
 		}
@@ -858,7 +864,7 @@ public class ModelProver extends TermTransformer {
 			assert args.length == 2;
 			final Rational n = rationalValue(args[1]);
 			if (n.equals(Rational.ZERO)) {
-				expandFunction(funcTerm, args);
+				expandFunction((ApplicationTerm) funcTerm, args);
 				return null;
 			} else {
 				Rational val = rationalValue(args[0]).div(n);
@@ -872,7 +878,7 @@ public class ModelProver extends TermTransformer {
 			assert args.length == 2;
 			final Rational n = rationalValue(args[1]);
 			if (n.equals(Rational.ZERO)) {
-				expandFunction(funcTerm, args);
+				expandFunction((ApplicationTerm) funcTerm, args);
 				return null;
 			} else {
 				final Rational m = rationalValue(args[0]);
@@ -1209,7 +1215,7 @@ public class ModelProver extends TermTransformer {
 		}
 
 		case "@EQ": {
-			expandFunction(funcTerm, args);
+			expandFunction((ApplicationTerm) funcTerm, args);
 			return null;
 		}
 		default:
@@ -1227,7 +1233,7 @@ public class ModelProver extends TermTransformer {
 					}
 				}
 				// undefined case for selector on wrong constructor. use model.
-				expandFunction(funcTerm, args);
+				expandFunction((ApplicationTerm) funcTerm, args);
 				return null;
 			} else if (fs.getName().equals(SMTLIBConstants.IS)) {
 				final ApplicationTerm arg = (ApplicationTerm) args[0];
