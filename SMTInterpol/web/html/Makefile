@@ -6,8 +6,8 @@ OTHERFILES := HTML5_Logo.svg CSS3_Logo.svg smtinterpol.css goedel.jpg floc2014.j
 SMT2FILES := usage.smt2 unsat.smt2 subannot.smt2 interpolation.smt2 mccarthy1.smt2 mccarthy2.smt2
 JARFILES := smtinterpol-$(VERSION).jar smtinterpol-$(VERSION)-sources.jar
 
-PROOF_DOC=intro.md eq_diamond2-proof.md grammar.md equality.md lowlevel-calculus.md theory-extensions.md
-PANDOCOPT=--filter node_modules/.bin/mathjax-pandoc-filter -t html5
+PROOF_DOC=intro.md eq_diamond2-proof.md grammar.md lowlevel-calculus.md equality.md theory-extensions.md
+PANDOCOPT=--mathml -t html5
 
 # UsageStub.java InterpolationUsageStub.java \
 # fmcad11.tar.bz2 interpolations.tar.bz2
@@ -19,7 +19,6 @@ all: $(addprefix web/,$(OTHERFILES))
 
 
 proof-doc/proof-format.html: $(addprefix proof-doc/,$(PROOF_DOC))
-	test -d node-modules/mathjax-pandoc-filter || npm install
 	cat $^ | pandoc $(PANDOCOPT) -o $@
 proof-format.xml: proof-doc/header.xml proof-doc/proof-format.html proof-doc/footer.xml
 	cat $^ > $@
