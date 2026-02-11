@@ -74,6 +74,10 @@
     <button id="run">Run SMTInterpol</button>
     <button id="stop" disabled>Abort</button>
     &nbsp;
+    <select id="example" name="example">
+      <option value="choose" selected>Choose Example...</option>
+    </select>
+    &nbsp;
     <svg id="cogwheels" width="20" height="20" viewBox="0 120 400 400" style="visibility:hidden">
       <g style="fill:#000" >
         <path id="smallcog" d="M200 236v-21l-29-4c-2-10-6-18-11-26l18-23 -15-15 -23 18c-8-5-17-9-26-11l-4-29H90l-4 29c-10 2-18 6-26 11l-23-18 -15 15 18 23c-5 8-9 17-11 26L0 215v21l29 4c2 10 6 18 11 26l-18 23 15 15 23-18c8 5 17 9 26 11l4 29h21l4-29c10-2 18-6 26-11l23 18 15-15 -18-23c5-8 9-17 11-26L200 236zM100 262c-20 0-37-17-37-37s17-37 37-37c20 0 37 17 37 37S121 262 100 262z"/>
@@ -86,6 +90,15 @@
 
 <script src="ace/ace.js" type="text/javascript" charset="utf-8"></script>
 <script>
+  var examples = [
+      [ "1 + 1 = 2", "oneplusone.smt2" ],
+      [ "1 + 1 = x", "oneplusoneis.smt2" ],
+      [ "not even and odd", "evenodd.smt2" ],
+      [ "theory interpolation", "theory-interpolation.smt2" ],
+      [ "tree interpolation", "tree-interpolation.smt2" ],
+      [ "McCarthy 91", "mccarthy91.smt2" ]
+ ];
+
   var editor = ace.edit("editor", {
       theme: "ace/theme/textmate",
       mode: "ace/mode/smtlib",
@@ -99,8 +112,15 @@
   var stopButton = document.getElementById("stop");
   let output = document.getElementById("result");
   var fileUploader = document.getElementById("upload");
+  var exampleSelect = document.getElementById("example");
 
   var worker;
+
+  function initExample() {
+      for (var i = 0; i < examples.length; i++) {
+	  exampleSelect.add(new Option(examples[i][0], i));
+      }
+  }
 
   function showCog() {
       document.getElementById("cogwheels").style.visibility = "visible";
@@ -174,6 +194,17 @@
       ev.preventDefault();
   }
 
+  function loadExample(ev) {
+      var example = examples[exampleSelect.value];
+      if (example == undefined) {
+	  return;
+      }
+      var smt2 = "./example/"+ example[1];
+      var proof = "./example/"+ example[2];
+      fetch(smt2).then(response => response.text()).then(text => inputDocument.setValue(text));
+      fetch(proof).then(response => response.text()).then(text => proofDocument.setValue(text));
+  }
+
   runButton.onclick = run;
   stopButton.onclick = stop;
 
@@ -181,6 +212,8 @@
   document.getElementById("editor").ondragover=dragoverHandler;
 
   fileUploader.onchange=uploadFile;
+  exampleSelect.onchange=loadExample;
+  initExample();
 </script>
     </div>
     <footer>

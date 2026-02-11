@@ -1,0 +1,10 @@
+; prove that z cannot be even (2x) and odd (2y+1) at the same time
+(set-option :produce-proofs true)
+(set-logic QF_LIA)
+(declare-fun x () Int)
+(declare-fun y () Int)
+(declare-fun z () Int)
+(assert (and (= z (* 2 x)) (= z (+ (* 2 y) 1))))
+(check-sat)
+(get-proof)
+(exit)

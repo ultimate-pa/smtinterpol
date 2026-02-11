@@ -1,0 +1,20 @@
+unsat
+(let ((xminusy (+ x (* (- 1) y)))
+      (even (= z (* 2 x)))
+      (odd (= z (+ (* 2 y) 1)))
+      (input (and even odd)))
+; first prove both even and odd from input:
+(res input (assume input)
+(res even (and- 0 input)
+(res odd (and- 1 input)
+; do a case distinction x-y <= 0 or x-y >= 1
+(res (<= xminusy 0)
+  (res (<= 1 xminusy)
+    (total-int xminusy 0)
+    ; x-y >= 1: use  z = 2y + 1 <= 2x - 1 < 2x = z
+    (res (= (* 2 x) z) (symm (* 2 x) z)
+    (farkas 1 (= z (+ (* 2 y) 1)) 2 (<= 1 xminusy) 1 (= (* 2 x) z))))
+  ; x-y <= 0: use z = 2x <= 2y < 2y + 1 = z
+  (res (= (+ (* 2 y) 1) z) (symm (+ (* 2 y) 1) z)
+  (farkas 1 (= z (* 2 x)) 2 (<= xminusy 0) 1 (= (+ (* 2 y) 1) z)))
+)))))
