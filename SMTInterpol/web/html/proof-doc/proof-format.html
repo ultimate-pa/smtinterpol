@@ -342,6 +342,16 @@ variable <code>x</code> and <code>x</code> can be referenced in
 <code>p</code> using the ⟨symbol⟩ rule. The scope of <code>x</code> is
 the proof <code>p</code> and the resulting proof proves the same clause
 as <code>p</code>.</p>
+<p>Proofs can also contain <code>define-fun</code> with the same syntax
+as in SMT-LIB. These will define the function symbol for the subproof,
+which can use the definition using the <code>expand</code> axiom. The
+defined function symbol must not be used outside the subproof.
+Similarly, <code>declare-fun</code> will add an uninterpreted
+function.</p>
+<p>There is also a <code>refine-fun</code> which adds a function
+definition to an already declared function. It is only allowed on the
+outermost layer of satisfiability proofs and is used to fix the model
+for uninterpreted function occuring in the benchmark.</p>
 <p>The rule <code>(assume t)</code> where <code>t</code> is a term,
 proves the unit clause <code>(+ t)</code>. Its side condition (checked
 by the proof checker) is that it was asserted in the input problem by an
@@ -460,9 +470,9 @@ operator (the Hilbert epsilon operator).</p>
 <p>In forall- and exists+, <code>Xi</code> is the type of
 <code>ti</code>.</p>
 <h3 id="miscellaneous-rules">Miscellaneous rules</h3>
-<p>For every symbol defined by <code>define-fun</code> we have a rule
-that expands the function definition. Assume <code>f</code> is defined
-as</p>
+<p>For every symbol defined by <code>define-fun</code> (either in the
+proof or in the benchmark) we have a rule that expands the function
+definition. Assume <code>f</code> is defined as</p>
 <pre><code>(define-fun f ((x0 X0) … (xn Xn)) X t)</code></pre>
 <p>then the expand rule for <code>f</code> is</p>
 <pre><code>⟨core-axiom⟩ ::= …
@@ -470,16 +480,6 @@ as</p>
 <p>Note that the <code>:named</code> attribute is implicitly expanded to
 define-fun according to the standard and therefore the expand rule can
 also be used for named terms.</p>
-<p>Proofs can also contain <code>define-fun</code> with the same syntax.
-These will define the function symbol for the subproof and enable the
-<code>expand</code> rule there. The defined function symbol must not be
-used outside the subproof. The <code>declare-fun</code> will add the
-function, but will not allow any <code>expand</code> of this function,
-only congruence is allowed.</p>
-<p>There is also a <code>refine-fun</code> which adds a function
-definition to an already declared function. It is only allowed on the
-outermost layer of satisfiability proofs and is used to fix the model
-for uninterpreted function occuring in the benchmark.</p>
 <p>For some internal functions, the expand rule is also applicable. For
 every function with the LEFTASSOC, RIGHTASSOC, CHAINABLE, or PAIRWISE
 attribute and more than two arguments expand will apply the
@@ -491,7 +491,7 @@ transformation given by the SMT-LIB standard, e.g.:</p>
 (expand (&lt; t0 … tn)):  ( +(= (&lt; t0 … tn)
                               (and (&lt; t0 t1) … (tn-1 tn))))</code></pre>
 <p>Theories have their own expand rules for some of the theory
-functions, like <code>abs</code> or <code>(_ divisible k</code>. These
+functions, like <code>abs</code> or <code>(_ divisible k)</code>. These
 are listed in the section describing the theory extensions.</p>
 <p>We also have a simple rule to delete attributes from input terms</p>
 <pre><code>⟨core-axiom⟩ ::= …
@@ -686,7 +686,7 @@ literal.</p>
  | (dt_test cons&#39; (cons a1 … an))  ;( -((_ is cons&#39;) (cons a1 ... an)) )
  | (dt_exhaust x)                  ;( +((_ is cons1) x) ... +((_ is consn) x) )
  | (dt_acyclic (cons …(cons… x …)…) x) ;( -(= (cons …(cons… x …)…) x) )
-   ; where (cons …(cons… x …)…) is a term containing x and on the around x
+   ; where (cons …(cons… x …)…) is a term containing x and around x
    ; only constructor functions appear.
  | (dt_match (match t …))
    ;( +(= (match t ((p1 x1) c1) …) (ite ((_ is p1) t) (let (x1 (sel1 t)) c1) …)) )</code></pre>
@@ -749,7 +749,7 @@ simplified.</p>
    (or (&lt; (sbv_to_int x) (+ (sbv_to_int y)) 2^(k-1)) (&lt;= (+ (sbv_to_int y) 2^(k-1)) (sbv_to_int x))))</code></pre>
 <p>For shifts, we define a function <code>pow2</code> for shifts and its
 inverse <code>log2</code>. We add a few axioms.</p>
-<pre><code>⟨bitvector-axiom⟩ ::=
+<pre><code>⟨bitvector-axiom⟩ ::= …
  | (pow2const k) ;( +(= (pow2 k) 2^k) )    # where 0&lt;=k is a constant
  | (pow2add n m) ;( -(&lt;= 0 n) -(&lt;= 0 m) +(= (pow2 (+ n m)) (* (pow2 n) (pow2 m))) )
  | (log2low a)   ;( -(&lt;= 0 a) +(&lt;= (pow2 (log2 a)) a) )
@@ -765,7 +765,7 @@ inverse <code>log2</code>. We add a few axioms.</p>
 logical and for integers. It returns a negative number if and only if
 both arguments are negative and ensures that no bits are truncated
 before doing the logical and.</p>
-<pre><code>⟨bitvector-axiom⟩ ::=
+<pre><code>⟨bitvector-axiom⟩ ::= …
  | (&amp;flat (&amp; (&amp; a_ij)) (&amp; bi))
       ;( +(= (&amp; (&amp; a_11 ...) ... (&amp; an1 ...)) (&amp; b_1 ... b_m)) ) where {b_i} \union {-1} = { a_ij }
       ;     ( if an &quot;&amp;&quot; has only one parameter, the &amp; is omitted)

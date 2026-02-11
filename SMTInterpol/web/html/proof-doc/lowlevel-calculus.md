@@ -134,7 +134,8 @@ In forall- and exists+, `Xi` is the type of `ti`.
 
 ### Miscellaneous rules
 
-For every symbol defined by `define-fun` we have a rule that expands the
+For every symbol defined by `define-fun` (either in the proof or in
+the benchmark) we have a rule that expands the
 function definition.  Assume `f` is defined as
 
     (define-fun f ((x0 X0) … (xn Xn)) X t)
@@ -149,17 +150,6 @@ then the expand rule for `f` is
 Note that the `:named` attribute is implicitly expanded to define-fun
 according to the standard and therefore the expand rule can also be
 used for named terms.
-
-Proofs can also contain `define-fun` with the same syntax.  These will
-define the function symbol for the subproof and enable the `expand`
-rule there.  The defined function symbol must not be used outside the
-subproof.  The `declare-fun` will add the function, but will not allow
-any `expand` of this function, only congruence is allowed.
-
-There is also a `refine-fun` which adds a function definition to an
-already declared function.  It is only allowed on the outermost layer
-of satisfiability proofs and is used to fix the model for
-uninterpreted function occuring in the benchmark.
 
 For some internal functions, the expand rule is also applicable.
 For every function with the LEFTASSOC, RIGHTASSOC, CHAINABLE, or
@@ -176,7 +166,7 @@ the transformation given by the SMT-LIB standard, e.g.:
 ```
 
 Theories have their own expand rules for some of the theory functions,
-like `abs` or `(_ divisible k`.  These are listed in the section
+like `abs` or `(_ divisible k)`.  These are listed in the section
 describing the theory extensions.
 
 We also have a simple rule to delete attributes from input terms

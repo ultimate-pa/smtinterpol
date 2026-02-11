@@ -49,6 +49,17 @@ used in terms as free variable.  Similarly, the let binder `let-proof
 referenced in `p` using the ⟨symbol⟩ rule.  The scope of `x` is the
 proof `p` and the resulting proof proves the same clause as `p`.
 
+Proofs can also contain `define-fun` with the same syntax as in
+SMT-LIB. These will define the function symbol for the subproof, which
+can use the definition using the `expand` axiom.  The defined function
+symbol must not be used outside the subproof.  Similarly,
+`declare-fun` will add an uninterpreted function.
+
+There is also a `refine-fun` which adds a function definition to an
+already declared function.  It is only allowed on the outermost layer
+of satisfiability proofs and is used to fix the model for
+uninterpreted function occuring in the benchmark.
+
 The rule `(assume t)` where `t` is a term, proves the unit
 clause `(+ t)`.  Its side condition (checked by the proof checker) is
 that it was asserted in the input problem by an SMT-LIB `assert`

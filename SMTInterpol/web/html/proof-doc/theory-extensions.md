@@ -183,7 +183,7 @@ For reasoning about data types, the following rules are used
  | (dt_test cons' (cons a1 … an))  ;( -((_ is cons') (cons a1 ... an)) )
  | (dt_exhaust x)                  ;( +((_ is cons1) x) ... +((_ is consn) x) )
  | (dt_acyclic (cons …(cons… x …)…) x) ;( -(= (cons …(cons… x …)…) x) )
-   ; where (cons …(cons… x …)…) is a term containing x and on the around x
+   ; where (cons …(cons… x …)…) is a term containing x and around x
    ; only constructor functions appear.
  | (dt_match (match t …))
    ;( +(= (match t ((p1 x1) c1) …) (ite ((_ is p1) t) (let (x1 (sel1 t)) c1) …)) )
@@ -256,7 +256,7 @@ The following definitons handle arithmetic:
 For shifts, we define a function `pow2` for shifts and its inverse `log2`. We add a few axioms.
 
 ```
-⟨bitvector-axiom⟩ ::=
+⟨bitvector-axiom⟩ ::= …
  | (pow2const k) ;( +(= (pow2 k) 2^k) )    # where 0<=k is a constant
  | (pow2add n m) ;( -(<= 0 n) -(<= 0 m) +(= (pow2 (+ n m)) (* (pow2 n) (pow2 m))) )
  | (log2low a)   ;( -(<= 0 a) +(<= (pow2 (log2 a)) a) )
@@ -279,7 +279,7 @@ are negative and ensures that no bits are truncated before doing the
 logical and.
 
 ```
-⟨bitvector-axiom⟩ ::=
+⟨bitvector-axiom⟩ ::= …
  | (&flat (& (& a_ij)) (& bi))
       ;( +(= (& (& a_11 ...) ... (& an1 ...)) (& b_1 ... b_m)) ) where {b_i} \union {-1} = { a_ij }
       ;     ( if an "&" has only one parameter, the & is omitted)
