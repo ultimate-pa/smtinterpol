@@ -14,7 +14,7 @@ PANDOCOPT=--mathml -t html5
 
 
 all: $(addprefix web/,$(subst .xml,.html,$(XMLFILES)))
-all: $(addprefix web/,$(OTHERFILES))
+all: $(addprefix web/,$(SMT2FILES) $(OTHERFILES))
 
 
 

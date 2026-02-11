@@ -251,13 +251,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
 	</xsl:attribute>	
 	<xsl:value-of select="./@file" />
       </xsl:element>
-      <br />
-      (Checksum:
-      <xsl:element name="a">
-	<xsl:attribute name="href">
-	  <xsl:value-of select="./@file" disable-output-escaping="yes" />.sha</xsl:attribute>	
-	SHA 256
-      </xsl:element>)</td>
+      </td>
     </tr>
   </xsl:template>
 
