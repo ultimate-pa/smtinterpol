@@ -1,63 +1,78 @@
 # RESOLUTE – A Simple Proof Format for SMT-LIB
 
-Although the SMT-LIB format defines a command for obtaining proofs, it
-does not prescribe the format for these proofs.  The only requirement
-is that the result follows the grammar rule for s-expr.  This document
-explains the proof format RESOLUTE, which is the lowlevel proof format
-returned by the SMT solver SMTInterpol.
+The SMT-LIB standard defines a command for requesting proofs from
+solvers, but it does not prescribe how these proofs should be
+represented. Different solvers therefore use different proof formats.
 
-SMTInterpol internally can switch between different proof levels.  The
-lowlevel proof format described in this document can be activated by
-`(set-option :proof-level lowlevel)`.  The goal of the lowlevel proof
-format is an easy to check format.  There are also the proof-levels
-clauses (which adds all input clauses as oracles) and full, which uses
-the internal proof rules using oracle clauses.
+RESOLUTE is the proof format used by SMTInterpol. It is a low-level,
+resolution-based format designed to be simple, explicit, and easy to
+check. Proofs are represented as S-expressions and closely follow
+SMT-LIB syntax wherever possible.
+
+RESOLUTE proofs use the resolution rule to derive the empty clause
+from the asserted formulas in the input and a fixed set of axioms for
+logical and theory reasoning.  The format is intentionally minimal:
+complex reasoning is reduced to resolution steps over explicitly
+stated axioms.
 
 We have a [proof checker](https://ultimate.informatik.uni-freiburg.de/smtinterpol/online/proof.html) for these proofs.
 
 ## Resolution proofs
 
-The proof is given as a resolution proof.  Each subproof proves the
-validity of a clause where a clause is a set of literals and a
-literal is a positive or negative atom.  An atom is an SMT-LIB term of
-sort Bool, in other words, an SMT-LIB formula.  In particular input
-formulas are seen as unit clauses with a single positive atom.  We
-use `+ t` to denote the positive literal for the term `t` and `- t`
-for the negative literal.  A clause is dentoed by an S-Expression
-`( +/- t1 ... +/- tn)`.
-As usual, a positive literal represents the fact that the term is
-true, a negative literal that the term is false, and a clause
-represents the fact that at least one of its literals hold.
+A RESOLUTE proof is given as a tree of subproofs.  Each subproof
+establishes the validity of a clause.  A *clause* is a disjunction of
+literals.  A *literal* is a positive or negative atom and an *atom* is
+a Boolean SMT-LIB term, in other words, an SMT-LIB formula.
 
-A proof is build from the resolution rule, axioms, and assumptions.  A
-proof is valid, if the side conditions for every axiom is fulfilled
-and it proves the empty clause.  The main rule is the resolution rule:
+We use `+ t` to denote the positive literal for the
+term `t` and `- t` for the negative literal.  A clause is denoted by
+an S-expression `( +/- t1 ... +/- tn )`.  As usual, a positive literal
+represents the fact that the term is true, a negative literal that the
+term is false, and a clause represents the fact that at least one of
+its literals holds.
 
-$$\frac{C_1 \qquad C_2}{(C_1\setminus \{+ t\}) \cup (C_2\setminus\{- t\})}$$
+A resolution proof is a proof of the unsatisfiability of an SMT-LIB
+input script.  It is given as a proof tree proving the empty clause,
+where the internal nodes of the proof tree apply the resolution rule
+and the leaves of the tree are the assumptions from the SMT-LIB input
+script and logical or theory-specific axioms.
 
-The concrete syntax for the resolution rule is `(res t proof1 proof2)`
-where `t` is the pivot atom (an SMT-LIB term), `proof1` a proof for a
-clause $C_1$, and `proof2` a proof for a clause $C_2$.  The
-proof `(res t proof1 proof2)` is then a proof for a new clause containing
-all literals from
-$C_1\setminus \{+ t\}$ and $C_2\setminus\{- t\}$
-where $C\setminus\{\ell\}$ denotes the
-clause $C$ with any occurrence of the literal $\ell$ removed.  A clause is
-seen as a set of literals and literals appearing in both $C_1$ and $C_2$
-appear only once in the conclusion.
+### Resolution Rule
 
-Furthermore, there are several axioms for the different theories.  In
-particular, the core theory defines the axioms for the logical
-operators.  As an example, the axiom `(or+ 1 t0 t1 t2)` where
+The only inference rule in RESOLUTE is binary resolution.
+If `proof1` proves a clause $C_1$ and `proof2` proves a clause $C_2$,
+then the resolution on the pivot $t$ produces a proof of the clause
+$(C_1\setminus \{+t\}) \cup (C_2\setminus\{-t\})$
+where the complementary literals $+ t$ and $- t$ are removed from the
+respective clauses.
+The resolution step is written as `(res t proof1 proof2)`.
+Clauses are treated as sets of literals; therefore, literals occurring in 
+both $C_1$ and $C_2$ occur only once in the conclusion.
+Strictly speaking, the resolution rule is sound even when the clauses $C_1$ and $C_2$ do not contain the pivot literal; however, the proof checker will issue
+a warning in that case.
+
+### Assumptions
+
+Each input formula denoted by `(assert t)` in the SMT-LIB benchmark
+can be used as an assumption in the proof.
+The assumption is denoted by the S-expression `(assume t)`
+and proves the unit clause `( + t )`.  Assumptions together with
+axioms form the leaves of the proof tree.
+
+### Axioms
+
+In addition to assumptions, RESOLUTE uses a fixed collection of axioms
+that encode the semantics of logical operators and background
+theories.
+
+Each axiom is represented as a clause that is universally valid.
+These axioms serve as the basic building blocks from which all reasoning is derived.
+An axiom is written as `(axiom-name parameter …)`.
+
+In particular, the core theory defines the axioms for the logical
+operators.  As an example, the axiom `(or+ 1 (or t0 t1 t2))` where
 `t0`, `t1`, and `t2` are arbitrary terms is a proof for the valid
-clause `(+(or t0 t1 t2) - t1)`.
-
-Facts from the SMT-LIB script can be introduced using the syntax
-`(assume term)`, which is a proof of the unit clause `(+ term)`
-provided the SMT-LIB script contains the assertion `(assert term)`.  A
-proof of the unsatisfiability of an SMT-LIB input script is a proof of
-the empty clause that only uses the assumptions appearing in the
-SMT-LIB script.
+clause `( +(or t0 t1 t2) - t1 )`.
 
 ## Axioms for core theory
 
@@ -76,14 +91,14 @@ true+: (+ true)                      false-: (- false)
   =>+: (+(=> p0 … pn) +/- pi )          =>-: (-(=> p0 … pn) - p0 … + pn)
   =+1: (+(= p0 p1) + p0 + p1)           =-1: (-(= p0 p1) + p0 - p1)
   =+2: (+(= p0 p1) - p0 - p1)           =-2: (-(= p0 p1) - p0 + p1)
- xor+: (+(xor l1) +(xor l2) -(xor l3)) xor-: (-(xor l1) -(xor l2) -xor(l3))
+ xor+: (+(xor l1) +(xor l2) -(xor l3)) xor-: (-(xor l1) -(xor l2) -(xor l3))
     where each term in l1,l2,l3 occurs an even number of times.
 
 ; quantifiers
-forall+: (+(forall x (F x)) -(F (choose x (F x))))
-forall-: (-(forall x (F x)) +(F t))
-exists+: (+(exists x (F x)) -(F t))
-exists-: (-(exists x (F x)) +(F (choose x (F x))))
+  forall+: (+(forall (x) (F x)) -(F (choose (x) (F x))))
+  forall-: (-(forall (x) (F x)) +(F t))
+  exists+: (+(exists (x) (F x)) -(F t))
+  exists-: (-(exists (x) (F x)) +(F (choose (x) (F x))))
 
 ; equality axioms
      refl: (+(= t t))                    symm: (+(= t0 t1) -(= t1 t0))
@@ -102,13 +117,13 @@ expand: (+(= (f t0 … tn) (let ((x0 t0)…(xn tn)) d)))
 ```
 
 A detailed explanation of the axioms will be given in the section
-Core Axioms below.
+"Core Axioms" below.
 
 ## Syntactic extensions
 
-Conceptually a resolution proof is just a big proof term applying the
+Conceptually a resolution proof is just a huge proof term applying the
 resolution rule `res` to axioms and assumptions.  However, there are a few
-important extensions to concisely express large proof.
+important extensions to concisely express large proofs.
 
 ### let-terms
 
@@ -124,13 +139,13 @@ sub-clause if they are only identical after let expansion.
 To bind a proof to a variable, the `let-proof` keyword is used with
 the same syntax as `let`.  This can be used to avoid repeating the
 same subproof multiple times.  This proof variable may then be used
-whereever a proof is expected, e.g., as arguments of the resolution
+wherever a proof is expected, e.g., as arguments of the resolution
 rule.
 
 The `let-proof` syntax is also useful for expressing the proofs in a
-linear form.  A solver may choose to print its proof on the fly by
-printing each learned clause and binding it to a variable until it
-derives the empty clause:
+linear form.  A solver may choose to print its proof incrementally
+by binding each learned clause to a variable until the empty clause
+is derived:
 
 ```
 (let-proof ((C1 (assume …)))
@@ -143,7 +158,7 @@ derives the empty clause:
 ### Function definitions
 
 The proof format also supports custom defined functions that are only
-used inside the proof.  This can be usefule for auxiliary functions
+used inside the proof.  This is useful for auxiliary functions
 that are created by Skolemization or by CNF conversion of quantified
 formulas.  The syntax for this is `((define-fun f ((x0 τ0)…(xn τn)) d)
 subproof)` where subproof may use the function symbol `f` and the
@@ -166,15 +181,15 @@ operators as follows:
 ```
 
 Resolution proofs are usually only refutation complete, i.e., they can
-prove the empty clause if the conjunction of the input clauses are
+prove the empty clause if the conjunction of the input clauses is
 unsatisfiable.  However, the addition of the core axioms makes the
 calculus complete in the sense that for every valid SMT-LIB formula `t`
-there is a proof that proves the unit clause `(+ t)`.
+there is a proof that proves the unit clause `( + t )`.
 
 The proof calculus does not support RUP proofs directly.  They need to
 be converted to applications of `res` by explicitly listing the
 clauses and pivot term used in the unit propagation subproof.  More
-importantly DRAT proofs are not supported and there is no syntax for
+importantly, DRAT proofs are not supported and there is no syntax for
 deleting clauses.  Instead they need to be converted to extended
 resolution (which blows up the proof quadratically).  On the other
 hand, this simplifies the proof checker, which would otherwise
