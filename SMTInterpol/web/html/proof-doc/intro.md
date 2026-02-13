@@ -20,8 +20,9 @@ We have a [proof checker](https://ultimate.informatik.uni-freiburg.de/smtinterpo
 ## Resolution proofs
 
 A RESOLUTE proof is given as a tree of subproofs.  Each subproof
-establishes the validity of a clause.  A *clause* is a disjunction of
-literals.  A *literal* is a positive or negative atom and an *atom* is
+establishes the validity of a clause.  A *clause* is a set of
+literals and semantically represents the disjunction of these literals.
+A *literal* is a positive or negative atom and an *atom* is
 a Boolean SMT-LIB term, in other words, an SMT-LIB formula.
 
 We use `+ t` to denote the positive literal for the
@@ -41,7 +42,7 @@ script and logical or theory-specific axioms.
 
 The only inference rule in RESOLUTE is binary resolution.
 If `proof1` proves a clause $C_1$ and `proof2` proves a clause $C_2$,
-then the resolution on the pivot $t$ produces a proof of the clause
+then the resolution with the pivot $t$ produces a proof of the clause
 $(C_1\setminus \{+t\}) \cup (C_2\setminus\{-t\})$
 where the complementary literals $+ t$ and $- t$ are removed from the
 respective clauses.
@@ -67,7 +68,8 @@ theories.
 
 Each axiom is represented as a clause that is universally valid.
 These axioms serve as the basic building blocks from which all reasoning is derived.
-An axiom is written as `(axiom-name parameter …)`.
+An axiom is written as a proof term `(axiom-name parameter …)` that
+proves a tautological clause.
 
 In particular, the core theory defines the axioms for the logical
 operators.  As an example, the axiom `(or+ 1 (or t0 t1 t2))` where
@@ -81,38 +83,40 @@ that are available in every SMT-LIB theory.  The axioms explicitly
 support associative SMT-LIB operators like `and`, `or`, `=>` with more
 than two arguments.
 
+The following block is a schematic summary; the precise axioms are given
+in "Core Axioms" below.  Axioms are written as `axiom-name: (clause)`.
+
 ```
-; axioms are written as name-of-axiom: (clause)
 ; logical operators
-true+: (+ true)                      false-: (- false)
- not+: (+(not p0) + p0)                not-: (-(not p0 ) - p0)
- and+: (+(and p0 … pn) - p0 … - pn)    and-: (-(and p0 … pn) + pi)
-  or+: (+(or p0 … pn) - pi )            or-: (-(or p0 … pn) + p0 … + pn)
-  =>+: (+(=> p0 … pn) +/- pi )          =>-: (-(=> p0 … pn) - p0 … + pn)
-  =+1: (+(= p0 p1) + p0 + p1)           =-1: (-(= p0 p1) + p0 - p1)
-  =+2: (+(= p0 p1) - p0 - p1)           =-2: (-(= p0 p1) - p0 + p1)
- xor+: (+(xor l1) +(xor l2) -(xor l3)) xor-: (-(xor l1) -(xor l2) -(xor l3))
+true+: ( + true )                      false-: ( - false )
+ not+: ( +(not p0) + p0 )                not-: ( -(not p0) - p0 )
+ and+: ( +(and p0 … pn) - p0 … - pn )    and-: ( -(and p0 … pn) + pi )
+  or+: ( +(or p0 … pn) - pi )             or-: ( -(or p0 … pn) + p0 … + pn )
+  =>+: ( +(=> p0 … pn) +/- pi )           =>-: ( -(=> p0 … pn) - p0 … + pn )
+  =+1: ( +(= p0 p1) + p0 + p1 )           =-1: ( -(= p0 p1) + p0 - p1 )
+  =+2: ( +(= p0 p1) - p0 - p1 )           =-2: ( -(= p0 p1) - p0 + p1 )
+ xor+: ( +(xor l1) +(xor l2) -(xor l3) ) xor-: ( -(xor l1) -(xor l2) -(xor l3) )
     where each term in l1,l2,l3 occurs an even number of times.
 
 ; quantifiers
-  forall+: (+(forall (x) (F x)) -(F (choose (x) (F x))))
-  forall-: (-(forall (x) (F x)) +(F t))
-  exists+: (+(exists (x) (F x)) -(F t))
-  exists-: (-(exists (x) (F x)) +(F (choose (x) (F x))))
+  forall+: ( +(forall (x) (F x)) -(F (choose (x) (F x))) )
+  forall-: ( -(forall (x) (F x)) +(F t) )
+  exists+: ( +(exists (x) (F x)) -(F t) )
+  exists-: ( -(exists (x) (F x)) +(F (choose (x) (F x))) )
 
 ; equality axioms
-     refl: (+(= t t))                    symm: (+(= t0 t1) -(= t1 t0))
-    trans: (+(= t0 tn) -(= t0 t1) … -(= tn-1 tn))
-     cong: (+(= (f t0 … tn) (f t0' … tn')) -(= t0 t0') … -(= tn tn'))
-       =+: (+(= t0 … tn) -(= t0 t1) … -(= tn-1 tn))
-       =-: (-(= t0 … tn) +(= ti tj))
-distinct+: (+(distinct t0 … tn) +(= t0 t1) … +(= t0 tn) … +(= tn-1 tn))
-distinct-: (-(distinct t0 … tn) -(= ti tj))   where i != j
+     refl: ( +(= t t) )                  symm: ( +(= t0 t1) -(= t1 t0) )
+    trans: ( +(= t0 tn) -(= t0 t1) … -(= tn-1 tn) )
+     cong: ( +(= (f t0 … tn) (f t'0 … t'n)) -(= t0 t'0) … -(= tn t'n) )
+       =+: ( +(= t0 … tn) -(= t0 t1) … -(= tn-1 tn) )
+       =-: ( -(= t0 … tn) +(= ti tj) )
+distinct+: ( +(distinct t0 … tn) +(= t0 t1) … +(= t0 tn) … +(= tn-1 tn) )
+distinct-: ( -(distinct t0 … tn) -(= ti tj) )   where i != j
 
 ; ite, define-fun, annotations
-  ite1: (+(= (ite t0 t1 t2) t1) - t0)   ite2: (+(= (ite t0 t1 t2) t2) + t0)
-  del!: (+(= (! t :annotation…) t))
-expand: (+(= (f t0 … tn) (let ((x0 t0)…(xn tn)) d)))
+  ite1: ( +(= (ite t0 t1 t2) t1) - t0 )  ite2: ( +(= (ite t0 t1 t2) t2) + t0 )
+  del!: ( +(= (! t :annotation…) t) )
+expand: ( +(= (f t0 … tn) (let ((x0 t0)…(xn tn)) d)) )
    where f is defined by (define-fun f ((x0 τ0)…(xn τn)) τ d)
 ```
 
@@ -125,7 +129,7 @@ Conceptually a resolution proof is just a huge proof term applying the
 resolution rule `res` to axioms and assumptions.  However, there are a few
 important extensions to concisely express large proofs.
 
-### let-terms
+### let terms
 
 A large proof may use the same large term multiple times.  These large
 terms can be shared between different clauses in the proof.  To
@@ -134,7 +138,7 @@ SMT-LIB to bind terms to variables.  Such `let` terms
 are seen as syntactic sugar and are equal to their expanded form,
 i.e., no proof rule is required to expand a `let`.  In particular, the
 resolution rule will also remove the pivot literal from the proved
-sub-clause if they are only identical after let expansion.
+clause if the pivot terms are only identical after let expansion.
 
 To bind a proof to a variable, the `let-proof` keyword is used with
 the same syntax as `let`.  This can be used to avoid repeating the
@@ -166,9 +170,9 @@ subproof)` where subproof may use the function symbol `f` and the
 
 ### Extended resolution
 
-The proof calculus trivially supports extended resolution, where a new
-literal `p` is introduced that represents `(and p0 p1)` and the three
-clauses `(- p0 - p1 + p)`, `(- p + p0)`, and `(- p + p1)` are added.
+The proof calculus trivially supports extended resolution, where a fresh
+atom `p` is introduced that represents `(and p0 p1)` and the three
+clauses `( - p0 - p1 + p )`, `( - p + p0 )`, and `( - p + p1 )` are added.
 This is facilitated by the `let` syntax and the axioms for logical
 operators as follows:
 

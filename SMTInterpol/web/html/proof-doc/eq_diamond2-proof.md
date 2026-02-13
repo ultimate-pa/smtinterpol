@@ -49,8 +49,8 @@ subproofs to variables.  We now explain how such a proof can be constructed.
 
 ### Introducing names for subterms
 
-The first ten lines define names for the sub-terms of the formula from
-bottom-to-top.  Note that `t10` is the asserted formula in the input
+The first ten lines define names for the subterms of the formula from
+bottom-up.  Note that `t10` is the asserted formula in the input
 file (after expanding `let` bindings).
 It is not required to introduce an identifier for every subterm, but
 doing so helps keep the proof small.
@@ -78,7 +78,7 @@ look at how this is done. The input formula `t10` is
     (and (or t6 t7) (not t5))
 
 Thus, we want to split it into `C1: ( + t6 + t7 )` and `C2: ( - t5 )`.
-To split the `and`-formula, we use the and-elimination rule.  In this example
+To split the `and` formula, we use the `and-` elimination rule.  In this example
 the axiom `(and- 0 t10)` is used to prove `t9` from `t10`.
 Note that `t10` is just an abbreviation for `(and t9 t8)` and that `t9` is
 the argument at index 0.
@@ -90,19 +90,19 @@ where `t10` is the pivot literal, `C0` is a proof of a clause containing it posi
 for `( + t9 )`.
 
 The next step is to eliminate `(or t6 t7)`, that is `t9`, using the
-or-elimination rule.  The axiom `(or- t9)` proves the tautology clause
+`or-` elimination rule.  The axiom `(or- t9)` proves the tautology clause
 `( - t9 + t6 + t7 )`.  Resolving it with the previous proof on the
 pivot `t9`, we obtain `C1` which is a proof of `( + t6 + t7 )`.
 
     (let-proof ((C1 (res t9 (res t10 C0 (and- 0 t10)) (or- t9))))
 
-Similarly we use the other and-elimination rule `(and- 1 t10)` and the not-elimination
+Similarly we use the other `and-` elimination rule `(and- 1 t10)` and the `not-` elimination
 rule `(not- t8)` to obtain from `C0` the clause `C2` that proves `( - t5 )`.
 
     (let-proof ((C2 (res t8 (res t10 C0 (and- 1 t10)) (not- t8))))
 
 Furthermore, we add the clauses of the Plaisted–Greenbaum encoding
-`C3`–`C6`.   These clauses are simply the and-elimination clauses, but this time applied to
+`C3`–`C6`.   These clauses are simply the `and-` elimination clauses, but this time applied to
 `(and t1 t2)` and `(and t3 t4)`.  This gives us the full CNF of the input:
 
 ```
@@ -131,7 +131,7 @@ CDCL now explains the conflict, yielding `C7: ( - t6 )`
 
     (let-proof ((C7 (res t5 (res t2 C4 (res t1 C3 (trans x0 y0 x1))) C2)))
 
-Now unit resolution propagates `- t6`, `+ t7`, `+ t3`, and `+ t4`, and again
+Now unit propagation derives `- t6`, `+ t7`, `+ t3`, and `+ t4`, and again
 a theory conflict is found:
 
     (trans x0 z0 x1): ( - t3 - t4 + t5 )
