@@ -1204,7 +1204,18 @@ public class LinArSolve implements ITheory {
 		}
 		final EqualityProxy eq = mClausifier.createEqualityProxy(lhs.getTerm(), rhs.getTerm(), null);
 		assert eq != EqualityProxy.getTrueProxy();
-		assert eq != EqualityProxy.getFalseProxy();
+		if (eq == EqualityProxy.getFalseProxy()) {
+			// We found a conflict while trying to propagate a shared equality.
+			// This can happen if the difference between the shared terms cannot be an integer.
+			// We insert the difference as new basic in the tableau and let bound propagation do the rest.
+			final MutableAffineTerm at = new MutableAffineTerm();
+			at.addMap(Rational.ONE, lhs.getSummands());
+			at.addMap(Rational.MONE, rhs.getSummands());
+			at.mul(at.getGCD().inverse());
+			final LinVar var = generateLinVar(getSummandMap(at));
+			assert mDirty.get(var.mMatrixpos);
+			return null;
+		}
 		final CCEquality cceq = eq.createCCEquality(lhs.getTerm(), rhs.getTerm());
 		final LAEquality laeq = cceq.getLASharedData();
 		mClausifier.getLogger().debug("Propagate: %s  (laeq: %s) %s %s", cceq, laeq, cceq.getDecideStatus(),
@@ -1253,7 +1264,7 @@ public class LinArSolve implements ITheory {
 						fingerprints.put(fingerprint, shared);
 					} else {
 						final Clause conflict = propagateSharedEquality(other, shared, propagated);
-						if (conflict != null) {
+						if (conflict != null || !mDirty.isEmpty()) {
 							return conflict;
 						}
 					}
@@ -1282,8 +1293,12 @@ public class LinArSolve implements ITheory {
 			if (conflict != null) {
 				return conflict;
 			}
+			conflict = propagateSharedEqualities();
+			if (conflict != null) {
+				return conflict;
+			}
 		} while (!mDirty.isEmpty());
-		return propagateSharedEqualities();
+		return null;
 	}
 
 	public Rational realValue(final LinVar var) {
