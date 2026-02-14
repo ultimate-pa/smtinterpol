@@ -1220,9 +1220,10 @@ public class LinArSolve implements ITheory {
 		final LAEquality laeq = cceq.getLASharedData();
 		mClausifier.getLogger().debug("Propagate: %s  (laeq: %s) %s %s", cceq, laeq, cceq.getDecideStatus(),
 				laeq.getDecideStatus());
-		if (laeq.getDecideStatus() == null) {
+		if (laeq.getDecideStatus() != laeq) {
+			// The la equality has not yet the right status. It must be dirty and we will
+			// propagate the right status or report a conflict.
 			assert mDirty.get(laeq.getVar().mMatrixpos);
-			// mProplist.add(laeq);
 		} else if (cceq.getDecideStatus() == cceq.negate()) {
 			return generateEqualityClause(cceq);
 		} else if (cceq.getDecideStatus() == null) {

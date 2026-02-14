@@ -1519,9 +1519,9 @@ public class ArrayTheory implements ITheory {
 					}
 				}
 			} else {
-				final Object constRep = nodeMapping.get(null);
 				final CCTerm storeIndex = getIndexFromStore(node.mPrimaryStore).getRepresentative();
 				nodeMapping.putAll(mArrayModels.get(node.mPrimaryEdge));
+				final Object constRep = nodeMapping.get(null);
 				nodeMapping.remove(storeIndex);
 				final ArrayNode weakiRep = node.getWeakIRepresentative(storeIndex);
 				final CCTerm value = weakiRep.mSelects.get(storeIndex);
