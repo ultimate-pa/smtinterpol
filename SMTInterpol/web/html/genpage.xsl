@@ -226,7 +226,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/1999/x
   <xsl:template match="versionlink">
     <xsl:variable name="hashes" select="document('gen/hashes.xml')/hashes"/>
     <xsl:variable name="filename" select="concat('smtinterpol-',$version,@suffix,'.jar')"/>
-    <a href="$filename"><xsl:value-of select="$filename"/></a><br />
+    <a href="{$filename}"><xsl:value-of select="$filename"/></a><br />
     <span class="chksum">(SHA256:&#160;<xsl:value-of select="$hashes/file[@path=$filename]/@sha256"/>)</span>
   </xsl:template>
 
