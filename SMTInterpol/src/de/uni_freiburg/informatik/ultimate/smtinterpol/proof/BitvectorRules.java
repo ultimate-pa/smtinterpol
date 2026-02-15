@@ -2,9 +2,9 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
 
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
-import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
@@ -19,7 +19,8 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvadd.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvAdd(Term... args) {
+	public static Term expandBvAdd(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVADD;
 		assert args.length >= 2;
 		final Theory theory = args[0].getTheory();
 		final Term[] convArgs = new Term[args.length];
@@ -37,7 +38,8 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvsub.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvSub(Term... args) {
+	public static Term expandBvSub(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVSUB;
 		assert args.length >= 2;
 		final Theory theory = args[0].getTheory();
 		final Term minusOne = Rational.MONE.toTerm(theory.getSort(SMTLIBConstants.INT));
@@ -56,7 +58,8 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvmul.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvMul(Term... args) {
+	public static Term expandBvMul(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVMUL;
 		assert args.length >= 2;
 		final Theory theory = args[0].getTheory();
 		final Term[] convArgs = new Term[args.length];
@@ -68,12 +71,54 @@ public class BitvectorRules {
 	}
 
 	/**
+	 * Expand `(bvudiv x y)` to `((_ int_to_bv k) (ite (= (ubv_to_int y) 0) (- 1)
+	 * (div (ubv_to_int x) (ubv_to_int y)))))`
+	 *
+	 * @param args the arguments of the bvudiv.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvUdiv(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVUDIV;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term dividend = theory.term(SMTLIBConstants.UBV_TO_INT, args[0]);
+		final Term divisor = theory.term(SMTLIBConstants.UBV_TO_INT, args[1]);
+		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+		final Term mone = Rational.MONE.toTerm(divisor.getSort());
+		final Term result = theory.term(SMTLIBConstants.ITE, theory.term(SMTLIBConstants.EQUALS, divisor, zero), mone,
+				theory.term(SMTLIBConstants.DIV, dividend, divisor));
+		return theory.term(SMTLIBConstants.INT_TO_BV, args[0].getSort().getIndices(), null, result);
+	}
+
+	/**
+	 * Expand `(bvurem x y)` to `(ite (= (ubv_to_int y) 0) x ((_ int_to_bv k) (mod
+	 * (ubv_to_int x) (ubv_to_int y)))))`
+	 *
+	 * @param args the arguments of the bvurem.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvUrem(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVUREM;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term dividend = theory.term(SMTLIBConstants.UBV_TO_INT, args[0]);
+		final Term divisor = theory.term(SMTLIBConstants.UBV_TO_INT, args[1]);
+		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+		final Term modulo = theory.term(SMTLIBConstants.MOD, dividend, divisor);
+		return theory.term(SMTLIBConstants.ITE, theory.term(SMTLIBConstants.EQUALS, divisor, zero), args[0],
+				theory.term(SMTLIBConstants.INT_TO_BV, args[0].getSort().getIndices(), null, modulo));
+	}
+
+	/**
 	 * Expand `(bvneg a)` to `((_int_to_bv k) (* (- 1) (ubv_to_int a1)))`.
 	 *
 	 * @param arg the argument of the bvneg.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvNeg(Term arg) {
+	public static Term expandBvNeg(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVNEG;
+		assert args.length == 1;
+		final Term arg = args[0];
 		final Theory theory = arg.getTheory();
 		final Term minusOne = Rational.MONE.toTerm(theory.getSort(SMTLIBConstants.INT));
 		final Term convArg = theory.term(SMTLIBConstants.MUL, minusOne, theory.term(SMTLIBConstants.UBV_TO_INT, arg));
@@ -93,7 +138,10 @@ public class BitvectorRules {
 	 * @param arg the argument of the bvnot.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvNot(Term arg) {
+	public static Term expandBvNot(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVNOT;
+		assert args.length == 1;
+		final Term arg = args[0];
 		final Theory theory = arg.getTheory();
 		final Term plusTerm = buildIntegerNot(theory.term(SMTLIBConstants.UBV_TO_INT, arg));
 		return theory.term(SMTLIBConstants.INT_TO_BV, arg.getSort().getIndices(), null, plusTerm);
@@ -105,7 +153,8 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvand.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvAnd(Term... args) {
+	public static Term expandBvAnd(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVAND;
 		assert args.length >= 2;
 		final Theory theory = args[0].getTheory();
 		final Term[] convArgs = new Term[args.length];
@@ -131,7 +180,8 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvor.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvOr(Term... args) {
+	public static Term expandBvOr(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVOR;
 		assert args.length >= 2;
 		final Theory theory = args[0].getTheory();
 		final Term[] convArgs = new Term[args.length];
@@ -150,7 +200,8 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvxor.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvXor(Term... args) {
+	public static Term expandBvXor(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVXOR;
 		assert args.length >= 2;
 		final Theory theory = args[0].getTheory();
 		final Term[] convArgs = new Term[args.length];
@@ -169,7 +220,8 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvnand.
 	 * @return the expanded term.
 	 */
-	public static Term expandBvNAnd(Term... args) {
+	public static Term expandBvNAnd(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.BVNAND;
 		assert args.length == 2;
 		final Theory theory = args[0].getTheory();
 		final Term[] convArgs = new Term[args.length];
@@ -188,7 +240,8 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvand.
 	 * @return the expanded term.
 	 */
-	public static Term expandConcat(Term... args) {
+	public static Term expandConcat(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.CONCAT;
 		assert args.length >= 2;
 		final Theory theory = args[0].getTheory();
 		final Term[] convArgs = new Term[args.length];
@@ -213,8 +266,13 @@ public class BitvectorRules {
 	 * @param args the arguments of the bvand.
 	 * @return the expanded term.
 	 */
-	public static Term expandExtract(int high, int low, Term arg) {
+	public static Term expandExtract(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.EXTRACT;
+		final int high = Integer.parseInt(f.getIndices()[0]);
+		final int low = Integer.parseInt(f.getIndices()[1]);
 		assert high >= low && low >= 0;
+		assert args.length == 1;
+		final Term arg = args[0];
 		final Theory theory = arg.getTheory();
 		final int size = high - low + 1;
 		Term intArg = theory.term(SMTLIBConstants.UBV_TO_INT, arg);
@@ -225,14 +283,41 @@ public class BitvectorRules {
 	}
 
 	/**
-	 * Expand `((_ signextend j) a)` to `((_ int_to_bv j+k) (sbv_to_int a1))`.
+	 * Expand `((_ repeat j) a)` to `((_ int_to_bv j*k) (* (2^(j*k)/2^k) (ubv_to_int
+	 * a)))`
 	 *
-	 * @param newBits the index of the signextend.
-	 * @param arg     the arguments of the signextend.
+	 * @param args the arguments of the bvand.
 	 * @return the expanded term.
 	 */
-	public static Term expandSignExtend(int newBits, Term arg) {
+	public static Term expandRepeat(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.REPEAT;
+		final int count = Integer.parseInt(f.getIndices()[0]);
+		assert args.length == 1;
+		final Term arg = args[0];
+		final Theory theory = arg.getTheory();
+		final int bitlen = Integer.valueOf(arg.getSort().getIndices()[0]);
+		final int targetlen = bitlen * count;
+		final BigInteger magicMultiplier = BigInteger.ONE.shiftLeft(targetlen).subtract(BigInteger.ONE)
+				.divide(BigInteger.ONE.shiftLeft(bitlen).subtract(BigInteger.ONE));
+		final Term intArg = theory.term(SMTLIBConstants.UBV_TO_INT, arg);
+		final Term magicTerm = Rational.valueOf(magicMultiplier, BigInteger.ONE).toTerm(intArg.getSort());
+		final Term result = theory.term(SMTLIBConstants.MUL, magicTerm, intArg);
+		return theory.term(SMTLIBConstants.INT_TO_BV, new String[] { Integer.toString(targetlen) }, null, result);
+	}
+
+	/**
+	 * Expand `((_ sign_extend j) a)` to `((_ int_to_bv j+k) (sbv_to_int a1))`.
+	 *
+	 * @param newBits the index of the sign_extend.
+	 * @param arg     the arguments of the sign_extend.
+	 * @return the expanded term.
+	 */
+	public static Term expandSignExtend(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.SIGN_EXTEND;
+		final int newBits = Integer.parseInt(f.getIndices()[0]);
 		assert newBits > 0;
+		assert args.length == 1;
+		final Term arg = args[0];
 		final Theory theory = arg.getTheory();
 		final int oldSize = Integer.parseInt(arg.getSort().getIndices()[0]);
 		final int size = oldSize + newBits;
@@ -241,14 +326,18 @@ public class BitvectorRules {
 	}
 
 	/**
-	 * Expand `((_ zeroextend j) a)` to `((_ int_to_bv j+k) (ubv_to_int a1))`.
+	 * Expand `((_ zero_extend j) a)` to `((_ int_to_bv j+k) (ubv_to_int a1))`.
 	 *
-	 * @param newBits the index of the zeroextend.
-	 * @param arg     the arguments of the zeroextend.
+	 * @param newBits the index of the zero_extend.
+	 * @param arg     the arguments of the zero_extend.
 	 * @return the expanded term.
 	 */
-	public static Term expandZeroExtend(int newBits, Term arg) {
+	public static Term expandZeroExtend(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.ZERO_EXTEND;
+		final int newBits = Integer.parseInt(f.getIndices()[0]);
 		assert newBits > 0;
+		assert args.length == 1;
+		final Term arg = args[0];
 		final Theory theory = arg.getTheory();
 		final int oldSize = Integer.parseInt(arg.getSort().getIndices()[0]);
 		final int size = oldSize + newBits;
@@ -256,23 +345,47 @@ public class BitvectorRules {
 		return theory.term(SMTLIBConstants.INT_TO_BV, new String[] { Integer.toString(size) }, null, intArg);
 	}
 
-	/**
-	 * Expand `(sbv_to_int a)` to `(+ (ubv_to_int a) (* (- 2^k) (div (+ (ubv_to_int
-	 * a) 2^(k-1)) 2^k))))
-	 *
-	 * @param arg the argument of sbv_to_int.
-	 * @return the expanded term.
-	 */
-	public static Term expandSbvToInt(Term arg) {
+	private static Term rotate(int leftShift, int rightShift, Term arg) {
 		final Theory theory = arg.getTheory();
 		final Term intArg = theory.term(SMTLIBConstants.UBV_TO_INT, arg);
-		final int bitlength = Integer.valueOf(arg.getSort().getIndices()[0]);
-		final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bitlength), BigInteger.ONE);
-		final Sort intSort = intArg.getSort();
-		final Term divArg = theory.term(SMTLIBConstants.PLUS, intArg, pow2.div(Rational.TWO).toTerm(intSort));
-		final Term divTerm = theory.term(SMTLIBConstants.DIV, divArg, pow2.toTerm(intSort));
-		return theory.term(SMTLIBConstants.PLUS, intArg,
-				theory.term(SMTLIBConstants.MUL, pow2.negate().toTerm(intSort)), divTerm);
+		final Rational pow2Left = Rational.valueOf(BigInteger.ONE.shiftLeft(leftShift), BigInteger.ONE);
+		final Rational pow2Right = Rational.valueOf(BigInteger.ONE.shiftLeft(rightShift), BigInteger.ONE);
+		final Term shiftedLeft = theory.term(SMTLIBConstants.MUL, pow2Left.toTerm(intArg.getSort()), intArg);
+		final Term shiftedRight = theory.term(SMTLIBConstants.DIV, intArg, pow2Right.toTerm(intArg.getSort()));
+		final Term result = theory.term(SMTLIBConstants.PLUS, shiftedLeft, shiftedRight);
+		final int size = leftShift + rightShift;
+		return theory.term(SMTLIBConstants.INT_TO_BV, new String[] { Integer.toString(size) }, null, result);
 	}
 
+	/**
+	 * Expand `((_ rotate_left j) a)` to `((_ int_to_bv k) (+ (* 2^j (ubv_to_int a))
+	 * (div (ubv_to_int a) 2^(k-j))))`.
+	 *
+	 * @param newBits the index of the rotate_left.
+	 * @param arg     the arguments of the rotate_left.
+	 * @return the expanded term.
+	 */
+	public static Term expandRotateLeft(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.ROTATE_LEFT;
+		final int cnt = Integer.parseInt(f.getIndices()[0]);
+		assert args.length == 1;
+		final int bitSize = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		return rotate(cnt, bitSize - cnt, args[0]);
+	}
+
+	/**
+	 * Expand `((_ rotate_right j) a)` to `((_ int_to_bv k) (+ (* 2^(k-j)
+	 * (ubv_to_int a)) (div (ubv_to_int a) 2^j)))`.
+	 *
+	 * @param newBits the index of the rotate_right.
+	 * @param arg     the arguments of the rotate_right.
+	 * @return the expanded term.
+	 */
+	public static Term expandRotateRight(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == SMTLIBConstants.ROTATE_RIGHT;
+		final int cnt = Integer.parseInt(f.getIndices()[0]);
+		assert args.length == 1;
+		final int bitSize = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		return rotate(bitSize - cnt, cnt, args[0]);
+	}
 }

@@ -517,6 +517,17 @@ public class ModelEvaluator extends TermTransformer {
 			return Rational.valueOf(value, BigInteger.ONE).toTerm(fs.getReturnSort());
 		}
 
+		case SMTLIBConstants.SBV_TO_INT: {
+			assert args.length == 1;
+			BigInteger value = bitvectorValue(args[0]);
+			final int bitlength = getBitVecSize(args[0].getSort());
+			final BigInteger signBit = BigInteger.ONE.shiftLeft(bitlength - 1);
+			if (value.compareTo(signBit) >= 0) {
+				value = value.subtract(BigInteger.ONE.shiftLeft(bitlength));
+			}
+			return Rational.valueOf(value, BigInteger.ONE).toTerm(fs.getReturnSort());
+		}
+
 		case SMTLIBConstants.BVADD: {
 			final BigInteger mask = getBVModulo(fs.getReturnSort()).subtract(BigInteger.ONE);
 			BigInteger value = bitvectorValue(args[0]);

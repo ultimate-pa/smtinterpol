@@ -669,6 +669,13 @@ public class Theory {
 		}
 
 		@Override
+		public Term getDefinition(String[] indices, final TermVariable[] tvs, final Sort resultSort) {
+			final Term divisor = Rational.valueOf(new BigInteger(indices[0]), BigInteger.ONE).toTerm(tvs[0].getSort());
+			return term(SMTLIBConstants.EQUALS, tvs[0],
+					term(SMTLIBConstants.MUL, divisor, term(SMTLIBConstants.DIV, tvs[0], divisor)));
+		}
+
+		@Override
 		public Sort getResultSort(final String[] indices, final Sort[] paramSorts, final Sort resultSort) {
 			return indices != null && indices.length == 1 && toNumeral(indices[0]).signum() > 0
 					&& paramSorts.length == 1 && paramSorts[0] == mNumericSort && resultSort == null ? mBooleanSort

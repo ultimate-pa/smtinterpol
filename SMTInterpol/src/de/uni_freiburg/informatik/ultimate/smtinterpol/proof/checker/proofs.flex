@@ -163,9 +163,6 @@ Keyword = ":" {SMTLetterDigit}+
   "del!"                 { return symbol(ProofSymbols.DELANNOT, yytext()); }
 
   /* Arithmetic */
-  "divisible-def"        { return symbol(ProofSymbols.DIVISIBLEDEF, yytext()); }
-  ">def"                 { return symbol(ProofSymbols.GTDEF, yytext()); }
-  ">=def"                { return symbol(ProofSymbols.GEQDEF, yytext()); }
   "trichotomy"           { return symbol(ProofSymbols.TRICHOTOMY, yytext()); }
   "total"                { return symbol(ProofSymbols.TOTAL, yytext()); }
   "total-int"            { return symbol(ProofSymbols.TOTALINT, yytext()); }
@@ -173,7 +170,6 @@ Keyword = ":" {SMTLetterDigit}+
   "mulpos"               { return symbol(ProofSymbols.MULPOS, yytext()); }
   "to_int-high"          { return symbol(ProofSymbols.TOINTHIGH, yytext()); }
   "to_int-low"           { return symbol(ProofSymbols.TOINTLOW, yytext()); }
-  "-def"                 { return symbol(ProofSymbols.MINUSDEF, yytext()); }
   "/def"                 { return symbol(ProofSymbols.DIVIDEDEF, yytext()); }
   "poly+"                { return symbol(ProofSymbols.POLYADD, yytext()); }
   "poly*"                { return symbol(ProofSymbols.POLYMUL, yytext()); }
@@ -202,25 +198,7 @@ Keyword = ":" {SMTLetterDigit}+
   "bvliteral"            { return symbol(ProofSymbols.BVLITERAL, yytext()); }
   "ubv2int2bv"           { return symbol(ProofSymbols.UBV2INT2BV, yytext()); }
   "int2ubv2int"          { return symbol(ProofSymbols.INT2UBV2INT, yytext()); }
-  "bvadddef"             { return symbol(ProofSymbols.BVADDDEF, yytext()); }
-  "bvsubdef"             { return symbol(ProofSymbols.BVSUBDEF, yytext()); }
-  "bvmuldef"             { return symbol(ProofSymbols.BVMULDEF, yytext()); }
-  "bvudivdef"            { return symbol(ProofSymbols.BVUDIVDEF, yytext()); }
-  "bvudiv0"              { return symbol(ProofSymbols.BVUDIV0, yytext()); }
-  "bvuremdef"            { return symbol(ProofSymbols.BVUREMDEF, yytext()); }
-  "bvurem0"              { return symbol(ProofSymbols.BVUREM0, yytext()); }
-  "bvnegdef"             { return symbol(ProofSymbols.BVNEGDEF, yytext()); }
-  "bvnotdef"             { return symbol(ProofSymbols.BVNOTDEF, yytext()); }
-  "bvanddef"             { return symbol(ProofSymbols.BVANDDEF, yytext()); }
-  "bvordef"              { return symbol(ProofSymbols.BVORDEF, yytext()); }
-  "bvxordef"             { return symbol(ProofSymbols.BVXORDEF, yytext()); }
-  "bvnanddef"            { return symbol(ProofSymbols.BVNANDDEF, yytext()); }
-  "bvnordef"             { return symbol(ProofSymbols.BVNORDEF, yytext()); }
-  "bvxnordef"            { return symbol(ProofSymbols.BVXNORDEF, yytext()); }
-  "concatdef"            { return symbol(ProofSymbols.CONCATDEF, yytext()); }
-  "extractdef"           { return symbol(ProofSymbols.EXTRACTDEF, yytext()); }
-  "zeroextenddef"        { return symbol(ProofSymbols.ZEROEXTENDDEF, yytext()); }
-  "signextenddef"        { return symbol(ProofSymbols.SIGNEXTENDDEF, yytext()); }
+  "int2sbv2int"          { return symbol(ProofSymbols.INT2SBV2INT, yytext()); }
 
   /* Predefined Keywords */
   ":named"               { return symbol(ProofSymbols.CNAMED, yytext()); }

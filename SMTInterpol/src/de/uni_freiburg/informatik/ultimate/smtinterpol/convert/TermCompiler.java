@@ -135,7 +135,7 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 			if (fsym.isLeftAssoc() && params.length > 2) {
 				final Theory theory = appTerm.getTheory();
 				final String fsymName = fsym.getName();
-				if (fsymName == "and" || fsymName == "or" || fsymName == "+" || fsymName == "-" || fsymName == "*") {
+				if (fsymName == "and" || fsymName == "or" || fsymName == "+" || fsymName == "*") {
 					// We keep some n-ary internal operators
 					enqueueWalker(new BuildApplicationTerm(appTerm));
 					pushTerms(params);
@@ -564,31 +564,29 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 				break;
 			}
 			case SMTLIBConstants.BVADD:
-				expandWithRule(convertedApp, BitvectorRules.expandBvAdd(params), ProofConstants.RW_BVADD2INT);
+				expandWithRule(convertedApp, BitvectorRules.expandBvAdd(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			case SMTLIBConstants.BVSUB:
-				expandWithRule(convertedApp, BitvectorRules.expandBvSub(params), ProofConstants.RW_BVSUB2INT);
+				expandWithRule(convertedApp, BitvectorRules.expandBvSub(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			case SMTLIBConstants.BVMUL:
-				expandWithRule(convertedApp, BitvectorRules.expandBvMul(params), ProofConstants.RW_BVMUL2INT);
+				expandWithRule(convertedApp, BitvectorRules.expandBvMul(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			case SMTLIBConstants.BVNEG:
-				expandWithRule(convertedApp, BitvectorRules.expandBvNeg(params[0]), ProofConstants.RW_BVNEG2INT);
+				expandWithRule(convertedApp, BitvectorRules.expandBvNeg(fsym, params[0]), ProofConstants.RW_EXPAND);
 				return;
 			case SMTLIBConstants.BVNOT:
-				expandWithRule(convertedApp, BitvectorRules.expandBvNot(params[0]), ProofConstants.RW_BVNOT2INT);
+				expandWithRule(convertedApp, BitvectorRules.expandBvNot(fsym, params[0]), ProofConstants.RW_EXPAND);
 				return;
 			case SMTLIBConstants.CONCAT:
-				expandWithRule(convertedApp, BitvectorRules.expandConcat(params), ProofConstants.RW_CONCAT2INT);
+				expandWithRule(convertedApp, BitvectorRules.expandConcat(fsym, params), ProofConstants.RW_EXPAND);
 				return;
-			case SMTLIBConstants.BVUDIV: {
-				repush(mBvToIntUtils.translateBvudiv(mTracker, appTerm.getFunction(), convertedApp));
+			case SMTLIBConstants.BVUDIV:
+				expandWithRule(convertedApp, BitvectorRules.expandBvUdiv(fsym, params), ProofConstants.RW_EXPAND);
 				return;
-			}
-			case SMTLIBConstants.BVUREM: {
-				repush(mBvToIntUtils.translateBvurem(mTracker, appTerm.getFunction(), convertedApp));
+			case SMTLIBConstants.BVUREM:
+				expandWithRule(convertedApp, BitvectorRules.expandBvUrem(fsym, params), ProofConstants.RW_EXPAND);
 				return;
-			}
 			case SMTLIBConstants.BVASHR:
 			case SMTLIBConstants.BVLSHR: {
 				repush(mBvToIntUtils.translateBvshr(mTracker, appTerm.getFunction(), convertedApp));
@@ -622,38 +620,27 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 				return;
 			}
 			case SMTLIBConstants.EXTRACT: {
-				repush(mBvToIntUtils.translateExtract(mTracker, appTerm.getFunction(), convertedApp));
+				expandWithRule(convertedApp, BitvectorRules.expandExtract(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			}
 			case SMTLIBConstants.REPEAT: {
-				final Term rewrite = mBvToIntUtils.translateRepeat(params, fsym, convertedApp);
-				repush(rewrite);
+				expandWithRule(convertedApp, BitvectorRules.expandRepeat(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			}
 			case SMTLIBConstants.ZERO_EXTEND: {
-				final int newBits = Integer.parseInt(appTerm.getFunction().getIndices()[0]);
-				expandWithRule(convertedApp, BitvectorRules.expandZeroExtend(newBits, params[0]),
-						ProofConstants.RW_ZEROEXTEND);
+				expandWithRule(convertedApp, BitvectorRules.expandZeroExtend(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			}
 			case SMTLIBConstants.SIGN_EXTEND: {
-				final int newBits = Integer.parseInt(appTerm.getFunction().getIndices()[0]);
-				expandWithRule(convertedApp, BitvectorRules.expandSignExtend(newBits, params[0]),
-						ProofConstants.RW_SIGNEXTEND);
+				expandWithRule(convertedApp, BitvectorRules.expandSignExtend(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			}
 			case SMTLIBConstants.ROTATE_LEFT: {
-				final Term rhs = mBvToIntUtils.transformRotateleft(params, fsym, convertedApp);
-				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_BV_EXPAND_DEF);
-				repush(mTracker.transitivity(convertedApp, rewrite));
+				expandWithRule(convertedApp, BitvectorRules.expandRotateLeft(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			}
 			case SMTLIBConstants.ROTATE_RIGHT: {
-				final Term rhs = mBvToIntUtils.transformRotateright(params, fsym, convertedApp);
-				final Term rewrite = mTracker.buildRewrite(mTracker.getProvedTerm(convertedApp), rhs,
-						ProofConstants.RW_BV_EXPAND_DEF);
-				repush(mTracker.transitivity(convertedApp, rewrite));
+				expandWithRule(convertedApp, BitvectorRules.expandRotateRight(fsym, params), ProofConstants.RW_EXPAND);
 				return;
 			}
 			// From here on all bv function do pushTerm

@@ -222,11 +222,14 @@ public class BvUtils {
 				params[0].getSort());
 		final Term extractSignLhs = theory.term(extract, params[0]);
 		final Term extractSignRhs = theory.term(extract, params[1]);
-		final Term ite1 = theory.ifthenelse(theory.term("=", extractSignLhs, theory.binary("#b0")), params[0],
+		final Term abss = theory.ifthenelse(theory.term("=", extractSignLhs, theory.binary("#b0")), params[0],
 				theory.term("bvneg", params[0]));
-		final Term ite2 = theory.ifthenelse(theory.term("=", extractSignRhs, theory.binary("#b0")), params[1],
-				theory.term("bvneg", params[1]));
-		final Term bvurem = theory.term("bvurem", ite1, ite2);
+		// final Term abst = theory.ifthenelse(theory.term("=", extractSignRhs,
+		// theory.binary("#b0")), params[1],
+		// theory.term("bvneg", params[1]));
+		// final Term bvurem = theory.term("bvurem", abss, abst);
+		final Term bvurem = theory.ifthenelse(theory.term("=", extractSignRhs, theory.binary("#b0")),
+				theory.term("bvurem", abss, params[1]), theory.term("bvurem", abss, theory.term("bvneg", params[1])));
 
 		final Term zeroVec = theory.constant(BigInteger.ZERO, params[0].getSort());
 
@@ -241,11 +244,7 @@ public class BvUtils {
 		final Term elseTerm = theory.ifthenelse(theory.and(theory.term("=", extractSignLhs, theory.binary("#b0")),
 				theory.term("=", extractSignRhs, theory.binary("#b0"))), bvurem, elseTerm2);
 
-		// bvsmod by zero:
-		final String zeroVec2 = "#b" + new String(new char[size]).replace("\0", "0");
-		final Term rhsZero = theory.term("=", params[1], theory.binary(zeroVec2));
-		return theory.ifthenelse(rhsZero, params[0],
-				theory.ifthenelse(theory.term("=", bvurem, zeroVec), bvurem, elseTerm));
+		return theory.ifthenelse(theory.term("=", bvurem, zeroVec), bvurem, elseTerm);
 	}
 
 	public Term transformBvashr(final Term[] params) {

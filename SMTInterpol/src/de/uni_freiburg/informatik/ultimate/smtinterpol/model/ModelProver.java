@@ -247,11 +247,12 @@ public class ModelProver extends TermTransformer {
 					}
 					break;
 
+				case SMTLIBConstants.MINUS:
 				case SMTLIBConstants.DIVIDE:
 				case SMTLIBConstants.DIV:
 					if (appParams.length > 2) {
 						// non-binary left-associative operators are expanded before evaluating.
-						// this simplifies division by 0.
+						// to handle division by 0 and simplify the proofs.
 						Term expanded = appParams[0];
 						for (int i = 1; i < appParams.length; i++) {
 							expanded = theory.term(appTerm.getFunction(), expanded, appParams[1]);
@@ -280,13 +281,13 @@ public class ModelProver extends TermTransformer {
 					// binary geq/gt is rewritten to leq/lt.
 					if (fs.getName() == SMTLIBConstants.GT) {
 						final Term expanded = theory.term(SMTLIBConstants.LT, appParams[1], appParams[0]);
-						enqueueTransitivityStep(appTerm, expanded, mProofRules.gtDef(appTerm));
+						enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 						pushTerm(expanded);
 						return;
 					}
 					if (fs.getName() == SMTLIBConstants.GEQ) {
 						final Term expanded = theory.term(SMTLIBConstants.LEQ, appParams[1], appParams[0]);
-						enqueueTransitivityStep(appTerm, expanded, mProofRules.geqDef(appTerm));
+						enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 						pushTerm(expanded);
 						return;
 					}
@@ -303,78 +304,76 @@ public class ModelProver extends TermTransformer {
 
 				// expand most of the bit-vector operations
 				case SMTLIBConstants.BVADD: {
-					final Term expanded = BitvectorRules.expandBvAdd(appParams);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvAddDef(appParams));
+					final Term expanded = BitvectorRules.expandBvAdd(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.BVSUB: {
-					final Term expanded = BitvectorRules.expandBvSub(appParams);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvSubDef(appParams));
+					final Term expanded = BitvectorRules.expandBvSub(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.BVMUL: {
-					final Term expanded = BitvectorRules.expandBvMul(appParams);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvMulDef(appParams));
+					final Term expanded = BitvectorRules.expandBvMul(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.BVNEG: {
 					assert appParams.length == 1;
-					final Term expanded = BitvectorRules.expandBvNeg(appParams[0]);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvNegDef(appParams[0]));
+					final Term expanded = BitvectorRules.expandBvNeg(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.BVNOT: {
 					assert appParams.length == 1;
-					final Term expanded = BitvectorRules.expandBvNot(appParams[0]);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvNotDef(appParams[0]));
+					final Term expanded = BitvectorRules.expandBvNot(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.BVAND: {
 					assert appParams.length >= 2;
-					final Term expanded = BitvectorRules.expandBvAnd(appParams);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvAndDef(appParams));
+					final Term expanded = BitvectorRules.expandBvAnd(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.BVOR: {
 					assert appParams.length >= 2;
-					final Term expanded = BitvectorRules.expandBvOr(appParams);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvOrDef(appParams));
+					final Term expanded = BitvectorRules.expandBvOr(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.BVXOR: {
 					assert appParams.length >= 2;
-					final Term expanded = BitvectorRules.expandBvXor(appParams);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvXorDef(appParams));
+					final Term expanded = BitvectorRules.expandBvXor(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.BVNAND: {
 					assert appParams.length == 2;
-					final Term expanded = BitvectorRules.expandBvNAnd(appParams);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.bvNAndDef(appParams));
+					final Term expanded = BitvectorRules.expandBvNAnd(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.CONCAT: {
 					assert appParams.length >= 2;
-					final Term expanded = BitvectorRules.expandConcat(appParams);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.concatDef(appParams));
+					final Term expanded = BitvectorRules.expandConcat(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
 				case SMTLIBConstants.EXTRACT: {
 					assert appParams.length == 1;
-					final int high = Integer.parseInt(fs.getIndices()[0]);
-					final int low = Integer.parseInt(fs.getIndices()[1]);
-					final Term expanded = BitvectorRules.expandExtract(high, low, appParams[0]);
-					enqueueTransitivityStep(appTerm, expanded, mProofRules.extractDef(high, low, appParams[0]));
+					final Term expanded = BitvectorRules.expandExtract(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
 					pushTerm(expanded);
 					return;
 				}
@@ -418,7 +417,7 @@ public class ModelProver extends TermTransformer {
 
 		final Term newTerm = theory.term(appTerm.getFunction(), argTerms);
 		if (newTerm != appTerm) {
-			Term congProof = mProofRules.cong(appTerm.getFunction(), appTerm.getParameters(), argTerms);
+			Term congProof = mProofRules.cong(appTerm, newTerm);
 			for (int i = 0; i < newArgs.length; i++) {
 				Term eqProof;
 				final Term origTerm = appTerm.getParameters()[i];
@@ -912,7 +911,7 @@ public class ModelProver extends TermTransformer {
 			final Term divisorTerm = rdivisor.toTerm(arg.getSort());
 			final Term divisibleDef = theory.term(SMTLIBConstants.EQUALS, arg,
 					theory.term(SMTLIBConstants.MUL, divisorTerm, theory.term(SMTLIBConstants.DIV, arg, divisorTerm)));
-			enqueueTransitivityStep(funcTerm, divisibleDef, mProofRules.divisible(divisor, arg));
+			enqueueTransitivityStep(funcTerm, divisibleDef, mProofRules.expand(funcTerm));
 			pushTerm(divisibleDef);
 			return null;
 		}
@@ -979,6 +978,18 @@ public class ModelProver extends TermTransformer {
 			final BigInteger value = bitvectorValue(args[0]);
 			final Term result = Rational.valueOf(value, BigInteger.ONE).toTerm(fs.getReturnSort());
 			return annotateProof(mProofUtils.proveUbvToIntConstant(args[0]), result);
+		}
+
+		case SMTLIBConstants.SBV_TO_INT: {
+			assert args.length == 1;
+			BigInteger value = bitvectorValue(args[0]);
+			final int bitlength = getBitVecSize(args[0].getSort());
+			final BigInteger signBit = BigInteger.ONE.shiftLeft(bitlength - 1);
+			if (value.compareTo(signBit) >= 0) {
+				value = value.subtract(BigInteger.ONE.shiftLeft(bitlength));
+			}
+			final Term result = Rational.valueOf(value, BigInteger.ONE).toTerm(fs.getReturnSort());
+			return annotateProof(mProofUtils.proveSbvToIntConstant(args[0]), result);
 		}
 
 		case SMTInterpolConstants.INTAND: {

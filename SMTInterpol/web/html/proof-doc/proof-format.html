@@ -639,6 +639,18 @@ are implicitly converted to <code>Real</code> by converting all
 coefficients in <code>ai</code>/<code>bi</code> to real constants and
 replacing all terms <code>t</code> in <code>ai</code>/<code>bi</code>
 with <code>(to_real t)</code>.</p>
+<p>For multiplicative reasoning, we provide a similar axiom stating that
+the product of non-negative values is non-negative, and that the result
+is strictly positive if all factors are strictly positive.</p>
+<pre><code>⟨arith-axiom⟩ ::= …
+ | (mulpos (&lt;=? 0 a1) … (&lt;=? 0 an) (&lt;=? 0 a)): ( -(&lt;=? 0 a1) … -(&lt;=? 0 an) +(&lt;=? 0 a) )</code></pre>
+<p>where <code>&lt;=?</code> stands for <code>&lt;</code> or
+<code>&lt;=</code>, <code>ai</code> are polynomials, and
+<code>a = a1 * … * an</code> is the product of the polynomials
+<code>a1</code>, …, <code>an</code>. The conclusion must be non-strict,
+i.e., <code>(&lt;= 0 a)</code>, unless all premises are strict
+inequalities <code>(&lt; 0 ai)</code>, in which case the conclusion may
+also be strict.</p>
 <p>The remaining axioms work with arbitrary terms and do not require
 adding or multiplying polynomials:</p>
 <pre><code>⟨arith-axiom⟩ ::= …
@@ -698,11 +710,22 @@ example, for <code>(+ i0 r1 i2 r3)</code> where <code>i0</code>,
 <code>expand</code> axiom looks like:</p>
 <pre><code>(expand (+ i0 r1 i2 r3)): ( +(= (+ i0 r1 i2 r3)
                                 (+ (to_real i0) r1 (to_real i2) r3)))</code></pre>
-<p>Note that the axiom <code>farkas</code> is the only axiom with
-negated literals. It can be used in a resolution proof to rewrite a
-positive literal into an equivalent negated literal. On the other hand,
-the axiom <code>total</code> and <code>total-int</code> can be used to
-rewrite a negated literal into the equivalent positive literal.</p>
+<p>Note that the axiom <code>farkas</code> and <code>mulpos</code> are
+the only axioms that introduce negated literals. The axiom
+<code>farkas</code> also supports equalities but treats them in the same
+way as inequalites <code>&lt;=</code>. If the opposite direction is
+required, symmetry must be applied first.</p>
+<p>The <code>farkas</code> axiom can be used in a resolution proof to
+rewrite a positive equality or inequality into a negated inequality.
+Conversely, the axioms <code>total</code> and <code>total-int</code> can
+be used to rewrite a negated literal into an equivalent positive
+literal. The combination of these axioms allows one to derive a positive
+inequality from an equality. For example, the following proof term
+derives a clause expressing that <code>(= a b)</code> implies
+<code>(&lt;= a b)</code>:</p>
+<pre><code>(res (&lt; b a)
+     (total a b)
+     (farkas 1 (= a b) 1 (&lt; b a)))</code></pre>
 <h3 id="data-types">Data Types</h3>
 <p>For reasoning about data types, the following rules are used:</p>
 <pre><code>⟨datatype-axiom⟩ ::= …
@@ -711,9 +734,10 @@ rewrite a negated literal into the equivalent positive literal.</p>
  | (dt_test cons (cons a1 … an))   ;( +((_ is cons) (cons a1 … an)) )
  | (dt_test cons&#39; (cons a1 … an))  ;( -((_ is cons&#39;) (cons a1 … an)) )
  | (dt_exhaust x)                  ;( +((_ is cons1) x) … +((_ is consn) x) )
- | (dt_acyclic (cons …(cons… x …)…) x) ;( -(= (cons …(cons… x …)…) x) )
-   ; where (cons …(cons… x …)…) is a term containing x, and around x
-   ; only constructor functions appear.
+ | (dt_acyclic t0 (i1 … in))       ;( -(= t0 tn) )
+   ; where t0 is a nested constructor application and tn a subterm of t0 on the path (i1 … in), i.e.,
+   ; for the sequence t0, …, tn (n &gt;= 1), each tj is the ij-th argument of tj-1 for j = 1, …, n,
+   ; t0, …, tn-1 are applications of constructors (not necessarily the same constructor or data type).
  | (dt_match (match t …))
    ;( +(= (match t ((p1 x1) c1) …) (ite ((_ is p1) t) (let ((x1 (sel1 t))) c1) …)) )</code></pre>
 <h3 id="bitvectors">Bitvectors</h3>

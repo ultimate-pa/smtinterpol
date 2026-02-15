@@ -19,7 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
@@ -29,9 +28,6 @@ import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
-import de.uni_freiburg.informatik.ultimate.logic.LetTerm;
-import de.uni_freiburg.informatik.ultimate.logic.PrintTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
@@ -86,9 +82,6 @@ public class ProofRules {
 	public final static String DELANNOT = "del!";
 
 	// rules for (non-)linear arithmetic
-	public final static String DIVISIBLEDEF = "divisible-def";
-	public final static String GTDEF = ">def";
-	public final static String GEQDEF = ">=def";
 	public final static String TRICHOTOMY = "trichotomy";
 	public final static String TOTAL = "total";
 	public final static String TOTALINT = "total-int";
@@ -96,7 +89,6 @@ public class ProofRules {
 	public final static String MULPOS = "mulpos";
 	public final static String TOINTHIGH = "to_int-high";
 	public final static String TOINTLOW = "to_int-low";
-	public final static String MINUSDEF = "-def";
 	public final static String DIVIDEDEF = "/def";
 	public final static String POLYADD = "poly+";
 	public final static String POLYMUL = "poly*";
@@ -128,25 +120,6 @@ public class ProofRules {
 	public final static String INT2UBV2INT = "int2ubv2int";
 	public final static String INT2SBV2INT = "int2sbv2int";
 	public final static String UBV2INT2BV = "ubv2int2bv";
-	public final static String BVADDDEF = "bvadddef";
-	public final static String BVMULDEF = "bvmuldef";
-	public final static String BVSUBDEF = "bvsubdef";
-	public final static String BVUDIVDEF = "bvudivdef";
-	public final static String BVUDIV0 = "bvudiv0";
-	public final static String BVUREMDEF = "bvuremdef";
-	public final static String BVUREM0 = "bvurem0";
-	public final static String BVNOTDEF = "bvnotdef";
-	public final static String BVNEGDEF = "bvnegdef";
-	public final static String BVANDDEF = "bvanddef";
-	public final static String BVORDEF = "bvordef";
-	public final static String BVXORDEF = "bvxordef";
-	public final static String BVNANDDEF = "bvnanddef";
-	public final static String BVNORDEF = "bvnordef";
-	public final static String BVXNORDEF = "bvxnordef";
-	public final static String CONCATDEF = "concatdef";
-	public final static String EXTRACTDEF = "extractdef";
-	public final static String SIGNEXTENDDEF = "signextenddef";
-	public final static String ZEROEXTENDDEF = "zeroextenddef";
 
 	/**
 	 * sort name for proofs.
@@ -205,36 +178,6 @@ public class ProofRules {
 
 	public Theory getTheory() {
 		return mTheory;
-	}
-
-	private static boolean isKeyword(final Object obj) {
-		return obj instanceof String && ((String) obj).charAt(0) == ':';
-	}
-
-	static Annotation[] convertSExprToAnnotation(final Object[] objects) {
-		final ArrayList<Annotation> annots = new ArrayList<>();
-		for (int i = 0; i < objects.length; i++) {
-			assert isKeyword(objects[i]);
-			final String keyword = (String) objects[i];
-			Object value = null;
-			if (i + 1 < objects.length && !isKeyword(objects[i + 1])) {
-				i++;
-				value = objects[i];
-			}
-			annots.add(new Annotation(keyword, value));
-		}
-		return annots.toArray(new Annotation[annots.size()]);
-	}
-
-	static Object[] convertAnnotationsToSExpr(final Annotation[] annots) {
-		final ArrayList<Object> sexpr = new ArrayList<>();
-		for (final Annotation a : annots) {
-			sexpr.add(a.getKey());
-			if (a.getValue() != null) {
-				sexpr.add(a.getValue());
-			}
-		}
-		return sexpr.toArray(new Object[sexpr.size()]);
 	}
 
 	/**
@@ -491,23 +434,13 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + TRANS, terms), mAxiom);
 	}
 
-	public Term cong(final FunctionSymbol func, final Term[] params1, final Term[] params2) {
-		assert params1.length == params2.length;
-		final Annotation[] annot = new Annotation[] {
-				new Annotation(":" + CONG, new Object[] { func, params1, params2 }) };
+	public Term cong(final Term term1, final Term term2) {
+		final Annotation[] annot = new Annotation[] { new Annotation(":" + CONG, new Term[] { term1, term2 }) };
 		return mTheory.annotatedTerm(annot, mAxiom);
 	}
 
-	public Term cong(final Term term1, final Term term2) {
-		final ApplicationTerm app1 = (ApplicationTerm) term1;
-		final ApplicationTerm app2 = (ApplicationTerm) term2;
-		assert app1.getFunction() == app2.getFunction();
-		return cong(app1.getFunction(), app1.getParameters(), app2.getParameters());
-	}
-
 	public Term expand(final Term term) {
-		final Annotation[] annot = new Annotation[] { new Annotation(":" + EXPAND,
-				new Object[] { ((ApplicationTerm) term).getFunction(), ((ApplicationTerm) term).getParameters(), }) };
+		final Annotation[] annot = new Annotation[] { new Annotation(":" + EXPAND, term) };
 		return mTheory.annotatedTerm(annot, mAxiom);
 	}
 
@@ -524,26 +457,7 @@ public class ProofRules {
 	}
 
 	public Term delAnnot(final Term annotTerm) {
-		final Term subterm = ((AnnotatedTerm) annotTerm).getSubterm();
-		final Object[] subAnnots = convertAnnotationsToSExpr(((AnnotatedTerm) annotTerm).getAnnotations());
-		return mTheory.annotatedTerm(annotate(":" + DELANNOT, new Object[] { subterm, subAnnots }), mAxiom);
-	}
-
-	public Term divisible(final BigInteger divisor, final Term lhs) {
-		assert divisor.signum() > 0;
-		assert lhs.getSort().getName().equals(SMTLIBConstants.INT);
-		return mTheory.annotatedTerm(
-				annotate(":" + DIVISIBLEDEF, new Term[] { lhs }, new Annotation(ANNOT_DIVISOR, divisor)), mAxiom);
-	}
-
-	public Term gtDef(final Term greaterTerm) {
-		assert ((ApplicationTerm) greaterTerm).getFunction().getName() == SMTLIBConstants.GT;
-		return mTheory.annotatedTerm(annotate(":" + GTDEF, ((ApplicationTerm) greaterTerm).getParameters()), mAxiom);
-	}
-
-	public Term geqDef(final Term greaterTerm) {
-		assert ((ApplicationTerm) greaterTerm).getFunction().getName() == SMTLIBConstants.GEQ;
-		return mTheory.annotatedTerm(annotate(":" + GEQDEF, ((ApplicationTerm) greaterTerm).getParameters()), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DELANNOT, annotTerm), mAxiom);
 	}
 
 	public Term trichotomy(final Term lhs, final Term rhs) {
@@ -570,8 +484,9 @@ public class ProofRules {
 	 *            an integer constant.
 	 * @return the axiom.
 	 */
-	public Term totalInt(final Term x, final BigInteger c) {
-		return mTheory.annotatedTerm(annotate(":" + TOTALINT, new Object[] { x, c }), mAxiom);
+	public Term totalInt(final Term x, final Rational c) {
+		assert c.isIntegral();
+		return mTheory.annotatedTerm(annotate(":" + TOTALINT, new Term[] { x, c.toTerm(x.getSort()) }), mAxiom);
 	}
 
 	public Term farkas(final Term[] inequalities, final BigInteger[] coefficients) {
@@ -649,19 +564,6 @@ public class ProofRules {
 	public Term divideDef(final Term divTerm) {
 		assert isApplication(SMTLIBConstants.DIVIDE, divTerm);
 		return mTheory.annotatedTerm(annotate(":" + DIVIDEDEF, ((ApplicationTerm) divTerm).getParameters()), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (- a) (* (- 1) a)` resp. `(= (- a b1 .. bn) (+ a (* (- 1)
-	 * b1) .. (* (- 1) bn))`.
-	 *
-	 * @param minusTerm
-	 *            the minus term.
-	 * @return the axiom.
-	 */
-	public Term minusDef(final Term minusTerm) {
-		assert isApplication(SMTLIBConstants.MINUS, minusTerm);
-		return mTheory.annotatedTerm(annotate(":" + MINUSDEF, ((ApplicationTerm) minusTerm).getParameters()), mAxiom);
 	}
 
 	/**
@@ -872,264 +774,6 @@ public class ProofRules {
 		return mTheory.annotatedTerm(annotate(":" + UBV2INT2BV, bvTerm), mAxiom);
 	}
 
-	/**
-	 * Axiom stating `(= (bvadd a1 ... an) ((_ int_to_bv bl) (+ (ubv_to_int a1) ...
-	 * (ubv_to_int an))))`.
-	 *
-	 * @param args the terms a1 ... an.
-	 * @return the axiom.
-	 */
-	public Term bvAddDef(final Term... args) {
-		assert args.length >= 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVADDDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvsub a1 a2 ... an) ((_ int_to_bv bl) (+ (ubv_to_int a1)
-	 * (* (- 1) (ubv_to_int a2) ... (* (- 1) an)))))`.
-	 *
-	 * @param args the terms a1 ... an.
-	 * @return the axiom.
-	 */
-	public Term bvSubDef(final Term... args) {
-		assert args.length >= 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVSUBDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvmul a1 ... an) ((_ int_to_bv bl) (* (ubv_to_int a1) ...
-	 * (ubv_to_int an))))`.
-	 *
-	 * @param args the terms a1 ... an.
-	 * @return the axiom.
-	 */
-	public Term bvMulDef(final Term... args) {
-		assert args.length >= 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVMULDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvudiv a1 a2) ((_ int_to_bv bl) (div (ubv_to_int a1)
-	 * (ubv_to_int a2))))`.
-	 *
-	 * @param args the terms a1 a2.
-	 * @return the axiom.
-	 */
-	public Term bvUDivDef(final Term... args) {
-		assert args.length == 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVUDIVDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvudiv a 0) (_ bv2^k-1 k))`.
-	 *
-	 * @param args the terms a.
-	 * @return the axiom.
-	 */
-	public Term bvUDiv0(final Term arg) {
-		assert arg.getSort().isBitVecSort();
-		return mTheory.annotatedTerm(annotate(":" + BVUDIV0, arg), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvurem a1 a2) ((_ int_to_bv bl) (mod (ubv_to_int a1)
-	 * (ubv_to_int a2))))`.
-	 *
-	 * @param args the terms a1 a2.
-	 * @return the axiom.
-	 */
-	public Term bvURemDef(final Term... args) {
-		assert args.length == 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVUREMDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvurem a 0) a)`.
-	 *
-	 * @param args the terms a.
-	 * @return the axiom.
-	 */
-	public Term bvURem0(final Term arg) {
-		assert arg.getSort().isBitVecSort();
-		return mTheory.annotatedTerm(annotate(":" + BVUREM0, arg), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvnot a) ((_ int_to_bv bl) (+ (- 1) (* (- 1) (ubv_to_int
-	 * a)))))`.
-	 *
-	 * @param arg the term a.
-	 * @return the axiom.
-	 */
-	public Term bvNotDef(final Term arg) {
-		assert arg.getSort().isBitVecSort();
-		return mTheory.annotatedTerm(annotate(":" + BVNOTDEF, arg), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvneg a) ((_ int_to_bv bl) (* (- 1) (ubv_to_int a))))`.
-	 *
-	 * @param arg the term a.
-	 * @return the axiom.
-	 */
-	public Term bvNegDef(final Term arg) {
-		assert arg.getSort().isBitVecSort();
-		return mTheory.annotatedTerm(annotate(":" + BVNEGDEF, arg), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvand a1 ... an) ((_ int_to_bv bl) (& (ubv_to_int a1) ...
-	 * (ubv_to_int an))))`.
-	 *
-	 * @param term the terms a1 ... an.
-	 * @return the axiom.
-	 */
-	public Term bvAndDef(final Term... args) {
-		assert args.length >= 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVANDDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvor a1 ... an) (_ int_to_bv bl) (+ (ubv_to_int a1) ...
-	 * (ubv_to_int an) (* (- 1) (& (ubv_to_int a1) ... (ubv_to_int an)))))`.
-	 *
-	 * @param term the terms a1 ... an.
-	 * @return the axiom.
-	 */
-	public Term bvOrDef(final Term... args) {
-		assert args.length >= 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVORDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvxor a1 ... an) (_ int_to_bv bl) (+ (ubv_to_int a1) ...
-	 * (ubv_to_int an) (* (- 2) (& (ubv_to_int a1) ... (ubv_to_int an)))))`.
-	 *
-	 * @param term the terms a1 ... an.
-	 * @return the axiom.
-	 */
-	public Term bvXorDef(final Term... args) {
-		assert args.length >= 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVXORDEF, args), mAxiom);
-	}
-
-
-	/**
-	 * Axiom stating `(= (bvnand a1 a2) ((_ int_to_bv bl) (+ (- 1) (* (- 1) (&
-	 * (ubv_to_int a1) (ubv_to_int a2)))))`.
-	 *
-	 * @param term the terms a1 a2.
-	 * @return the axiom.
-	 */
-	public Term bvNAndDef(final Term... args) {
-		assert args.length == 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVNANDDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvor a1 ... an) (_ int_to_bv bl) (+ (- 1) (* (- 1)
-	 * (ubv_to_int a1)) (* (- 1) (ubv_to_int a2)) (& (ubv_to_int a1) (ubv_to_int
-	 * a2))))`.
-	 *
-	 * @param term the terms a1 a2.
-	 * @return the axiom.
-	 */
-	public Term bvNOrDef(final Term... args) {
-		assert args.length == 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVNORDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (bvxnor a1 ... an) (_ int_to_bv bl) (+ (- 1) (* (- 1)
-	 * (ubv_to_int a1)) (* (- 1) (ubv_to_int a2)) (* 2 (& (ubv_to_int a1)
-	 * (ubv_to_int a2)))))`.
-	 *
-	 * @param term the terms a1 a2.
-	 * @return the axiom.
-	 */
-	public Term bvXNorDef(final Term... args) {
-		assert args.length == 2;
-		assert args[0].getSort().isBitVecSort();
-		assert equalSorts(args);
-		return mTheory.annotatedTerm(annotate(":" + BVXNORDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= (concat a1 ... an) ((_ int_to_bv bl) (+ (... (ubv_to_int
-	 * a1) ... (ubv_to_int an))))`.
-	 *
-	 * @param args the terms a1 ... an.
-	 * @return the axiom.
-	 */
-	public Term concatDef(final Term... args) {
-		assert args.length >= 2;
-		assert args[0].getSort().isBitVecSort();
-		return mTheory.annotatedTerm(annotate(":" + CONCATDEF, args), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= ((_ extract j i) a) ((_ int_to_bv j-i+1) (div (ubv_to_int
-	 * a) 2^i)))`.
-	 *
-	 * @param high the value j.
-	 * @param low  the value i.
-	 * @param arg  the terms a.
-	 * @return the axiom.
-	 */
-	public Term extractDef(int high, int low, final Term arg) {
-		assert arg.getSort().isBitVecSort();
-		assert high >= low;
-		assert low >= 0;
-		assert Integer.parseInt(arg.getSort().getIndices()[0]) > high;
-		return mTheory.annotatedTerm(annotate(":" + EXTRACTDEF, new Object[] { high, low, arg }), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= ((_ signextend j) a) ((_ int_to_bv j+k) (sbv_to_int a)))`.
-	 * Where k is the bit size of a.
-	 *
-	 * @param newBits the number of inserted bits j.
-	 * @param arg     the term a.
-	 * @return the axiom.
-	 */
-	public Term signExtendDef(int newBits, final Term arg) {
-		assert arg.getSort().isBitVecSort();
-		return mTheory.annotatedTerm(annotate(":" + SIGNEXTENDDEF, new Object[] { newBits, arg }), mAxiom);
-	}
-
-	/**
-	 * Axiom stating `(= ((_ zeroextend j) a) ((_ int_to_bv j+k) (ubv_to_int a)))`.
-	 * Where k is the bit size of a.
-	 *
-	 * @param newBits the number of inserted bits j.
-	 * @param arg     the term a.
-	 * @return the axiom.
-	 */
-	public Term zeroExtendDef(int newBits, final Term arg) {
-		assert arg.getSort().isBitVecSort();
-		return mTheory.annotatedTerm(annotate(":" + ZEROEXTENDDEF, new Object[] { newBits, arg }), mAxiom);
-	}
-
 	public static void printProof(final Appendable appender, final Term proof) {
 		new PrintProof().append(appender, proof);
 	}
@@ -1277,15 +921,14 @@ public class ProofRules {
 	public static boolean checkMulPos(final Term[] inequalities) {
 		final Polynomial prod = new Polynomial();
 		prod.add(Rational.ONE);
-		boolean strict = true;
+		boolean holdsStrictly = true;
 		for (int i = 0; i < inequalities.length; i++) {
 			if (!isApplication(SMTLIBConstants.LT, inequalities[i])
-					&& !isApplication(SMTLIBConstants.LEQ, inequalities[i])
-					&& !isApplication(SMTLIBConstants.EQUALS, inequalities[i])) {
+					&& !isApplication(SMTLIBConstants.LEQ, inequalities[i])) {
 				return false;
 			}
 			if (!isApplication(SMTLIBConstants.LT, inequalities[i])) {
-				strict = false;
+				holdsStrictly = false;
 			}
 			final ApplicationTerm appTerm = (ApplicationTerm) inequalities[i];
 			final Term[] params = appTerm.getParameters();
@@ -1298,8 +941,7 @@ public class ProofRules {
 			if (i < inequalities.length - 1) {
 				prod.mul(new Polynomial(params[1]));
 			} else {
-				if (!isApplication(SMTLIBConstants.LEQ, inequalities[i])
-						&& (!strict || !isApplication(SMTLIBConstants.LT, inequalities[i]))) {
+				if (!holdsStrictly && !isApplication(SMTLIBConstants.LEQ, inequalities[i])) {
 					return false;
 				}
 				prod.add(Rational.MONE, params[1]);
@@ -1367,505 +1009,5 @@ public class ProofRules {
 
 	public static boolean isProof(final Term proof) {
 		return proof.getSort().isInternal() && proof.getSort().getName().equals(PREFIX + PROOF);
-	}
-
-	public static class PrintProof extends PrintTerm {
-		@Override
-		public void walkTerm(final Term proof) {
-			if (proof instanceof AnnotatedTerm) {
-				final AnnotatedTerm annotTerm = (AnnotatedTerm) proof;
-				final Annotation[] annots = annotTerm.getAnnotations();
-				if (annots.length == 1
-						&& (annots[0].getKey() == ANNOT_DEFINE_FUN || annots[0].getKey() == ANNOT_REFINE_FUN)) {
-					final Object[] annotVal = (Object[]) annots[0].getValue();
-					assert annotVal.length == 2;
-					final FunctionSymbol func = (FunctionSymbol) annotVal[0];
-					final LambdaTerm definition = (LambdaTerm) annotVal[1];
-					mTodo.add(")");
-					mTodo.add(annotTerm.getSubterm());
-					mTodo.add(" ");
-					mTodo.add(")");
-					mTodo.add(definition.getSubterm());
-					mTodo.add(") ");
-					final TermVariable[] vars = definition.getVariables();
-					for (int i = vars.length - 1; i >= 0; i--) {
-						mTodo.add(")");
-						mTodo.add(vars[i].getSort());
-						mTodo.add(" ");
-						mTodo.add(vars[i]);
-						mTodo.add(i == 0 ? "(" : " (");
-					}
-					mTodo.add(" (");
-					mTodo.add(func.getApplicationString());
-					mTodo.add("((" + annots[0].getKey().substring(1) + " ");
-					return;
-				} else if (annots.length == 1 && annots[0].getKey() == ANNOT_DECLARE_FUN) {
-					final Object[] annotVal = (Object[]) annots[0].getValue();
-					assert annotVal.length == 1;
-					final FunctionSymbol func = (FunctionSymbol) annotVal[0];
-					mTodo.add(")");
-					mTodo.add(annotTerm.getSubterm());
-					mTodo.add(" ");
-					mTodo.add(")");
-					mTodo.add(func.getReturnSort());
-					mTodo.add(") ");
-					final Sort[] paramSorts = func.getParameterSorts();
-					for (int i = paramSorts.length - 1; i >= 0; i--) {
-						mTodo.add(paramSorts[i]);
-						if (i > 0) {
-							mTodo.add(" ");
-						}
-					}
-					mTodo.add(" (");
-					mTodo.add(func.getApplicationString());
-					mTodo.add("((" + annots[0].getKey().substring(1) + " ");
-					return;
-				} else if (annotTerm.getSubterm() instanceof ApplicationTerm
-						&& ((ApplicationTerm) annotTerm.getSubterm()).getFunction().getName() == PREFIX + AXIOM) {
-					switch (annots[0].getKey()) {
-					case ":" + ORACLE: {
-						assert annots.length >= 1;
-						final Object[] clause = (Object[]) annots[0].getValue();
-						mTodo.add(")");
-						for (int i = annots.length - 1; i >= 1; i--) {
-							if (annots[i].getValue() != null) {
-								mTodo.add(annots[i].getValue());
-								mTodo.add(" ");
-							}
-							mTodo.add(annots[i].getKey());
-							mTodo.add(" ");
-						}
-						mTodo.add(clause);
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + TRUEI:
-					case ":" + FALSEE: {
-						assert annots.length == 1;
-						assert annots[0].getValue() == null;
-						mTodo.add(annots[0].getKey().substring(1));
-						return;
-					}
-					case ":" + NOTI:
-					case ":" + NOTE:
-					case ":" + ORE:
-					case ":" + ANDI:
-					case ":" + IMPE:
-					case ":" + IFFI1:
-					case ":" + IFFI2:
-					case ":" + IFFE1:
-					case ":" + IFFE2:
-					case ":" + ITE1:
-					case ":" + ITE2:
-					case ":" + EQI:
-					case ":" + DISTINCTI:
-					case ":" + UBV2INT2BV:
-					case ":" + BVUDIV0:
-					case ":" + BVUREM0:
-					case ":" + BVNOTDEF:
-					case ":" + BVNEGDEF: {
-						assert annots.length == 1;
-						final Term param = (Term) annots[0].getValue();
-						mTodo.add(")");
-						mTodo.add(param);
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-
-					case ":" + REFL:
-					case ":" + SYMM:
-					case ":" + TRANS:
-					case ":" + GTDEF:
-					case ":" + GEQDEF:
-					case ":" + TRICHOTOMY:
-					case ":" + TOTAL:
-					case ":" + POLYADD:
-					case ":" + POLYMUL:
-					case ":" + MULPOS:
-					case ":" + DIVIDEDEF:
-					case ":" + MINUSDEF:
-					case ":" + TOREALDEF:
-					case ":" + TOINTLOW:
-					case ":" + TOINTHIGH:
-					case ":" + DIVLOW:
-					case ":" + DIVHIGH:
-					case ":" + MODDEF:
-					case ":" + SELECTSTORE1:
-					case ":" + SELECTSTORE2:
-					case ":" + EXTDIFF:
-					case ":" + CONST:
-					case ":" + BVADDDEF:
-					case ":" + BVMULDEF:
-					case ":" + BVSUBDEF:
-					case ":" + BVUDIVDEF:
-					case ":" + BVUREMDEF:
-					case ":" + BVANDDEF:
-					case ":" + BVORDEF:
-					case ":" + BVXORDEF:
-					case ":" + BVNANDDEF:
-					case ":" + BVNORDEF:
-					case ":" + BVXNORDEF:
-					case ":" + CONCATDEF:
-					case ":" + DT_PROJECT:
-					case ":" + DT_CONS:
-					case ":" + DT_TESTI:
-					case ":" + DT_EXHAUST:
-					case ":" + DT_MATCH: {
-						assert annots.length == 1;
-						final Term[] params = (Term[]) annots[0].getValue();
-						mTodo.add(")");
-						for (int i = params.length - 1; i >= 0; i--) {
-							mTodo.add(params[i]);
-							mTodo.add(" ");
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1));
-						return;
-					}
-					case ":" + ORI:
-					case ":" + ANDE:
-					case ":" + IMPI: {
-						final Term param = (Term) annots[0].getValue();
-						assert annots.length == 2;
-						assert annots[1].getKey() == ANNOT_POS;
-						mTodo.add(")");
-						mTodo.add(param);
-						mTodo.add(" ");
-						mTodo.add(annots[1].getValue());
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + BVCONST: {
-						final Term param = (Term) annots[0].getValue();
-						assert annots.length == 2;
-						assert annots[1].getKey() == ANNOT_BVLEN;
-						mTodo.add(")");
-						mTodo.add(annots[1].getValue());
-						mTodo.add(" ");
-						mTodo.add(param);
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + BVLITERAL: {
-						final Term param = (Term) annots[0].getValue();
-						assert annots.length == 1;
-						mTodo.add(")");
-						mTodo.add(param);
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + INT2UBV2INT:
-					case ":" + INT2SBV2INT: {
-						final Term param = (Term) annots[0].getValue();
-						assert annots.length == 2;
-						assert annots[1].getKey() == ANNOT_BVLEN;
-						mTodo.add(")");
-						mTodo.add(param);
-						mTodo.add(" ");
-						mTodo.add(annots[1].getValue());
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + EQE:
-					case ":" + DISTINCTE: {
-						final Term param = (Term) annots[0].getValue();
-						assert annots.length == 2;
-						assert annots[1].getKey() == ANNOT_POS;
-						final Integer[] positions = (Integer[]) annots[1].getValue();
-						mTodo.add(")");
-						mTodo.add(param);
-						mTodo.add(" ");
-						mTodo.add(positions[0] + " " + positions[1]);
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + CONG: {
-						assert annots.length == 1;
-						final Object[] congArgs = (Object[]) annots[0].getValue();
-						assert congArgs.length == 3;
-						final FunctionSymbol func = (FunctionSymbol) congArgs[0];
-						final Term[] params1 = (Term[]) congArgs[1];
-						final Term[] params2 = (Term[]) congArgs[2];
-						mTodo.add("))");
-						for (int i = params2.length - 1; i >= 0; i--) {
-							mTodo.add(params2[i]);
-							mTodo.add(" ");
-						}
-						mTodo.add(func.getApplicationString());
-						mTodo.add(") (");
-						for (int i = params1.length - 1; i >= 0; i--) {
-							mTodo.add(params1[i]);
-							mTodo.add(" ");
-						}
-						mTodo.add(func.getApplicationString());
-						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
-						return;
-					}
-					case ":" + XORI:
-					case ":" + XORE: {
-						assert annots.length == 1;
-						final Term[][] xorLists = (Term[][]) annots[0].getValue();
-						assert xorLists.length == 3;
-						mTodo.add(")");
-						for (int i = 2; i >= 0; i--) {
-							mTodo.add(")");
-							for (int j = xorLists[i].length - 1; j >= 0; j--) {
-								mTodo.add(xorLists[i][j]);
-								if (j > 0) {
-									mTodo.add(" ");
-								}
-							}
-							mTodo.add(" (");
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1));
-						return;
-					}
-					case ":" + EXPAND: {
-						assert annots.length == 1;
-						final Object[] expandParams = (Object[]) annots[0].getValue();
-						assert expandParams.length == 2;
-						final FunctionSymbol func = (FunctionSymbol) expandParams[0];
-						final Term[] params = (Term[]) expandParams[1];
-						mTodo.add(")");
-						if (params.length > 0) {
-							mTodo.add(")");
-							for (int i = params.length - 1; i >= 0; i--) {
-								mTodo.add(params[i]);
-								mTodo.add(" ");
-							}
-							mTodo.add(func.getApplicationString());
-							mTodo.add("(");
-						} else {
-							mTodo.add(func.getApplicationString());
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + EXTRACTDEF:
-					case ":" + ZEROEXTENDDEF:
-					case ":" + SIGNEXTENDDEF: {
-						assert annots.length == 1;
-						final Object[] params = (Object[]) annots[0].getValue();
-						mTodo.add(")");
-						for (int i = params.length - 1; i >= 0; i--) {
-							mTodo.add(params[i]);
-							mTodo.add(" ");
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1));
-						return;
-					}
-					case ":" + FORALLE:
-					case ":" + EXISTSI: {
-						assert annots.length == 2;
-						final Term quant = (Term) annots[0].getValue();
-						assert annots[1].getKey() == ANNOT_VALUES;
-						final Term[] values = (Term[]) annots[1].getValue();
-						mTodo.add(")");
-						mTodo.add(quant);
-						mTodo.add(") ");
-						for (int i = values.length - 1; i >= 0; i--) {
-							mTodo.add(values[i]);
-							if (i > 0) {
-								mTodo.add(" ");
-							}
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1) + " (");
-						return;
-					}
-					case ":" + FORALLI:
-					case ":" + EXISTSE: {
-						assert annots.length == 1;
-						final Term quant = (Term) annots[0].getValue();
-
-						mTodo.add(")");
-						mTodo.add(quant);
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + DELANNOT: {
-						mTodo.add("))");
-						assert annots.length == 1;
-						final Object[] params = (Object[]) annots[0].getValue();
-						assert params.length == 2;
-						final Term subterm = (Term) params[0];
-						final Object[] subAnnots = (Object[]) params[1];
-						for (int i = subAnnots.length - 1; i >= 0; i--) {
-							mTodo.addLast(subAnnots[i]);
-							mTodo.addLast(" ");
-						}
-						mTodo.addLast(subterm);
-						mTodo.add("(" + DELANNOT + " (! ");
-						return;
-					}
-					case ":" + DIVISIBLEDEF: {
-						assert annots.length == 2;
-						final Term[] params = (Term[]) annots[0].getValue();
-						assert params.length == 1;
-						assert annots[1].getKey() == ANNOT_DIVISOR;
-						mTodo.add(")");
-						mTodo.add(annots[1].getValue());
-						mTodo.add(" ");
-						for (int i = params.length - 1; i >= 0; i--) {
-							mTodo.add(params[i]);
-							mTodo.add(" ");
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1));
-						return;
-					}
-					case ":" + TOTALINT: {
-						final Object[] params = (Object[]) annots[0].getValue();
-						final BigInteger c = (BigInteger) params[1];
-						final Term x = (Term) params[0];
-						assert annots.length == 1;
-						mTodo.add(")");
-						if (c.signum() < 0) {
-							mTodo.add("(- " + c.abs().toString() + ")");
-						} else {
-							mTodo.add(c);
-						}
-						mTodo.add(" ");
-						mTodo.add(x);
-						mTodo.add("(" + annots[0].getKey().substring(1) + " ");
-						return;
-					}
-					case ":" + FARKAS: {
-						final Term[] params = (Term[]) annots[0].getValue();
-						assert annots.length == 2;
-						assert annots[1].getKey() == ANNOT_COEFFS;
-						final BigInteger[] coeffs = (BigInteger[]) annots[1].getValue();
-						assert params.length == coeffs.length;
-						mTodo.add(")");
-						for (int i = params.length - 1; i >= 0; i--) {
-							mTodo.add(params[i]);
-							mTodo.add(" ");
-							mTodo.add(coeffs[i]);
-							mTodo.add(" ");
-						}
-						mTodo.add("(" + annots[0].getKey().substring(1));
-						return;
-					}
-					case ":" + DT_TESTE: {
-						assert annots.length == 1;
-						final Object[] params = (Object[]) annots[0].getValue();
-						assert params.length == 2;
-						mTodo.add(")");
-						mTodo.add(params[1]);
-						mTodo.add(" ");
-						mTodo.add(params[0]);
-						mTodo.add("(" + DT_TESTE + " ");
-						return;
-					}
-					case ":" + DT_ACYCLIC: {
-						assert annots.length == 1;
-						final Object[] params = (Object[]) annots[0].getValue();
-						assert params.length == 2;
-						final int[] positions = (int[]) params[1];
-						assert positions.length > 0;
-						mTodo.add("))");
-						for (int i = positions.length - 1; i >= 1; i--) {
-							mTodo.add(" " + positions[i]);
-						}
-						mTodo.add(" (" + positions[0]);
-						mTodo.add(params[0]);
-						mTodo.add("(" + DT_ACYCLIC + " ");
-						return;
-					}
-					}
-				}
-			}
-
-			if (proof instanceof ApplicationTerm) {
-				final ApplicationTerm appTerm = (ApplicationTerm) proof;
-				final Term[] params = appTerm.getParameters();
-				switch (appTerm.getFunction().getName()) {
-				case PREFIX + RES: {
-					assert params.length == 3;
-					mTodo.add(")");
-					for (int i = params.length - 1; i >= 0; i--) {
-						mTodo.add(params[i]);
-						mTodo.add(" ");
-					}
-					mTodo.add("(" + RES);
-					return;
-				}
-				case PREFIX + CHOOSE: {
-					assert params.length == 1;
-					final LambdaTerm lambda = (LambdaTerm) params[0];
-					assert lambda.getVariables().length == 1;
-					mTodo.add(")");
-					mTodo.add(lambda.getSubterm());
-					mTodo.add(") ");
-					mTodo.add(lambda.getVariables()[0].getSort());
-					mTodo.add(" ");
-					mTodo.add(lambda.getVariables()[0]);
-					mTodo.add("(" + CHOOSE + " (");
-					return;
-				}
-				case PREFIX + ASSUME: {
-					assert params.length == 1;
-					mTodo.add(")");
-					mTodo.add(params[0]);
-					mTodo.add("(" + ASSUME + " ");
-					return;
-				}
-				default:
-					break;
-				}
-			}
-
-			if (proof instanceof LetTerm) {
-				final LetTerm let = (LetTerm) proof;
-				final TermVariable[] vars = let.getVariables();
-				final Term[] values = let.getValues();
-				boolean hasLetProof = false;
-				boolean hasLetTerm = false;
-				for (int i = 0; i < vars.length; i++) {
-					if (isProof(values[i])) {
-						hasLetProof = true;
-					} else {
-						hasLetTerm = true;
-					}
-				}
-				// close parentheses
-				if (hasLetTerm) {
-					mTodo.addLast(")");
-				}
-				if (hasLetProof) {
-					mTodo.addLast(")");
-				}
-				// Add subterm to stack.
-				mTodo.addLast(let.getSubTerm());
-				// add the let-proof for proof variables.
-				if (hasLetProof) {
-					// Add subterm to stack.
-					// Add assigned values to stack
-					String sep = ")) ";
-					for (int i = values.length - 1; i >= 0; i--) {
-						if (isProof(values[i])) {
-							mTodo.addLast(sep);
-							mTodo.addLast(values[i]);
-							mTodo.addLast("(" + vars[i].toString() + " ");
-							sep = ") ";
-						}
-					}
-					mTodo.addLast("(let-proof (");
-				}
-				// add the let for non-proof variables.
-				if (hasLetTerm) {
-					// Add assigned values to stack
-					String sep = ")) ";
-					for (int i = values.length - 1; i >= 0; i--) {
-						if (!isProof(values[i])) {
-							mTodo.addLast(sep);
-							mTodo.addLast(values[i]);
-							mTodo.addLast("(" + vars[i].toString() + " ");
-							sep = ") ";
-						}
-					}
-					mTodo.addLast("(let (");
-				}
-				return;
-			}
-			super.walkTerm(proof);
-		}
 	}
 }

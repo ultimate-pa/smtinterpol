@@ -91,6 +91,21 @@ If some inequalities are over `Int` and some are over `Real`, all inequalities a
 implicitly converted to `Real` by converting all coefficients in `ai`/`bi` to
 real constants and replacing all terms `t` in `ai`/`bi` with `(to_real t)`.
 
+For multiplicative reasoning, we provide a similar axiom stating that
+the product of non-negative values is non-negative, and that the result is
+strictly positive if all factors are strictly positive.
+
+```
+⟨arith-axiom⟩ ::= …
+ | (mulpos (<=? 0 a1) … (<=? 0 an) (<=? 0 a)): ( -(<=? 0 a1) … -(<=? 0 an) +(<=? 0 a) )
+```
+
+where `<=?` stands for `<` or `<=`, `ai` are polynomials, and
+`a = a1 * … * an` is the product of the polynomials `a1`, …, `an`.
+The conclusion must be non-strict, i.e., `(<= 0 a)`, unless all
+premises are strict inequalities `(< 0 ai)`, in which case the conclusion
+may also be strict.
+
 The remaining axioms work with arbitrary terms and do not require adding
 or multiplying polynomials:
 
@@ -168,11 +183,22 @@ axiom looks like:
                                 (+ (to_real i0) r1 (to_real i2) r3)))
 ```
 
-Note that the axiom `farkas` is the only axiom with negated literals.
-It can be used in a resolution proof to rewrite a positive literal
-into an equivalent negated literal.  On the other hand, the
-axiom `total` and `total-int` can be used to rewrite a negated literal
-into the equivalent positive literal.
+Note that the axiom `farkas` and `mulpos` are the only axioms that introduce negated literals.
+The axiom `farkas` also supports equalities but treats them in the same way as inequalites `<=`.
+If the opposite direction is required, symmetry must be applied first.
+
+The `farkas` axiom can be used in a resolution proof to rewrite a positive equality or inequality
+into a negated inequality.
+Conversely, the axioms `total` and `total-int` can be used to rewrite a negated literal
+into an equivalent positive literal.
+The combination of these axioms allows one to derive a positive inequality from an equality.
+For example, the following proof term derives a clause expressing that `(= a b)` implies `(<= a b)`:
+
+```
+(res (< b a)
+     (total a b)
+     (farkas 1 (= a b) 1 (< b a)))
+```
 
 ### Data Types
 
@@ -185,9 +211,10 @@ For reasoning about data types, the following rules are used:
  | (dt_test cons (cons a1 … an))   ;( +((_ is cons) (cons a1 … an)) )
  | (dt_test cons' (cons a1 … an))  ;( -((_ is cons') (cons a1 … an)) )
  | (dt_exhaust x)                  ;( +((_ is cons1) x) … +((_ is consn) x) )
- | (dt_acyclic (cons …(cons… x …)…) x) ;( -(= (cons …(cons… x …)…) x) )
-   ; where (cons …(cons… x …)…) is a term containing x, and around x
-   ; only constructor functions appear.
+ | (dt_acyclic t0 (i1 … in))       ;( -(= t0 tn) )
+   ; where t0 is a nested constructor application and tn a subterm of t0 on the path (i1 … in), i.e.,
+   ; for the sequence t0, …, tn (n >= 1), each tj is the ij-th argument of tj-1 for j = 1, …, n,
+   ; t0, …, tn-1 are applications of constructors (not necessarily the same constructor or data type).
  | (dt_match (match t …))
    ;( +(= (match t ((p1 x1) c1) …) (ite ((_ is p1) t) (let ((x1 (sel1 t))) c1) …)) )
 ```

@@ -489,14 +489,11 @@ terminal String UNDERSCORE, BANG,
          FALSEE, TRUEI, NOTI, NOTE, ORI, ORE, ANDI, ANDE, IMPI, IMPE,
          IFFI1, IFFI2, IFFE1, IFFE2, XORI, XORE, FORALLI, FORALLE, EXISTSI, EXISTSE,
          EQI, EQE, DISTINCTI, DISTINCTE, ITE1, ITE2, REFL, SYMM, TRANS, CONG, EXPAND, DELANNOT,
-         DIVISIBLEDEF, GTDEF, GEQDEF, TRICHOTOMY, TOTAL, TOTALINT, FARKAS, MULPOS, TOINTHIGH, TOINTLOW,
-         MINUSDEF, DIVIDEDEF, POLYADD, POLYMUL, TOREALDEF, DIVLOW, DIVHIGH, MODDEF,
+         TRICHOTOMY, TOTAL, TOTALINT, FARKAS, MULPOS, TOINTHIGH, TOINTLOW,
+         DIVIDEDEF, POLYADD, POLYMUL, TOREALDEF, DIVLOW, DIVHIGH, MODDEF,
          SELECTSTORE1, SELECTSTORE2, EXTDIFF, CONST,
          DT_PROJECT, DT_CONS, DT_TESTI, DT_TESTE, DT_EXHAUST, DT_ACYCLIC, DT_MATCH,
-         BVCONST, BVLITERAL, UBV2INT2BV, INT2UBV2INT, BVADDDEF, BVMULDEF, BVSUBDEF,
-         BVUDIVDEF, BVUDIV0, BVUREMDEF, BVUREM0, BVNEGDEF, BVNOTDEF,
-         BVANDDEF, BVORDEF, BVXORDEF, BVNANDDEF, BVNORDEF, BVXNORDEF,
-         CONCATDEF, EXTRACTDEF, SIGNEXTENDDEF, ZEROEXTENDDEF;
+         BVCONST, BVLITERAL, UBV2INT2BV, INT2UBV2INT, INT2SBV2INT;
 
 /* Predefined Keywords */
 terminal String /* attribute */
@@ -763,27 +760,20 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
           {: RESULT = parser.getProofRules().symm(t1, t2); :}
         | LPAR TRANS term*:ts RPAR
           {: RESULT = parser.getProofRules().trans(ts); :}
-        | LPAR CONG LPAR qualIdentifier:fun1 term+:args1 RPAR LPAR qualIdentifier:fun2 term+:args2 RPAR RPAR
-          {: FunctionSymbol fsym = checkCongFunction(fun1, args1, fun2, args2);
-             RESULT = parser.getProofRules().cong(fsym, args1, args2); :}
+        | LPAR CONG term:t1 term:t2 RPAR
+          {: RESULT = parser.getProofRules().cong(t1, t2); :}
         | LPAR EXPAND term:t RPAR
           {: RESULT = parser.getProofRules().expand(t); :}
         | LPAR ITE1 term:t RPAR {: RESULT = parser.getProofRules().ite1(t); :}
         | LPAR ITE2 term:t RPAR {: RESULT = parser.getProofRules().ite2(t); :}
         | LPAR DELANNOT term:t RPAR
-          {: RESULT = parser.getProofRules().delAnnot((AnnotatedTerm) t); :}
-        | LPAR DIVISIBLEDEF NUMERAL:d term:t RPAR
-          {: RESULT = parser.getProofRules().divisible(d, t); :}
-        | LPAR GTDEF term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().gtDef(parser.getScript().term(SMTLIBConstants.GT, t1, t2)); :}
-        | LPAR GEQDEF term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().geqDef(parser.getScript().term(SMTLIBConstants.GEQ, t1, t2)); :}
+          {: RESULT = parser.getProofRules().delAnnot(t); :}
         | LPAR TRICHOTOMY term:t1 term:t2 RPAR
           {: RESULT = parser.getProofRules().trichotomy(t1, t2); :}
         | LPAR TOTAL term:t1 term:t2 RPAR
           {: RESULT = parser.getProofRules().total(t1, t2); :}
         | LPAR TOTALINT term:t1 integer:c2 RPAR
-          {: RESULT = parser.getProofRules().totalInt(t1, c2); :}
+          {: RESULT = parser.getProofRules().totalInt(t1, Rational.valueOf(c2, BigInteger.ONE)); :}
         | LPAR FARKAS coeffTerm*:coeffTerms RPAR
           {: BigInteger[] coeffs = new BigInteger[coeffTerms.length];
              Term[] terms = new Term[coeffTerms.length];
@@ -802,8 +792,6 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
           {: RESULT = parser.getProofRules().toRealDef(parser.getScript().term(SMTLIBConstants.TO_REAL, t)); :}
         | LPAR DIVIDEDEF term*:ts RPAR
           {: RESULT = parser.getProofRules().divideDef(parser.getScript().term(SMTLIBConstants.DIVIDE, ts)); :}
-        | LPAR MINUSDEF term*:ts RPAR
-          {: RESULT = parser.getProofRules().minusDef(parser.getScript().term(SMTLIBConstants.MINUS, ts)); :}
         | LPAR TOINTLOW term:t RPAR
           {: RESULT = parser.getProofRules().toIntLow(t); :}
         | LPAR TOINTHIGH term:t RPAR
@@ -848,44 +836,8 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
           {: RESULT = parser.getProofRules().ubv2int2bv(t); :}
         | LPAR INT2UBV2INT NUMERAL:bitLength term:t RPAR
           {: RESULT = parser.getProofRules().int2ubv2int(bitLength, t); :}
-        | LPAR BVADDDEF term*:ts RPAR
-          {: RESULT = parser.getProofRules().bvAddDef(ts); :}
-        | LPAR BVSUBDEF term*:ts RPAR
-          {: RESULT = parser.getProofRules().bvSubDef(ts); :}
-        | LPAR BVMULDEF term*:ts RPAR
-          {: RESULT = parser.getProofRules().bvMulDef(ts); :}
-        | LPAR BVUDIVDEF term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().bvUDivDef(t1, t2); :}
-        | LPAR BVUDIV0 term:t1 RPAR
-          {: RESULT = parser.getProofRules().bvUDiv0(t1); :}
-        | LPAR BVUREMDEF term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().bvURemDef(t1, t2); :}
-        | LPAR BVUREM0 term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().bvURem0(t1); :}
-        | LPAR BVNEGDEF term:t RPAR
-          {: RESULT = parser.getProofRules().bvNegDef(t); :}
-        | LPAR BVNOTDEF term:t RPAR
-          {: RESULT = parser.getProofRules().bvNotDef(t); :}
-        | LPAR BVANDDEF term+:ts RPAR
-          {: RESULT = parser.getProofRules().bvAndDef(ts); :}
-        | LPAR BVORDEF term+:ts RPAR
-          {: RESULT = parser.getProofRules().bvOrDef(ts); :}
-        | LPAR BVXORDEF term+:ts RPAR
-          {: RESULT = parser.getProofRules().bvXorDef(ts); :}
-        | LPAR BVNANDDEF term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().bvNAndDef(t1, t2); :}
-        | LPAR BVNORDEF term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().bvNOrDef(t1, t2); :}
-        | LPAR BVXNORDEF term:t1 term:t2 RPAR
-          {: RESULT = parser.getProofRules().bvXNorDef(t1, t2); :}
-        | LPAR EXTRACTDEF NUMERAL:high NUMERAL:low term:t RPAR
-          {: RESULT = parser.getProofRules().extractDef(high.intValue(), low.intValue(), t); :}
-        | LPAR CONCATDEF term+:ts RPAR
-          {: RESULT = parser.getProofRules().concatDef(ts); :}
-        | LPAR ZEROEXTENDDEF NUMERAL:bits term:t RPAR
-          {: RESULT = parser.getProofRules().zeroExtendDef(bits.intValue(), t); :}
-        | LPAR SIGNEXTENDDEF NUMERAL:bits term:t RPAR
-          {: RESULT = parser.getProofRules().signExtendDef(bits.intValue(), t); :}
+        | LPAR INT2SBV2INT NUMERAL:bitLength term:t RPAR
+          {: RESULT = parser.getProofRules().int2sbv2int(bitLength, t); :}
         | LPAR BANG proof:p attribute+:attr RPAR
           {: RESULT = p; :}
         ;
@@ -948,8 +900,8 @@ symbol ::= SYMBOL
          | FALSEE | TRUEI | NOTI | NOTE | ORI | ORE | ANDI | ANDE | IMPI | IMPE
          | IFFI1 | IFFI2 | IFFE1 | IFFE2 | XORI | XORE | FORALLI | FORALLE | EXISTSI | EXISTSE
          | EQI | EQE | DISTINCTI | DISTINCTE | ITE1 | ITE2 | REFL | SYMM | TRANS | CONG | EXPAND | DELANNOT
-         | DIVISIBLEDEF | GTDEF | GEQDEF | TRICHOTOMY | TOTAL | TOTALINT | FARKAS | TOINTHIGH | TOINTLOW
-         | MINUSDEF | DIVIDEDEF | POLYADD | POLYMUL | TOREALDEF | DIVLOW | DIVHIGH | MODDEF
+         | TRICHOTOMY | TOTAL | TOTALINT | FARKAS | TOINTHIGH | TOINTLOW
+         | DIVIDEDEF | POLYADD | POLYMUL | TOREALDEF | DIVLOW | DIVHIGH | MODDEF
          | SELECTSTORE1 | SELECTSTORE2 | EXTDIFF | CONST
          | DT_PROJECT | DT_CONS | DT_TESTI | DT_TESTE | DT_EXHAUST | DT_ACYCLIC | DT_MATCH;
 
@@ -959,8 +911,8 @@ symbol_not_axiom ::= SYMBOL
          | NOTI | NOTE | ORI | ORE | ANDI | ANDE | IMPI | IMPE
          | IFFI1 | IFFI2 | IFFE1 | IFFE2 | XORI | XORE | FORALLI | FORALLE | EXISTSI | EXISTSE
          | EQI | EQE | DISTINCTI | DISTINCTE | ITE1 | ITE2 | REFL | SYMM | TRANS | CONG | EXPAND | DELANNOT
-         | DIVISIBLEDEF | GTDEF | GEQDEF | TRICHOTOMY | TOTAL | TOTALINT | FARKAS | TOINTHIGH | TOINTLOW
-         | MINUSDEF | DIVIDEDEF | POLYADD | POLYMUL | TOREALDEF | DIVLOW | DIVHIGH | MODDEF
+         | TRICHOTOMY | TOTAL | TOTALINT | FARKAS | TOINTHIGH | TOINTLOW
+         | DIVIDEDEF | POLYADD | POLYMUL | TOREALDEF | DIVLOW | DIVHIGH | MODDEF
          | SELECTSTORE1 | SELECTSTORE2 | EXTDIFF | CONST
          | DT_PROJECT | DT_CONS | DT_TESTI | DT_TESTE | DT_EXHAUST | DT_ACYCLIC | DT_MATCH;
 
