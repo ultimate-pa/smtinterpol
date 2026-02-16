@@ -79,8 +79,9 @@ public class ProofUtils {
 	 * @return the proof for the equality.
 	 */
 	public Term proveUMinusEquality(final Term minusTerm, final Term canonicalTerm) {
-		assert ((ApplicationTerm) minusTerm).getParameters().length == 1;
-		final Term minusToPlus = ProofRules.computePolyMinus(minusTerm);
+		final ApplicationTerm app = (ApplicationTerm) minusTerm;
+		assert app.getParameters().length == 1;
+		final Term minusToPlus = ArithmeticRules.expandMinus(app.getFunction(), app.getParameters());
 		return proveTransitivity(minusTerm, minusToPlus, canonicalTerm, mProofRules.expand(minusTerm),
 				mProofRules.polyMul(minusToPlus, canonicalTerm));
 	}
@@ -95,16 +96,17 @@ public class ProofUtils {
 	 * @return the proof for the equality.
 	 */
 	public Term proveMinusEquality(final Term minusTerm, final Term canonicalTerm) {
+		final ApplicationTerm app = (ApplicationTerm) minusTerm;
+		final Term[] minusArgs = app.getParameters();
+		assert minusArgs.length == 2;
+		final Term minusToPlus = ArithmeticRules.expandMinus(app.getFunction(), minusArgs);
 		final Theory theory = minusTerm.getTheory();
-		final Term minusToPlus = ProofRules.computePolyMinus(minusTerm);
-		final Term[] lhsArgs = ((ApplicationTerm) minusTerm).getParameters();
-		assert lhsArgs.length == 2;
-		final Term[] expectedArgs = new Term[lhsArgs.length];
-		expectedArgs[0] = lhsArgs[0];
-		for (int i = 1; i < lhsArgs.length; i++) {
-			final Polynomial affineTerm = new Polynomial(lhsArgs[i]);
+		final Term[] expectedArgs = new Term[minusArgs.length];
+		expectedArgs[0] = minusArgs[0];
+		for (int i = 1; i < minusArgs.length; i++) {
+			final Polynomial affineTerm = new Polynomial(minusArgs[i]);
 			affineTerm.mul(Rational.MONE);
-			expectedArgs[i] = affineTerm.toTerm(lhsArgs[i].getSort());
+			expectedArgs[i] = affineTerm.toTerm(minusArgs[i].getSort());
 		}
 		final Term expectedPlus = theory.term(SMTLIBConstants.PLUS, expectedArgs);
 		Term proof = mProofRules.expand(minusTerm);
@@ -147,12 +149,12 @@ public class ProofUtils {
 		Term proof = proveAbsEquality(x, absX);
 		if (x == absX) {
 			proof = res(ltXZero, proof,
-					mProofRules.farkas(new Term[] { ltXZero }, new BigInteger[] { BigInteger.ONE }));
+					mProofRules.farkas(BigInteger.ONE, ltXZero));
 		} else {
 			proof = res(ltXZero, mProofRules.total(zero, x), proof);
 			final Term leqZeroX = theory.term(SMTLIBConstants.LEQ, zero, x);
 			proof = res(leqZeroX, proof,
-					mProofRules.farkas(new Term[] { leqZeroX }, new BigInteger[] { BigInteger.ONE }));
+					mProofRules.farkas(BigInteger.ONE, leqZeroX));
 		}
 		return proof;
 	}
@@ -206,15 +208,14 @@ public class ProofUtils {
 		final Term geqZero = theory.term(SMTLIBConstants.LEQ, zero, diff);
 		final Term leqMone = theory.term(SMTLIBConstants.LEQ, diff, Rational.MONE.toTerm(sort));
 		final Term geqOne = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(sort), diff);
-		final BigInteger[] twoOnes = new BigInteger[] { BigInteger.ONE, BigInteger.ONE };
 		return res(lhsLtRhs, res(lhsGtRhs,
 				mProofRules.trichotomy(lhs, rhs),
 				res(leqZero,
 						res(geqOne, mProofRules.totalInt(diff, Rational.ZERO), proofLt),
-						mProofRules.farkas(new Term[] { lhsGtRhs, leqZero }, twoOnes))),
+						mProofRules.farkas(BigInteger.ONE, lhsGtRhs, BigInteger.ONE, leqZero))),
 				res(geqZero,
 						res(leqMone, mProofRules.totalInt(diff, Rational.ONE.negate()), proofGt),
-						mProofRules.farkas(new Term[] { lhsLtRhs, geqZero }, twoOnes)));
+						mProofRules.farkas(BigInteger.ONE, lhsLtRhs, BigInteger.ONE, geqZero)));
 	}
 
 	private Term proveDivEqualityHelper(final Term divTerm, final Term divResult) {
@@ -251,12 +252,11 @@ public class ProofUtils {
 		Term proof = mProofRules.trichotomy(divTerm, divResult);
 		Term ltLhsRhs = theory.term(SMTLIBConstants.LT, divTerm, divResult);
 		Term gtLhsRhs = theory.term(SMTLIBConstants.LT, divResult, divTerm);
-		final BigInteger[] oneone = new BigInteger[] { BigInteger.ONE, BigInteger.ONE };
 		if (divisor.signum() < 0 || remainder.signum() != 0) {
 			// we need total-int in the proof
 			final Term leqLhsRhs = theory.term(SMTLIBConstants.LEQ, diffLhsRhs, zero);
 			final Term geqLhsRhsOne = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(sort), diffLhsRhs);
-			proof = res(gtLhsRhs, proof, mProofRules.farkas(new Term[] { gtLhsRhs, leqLhsRhs }, oneone));
+			proof = res(gtLhsRhs, proof, mProofRules.farkas(BigInteger.ONE, gtLhsRhs, BigInteger.ONE, leqLhsRhs));
 			proof = res(leqLhsRhs, mProofRules.totalInt(diffLhsRhs, Rational.ZERO), proof);
 			gtLhsRhs = geqLhsRhsOne;
 		}
@@ -264,17 +264,17 @@ public class ProofUtils {
 			// we need total-int in the proof
 			final Term geqLhsRhs = theory.term(SMTLIBConstants.LEQ, zero, diffLhsRhs);
 			final Term leqLhsRhsOne = theory.term(SMTLIBConstants.LEQ, diffLhsRhs, Rational.MONE.toTerm(sort));
-			proof = res(ltLhsRhs, proof, mProofRules.farkas(new Term[] { ltLhsRhs, geqLhsRhs }, oneone));
+			proof = res(ltLhsRhs, proof, mProofRules.farkas(BigInteger.ONE, ltLhsRhs, BigInteger.ONE, geqLhsRhs));
 			proof = res(geqLhsRhs, mProofRules.totalInt(diffLhsRhs, Rational.ONE.negate()), proof);
 			ltLhsRhs = leqLhsRhsOne;
 		}
 		final Term lhsRhsLow = divisor.signum() > 0 ? gtLhsRhs : ltLhsRhs;
 		final Term lhsRhsHigh = divisor.signum() > 0 ? ltLhsRhs : gtLhsRhs;
-		final BigInteger[] coeffs = new BigInteger[] { BigInteger.ONE, divisor.abs().numerator() };
-		final BigInteger[] coeffs3 = new BigInteger[] { BigInteger.ONE, divisor.abs().numerator(), BigInteger.ONE };
 		final Term eqAbs = theory.term(SMTLIBConstants.EQUALS, absDivArg, absDivisor);
-		proof = res(lhsRhsLow, proof, mProofRules.farkas(new Term[] { origDivLow, lhsRhsLow }, coeffs));
-		proof = res(lhsRhsHigh, proof, mProofRules.farkas(new Term[] { origDivHigh, lhsRhsHigh, eqAbs }, coeffs3));
+		proof = res(lhsRhsLow, proof,
+				mProofRules.farkas(BigInteger.ONE, origDivLow, divisor.abs().numerator(), lhsRhsLow));
+		proof = res(lhsRhsHigh, proof, mProofRules.farkas(BigInteger.ONE, origDivHigh, divisor.abs().numerator(),
+				lhsRhsHigh, BigInteger.ONE, eqAbs));
 		proof = res(eqAbs, proveAbsConstant(divisor, sort), proof);
 		proof = res(origDivHigh, mProofRules.divHigh(divArgs[0], divArgs[1]), proof);
 		proof = res(origDivLow, mProofRules.divLow(divArgs[0], divArgs[1]), proof);
@@ -367,31 +367,28 @@ public class ProofUtils {
 		final Term leqm1 = theory.term(SMTLIBConstants.LEQ, diff, Rational.MONE.toTerm(intSort));
 		final Term geq1 = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(intSort), diff);
 
-		final BigInteger[] coeffs = new BigInteger[] { divisor2.numerator(), BigInteger.ONE, BigInteger.ONE, BigInteger.ONE,
-				divisor3.abs().numerator() };
 		Term proofGt, proofLt;
 		proofGt = res(absDiv3Eq, proveAbsConstant(divisor3, intSort),
 				res(div1Low, mProofRules.divLow(div2Term, div1Args[1]),
 				res(div2Low, mProofRules.divLow(arg, div2Args[1]),
 						res(div3High, mProofRules.divHigh(arg, div3Args[1]), mProofRules.farkas(
-						new Term[] { div1Low, div2Low, div3High, absDiv3Eq,
-								divisor3.signum() > 0 ? geq1 : leqm1 },
-										coeffs)))));
+										divisor2.numerator(), div1Low, BigInteger.ONE, div2Low,
+												BigInteger.ONE, div3High, BigInteger.ONE, absDiv3Eq,
+										divisor3.abs().numerator(), divisor3.signum() > 0 ? geq1 : leqm1)))));
 		final Term div1HighGeq = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(intSort), div1HighDiff);
 		final Term div1HighStrongProof =
 				res(absDiv1Eq, proveAbsConstant(divisor1, intSort),
 				res(div1High, mProofRules.divHigh(div2Term, div1Args[1]),
 								res(div1HighGeq, mProofRules.totalInt(div1HighDiff, Rational.ZERO),
-							mProofRules.farkas(new Term[] { div1HighGeq, div1High, absDiv1Eq },
-									new BigInteger[] { BigInteger.ONE, BigInteger.ONE, BigInteger.ONE }))));
+										mProofRules.farkas(BigInteger.ONE, div1HighGeq, BigInteger.ONE, div1High,
+												BigInteger.ONE, absDiv1Eq))));
 		proofLt = res(absDiv2Eq, proveAbsConstant(divisor2, intSort),
 					res(div1HighStrong, div1HighStrongProof,
 					res(div2High, mProofRules.divHigh(arg, div2Args[1]),
 								res(div3Low, mProofRules.divLow(arg, div3Args[1]),
-								mProofRules.farkas(
-										new Term[] { div1HighStrong, div2High, div3Low, absDiv2Eq,
-												divisor3.signum() > 0 ? leqm1 : geq1 },
-												coeffs)))));
+										mProofRules.farkas(divisor2.numerator(), div1HighStrong, BigInteger.ONE,
+												div2High, BigInteger.ONE, div3Low, BigInteger.ONE, absDiv2Eq,
+												divisor3.abs().numerator(), divisor3.signum() > 0 ? leqm1 : geq1)))));
 
 		Term proof = proveIntEqualityWithLowHigh(divTerm, divResult, diff,
 				divisor3.signum() > 0 ? proofLt : proofGt,
@@ -492,15 +489,15 @@ public class ProofUtils {
 		final Term leqm1 = theory.term(SMTLIBConstants.LEQ, lhs, Rational.MONE.toTerm(intSort));
 		final Term geq1 = theory.term(SMTLIBConstants.LEQ, Rational.ONE.toTerm(intSort), lhs);
 
-		final BigInteger[] coeffs = new BigInteger[] { BigInteger.ONE, BigInteger.ONE, BigInteger.ONE,
-				divisor.numerator() };
 		Term proofGt, proofLt;
 		proofGt = res(div0Low, mProofRules.divLow(arg0, divisorTerm),
 				res(div1High, mProofRules.divHigh(arg1, divisorTerm), mProofRules.farkas(
-						new Term[] { div0Low, div1High, absDivEq, divisor.signum() > 0 ? geq1 : leqm1 }, coeffs)));
+						BigInteger.ONE, div0Low, BigInteger.ONE, div1High, BigInteger.ONE, absDivEq,
+						divisor.numerator(), divisor.signum() > 0 ? geq1 : leqm1)));
 		proofLt = res(div1Low, mProofRules.divLow(arg1, divisorTerm),
 				res(div0High, mProofRules.divHigh(arg0, divisorTerm), mProofRules.farkas(
-						new Term[] { div0High, div1Low, absDivEq, divisor.signum() > 0 ? leqm1 : geq1 }, coeffs)));
+						BigInteger.ONE, div0High, BigInteger.ONE, div1Low, BigInteger.ONE, absDivEq,
+						divisor.numerator(), divisor.signum() > 0 ? leqm1 : geq1)));
 		return res(absDivEq, proveAbsConstant(divisor, intSort),
 				proveIntEqualityWithLowHigh(lhs, zero, lhs, divisor.signum() > 0 ? proofLt : proofGt,
 						divisor.signum() > 0 ? proofGt : proofLt));
@@ -599,12 +596,12 @@ public class ProofUtils {
 		final Term toIntLtResult = theory.term(SMTLIBConstants.LT, funcTerm, result);
 
 
-		final BigInteger[] oneone = new BigInteger[] { BigInteger.ONE, BigInteger.ONE };
 		final Term proof1 = res(resultLeqToInt,
 				res(toIntLeqResultMinus1, mProofRules.totalInt(funcTerm, argFloor.sub(Rational.ONE)),
 				res(argLtToIntPlus1, mProofRules.toIntHigh(arg),
-								mProofRules.farkas(new Term[] { toIntLeqResultMinus1, argLtToIntPlus1 }, oneone))),
-				mProofRules.farkas(new Term[] { toIntLtResult, resultLeqToInt }, oneone));
+								mProofRules.farkas(BigInteger.ONE, toIntLeqResultMinus1, BigInteger.ONE,
+										argLtToIntPlus1))),
+				mProofRules.farkas(BigInteger.ONE, toIntLtResult, BigInteger.ONE, resultLeqToInt));
 
 		final Term toIntLeqArg = theory.term(SMTLIBConstants.LEQ, toReal, arg);
 		final Term resultPlus1LeqToInt = theory.term(SMTLIBConstants.LEQ, resultPlus1, funcTerm);
@@ -614,8 +611,8 @@ public class ProofUtils {
 		final Term proof2 = res(toIntLeqResult,
 				res(resultPlus1LeqToInt, mProofRules.totalInt(funcTerm, argFloor),
 						res(toIntLeqArg, mProofRules.toIntLow(arg),
-								mProofRules.farkas(new Term[] { resultPlus1LeqToInt, toIntLeqArg }, oneone))),
-				mProofRules.farkas(new Term[] { resultLtToInt, toIntLeqResult }, oneone));
+								mProofRules.farkas(BigInteger.ONE, resultPlus1LeqToInt, BigInteger.ONE, toIntLeqArg))),
+				mProofRules.farkas(BigInteger.ONE, resultLtToInt, BigInteger.ONE, toIntLeqResult));
 
 		return res(resultLtToInt, res(toIntLtResult, mProofRules.trichotomy(funcTerm, result), proof1), proof2);
 	}
@@ -634,10 +631,9 @@ public class ProofUtils {
 		final Theory theory = first.getTheory();
 		final Term ltTerm = theory.term(SMTLIBConstants.LT, first, second);
 		final Term gtTerm = theory.term(SMTLIBConstants.LT, second, first);
-		final BigInteger[] one = new BigInteger[] { BigInteger.ONE };
 		return res(ltTerm,
-				res(gtTerm, mProofRules.trichotomy(first, second), mProofRules.farkas(new Term[] { gtTerm }, one)),
-				mProofRules.farkas(new Term[] { ltTerm }, one));
+				res(gtTerm, mProofRules.trichotomy(first, second), mProofRules.farkas(BigInteger.ONE, gtTerm)),
+				mProofRules.farkas(BigInteger.ONE, ltTerm));
 	}
 
 	/**
@@ -659,12 +655,12 @@ public class ProofUtils {
 		if (diff.isConstant()) {
 			if (diff.getConstant().signum() > 0) {
 				final Term eqLhs = theory.term(SMTLIBConstants.EQUALS, first, second);
-				return mProofRules.farkas(new Term[] { eqLhs }, new BigInteger[] { BigInteger.ONE });
+				return mProofRules.farkas(BigInteger.ONE, eqLhs);
 			} else {
 				assert (diff.getConstant().signum() < 0);
 				final Term eqSwapped = theory.term(SMTLIBConstants.EQUALS, second, first);
 				return mProofRules.resolutionRule(eqSwapped, mProofRules.symm(second, first),
-						mProofRules.farkas(new Term[] { eqSwapped }, new BigInteger[] { BigInteger.ONE }));
+						mProofRules.farkas(BigInteger.ONE, eqSwapped));
 			}
 		} else {
 			final Rational gcd = diff.getGcd();
@@ -686,11 +682,9 @@ public class ProofUtils {
 			// show inequality in both cases
 			final Term eqLhs = theory.term(SMTLIBConstants.EQUALS, first, second);
 			final Term eqSwapped = theory.term(SMTLIBConstants.EQUALS, second, first);
-			final Term caseCeil = mProofRules.farkas(new Term[] { eqLhs, geqCeil },
-					new BigInteger[] { gcd.denominator(), gcd.numerator() });
+			final Term caseCeil = mProofRules.farkas(gcd.denominator(), eqLhs, gcd.numerator(), geqCeil);
 			final Term caseFloor = mProofRules.resolutionRule(eqSwapped, mProofRules.symm(second, first),
-					mProofRules.farkas(new Term[] { eqSwapped, leqFloor },
-							new BigInteger[] { gcd.denominator(), gcd.numerator() }));
+					mProofRules.farkas(gcd.denominator(), eqSwapped, gcd.numerator(), leqFloor));
 			return mProofRules.resolutionRule(leqFloor, mProofRules.resolutionRule(geqCeil, proofIntCase, caseCeil),
 					caseFloor);
 		}
@@ -707,20 +701,21 @@ public class ProofUtils {
 	public Term proveEqualityFromEqualities(final Term[] eqs, final BigInteger[] coeffs) {
 		final Theory theory = eqs[0].getTheory();
 		assert eqs.length == coeffs.length;
-		final BigInteger[] absCoeffs = new BigInteger[coeffs.length];
-		final Term[] farkas1 = new Term[coeffs.length];
-		final Term[] farkas2 = new Term[coeffs.length];
+		final Object[] farkas1 = new Object[2 * coeffs.length];
+		final Object[] farkas2 = new Object[2 * coeffs.length];
 		for (int i = 0; i < coeffs.length; i++) {
-			absCoeffs[i] = coeffs[i].abs();
 			final Term[] eqArgs = ((ApplicationTerm) eqs[i]).getParameters();
 			final Term t1 = i == 0 ? theory.term(SMTLIBConstants.LT, eqArgs[0], eqArgs[1]) : eqs[i];
 			final Term t2 = theory.term(i == 0 ? SMTLIBConstants.LT : SMTLIBConstants.EQUALS, eqArgs[1], eqArgs[0]);
-			farkas1[i] = coeffs[i].signum() > 0 ? t1 : t2;
-			farkas2[i] = coeffs[i].signum() > 0 ? t2 : t1;
+			farkas1[2 * i] = coeffs[i].abs();
+			farkas1[2 * i + 1] = coeffs[i].signum() > 0 ? t1 : t2;
+			farkas2[2 * i] = coeffs[i].abs();
+			farkas2[2 * i + 1] = coeffs[i].signum() > 0 ? t2 : t1;
 		}
 		final Term[] eq0Args = ((ApplicationTerm) eqs[0]).getParameters();
-		Term proof = res(farkas1[0], res(farkas2[0], mProofRules.trichotomy(eq0Args[0], eq0Args[1]),
-				mProofRules.farkas(farkas2, absCoeffs)), mProofRules.farkas(farkas1, absCoeffs));
+		Term proof = res((Term) farkas1[1],
+				res((Term) farkas2[1], mProofRules.trichotomy(eq0Args[0], eq0Args[1]), mProofRules.farkas(farkas2)),
+				mProofRules.farkas(farkas1));
 		for (int i = 1; i < coeffs.length; i++) {
 			final Term[] eqArgs = ((ApplicationTerm) eqs[i]).getParameters();
 			final Term eqSwapped = theory.term(SMTLIBConstants.EQUALS, eqArgs[1], eqArgs[0]);
@@ -764,7 +759,7 @@ public class ProofUtils {
 		assert isApplication(SMTLIBConstants.DIVIDE, divideTerm);
 		final Theory theory = divideTerm.getTheory();
 		final Term[] divideArgs = ((ApplicationTerm) divideTerm).getParameters();
-		Term proofDivDef = mProofRules.divideDef(divideTerm);
+		Term proofDivDef = mProofRules.divideDef(divideArgs);
 		final Sort sort = divideTerm.getSort();
 		final Term zero = Rational.ZERO.toTerm(sort);
 		final Term[] mulTermArgs = new Term[divideArgs.length];

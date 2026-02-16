@@ -442,7 +442,7 @@ public class ProofSimplifier extends TermTransformer {
 			neededRefls.add(leqArgs[1]);
 			final Term ltEqual = theory.term(SMTLIBConstants.EQUALS, oldLt, newLt);
 			proof = res(ltEqual, proof, mProofRules.iffElim2(ltEqual));
-			proof = res(newLt, proof, mProofRules.farkas(new Term[] { newLt }, new BigInteger[] { BigInteger.ONE }));
+			proof = res(newLt, proof, mProofRules.farkas(BigInteger.ONE, newLt));
 		}
 
 		// Now we have a proof for ~(< 0 leqArgs[0]); finish using total and
@@ -999,8 +999,8 @@ public class ProofSimplifier extends TermTransformer {
 				absD = args[1];
 			}
 			final Term absDivisor = theory.term(SMTLIBConstants.EQUALS, realAbsD, absD);
-			proof = res(axiomTerm, proof, mProofRules.farkas(new Term[] { realAtom, axiomTerm, absDivisor },
-					new BigInteger[] { BigInteger.ONE, BigInteger.ONE, BigInteger.ONE }));
+			proof = res(axiomTerm, proof, mProofRules.farkas(BigInteger.ONE, realAtom, BigInteger.ONE, axiomTerm,
+					BigInteger.ONE, absDivisor));
 			if (d.isConstant()) {
 				proof = res(theory.term(SMTLIBConstants.EQUALS, realAbsD, absD),
 						mProofUtils.proveAbsConstant(ratD, args[1].getSort()), proof);
@@ -1017,24 +1017,19 @@ public class ProofSimplifier extends TermTransformer {
 					proof = res(eqDZero, proof, mProofRules.symm(zero, args[1]));
 					final Term leqZeroD = theory.term(SMTLIBConstants.LEQ, zero, args[1]);
 					final Term eqZeroD = theory.term(SMTLIBConstants.EQUALS, zero, args[1]);
-					proof = res(leqZeroD, proof, mProofRules.farkas(new Term[] { leqZeroD, leqAtom },
-							new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
-					proof = res(eqZeroD, proof, mProofRules.farkas(new Term[] { eqZeroD, leqAtom },
-							new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
+					proof = res(leqZeroD, proof, mProofRules.farkas(BigInteger.ONE, leqZeroD, BigInteger.ONE, leqAtom));
+					proof = res(eqZeroD, proof, mProofRules.farkas(BigInteger.ONE, eqZeroD, BigInteger.ONE, leqAtom));
 				} else {
 					assert clause.length == 2 && clause[0].getPolarity();
 					assert clause[0].getAtom() == theory.term(SMTLIBConstants.LEQ, args[1], zero);
 					final Term ltZeroD = theory.term(SMTLIBConstants.LT, zero, args[1]);
-					proof = res(eqDZero, proof, mProofRules.farkas(new Term[] { ltZeroD, eqDZero },
-							new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
-					proof = res(ltDZero, proof, mProofRules.farkas(new Term[] { ltZeroD, ltDZero },
-							new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
+					proof = res(eqDZero, proof, mProofRules.farkas(BigInteger.ONE, ltZeroD, BigInteger.ONE, eqDZero));
+					proof = res(ltDZero, proof, mProofRules.farkas(BigInteger.ONE, ltZeroD, BigInteger.ONE, ltDZero));
 					proof = res(ltZeroD, mProofRules.total(args[1], zero), proof);
 				}
 			}
 		} else {
-			proof = res(axiomTerm, proof, mProofRules.farkas(new Term[] { realAtom, axiomTerm },
-					new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
+			proof = res(axiomTerm, proof, mProofRules.farkas(BigInteger.ONE, realAtom, BigInteger.ONE, axiomTerm));
 		}
 		if (!isHigh) {
 			proof = res(realAtom, mProofRules.total(leArgs[0], leArgs[1]), proof);
@@ -1239,8 +1234,8 @@ public class ProofSimplifier extends TermTransformer {
 			final Term divLow = theory.term(SMTLIBConstants.LEQ, mulDivTerm, bv2int);
 			final Term divModEqSymm = theory.term(SMTLIBConstants.EQUALS, bv2int, divPlusMod);
 			final Term bv2intEqModSymm = theory.term(SMTLIBConstants.EQUALS, modTerm, bv2int);
-			proof = mProofRules.farkas(new Term[] { newGoal, bv2intEqModSymm, divModEqSymm, divLow },
-					new BigInteger[] { BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, BigInteger.ONE });
+			proof = mProofRules.farkas(BigInteger.ONE, newGoal, BigInteger.ONE, bv2intEqModSymm, BigInteger.ONE,
+					divModEqSymm, BigInteger.ONE, divLow);
 			proof = res(divLow, mProofRules.divLow(bv2int, pow2Term), proof);
 			proof = res(divModEqSymm, mProofRules.symm(bv2int, divPlusMod), proof);
 			proof = res(bv2intEqModSymm, mProofRules.symm(modTerm, bv2int), proof);
@@ -1254,8 +1249,8 @@ public class ProofSimplifier extends TermTransformer {
 			final Term absEq = theory.term(SMTLIBConstants.EQUALS, absPow2Term, pow2Term);
 			final Term mulDivTermPlus = theory.term(SMTLIBConstants.PLUS, mulDivTerm, absPow2Term);
 			final Term divHigh = theory.term(SMTLIBConstants.LT, bv2int, mulDivTermPlus);
-			proof = mProofRules.farkas(new Term[] { newGoal, bv2intEqMod, divModEq, divHigh, absEq }, new BigInteger[] {
-					BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, BigInteger.ONE });
+			proof = mProofRules.farkas(BigInteger.ONE, newGoal, BigInteger.ONE, bv2intEqMod, BigInteger.ONE, divModEq,
+					BigInteger.ONE, divHigh, BigInteger.ONE, absEq);
 			proof = res(divHigh, mProofRules.divHigh(bv2int, pow2Term), proof);
 			proof = res(newGoal, mProofRules.totalInt(goalLhs, Rational.ZERO), proof);
 			proof = res(absEq, mProofUtils.proveAbsConstant(pow2, sort), proof);
@@ -1697,10 +1692,10 @@ public class ProofSimplifier extends TermTransformer {
 			assert param0.signum() <= 0 && isApplication("true", rhs);
 			final Term falseLhs = lhs.getTheory().term("<", params[1], params[0]);
 			return proveIffTrue(rewrite, mProofRules.resolutionRule(falseLhs, mProofRules.total(params[0], params[1]),
-					mProofRules.farkas(new Term[] { falseLhs }, new BigInteger[] { BigInteger.ONE })));
+					mProofRules.farkas(BigInteger.ONE, falseLhs)));
 		} else {
 			assert param0.signum() > 0 && isApplication("false", rhs);
-			return proveIffFalse(rewrite, mProofRules.farkas(new Term[] { lhs }, new BigInteger[] { BigInteger.ONE }));
+			return proveIffFalse(rewrite, mProofRules.farkas(BigInteger.ONE, lhs));
 		}
 	}
 
@@ -2267,12 +2262,12 @@ public class ProofSimplifier extends TermTransformer {
 		case "*":
 			return mProofRules.polyMul(lhs, rhs);
 		case "to_real": {
-			final Term expected = ProofRules.computePolyToReal(lhsArgs[0]);
+			final Term expected = ArithmeticRules.computePolyToReal(lhsArgs[0]);
 			if (rhs == expected) {
-				return mProofRules.toRealDef(lhs);
+				return mProofRules.toRealDef(lhsArgs[0]);
 			} else {
 				// difference can only be order of +
-				return mProofUtils.proveTransitivity(lhs, expected, rhs, mProofRules.toRealDef(lhs),
+				return mProofUtils.proveTransitivity(lhs, expected, rhs, mProofRules.toRealDef(lhsArgs[0]),
 						mProofRules.polyAdd(expected, rhs));
 			}
 		}
@@ -2952,15 +2947,14 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertLALemma(final ProofLiteral[] clause, final Term[] coefficients) {
 		assert clause.length == coefficients.length;
 		final Theory theory = mSkript.getTheory();
-		final BigInteger[] coeffs = new BigInteger[coefficients.length];
 		final Term[] atoms = new Term[clause.length];
 		final Term[] realAtoms = new Term[clause.length];
 		final Term[] realAtomProofs = new Term[clause.length];
+		final Object[] farkasParams = new Object[2 * clause.length];
 
 		for (int i = 0; i < clause.length; i++) {
 			final Rational coeff = Polynomial.parseConstant(coefficients[i]);
 			assert coeff.isIntegral() && coeff != Rational.ZERO;
-			coeffs[i] = coeff.numerator().abs();
 
 			final boolean isNegated = !clause[i].getPolarity();
 			final Term atom = clause[i].getAtom();
@@ -3001,8 +2995,10 @@ public class ProofSimplifier extends TermTransformer {
 			realAtoms[i] = realAtom;
 			realAtomProofs[i] = realAtomProof;
 			atoms[i] = atom;
+			farkasParams[2 * i] = coeff.numerator().abs();
+			farkasParams[2 * i + 1] = realAtom;
 		}
-		Term proof = mProofRules.farkas(realAtoms, coeffs);
+		Term proof = mProofRules.farkas(farkasParams);
 		for (int i = 0; i < atoms.length; i++) {
 			proof = res(realAtoms[i], realAtomProofs[i], proof);
 		}
@@ -3045,7 +3041,7 @@ public class ProofSimplifier extends TermTransformer {
 		// gt term needs to be negated
 		final Term realGt = theory.term("<", sides[1], sides[0]);
 		proof = mProofRules.resolutionRule(realGt, proof,
-				mProofRules.farkas(new Term[] { realGt, gt }, new BigInteger[] { BigInteger.ONE, BigInteger.ONE }));
+				mProofRules.farkas(BigInteger.ONE, realGt, BigInteger.ONE, gt));
 		// lt may need to be converted to <=
 		if (isApplication("<=", lt)) {
 			final Term[] ltSides = ((ApplicationTerm) lt).getParameters();
@@ -3057,8 +3053,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term realLeq = theory.term("<=", one, ltSides[0]);
 			proof = mProofRules.resolutionRule(realLt, proof,
 					mProofRules.resolutionRule(realLeq, mProofRules.totalInt(ltSides[0], Rational.ZERO),
-							mProofRules.farkas(new Term[] { realLeq, realLt },
-									new BigInteger[] { BigInteger.ONE, BigInteger.ONE })));
+							mProofRules.farkas(BigInteger.ONE, realLeq, BigInteger.ONE, realLt)));
 		}
 		return proof;
 	}
@@ -4861,11 +4856,11 @@ public class ProofSimplifier extends TermTransformer {
 			rhsTotality = mProofRules.total(rhsAtomParam[isStrictRhsAtom ? 1 : 0],
 					rhsAtomParam[isStrictRhsAtom ? 0 : 1]);
 		}
-		Term proofToRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? negLhs : posLhs, negRhsAtom },
-				new BigInteger[] { factor.denominator(), factor.numerator() });
+		Term proofToRhsAtom = mProofRules.farkas(factor.denominator(), rhsIsNegated ? negLhs : posLhs,
+				factor.numerator(), negRhsAtom);
 		proofToRhsAtom = mProofRules.resolutionRule(negRhsAtom, rhsTotality, proofToRhsAtom);
-		final Term proofFromRhsAtom = mProofRules.farkas(new Term[] { rhsIsNegated ? posLhs : negLhs, rhsAtom },
-				new BigInteger[] { factor.denominator(), factor.numerator() });
+		final Term proofFromRhsAtom = mProofRules.farkas(factor.denominator(), rhsIsNegated ? posLhs : negLhs,
+				factor.numerator(), rhsAtom);
 		Term proofLhsToRhs = rhsIsNegated
 				? mProofRules.resolutionRule(rhsAtom, mProofRules.notIntro(rhs), proofFromRhsAtom)
 				: proofToRhsAtom;

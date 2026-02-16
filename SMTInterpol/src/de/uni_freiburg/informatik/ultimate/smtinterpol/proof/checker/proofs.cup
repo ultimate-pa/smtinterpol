@@ -459,22 +459,6 @@ action code {:
 		parser.getScript().pop(1);
 		return parser.getProofRules().declareFun(funcSym, subProof);
 	}
-
-	public FunctionSymbol checkCongFunction(final QualIdentifier fun1, final Term[] args1, final QualIdentifier fun2, final Term[] args2) {
-		if (!fun1.toString().equals(fun2.toString()) || args1.length != args2.length) {
-			parser.report_error("congruence needs same function symbol");
-			return null;
-		}
-		final Sort[] paramSorts = new Sort[args1.length];
-		for (int i = 0; i < args1.length; i++) {
-			paramSorts[i] = args1[i].getSort();
-			if (paramSorts[i] != args2[i].getSort()) {
-				parser.report_error("congruence doesn't type check");
-				return null;
-			}
-		}
-		return parser.getScript().getTheory().getFunctionWithResult(fun1.getIdentifier(), fun1.getIndices(), fun1.getSort(), paramSorts);
-	}
 :}
 
 /*init with {: getScanner().init(); :} */
@@ -775,13 +759,12 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
         | LPAR TOTALINT term:t1 integer:c2 RPAR
           {: RESULT = parser.getProofRules().totalInt(t1, Rational.valueOf(c2, BigInteger.ONE)); :}
         | LPAR FARKAS coeffTerm*:coeffTerms RPAR
-          {: BigInteger[] coeffs = new BigInteger[coeffTerms.length];
-             Term[] terms = new Term[coeffTerms.length];
+          {: Object[] params = new Object[2*coeffTerms.length];
              for (int i = 0; i < coeffTerms.length; i++) {
-                 coeffs[i] = coeffTerms[i].getCoeff();
-                 terms[i] = coeffTerms[i].getTerm();
+                 params[2 * i] = coeffTerms[i].getCoeff();
+                 params[2 * i + 1] = coeffTerms[i].getTerm();
              }
-             RESULT = parser.getProofRules().farkas(terms, coeffs); :}
+             RESULT = parser.getProofRules().farkas(params); :}
         | LPAR MULPOS term*:ineqs RPAR
           {: RESULT = parser.getProofRules().mulPos(ineqs); :}
         | LPAR POLYADD term:plusTerm term:result RPAR
@@ -789,9 +772,9 @@ axiom ::= FALSEE {: RESULT = parser.getProofRules().falseElim(); :}
         | LPAR POLYMUL term:mulTerm term:result RPAR
           {: RESULT = parser.getProofRules().polyMul(mulTerm, result); :}
         | LPAR TOREALDEF term:t RPAR
-          {: RESULT = parser.getProofRules().toRealDef(parser.getScript().term(SMTLIBConstants.TO_REAL, t)); :}
+          {: RESULT = parser.getProofRules().toRealDef(t); :}
         | LPAR DIVIDEDEF term*:ts RPAR
-          {: RESULT = parser.getProofRules().divideDef(parser.getScript().term(SMTLIBConstants.DIVIDE, ts)); :}
+          {: RESULT = parser.getProofRules().divideDef(ts); :}
         | LPAR TOINTLOW term:t RPAR
           {: RESULT = parser.getProofRules().toIntLow(t); :}
         | LPAR TOINTHIGH term:t RPAR

@@ -24,7 +24,6 @@ import java.util.HashSet;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -36,7 +35,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 
 public class ProofRules {
 	// the function symbols
@@ -129,12 +127,6 @@ public class ProofRules {
 
 	public final static String PREFIX = "..";
 
-	public final static String ANNOT_VALUES = ":values";
-	public final static String ANNOT_COEFFS = ":coeffs";
-	public final static String ANNOT_DIVISOR = ":divisor";
-	public final static String ANNOT_POS = ":pos";
-	public final static String ANNOT_BVLEN = ":bvlen";
-	public final static String ANNOT_UNIT = ":unit";
 	public final static String ANNOT_DEFINE_FUN = ":define-fun";
 	public final static String ANNOT_REFINE_FUN = ":refine-fun";
 	public final static String ANNOT_DECLARE_FUN = ":declare-fun";
@@ -225,7 +217,10 @@ public class ProofRules {
 
 	public Term oracle(final ProofLiteral[] literals, final Annotation[] annots) {
 		final Object[] clause = convertProofLiteralsToAnnotation(literals);
-		return mTheory.annotatedTerm(annotate(":" + ORACLE, clause, annots), mAxiom);
+		final Annotation[] annotations = new Annotation[annots.length + 1];
+		annotations[0] = new Annotation(":" + ORACLE, clause);
+		System.arraycopy(annots, 0, annotations, 1, annots.length);
+		return mTheory.annotatedTerm(annotations, mAxiom);
 	}
 
 	public Term choose(final TermVariable tv, final Term formula) {
@@ -258,19 +253,16 @@ public class ProofRules {
 		return skolemTerms;
 	}
 
-	private Annotation[] annotate(final String rule, final Object value, final Annotation... moreAnnots) {
-		final Annotation[] annots = new Annotation[moreAnnots.length + 1];
-		annots[0] = new Annotation(rule, value);
-		System.arraycopy(moreAnnots, 0, annots, 1, moreAnnots.length);
-		return annots;
+	private Annotation[] annotate(final String rule, final Object... value) {
+		return new Annotation[] { new Annotation(rule, value) };
 	}
 
 	public Term trueIntro() {
-		return mTheory.annotatedTerm(annotate(":" + TRUEI, null), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + TRUEI), mAxiom);
 	}
 
 	public Term falseElim() {
-		return mTheory.annotatedTerm(annotate(":" + FALSEE, null), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + FALSEE), mAxiom);
 	}
 
 	public Term notIntro(final Term notTerm) {
@@ -288,9 +280,7 @@ public class ProofRules {
 	public Term orIntro(final int pos, final Term orTerm) {
 		assert orTerm instanceof TermVariable
 				|| ((ApplicationTerm) orTerm).getFunction().getName() == SMTLIBConstants.OR;
-		return mTheory.annotatedTerm(
-				annotate(":" + ORI, orTerm, new Annotation(ANNOT_POS, pos)),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + ORI, pos, orTerm), mAxiom);
 	}
 
 	public Term orElim(final Term orTerm) {
@@ -308,17 +298,13 @@ public class ProofRules {
 	public Term andElim(final int pos, final Term andTerm) {
 		assert andTerm instanceof TermVariable
 				|| ((ApplicationTerm) andTerm).getFunction().getName() == SMTLIBConstants.AND;
-		return mTheory.annotatedTerm(
-				annotate(":" + ANDE, andTerm, new Annotation(ANNOT_POS, pos)),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + ANDE, pos, andTerm), mAxiom);
 	}
 
 	public Term impIntro(final int pos, final Term impTerm) {
 		assert impTerm instanceof TermVariable
 				|| ((ApplicationTerm) impTerm).getFunction().getName() == SMTLIBConstants.IMPLIES;
-		return mTheory.annotatedTerm(
-				annotate(":" + IMPI, impTerm, new Annotation(ANNOT_POS, pos)),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + IMPI, pos, impTerm), mAxiom);
 	}
 
 	public Term impElim(final Term impTerm) {
@@ -379,14 +365,12 @@ public class ProofRules {
 
 	public Term forallElim(final Term[] subst, final QuantifiedFormula forallTerm) {
 		assert forallTerm.getQuantifier() == QuantifiedFormula.FORALL;
-		return mTheory.annotatedTerm(annotate(":" + FORALLE, forallTerm,
-				new Annotation(ANNOT_VALUES, subst)), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + FORALLE, subst, forallTerm), mAxiom);
 	}
 
 	public Term existsIntro(final Term[] subst, final QuantifiedFormula existsTerm) {
 		assert existsTerm.getQuantifier() == QuantifiedFormula.EXISTS;
-		return mTheory.annotatedTerm(annotate(":" + EXISTSI, existsTerm,
-				new Annotation(ANNOT_VALUES, subst)), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + EXISTSI, subst, existsTerm), mAxiom);
 	}
 
 	public Term existsElim(final QuantifiedFormula existsTerm) {
@@ -403,8 +387,7 @@ public class ProofRules {
 		assert ((ApplicationTerm) eqTerm).getFunction().getName() == SMTLIBConstants.EQUALS;
 		assert 0 <= pos1 && pos1 < ((ApplicationTerm) eqTerm).getParameters().length;
 		assert 0 <= pos2 && pos2 < ((ApplicationTerm) eqTerm).getParameters().length;
-		return mTheory.annotatedTerm(annotate(":" + EQE, eqTerm,
-				new Annotation(ANNOT_POS, new Integer[] { pos1, pos2 })), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + EQE, pos1, pos2, eqTerm), mAxiom);
 	}
 
 	public Term distinctIntro(final Term disTerm) {
@@ -416,32 +399,29 @@ public class ProofRules {
 		assert ((ApplicationTerm) disTerm).getFunction().getName() == SMTLIBConstants.DISTINCT;
 		assert 0 <= pos1 && pos1 < ((ApplicationTerm) disTerm).getParameters().length;
 		assert 0 <= pos2 && pos2 < ((ApplicationTerm) disTerm).getParameters().length;
-		return mTheory.annotatedTerm(annotate(":" + DISTINCTE, disTerm,
-				new Annotation(ANNOT_POS, new Integer[] { pos1, pos2 })), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DISTINCTE, pos1, pos2, disTerm), mAxiom);
 	}
 
 	public Term refl(final Term term) {
-		return mTheory.annotatedTerm(annotate(":" + REFL, new Term[] { term }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + REFL, (Object[]) new Term[] { term }), mAxiom);
 	}
 
 	public Term symm(final Term term1, final Term term2) {
-		return mTheory.annotatedTerm(annotate(":" + SYMM, new Term[] { term1, term2 }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + SYMM, (Object[]) new Term[] { term1, term2 }), mAxiom);
 	}
 
 	public Term trans(final Term... terms) {
 		assert terms.length > 2;
 		assert equalSorts(terms);
-		return mTheory.annotatedTerm(annotate(":" + TRANS, terms), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + TRANS, (Object[]) terms), mAxiom);
 	}
 
 	public Term cong(final Term term1, final Term term2) {
-		final Annotation[] annot = new Annotation[] { new Annotation(":" + CONG, new Term[] { term1, term2 }) };
-		return mTheory.annotatedTerm(annot, mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + CONG, (Object[]) new Term[] { term1, term2 }), mAxiom);
 	}
 
 	public Term expand(final Term term) {
-		final Annotation[] annot = new Annotation[] { new Annotation(":" + EXPAND, term) };
-		return mTheory.annotatedTerm(annot, mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + EXPAND, term), mAxiom);
 	}
 
 	public Term ite1(final Term iteTerm) {
@@ -461,11 +441,11 @@ public class ProofRules {
 	}
 
 	public Term trichotomy(final Term lhs, final Term rhs) {
-		return mTheory.annotatedTerm(annotate(":" + TRICHOTOMY, new Term[] { lhs, rhs }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + TRICHOTOMY, (Object[]) new Term[] { lhs, rhs }), mAxiom);
 	}
 
 	public Term total(final Term lhs, final Term rhs) {
-		return mTheory.annotatedTerm(annotate(":" + TOTAL, new Term[] { lhs, rhs }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + TOTAL, (Object[]) new Term[] { lhs, rhs }), mAxiom);
 	}
 
 	/**
@@ -486,17 +466,27 @@ public class ProofRules {
 	 */
 	public Term totalInt(final Term x, final Rational c) {
 		assert c.isIntegral();
-		return mTheory.annotatedTerm(annotate(":" + TOTALINT, new Term[] { x, c.toTerm(x.getSort()) }), mAxiom);
-	}
-
-	public Term farkas(final Term[] inequalities, final BigInteger[] coefficients) {
-		return mTheory.annotatedTerm(annotate(":" + FARKAS, inequalities, new Annotation(ANNOT_COEFFS, coefficients)),
+		return mTheory.annotatedTerm(annotate(":" + TOTALINT, (Object[]) new Term[] { x, c.toTerm(x.getSort()) }),
 				mAxiom);
 	}
 
 	/**
+	 * The axiom {@code (farkas c1 (<=? a1 b1) ... cn (<=? an bn))} is proving that
+	 * the inequalities are inconsistent. Here <=? stands for `<`, `=`, or `<=`. The
+	 * inequalities must all be given. The ci must be BigInteger. The side condition
+	 * is c = c1 * (a1 - b1) + ... + cn * (an - bn) is a non-negative constant. If
+	 * there is no strict condition, then c must also not be zero.
+	 *
+	 * @param params an alternating sequence of BigInteger and inequality terms.
+	 * @return the axiom.
+	 */
+	public Term farkas(final Object... params) {
+		return mTheory.annotatedTerm(annotate(":" + FARKAS, params), mAxiom);
+	}
+
+	/**
 	 * Axiom stating `- (<=? 0 a) - (<=? 0 b) + (<=? 0 (* a b))`. Here <=? stands
-	 * for `<`, `=`, or `<=`. The inequalities must all be given, including the goal
+	 * for `<` or `<=`. The inequalities must all be given, including the goal
 	 * inequality. The side condition is that the left-hand side of all inequalities
 	 * is 0, that the right-hand side of the last inequality is equal to the product
 	 * of the other right-hand sides (modulo polynomial simplification), and the
@@ -507,7 +497,7 @@ public class ProofRules {
 	 * @return the axiom.
 	 */
 	public Term mulPos(final Term[] inequalities) {
-		return mTheory.annotatedTerm(annotate(":" + MULPOS, inequalities), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + MULPOS, (Object[]) inequalities), mAxiom);
 	}
 
 	/**
@@ -521,7 +511,7 @@ public class ProofRules {
 	 * @return the axiom.
 	 */
 	public Term polyAdd(final Term plusTerm, final Term result) {
-		return mTheory.annotatedTerm(annotate(":" + POLYADD, new Term[] { plusTerm, result }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + POLYADD, (Object[]) new Term[] { plusTerm, result }), mAxiom);
 	}
 
 	/**
@@ -535,35 +525,30 @@ public class ProofRules {
 	 * @return the axiom.
 	 */
 	public Term polyMul(final Term mulTerm, final Term result) {
-		return mTheory.annotatedTerm(annotate(":" + POLYMUL, new Term[] { mulTerm, result }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + POLYMUL, (Object[]) new Term[] { mulTerm, result }), mAxiom);
 	}
 
 	/**
 	 * Axiom stating `(= (to_real a) = result)` where result is equal to the left
 	 * hand side in standard form.
 	 *
-	 * @param toRealTerm
-	 *            the to_real term.
-	 * @param result
-	 *            the result term.
+	 * @param integerTerm the term a.
+	 * @param result      the result term.
 	 * @return the axiom.
 	 */
-	public Term toRealDef(final Term toRealTerm) {
-		assert isApplication(SMTLIBConstants.TO_REAL, toRealTerm);
-		return mTheory.annotatedTerm(annotate(":" + TOREALDEF, ((ApplicationTerm) toRealTerm).getParameters()), mAxiom);
+	public Term toRealDef(final Term integerTerm) {
+		return mTheory.annotatedTerm(annotate(":" + TOREALDEF, integerTerm), mAxiom);
 	}
 
 	/**
 	 * Axiom stating `(= (* b1 ... bn (/ a b1 ...bn)) a)` or `(= b1 0)` ... or `(=
 	 * bn 0)`.
 	 *
-	 * @param divideTerm
-	 *            the term `(/a b1 ... bn)`.
+	 * @param divParams the parameters `a, b1, ..., bn`.
 	 * @return the axiom.
 	 */
-	public Term divideDef(final Term divTerm) {
-		assert isApplication(SMTLIBConstants.DIVIDE, divTerm);
-		return mTheory.annotatedTerm(annotate(":" + DIVIDEDEF, ((ApplicationTerm) divTerm).getParameters()), mAxiom);
+	public Term divideDef(final Term... divParams) {
+		return mTheory.annotatedTerm(annotate(":" + DIVIDEDEF, (Object[]) divParams), mAxiom);
 	}
 
 	/**
@@ -575,7 +560,7 @@ public class ProofRules {
 	 */
 	public Term toIntLow(final Term arg) {
 		assert arg.getSort().getSortSymbol().getName().equals("Real");
-		return mTheory.annotatedTerm(annotate(":" + TOINTLOW, new Term[] { arg }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + TOINTLOW, (Object[]) new Term[] { arg }), mAxiom);
 	}
 
 	/**
@@ -587,7 +572,7 @@ public class ProofRules {
 	 */
 	public Term toIntHigh(final Term arg) {
 		assert arg.getSort().getSortSymbol().getName().equals("Real");
-		return mTheory.annotatedTerm(annotate(":" + TOINTHIGH, new Term[] { arg }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + TOINTHIGH, (Object[]) new Term[] { arg }), mAxiom);
 	}
 
 	/**
@@ -602,7 +587,7 @@ public class ProofRules {
 	public Term divLow(final Term arg, final Term divisor) {
 		assert arg.getSort().getSortSymbol().getName().equals("Int");
 		assert divisor.getSort() == arg.getSort();
-		return mTheory.annotatedTerm(annotate(":" + DIVLOW, new Term[] { arg, divisor }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DIVLOW, (Object[]) new Term[] { arg, divisor }), mAxiom);
 	}
 
 	/**
@@ -618,7 +603,7 @@ public class ProofRules {
 	public Term divHigh(final Term arg, final Term divisor) {
 		assert arg.getSort().getSortSymbol().getName().equals("Int");
 		assert divisor.getSort() == arg.getSort();
-		return mTheory.annotatedTerm(annotate(":" + DIVHIGH, new Term[] { arg, divisor }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DIVHIGH, (Object[]) new Term[] { arg, divisor }), mAxiom);
 	}
 
 	/**
@@ -634,14 +619,15 @@ public class ProofRules {
 	public Term modDef(final Term arg, final Term divisor) {
 		assert arg.getSort().getSortSymbol().getName().equals("Int");
 		assert divisor.getSort() == arg.getSort();
-		return mTheory.annotatedTerm(annotate(":" + MODDEF, new Term[] { arg, divisor }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + MODDEF, (Object[]) new Term[] { arg, divisor }), mAxiom);
 	}
 
 	public Term selectStore1(final Term array, final Term index, final Term value) {
 		assert array.getSort().getSortSymbol().getName().equals(SMTLIBConstants.ARRAY);
 		assert array.getSort().getArguments()[0] == index.getSort();
 		assert array.getSort().getArguments()[1] == value.getSort();
-		return mTheory.annotatedTerm(annotate(":" + SELECTSTORE1, new Term[] { array, index, value }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + SELECTSTORE1, (Object[]) new Term[] { array, index, value }),
+				mAxiom);
 	}
 
 	public Term selectStore2(final Term array, final Term index, final Term value, final Term index2) {
@@ -649,53 +635,51 @@ public class ProofRules {
 		assert array.getSort().getArguments()[0] == index.getSort();
 		assert array.getSort().getArguments()[1] == value.getSort();
 		assert array.getSort().getArguments()[0] == index2.getSort();
-		return mTheory.annotatedTerm(annotate(":" + SELECTSTORE2, new Term[] { array, index, value, index2 }), mAxiom);
+		return mTheory.annotatedTerm(
+				annotate(":" + SELECTSTORE2, (Object[]) new Term[] { array, index, value, index2 }), mAxiom);
 	}
 
 	public Term extDiff(final Term array1, final Term array2) {
 		assert array1.getSort() == array2.getSort();
 		assert array1.getSort().getSortSymbol().getName().equals(SMTLIBConstants.ARRAY);
-		return mTheory.annotatedTerm(annotate(":" + EXTDIFF, new Term[] { array1, array2 }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + EXTDIFF, (Object[]) new Term[] { array1, array2 }), mAxiom);
 	}
 
 	public Term constArray(final Term constValue, final Term index) {
-		return mTheory.annotatedTerm(annotate(":" + CONST, new Term[] { constValue, index }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + CONST, (Object[]) new Term[] { constValue, index }), mAxiom);
 	}
 
 	public Term defineFun(final FunctionSymbol func, final Term definition, final Term subProof) {
-		return mTheory.annotatedTerm(
-				new Annotation[] { new Annotation(ANNOT_DEFINE_FUN, new Object[] { func, definition }), }, subProof);
+		return mTheory.annotatedTerm(annotate(ANNOT_DEFINE_FUN, func, definition), subProof);
 	}
 
 	public Term refineFun(final FunctionSymbol func, final Term definition, final Term subProof) {
-		return mTheory.annotatedTerm(
-				new Annotation[] { new Annotation(ANNOT_REFINE_FUN, new Object[] { func, definition }), }, subProof);
+		return mTheory.annotatedTerm(annotate(ANNOT_REFINE_FUN, func, definition), subProof);
 	}
 
 	public Term declareFun(final FunctionSymbol func, final Term subProof) {
-		return mTheory.annotatedTerm(new Annotation[] { new Annotation(ANNOT_DECLARE_FUN, new Object[] { func }), },
-				subProof);
+		return mTheory.annotatedTerm(annotate(ANNOT_DECLARE_FUN, func), subProof);
 	}
 
 	public Term dtProject(final Term selConsTerm) {
-		return mTheory.annotatedTerm(annotate(":" + DT_PROJECT, new Term[] { selConsTerm }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_PROJECT, (Object[]) new Term[] { selConsTerm }), mAxiom);
 	}
 
 	public Term dtCons(final Term isConsTerm) {
-		return mTheory.annotatedTerm(annotate(":" + DT_CONS, new Term[] { isConsTerm }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_CONS, (Object[]) new Term[] { isConsTerm }), mAxiom);
 	}
 
 	public Term dtTestI(final Term consTerm) {
-		return mTheory.annotatedTerm(annotate(":" + DT_TESTI, new Term[] { consTerm }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_TESTI, (Object[]) new Term[] { consTerm }), mAxiom);
 	}
 
 	public Term dtTestE(final String otherConstructor, final Term consTerm) {
-		return mTheory.annotatedTerm(annotate(":" + DT_TESTE, new Object[] { otherConstructor, consTerm }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_TESTE, otherConstructor, consTerm), mAxiom);
 	}
 
 	public Term dtExhaust(final Term term) {
 		assert term.getSort().getSortSymbol() instanceof DataType;
-		return mTheory.annotatedTerm(annotate(":" + DT_EXHAUST, new Term[] { term }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_EXHAUST, (Object[]) new Term[] { term }), mAxiom);
 	}
 
 	public Term dtAcyclic(final Term consTerm, final int[] positions) {
@@ -703,7 +687,7 @@ public class ProofRules {
 	}
 
 	public Term dtMatch(final Term matchTerm) {
-		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, new Term[] { matchTerm }), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + DT_MATCH, (Object[]) new Term[] { matchTerm }), mAxiom);
 	}
 
 	/**
@@ -719,10 +703,7 @@ public class ProofRules {
 		assert bitLength.bitCount() <= 32;
 		assert constValue.bitLength() <= bitLength.intValue();
 		final Term constTerm = Rational.valueOf(constValue, BigInteger.ONE).toTerm(mTheory.getNumericSort());
-		return mTheory.annotatedTerm(
-				annotate(":" + BVCONST, constTerm,
-				new Annotation(ANNOT_BVLEN, bitLength.toString())),
-				mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + BVCONST, constTerm, bitLength.intValue()), mAxiom);
 	}
 
 	public Term bvLiteral(final String bvLiteral) {
@@ -742,8 +723,7 @@ public class ProofRules {
 	public Term int2ubv2int(final BigInteger bitLength, final Term natTerm) {
 		assert natTerm.getSort().isInternal() && natTerm.getSort().getName().equals("Int");
 		assert bitLength.bitCount() <= 32;
-		return mTheory.annotatedTerm(
-				annotate(":" + INT2UBV2INT, natTerm, new Annotation(ANNOT_BVLEN, bitLength.toString())), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + INT2UBV2INT, bitLength.intValue(), natTerm), mAxiom);
 	}
 
 	/**
@@ -757,8 +737,7 @@ public class ProofRules {
 	public Term int2sbv2int(final BigInteger bitLength, final Term natTerm) {
 		assert natTerm.getSort().isInternal() && natTerm.getSort().getName().equals("Int");
 		assert bitLength.bitCount() <= 32;
-		return mTheory.annotatedTerm(
-				annotate(":" + INT2SBV2INT, natTerm, new Annotation(ANNOT_BVLEN, bitLength.toString())), mAxiom);
+		return mTheory.annotatedTerm(annotate(":" + INT2SBV2INT, bitLength.intValue(), natTerm), mAxiom);
 	}
 
 	/**
@@ -778,176 +757,12 @@ public class ProofRules {
 		new PrintProof().append(appender, proof);
 	}
 
-	private static boolean isApplication(final String funcName, final Term term) {
+	static boolean isApplication(final String funcName, final Term term) {
 		if (term instanceof ApplicationTerm) {
 			final FunctionSymbol func = ((ApplicationTerm) term).getFunction();
 			return func.isIntern() && func.getName().equals(funcName);
 		}
 		return false;
-	}
-
-	/**
-	 * Check the parameters of a poly+ axiom. It checks that the plusTerm is an
-	 * application of `+` and that the sum of its arguments minus the results (using
-	 * polynomial addition) sums to zero.
-	 *
-	 * @param plusTerm
-	 *            the plus term (first argument of the poly+ axiom).
-	 * @param result
-	 *            the result term (second argument of the poly+ axiom).
-	 * @return true iff the parameters are wellformed.
-	 */
-	public static boolean checkPolyAdd(final Term plusTerm, final Term result) {
-		if (!isApplication(SMTLIBConstants.PLUS, plusTerm)) {
-			return false;
-		}
-		final Polynomial poly = new Polynomial();
-		for (final Term t : ((ApplicationTerm) plusTerm).getParameters()) {
-			poly.add(Rational.ONE, t);
-		}
-		poly.add(Rational.MONE, result);
-		return poly.isZero();
-	}
-
-	/**
-	 * Check the parameters of a poly* axiom. It checks that the mulTerm is an
-	 * application of `*` and that the product of its arguments minus the results
-	 * (using polynomial multiplication and subtraction) gives zero.
-	 *
-	 * @param mulTerm
-	 *            the mul term (first argument of the poly* axiom).
-	 * @param result
-	 *            the result term (second argument of the poly* axiom).
-	 * @return true iff the parameters are wellformed.
-	 */
-	public static boolean checkPolyMul(final Term mulTerm, final Term result) {
-		if (!isApplication(SMTLIBConstants.MUL, mulTerm)) {
-			return false;
-		}
-		final Polynomial poly = new Polynomial();
-		poly.add(Rational.ONE);
-		for (final Term t : ((ApplicationTerm) mulTerm).getParameters()) {
-			poly.mul(new Polynomial(t));
-		}
-		poly.add(Rational.MONE, result);
-		if (!poly.isZero()) {
-			System.err.println("STOP");
-		}
-		return poly.isZero();
-	}
-
-	private static Term computeFactorToReal(final Term factor) {
-		if (factor instanceof ConstantTerm && ((ConstantTerm) factor).getValue() instanceof Rational) {
-			return ((Rational) ((ConstantTerm) factor).getValue()).toTerm(factor.getTheory().getSort("Real"));
-		} else {
-			return factor.getTheory().term(SMTLIBConstants.TO_REAL, factor);
-		}
-	}
-
-	private static Term computeMonomialToReal(final Term monomial) {
-		if (isApplication(SMTLIBConstants.MUL, monomial)) {
-			final Term[] oldParams = ((ApplicationTerm) monomial).getParameters();
-			final Term[] newParams = new Term[oldParams.length];
-			for (int i = 0; i < oldParams.length; i++) {
-				newParams[i] = computeFactorToReal(oldParams[i]);
-			}
-			return monomial.getTheory().term(SMTLIBConstants.MUL, newParams);
-		} else {
-			return computeFactorToReal(monomial);
-		}
-	}
-
-	public static Term computePolyToReal(final Term poly) {
-		if (isApplication(SMTLIBConstants.PLUS, poly)) {
-			final Term[] oldParams = ((ApplicationTerm) poly).getParameters();
-			final Term[] newParams = new Term[oldParams.length];
-			for (int i = 0; i < oldParams.length; i++) {
-				newParams[i] = computeMonomialToReal(oldParams[i]);
-			}
-			return poly.getTheory().term(SMTLIBConstants.PLUS, newParams);
-		} else {
-			return computeMonomialToReal(poly);
-		}
-	}
-
-	public static Term computePolyMinus(final Term minusTerm) {
-		assert isApplication(SMTLIBConstants.MINUS, minusTerm);
-		final Theory theory = minusTerm.getTheory();
-		final Term[] params = ((ApplicationTerm) minusTerm).getParameters();
-		final Term minusOne = Rational.MONE.toTerm(minusTerm.getSort());
-		if (params.length == 1) {
-			return theory.term(SMTLIBConstants.MUL, minusOne, params[0]);
-		} else {
-			final Term[] rhsParams = new Term[params.length];
-			rhsParams[0] = params[0];
-			for (int i = 1; i < params.length; i++) {
-				rhsParams[i] = theory.term(SMTLIBConstants.MUL, minusOne, params[i]);
-			}
-			return theory.term(SMTLIBConstants.PLUS, rhsParams);
-		}
-	}
-
-	public static boolean checkFarkas(final Term[] inequalities, final BigInteger[] coefficients) {
-		if (inequalities.length != coefficients.length) {
-			return false;
-		}
-		final Polynomial sum = new Polynomial();
-		boolean strict = false;
-		for (int i = 0; i < inequalities.length; i++) {
-			if (coefficients[i].signum() != 1) {
-				return false;
-			}
-			if (!isApplication(SMTLIBConstants.LT, inequalities[i])
-					&& !isApplication(SMTLIBConstants.LEQ, inequalities[i])
-					&& !isApplication(SMTLIBConstants.EQUALS, inequalities[i])) {
-				return false;
-			}
-			final ApplicationTerm appTerm = (ApplicationTerm) inequalities[i];
-			final Term[] params = appTerm.getParameters();
-			if (params.length != 2) {
-				return false;
-			}
-			if (appTerm.getFunction().getName() == SMTLIBConstants.LT) {
-				strict = true;
-			}
-			final Rational coeff = Rational.valueOf(coefficients[i], BigInteger.ONE);
-			sum.add(coeff, params[0]);
-			sum.add(coeff.negate(), params[1]);
-		}
-		final boolean okay = sum.isConstant() && sum.getConstant().signum() >= (strict ? 0 : 1);
-		return okay;
-	}
-
-	public static boolean checkMulPos(final Term[] inequalities) {
-		final Polynomial prod = new Polynomial();
-		prod.add(Rational.ONE);
-		boolean holdsStrictly = true;
-		for (int i = 0; i < inequalities.length; i++) {
-			if (!isApplication(SMTLIBConstants.LT, inequalities[i])
-					&& !isApplication(SMTLIBConstants.LEQ, inequalities[i])) {
-				return false;
-			}
-			if (!isApplication(SMTLIBConstants.LT, inequalities[i])) {
-				holdsStrictly = false;
-			}
-			final ApplicationTerm appTerm = (ApplicationTerm) inequalities[i];
-			final Term[] params = appTerm.getParameters();
-			if (params.length != 2) {
-				return false;
-			}
-			if (params[0] != Rational.ZERO.toTerm(params[0].getSort())) {
-				return false;
-			}
-			if (i < inequalities.length - 1) {
-				prod.mul(new Polynomial(params[1]));
-			} else {
-				if (!holdsStrictly && !isApplication(SMTLIBConstants.LEQ, inequalities[i])) {
-					return false;
-				}
-				prod.add(Rational.MONE, params[1]);
-			}
-		}
-		return prod.isZero();
 	}
 
 	public static boolean checkXorParams(final Term[][] xorArgs) {

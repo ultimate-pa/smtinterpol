@@ -68,13 +68,13 @@ public class MinimalProofChecker extends NonRecursive {
 	 *
 	 * The main idea of this non-recursive algorithm is to push a proof walker for
 	 * the {@literal @}Proof terms on the todo stack, which will push the proved
-	 * term of type Bool onto the result stack mStackResults. To handle functions
-	 * like {@literal @}eq, {@literal @}cong, {@literal @}trans that take a
-	 * {@literal @}Proof term as input, first a XYWalker the function XY is pushed
-	 * on the todo stack and then the ProofWalker for the {@literal @}Proof terms
-	 * are pushed. The Walker will then call the corresponding walkXY function which
-	 * checks the proved arguments, computes the final proved formula and pushes
-	 * that on the result stack.
+	 * clause of type ProofLiteral[] onto the result stack mStackResults. To handle
+	 * functions like res, define-fun, etc. that take a {@literal @}Proof term as
+	 * input, first a XYWalker for the function XY is pushed on the todo stack and
+	 * then the ProofWalker for the {@literal @}Proof terms are pushed. The Walker
+	 * will then call the corresponding walkXY function which checks the proved
+	 * arguments, computes the final proved formula and pushes that on the result
+	 * stack.
 	 *
 	 * Simple functions that don't take {@literal @}Proof arguments are handled
 	 * directly by calling the walkXY function.
@@ -84,41 +84,37 @@ public class MinimalProofChecker extends NonRecursive {
 	 * The set of all asserted terms (collected from the script by calling
 	 * getAssertions()). This is used to check the {@literal @}asserted rules.
 	 */
-	Set<Term> mAssertions;
+	private Set<Term> mAssertions;
 
 	/**
 	 * The SMT script (mainly used to create terms).
 	 */
-	Script mSkript;
+	private final Script mSkript;
 	/**
 	 * The logger where errors are reported.
 	 */
-	LogProxy mLogger;
-	/**
-	 * The ProofRules object.
-	 */
-	ProofRules mProofRules;
+	private final LogProxy mLogger;
 
 	/**
 	 * The proof cache. It maps each converted proof to the clause it proves.
 	 */
-	HashMap<Term, ProofLiteral[]> mCacheConv;
+	private HashMap<Term, ProofLiteral[]> mCacheConv;
 
 	/**
 	 * Map from auxiliary function symbol to its definition. The auxiliary functions
 	 * are functions defined in the proof term with define-fun.
 	 */
-	HashMap<FunctionSymbol, Term> mFunctionDefinitions;
+	private final HashMap<FunctionSymbol, Term> mFunctionDefinitions;
 
 	/**
 	 * Map from function name to the expander class for the expand axiom.
 	 */
-	HashMap<String, Expander> mInternalFunctionExpander;
+	private final HashMap<String, Expander> mInternalFunctionExpander;
 
 	/**
 	 * The result stack. This contains the terms proved by the proof terms.
 	 */
-	Stack<ProofLiteral[]> mStackResults = new Stack<>();
+	private final Stack<ProofLiteral[]> mStackResults = new Stack<>();
 
 	int mNumOracles, mNumAxioms, mNumResolutions, mNumAssertions, mNumDefineFun;
 
@@ -131,7 +127,6 @@ public class MinimalProofChecker extends NonRecursive {
 	public MinimalProofChecker(final Script script, final LogProxy logger) {
 		mSkript = script;
 		mLogger = logger;
-		mProofRules = new ProofRules(script.getTheory());
 		mFunctionDefinitions = new HashMap<>();
 		mInternalFunctionExpander = new HashMap<>();
 		addTheoryDefinitions();
@@ -277,55 +272,18 @@ public class MinimalProofChecker extends NonRecursive {
 		return new FormulaUnLet().unlet(definition.getTheory().let(vars, params, definition));
 	}
 
-	private static Term expandMinus(FunctionSymbol f, Term[] params) {
-		final Theory t = params[0].getTheory();
-		final Term mone = Rational.MONE.toTerm(params[0].getSort());
-		return params.length == 1 ? t.term(SMTLIBConstants.MUL, mone, params[0])
-				: t.term(SMTLIBConstants.PLUS, params[0], t.term(SMTLIBConstants.MUL, mone, params[1]));
-	}
-
-	private static Term expandGt(FunctionSymbol f, Term[] params) {
-		final Theory t = params[0].getTheory();
-		return t.term(SMTLIBConstants.LT, params[1], params[0]);
-	}
-
-	private static Term expandGeq(FunctionSymbol f, Term[] params) {
-		final Theory t = params[0].getTheory();
-		return t.term(SMTLIBConstants.LEQ, params[1], params[0]);
-	}
-
-	private void addArithDefinitions() {
-		mInternalFunctionExpander.put(SMTLIBConstants.MINUS, MinimalProofChecker::expandMinus);
-		mInternalFunctionExpander.put(SMTLIBConstants.GT, MinimalProofChecker::expandGt);
-		mInternalFunctionExpander.put(SMTLIBConstants.GEQ, MinimalProofChecker::expandGeq);
-		// abs, divisible, is_int already have the right definition.
+	void registerExpand(String funcName, Expander expander) {
+		mInternalFunctionExpander.put(funcName, expander);
 	}
 
 	private void addTheoryDefinitions() {
 		final Theory theory = mSkript.getTheory();
 		final Logics logic = theory.getLogic();
 		if (logic.isArithmetic() || logic.isBitVector()) {
-			addArithDefinitions();
+			ArithmeticRules.registerRules(this);
 		}
 		if (logic.isBitVector()) {
-			mInternalFunctionExpander.put(SMTLIBConstants.BVADD, BitvectorRules::expandBvAdd);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVSUB, BitvectorRules::expandBvSub);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVMUL, BitvectorRules::expandBvMul);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVUDIV, BitvectorRules::expandBvUdiv);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVUREM, BitvectorRules::expandBvUrem);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVNEG, BitvectorRules::expandBvNeg);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVNOT, BitvectorRules::expandBvNot);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVAND, BitvectorRules::expandBvAnd);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVOR, BitvectorRules::expandBvOr);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVXOR, BitvectorRules::expandBvXor);
-			mInternalFunctionExpander.put(SMTLIBConstants.BVNAND, BitvectorRules::expandBvNAnd);
-			mInternalFunctionExpander.put(SMTLIBConstants.CONCAT, BitvectorRules::expandConcat);
-			mInternalFunctionExpander.put(SMTLIBConstants.EXTRACT, BitvectorRules::expandExtract);
-			mInternalFunctionExpander.put(SMTLIBConstants.REPEAT, BitvectorRules::expandRepeat);
-			mInternalFunctionExpander.put(SMTLIBConstants.SIGN_EXTEND, BitvectorRules::expandSignExtend);
-			mInternalFunctionExpander.put(SMTLIBConstants.ZERO_EXTEND, BitvectorRules::expandZeroExtend);
-			mInternalFunctionExpander.put(SMTLIBConstants.ROTATE_LEFT, BitvectorRules::expandRotateLeft);
-			mInternalFunctionExpander.put(SMTLIBConstants.ROTATE_RIGHT, BitvectorRules::expandRotateRight);
+			BitvectorRules.registerRules(this);
 		}
 	}
 
@@ -530,14 +488,20 @@ public class MinimalProofChecker extends NonRecursive {
 			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
 		case ":" + ProofRules.TRUEI: {
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 0;
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.TRUE), true) };
 		}
 		case ":" + ProofRules.FALSEE: {
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 0;
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.FALSE), false) };
 		}
 		case ":" + ProofRules.NOTI: {
 			assert annots.length == 1;
-			final ApplicationTerm notTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm notTerm = (ApplicationTerm) ruleParams[0];
 			if (!notTerm.getFunction().isIntern() || !notTerm.getFunction().getName().equals(SMTLIBConstants.NOT)) {
 				reportError("Expected not application");
 				return getTrueClause(notTerm.getTheory());
@@ -548,7 +512,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.NOTE: {
 			assert annots.length == 1;
-			final ApplicationTerm notTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm notTerm = (ApplicationTerm) ruleParams[0];
 			if (!notTerm.getFunction().isIntern() || !notTerm.getFunction().getName().equals(SMTLIBConstants.NOT)) {
 				reportError("Expected not application");
 				return getTrueClause(notTerm.getTheory());
@@ -558,24 +524,27 @@ public class MinimalProofChecker extends NonRecursive {
 					new ProofLiteral(notTerm.getParameters()[0], false) };
 		}
 		case ":" + ProofRules.ORI: {
-			assert annots.length == 2;
-			final ApplicationTerm orTerm = (ApplicationTerm) annots[0].getValue();
-			if (!orTerm.getFunction().isIntern() || !orTerm.getFunction().getName().equals(SMTLIBConstants.OR)) {
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 2;
+			final ApplicationTerm orTerm = (ApplicationTerm) ruleParams[1];
+			if (!ProofRules.isApplication(SMTLIBConstants.OR, orTerm)) {
 				reportError("Expected or application");
 				return getTrueClause(orTerm.getTheory());
 			}
-			final Term[] params = orTerm.getParameters();
-			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
-			final int pos = (Integer) annots[1].getValue();
-			assert pos >= 0 && pos < params.length;
+			final Term[] orParams = orTerm.getParameters();
+			final int pos = (Integer) ruleParams[0];
+			assert pos >= 0 && pos < orParams.length;
 
 			// (or t1 ... tn), ~tpos
-			return new ProofLiteral[] { new ProofLiteral(orTerm, true), new ProofLiteral(params[pos], false) };
+			return new ProofLiteral[] { new ProofLiteral(orTerm, true), new ProofLiteral(orParams[pos], false) };
 		}
 		case ":" + ProofRules.ORE: {
 			assert annots.length == 1;
-			final ApplicationTerm orTerm = (ApplicationTerm) annots[0].getValue();
-			if (!orTerm.getFunction().isIntern() || !orTerm.getFunction().getName().equals(SMTLIBConstants.OR)) {
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm orTerm = (ApplicationTerm) ruleParams[0];
+			if (!ProofRules.isApplication(SMTLIBConstants.OR, orTerm)) {
 				reportError("Expected or application");
 				return getTrueClause(orTerm.getTheory());
 			}
@@ -591,7 +560,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.ANDI: {
 			assert annots.length == 1;
-			final ApplicationTerm andTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm andTerm = (ApplicationTerm) ruleParams[0];
 			if (!andTerm.getFunction().isIntern() || !andTerm.getFunction().getName().equals(SMTLIBConstants.AND)) {
 				reportError("Expected and application");
 				return getTrueClause(andTerm.getTheory());
@@ -607,30 +578,32 @@ public class MinimalProofChecker extends NonRecursive {
 			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
 		case ":" + ProofRules.ANDE: {
-			assert annots.length == 2;
-			final ApplicationTerm andTerm = (ApplicationTerm) annots[0].getValue();
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 2;
+			final ApplicationTerm andTerm = (ApplicationTerm) ruleParams[1];
 			if (!andTerm.getFunction().isIntern() || !andTerm.getFunction().getName().equals(SMTLIBConstants.AND)) {
 				reportError("Expected and application");
 				return getTrueClause(andTerm.getTheory());
 			}
 			final Term[] params = andTerm.getParameters();
-			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
-			final int pos = (Integer) annots[1].getValue();
+			final int pos = (Integer) ruleParams[0];
 			assert pos >= 0 && pos < params.length;
 
 			// ~(and t1 ... tn), tpos
 			return new ProofLiteral[] { new ProofLiteral(andTerm, false), new ProofLiteral(params[pos], true) };
 		}
 		case ":" + ProofRules.IMPI: {
-			assert annots.length == 2;
-			final ApplicationTerm impTerm = (ApplicationTerm) annots[0].getValue();
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 2;
+			final ApplicationTerm impTerm = (ApplicationTerm) ruleParams[1];
 			if (!impTerm.getFunction().isIntern() || !impTerm.getFunction().getName().equals(SMTLIBConstants.IMPLIES)) {
 				reportError("Expected => application");
 				return getTrueClause(impTerm.getTheory());
 			}
 			final Term[] params = impTerm.getParameters();
-			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
-			final int pos = (Integer) annots[1].getValue();
+			final int pos = (Integer) ruleParams[0];
 			assert pos >= 0 && pos < params.length;
 
 			// (=> t1 ... tn), tpos (~tpos if pos == n)
@@ -639,7 +612,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.IMPE: {
 			assert annots.length == 1;
-			final ApplicationTerm impTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm impTerm = (ApplicationTerm) ruleParams[0];
 			if (!impTerm.getFunction().isIntern() || !impTerm.getFunction().getName().equals(SMTLIBConstants.IMPLIES)) {
 				reportError("Expected => application");
 				return getTrueClause(impTerm.getTheory());
@@ -656,7 +631,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.IFFI1: {
 			assert annots.length == 1;
-			final ApplicationTerm iffTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm iffTerm = (ApplicationTerm) ruleParams[0];
 			if (!iffTerm.getFunction().isIntern() || !iffTerm.getFunction().getName().equals(SMTLIBConstants.EQUALS)) {
 				reportError("Expected = application");
 				return getTrueClause(iffTerm.getTheory());
@@ -672,7 +649,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.IFFI2: {
 			assert annots.length == 1;
-			final ApplicationTerm iffTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm iffTerm = (ApplicationTerm) ruleParams[0];
 			if (!iffTerm.getFunction().isIntern() || !iffTerm.getFunction().getName().equals(SMTLIBConstants.EQUALS)) {
 				reportError("Expected = application");
 				return getTrueClause(iffTerm.getTheory());
@@ -688,7 +667,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.IFFE1: {
 			assert annots.length == 1;
-			final ApplicationTerm iffTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm iffTerm = (ApplicationTerm) ruleParams[0];
 			if (!iffTerm.getFunction().isIntern() || !iffTerm.getFunction().getName().equals(SMTLIBConstants.EQUALS)) {
 				reportError("Expected = application");
 				return getTrueClause(iffTerm.getTheory());
@@ -704,7 +685,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.IFFE2: {
 			assert annots.length == 1;
-			final ApplicationTerm iffTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm iffTerm = (ApplicationTerm) ruleParams[0];
 			if (!iffTerm.getFunction().isIntern() || !iffTerm.getFunction().getName().equals(SMTLIBConstants.EQUALS)) {
 				reportError("Expected = application");
 				return getTrueClause(iffTerm.getTheory());
@@ -754,7 +737,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.EQI: {
 			assert annots.length == 1;
-			final ApplicationTerm eqTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm eqTerm = (ApplicationTerm) ruleParams[0];
 			if (!eqTerm.getFunction().isIntern() || !eqTerm.getFunction().getName().equals(SMTLIBConstants.EQUALS)) {
 				reportError("Expected = application");
 				return getTrueClause(eqTerm.getTheory());
@@ -770,18 +755,17 @@ public class MinimalProofChecker extends NonRecursive {
 			return clause;
 		}
 		case ":" + ProofRules.EQE: {
-			assert annots.length == 2;
-			final ApplicationTerm eqTerm = (ApplicationTerm) annots[0].getValue();
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 3;
+			final ApplicationTerm eqTerm = (ApplicationTerm) ruleParams[2];
 			if (!eqTerm.getFunction().isIntern() || !eqTerm.getFunction().getName().equals(SMTLIBConstants.EQUALS)) {
 				reportError("Expected = application");
 				return getTrueClause(eqTerm.getTheory());
 			}
 			final Term[] params = eqTerm.getParameters();
-			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
-			final Integer[] positions = (Integer[]) annots[1].getValue();
-			assert positions.length == 2;
-			final int pos0 = positions[0];
-			final int pos1 = positions[1];
+			final int pos0 = (Integer) ruleParams[0];
+			final int pos1 = (Integer) ruleParams[1];
 			assert 0 <= pos0 && pos0 < params.length && 0 <= pos1 && pos1 < params.length;
 
 			// ~(= t1 ... tn), (= ti tj)
@@ -790,7 +774,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.DISTINCTI: {
 			assert annots.length == 1;
-			final ApplicationTerm distinctTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm distinctTerm = (ApplicationTerm) ruleParams[0];
 			if (!distinctTerm.getFunction().isIntern()
 					|| !distinctTerm.getFunction().getName().equals(SMTLIBConstants.DISTINCT)) {
 				reportError("Expected distinct application");
@@ -812,19 +798,18 @@ public class MinimalProofChecker extends NonRecursive {
 			return clause;
 		}
 		case ":" + ProofRules.DISTINCTE: {
-			assert annots.length == 2;
-			final ApplicationTerm distinctTerm = (ApplicationTerm) annots[0].getValue();
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 3;
+			final ApplicationTerm distinctTerm = (ApplicationTerm) ruleParams[2];
 			if (!distinctTerm.getFunction().isIntern()
 					|| !distinctTerm.getFunction().getName().equals(SMTLIBConstants.DISTINCT)) {
 				reportError("Expected distinct application");
 				return getTrueClause(distinctTerm.getTheory());
 			}
 			final Term[] params = distinctTerm.getParameters();
-			assert annots[1].getKey().equals(ProofRules.ANNOT_POS);
-			final Integer[] positions = (Integer[]) annots[1].getValue();
-			assert positions.length == 2;
-			final int pos0 = positions[0];
-			final int pos1 = positions[1];
+			final int pos0 = (Integer) ruleParams[0];
+			final int pos1 = (Integer) ruleParams[1];
 			assert 0 <= pos0 && pos0 < params.length && 0 <= pos1 && pos1 < params.length;
 
 			// ~(distinct t1 ... tn), ~(= ti tj)
@@ -833,7 +818,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.ITE1: {
 			assert annots.length == 1;
-			final ApplicationTerm iteTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm iteTerm = (ApplicationTerm) ruleParams[0];
 			if (!iteTerm.getFunction().isIntern() || !iteTerm.getFunction().getName().equals(SMTLIBConstants.ITE)) {
 				reportError("Expected ite application");
 				return getTrueClause(iteTerm.getTheory());
@@ -847,7 +834,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.ITE2: {
 			assert annots.length == 1;
-			final ApplicationTerm iteTerm = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm iteTerm = (ApplicationTerm) ruleParams[0];
 			if (!iteTerm.getFunction().isIntern() || !iteTerm.getFunction().getName().equals(SMTLIBConstants.ITE)) {
 				reportError("Expected ite application");
 				return getTrueClause(iteTerm.getTheory());
@@ -861,10 +850,12 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.DELANNOT: {
 			assert annots.length == 1;
-			if (!(annots[0].getValue() instanceof AnnotatedTerm)) {
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			if (!(ruleParams[0] instanceof AnnotatedTerm)) {
 				return reportViolatedSideCondition(axiom);
 			}
-			final AnnotatedTerm annotTerm = (AnnotatedTerm) annots[0].getValue();
+			final AnnotatedTerm annotTerm = (AnnotatedTerm) ruleParams[0];
 			final Term subterm = annotTerm.getSubterm();
 
 			// (= (! t :...) t)
@@ -873,33 +864,33 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.REFL: {
 			assert annots.length == 1;
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert params.length == 1;
+			final Term[] ruleParams = (Term[]) annots[0].getValue();
+			assert ruleParams.length == 1;
 
 			// (= a a)
 			return new ProofLiteral[] {
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[0]), true) };
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, ruleParams[0], ruleParams[0]), true) };
 		}
 		case ":" + ProofRules.SYMM: {
 			assert annots.length == 1;
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert params.length == 2;
+			final Term[] ruleParams = (Term[]) annots[0].getValue();
+			assert ruleParams.length == 2;
 
 			// (= a0 a1), ~(= a1 a0)
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[1], params[0]), false) };
+			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, ruleParams), true),
+					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, ruleParams[1], ruleParams[0]), false) };
 		}
 		case ":" + ProofRules.TRANS: {
 			assert annots.length == 1;
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert params.length > 2;
-			final int len = params.length;
+			final Term[] ruleParams = (Term[]) annots[0].getValue();
+			assert ruleParams.length > 2;
+			final int len = ruleParams.length;
 
 			// (= a0 alen-1), ~(= a0 a1), ..., ~(= alen-2 alen-1)
 			final ProofLiteral[] clause = new ProofLiteral[len];
-			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[len - 1]), true);
+			clause[0] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, ruleParams[0], ruleParams[len - 1]), true);
 			for (int i = 0; i < len - 1; i++) {
-				clause[i + 1] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[i], params[i + 1]), false);
+				clause[i + 1] = new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, ruleParams[i], ruleParams[i + 1]), false);
 			}
 			return clause;
 		}
@@ -929,7 +920,9 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.EXPAND: {
 			assert annots.length == 1;
-			final ApplicationTerm app = (ApplicationTerm) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final ApplicationTerm app = (ApplicationTerm) ruleParams[0];
 			final FunctionSymbol func = app.getFunction();
 			final Term[] params = app.getParameters();
 			Term rhs;
@@ -971,8 +964,10 @@ public class MinimalProofChecker extends NonRecursive {
 		case ":" + ProofRules.FORALLI:
 		case ":" + ProofRules.EXISTSE: {
 			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
 			final boolean isForall = annots[0].getKey().equals(":" + ProofRules.FORALLI);
-			final QuantifiedFormula quant = (QuantifiedFormula) annots[0].getValue();
+			final QuantifiedFormula quant = (QuantifiedFormula) ruleParams[0];
 			if (quant.getQuantifier() != (isForall ? QuantifiedFormula.FORALL : QuantifiedFormula.EXISTS)) {
 				reportError("Quantifier of wrong type");
 				return getTrueClause(theory);
@@ -988,16 +983,17 @@ public class MinimalProofChecker extends NonRecursive {
 		}
 		case ":" + ProofRules.FORALLE:
 		case ":" + ProofRules.EXISTSI: {
-			assert annots.length == 2;
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 2;
 			final boolean isForall = annots[0].getKey().equals(":" + ProofRules.FORALLE);
-			final QuantifiedFormula quant = (QuantifiedFormula) annots[0].getValue();
+			final QuantifiedFormula quant = (QuantifiedFormula) ruleParams[1];
 			if (quant.getQuantifier() != (isForall ? QuantifiedFormula.FORALL : QuantifiedFormula.EXISTS)) {
 				reportError("Quantifier of wrong type");
 				return getTrueClause(theory);
 			}
 			final TermVariable[] termVars = quant.getVariables();
-			assert annots[1].getKey() == ProofRules.ANNOT_VALUES;
-			final Term[] values = (Term[]) annots[1].getValue();
+			final Term[] values = (Term[]) ruleParams[0];
 			final Term letted = theory.let(termVars, values, quant.getSubformula());
 
 			// ~(forall (vars) F), (let values F)
@@ -1015,9 +1011,7 @@ public class MinimalProofChecker extends NonRecursive {
 			if (params.length != 2) {
 				throw new AssertionError();
 			}
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, params), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.LT, params[1], params[0]), true) };
+			return ArithmeticRules.trichotomy(this, theory, params);
 		}
 		case ":" + ProofRules.TOTAL: {
 			if (!theory.getLogic().isArithmetic() && !theory.getLogic().isBitVector()) {
@@ -1027,8 +1021,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, params[0], params[1]), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.LT, params[1], params[0]), true) };
+			return ArithmeticRules.total(this, theory, params);
 		}
 		case ":" + ProofRules.TOTALINT: {
 			if (!theory.getLogic().hasIntegers() && !theory.getLogic().isBitVector()) {
@@ -1038,32 +1031,25 @@ public class MinimalProofChecker extends NonRecursive {
 			assert annots.length == 1;
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert params.length == 2;
-			final Term x = params[0];
-			final Term cTerm = params[1];
-			final Rational c = (Rational) ((ConstantTerm) cTerm).getValue();
-			if (x.getSort().getName() != SMTLIBConstants.INT || cTerm.getSort() != x.getSort()
-					|| !c.denominator().equals(BigInteger.ONE)) {
+			final ProofLiteral[] result = ArithmeticRules.totalInt(this, theory, params);
+			if (result == null) {
 				return reportViolatedSideCondition(axiom);
 			}
-			final Term cPlusOne = c.add(Rational.ONE).toTerm(x.getSort());
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, x, cTerm), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.LEQ, cPlusOne, x), true) };
+			return result;
 		}
 		case ":" + ProofRules.FARKAS: {
 			if (!theory.getLogic().isArithmetic() && !theory.getLogic().isBitVector()) {
 				reportError("Proof requires arithmetic");
 				return getTrueClause(theory);
 			}
-			final Term[] ineqs = (Term[]) annots[0].getValue();
-			assert annots.length == 2;
-			assert annots[1].getKey() == ProofRules.ANNOT_COEFFS;
-			final BigInteger[] coeffs = (BigInteger[]) annots[1].getValue();
-			if (!ProofRules.checkFarkas(ineqs, coeffs)) {
+			final Object[] params = (Object[]) annots[0].getValue();
+			assert annots.length == 1;
+			if (!ArithmeticRules.checkFarkas(params)) {
 				return reportViolatedSideCondition(axiom);
 			}
 			final HashSet<ProofLiteral> clause = new HashSet<>();
-			for (int i = 0; i < ineqs.length; i++) {
-				clause.add(new ProofLiteral(ineqs[i], false));
+			for (int i = 1; i < params.length; i += 2) {
+				clause.add(new ProofLiteral((Term) params[i], false));
 			}
 			return clause.toArray(new ProofLiteral[clause.size()]);
 		}
@@ -1074,7 +1060,7 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			final Term[] ineqs = (Term[]) annots[0].getValue();
 			assert annots.length == 0;
-			if (!ProofRules.checkMulPos(ineqs)) {
+			if (!ArithmeticRules.checkMulPos(ineqs)) {
 				return reportViolatedSideCondition(axiom);
 			}
 			final HashSet<ProofLiteral> clause = new HashSet<>();
@@ -1091,7 +1077,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
-			if (!ProofRules.checkPolyAdd(params[0], params[1])) {
+			if (!ArithmeticRules.checkPolyAdd(params[0], params[1])) {
 				return reportViolatedSideCondition(axiom);
 			}
 			return new ProofLiteral[] {
@@ -1105,7 +1091,7 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
 			assert params.length == 2;
-			if (!ProofRules.checkPolyMul(params[0], params[1])) {
+			if (!ArithmeticRules.checkPolyMul(params[0], params[1])) {
 				return reportViolatedSideCondition(axiom);
 			}
 			return new ProofLiteral[] {
@@ -1116,11 +1102,12 @@ public class MinimalProofChecker extends NonRecursive {
 				reportError("Proof requires arithmetic");
 				return getTrueClause(theory);
 			}
-			final Term[] params = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
+			final Object[] params = (Object[]) annots[0].getValue();
 			assert params.length == 1;
-			final Term lhs = theory.term(SMTLIBConstants.TO_REAL, params[0]);
-			final Term rhs = ProofRules.computePolyToReal(params[0]);
+			final Term integerTerm = (Term) params[0];
+			final Term lhs = theory.term(SMTLIBConstants.TO_REAL, integerTerm);
+			final Term rhs = ArithmeticRules.computePolyToReal(integerTerm);
 			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) };
 		}
 		case ":" + ProofRules.DIVIDEDEF: {
@@ -1128,19 +1115,19 @@ public class MinimalProofChecker extends NonRecursive {
 				reportError("Proof requires real arithmetic");
 				return getTrueClause(theory);
 			}
-			final Term[] params = (Term[]) annots[0].getValue();
+			final Term[] divParams = (Term[]) annots[0].getValue();
 			assert annots.length == 1;
-			assert params.length >= 2;
-			final Term divide = theory.term(SMTLIBConstants.DIVIDE, params);
-			final Term[] mulParams = new Term[params.length];
-			System.arraycopy(params, 1, mulParams, 0, params.length - 1);
-			mulParams[params.length - 1] = divide;
+			assert divParams.length >= 2;
+			final Term divide = theory.term(SMTLIBConstants.DIVIDE, divParams);
+			final Term[] mulParams = new Term[divParams.length];
+			System.arraycopy(divParams, 1, mulParams, 0, divParams.length - 1);
+			mulParams[divParams.length - 1] = divide;
 			final Term lhs = theory.term(SMTLIBConstants.MUL, mulParams);
 			final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>();
-			clause.add(new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, params[0]), true));
-			for (int i = 1; i < params.length; i++) {
+			clause.add(new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, divParams[0]), true));
+			for (int i = 1; i < divParams.length; i++) {
 				clause.add(new ProofLiteral(
-						theory.term(SMTLIBConstants.EQUALS, params[i], Rational.ZERO.toTerm(params[i].getSort())),
+						theory.term(SMTLIBConstants.EQUALS, divParams[i], Rational.ZERO.toTerm(divParams[i].getSort())),
 						true));
 			}
 			return clause.toArray(new ProofLiteral[clause.size()]);
@@ -1442,8 +1429,10 @@ public class MinimalProofChecker extends NonRecursive {
 				reportError("Proof requires bit vector theory");
 				return getTrueClause(theory);
 			}
-			assert annots.length == 2;
-			final Term natTerm = (Term) annots[0].getValue();
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 2;
+			final Term natTerm = (Term) ruleParams[0];
 			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")
 					|| !(natTerm instanceof ConstantTerm)
 					|| !(((ConstantTerm) natTerm).getValue() instanceof Rational)) {
@@ -1452,9 +1441,8 @@ public class MinimalProofChecker extends NonRecursive {
 			}
 			final Rational constRational = (Rational) ((ConstantTerm) natTerm).getValue();
 			final BigInteger constValue = constRational.numerator();
-			assert annots[1].getKey().equals(ProofRules.ANNOT_BVLEN);
-			final String bitLength = (String) annots[1].getValue();
-			final Integer bitLengthInt = Integer.parseInt(bitLength);
+			final Integer bitLengthInt = (Integer) ruleParams[1];
+			final String bitLength = bitLengthInt.toString();
 			if (!constRational.denominator().equals(BigInteger.ONE) || constValue.signum() < 0
 					|| constValue.bitLength() > bitLengthInt) {
 				reportError("Constant integer argument out of range");
@@ -1471,7 +1459,9 @@ public class MinimalProofChecker extends NonRecursive {
 				return getTrueClause(theory);
 			}
 			assert annots.length == 1;
-			final Term litTerm = (Term) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final Term litTerm = (Term) ruleParams[0];
 			if (!litTerm.getSort().isInternal() || !litTerm.getSort().getName().equals(SMTLIBConstants.BITVEC)
 					|| !(litTerm instanceof ConstantTerm) || !(((ConstantTerm) litTerm).getValue() instanceof String)) {
 				reportError("Expected literal argument");
@@ -1501,17 +1491,19 @@ public class MinimalProofChecker extends NonRecursive {
 				reportError("Proof requires bit vector theory");
 				return getTrueClause(theory);
 			}
-			assert annots.length == 2;
-			final Term natTerm = (Term) annots[0].getValue();
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 2;
+			final Term natTerm = (Term) ruleParams[1];
 			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")) {
 				reportError("Expected integer argument");
 				return getTrueClause(natTerm.getTheory());
 			}
-			assert annots[1].getKey().equals(ProofRules.ANNOT_BVLEN);
-			final String bitLength = (String) annots[1].getValue();
+			final int bl = (Integer) ruleParams[0];
+			final String bitLength = Integer.toString(bl);
 			final Term nat2bv2nat = theory.term(SMTLIBConstants.UBV_TO_INT,
 					theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm));
-			final BigInteger pow2 = BigInteger.ONE.shiftLeft(Integer.parseInt(bitLength));
+			final BigInteger pow2 = BigInteger.ONE.shiftLeft(bl);
 			final Term pow2Term = theory.constant(Rational.valueOf(pow2, BigInteger.ONE), theory.getNumericSort());
 			final Term modTerm = theory.term(SMTLIBConstants.MOD, natTerm, pow2Term);
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, nat2bv2nat, modTerm);
@@ -1522,16 +1514,17 @@ public class MinimalProofChecker extends NonRecursive {
 				reportError("Proof requires bit vector theory");
 				return getTrueClause(theory);
 			}
-			assert annots.length == 2;
-			final Term natTerm = (Term) annots[0].getValue();
+			assert annots.length == 1;
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 2;
+			final Term natTerm = (Term) ruleParams[1];
 			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")) {
 				reportError("Expected integer argument");
 				return getTrueClause(natTerm.getTheory());
 			}
-			assert annots[1].getKey().equals(ProofRules.ANNOT_BVLEN);
 			final Sort intSort = natTerm.getSort();
-			final String bitLength = (String) annots[1].getValue();
-			final int bl = Integer.parseInt(bitLength);
+			final int bl = (Integer) ruleParams[0];
+			final String bitLength = Integer.toString(bl);
 			final Term nat2bv2nat = theory.term(SMTLIBConstants.SBV_TO_INT,
 					theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm));
 			final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bl), BigInteger.ONE);
@@ -1548,7 +1541,9 @@ public class MinimalProofChecker extends NonRecursive {
 				return getTrueClause(theory);
 			}
 			assert annots.length == 1;
-			final Term bvTerm = (Term) annots[0].getValue();
+			final Object[] ruleParams = (Object[]) annots[0].getValue();
+			assert ruleParams.length == 1;
+			final Term bvTerm = (Term) ruleParams[0];
 			assert bvTerm.getSort().isBitVecSort();
 			final String[] bitLength = bvTerm.getSort().getIndices();
 			final Term bv2int2bv = theory.term(SMTLIBConstants.INT_TO_BV, bitLength, null,

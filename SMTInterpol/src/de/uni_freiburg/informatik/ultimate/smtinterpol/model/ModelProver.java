@@ -850,12 +850,10 @@ public class ModelProver extends TermTransformer {
 					totalAx = mProofRules.total(args[0], args[1]);
 				}
 				return annotateProof(
-						mProofUtils.res(inverse, totalAx,
-								mProofRules.farkas(new Term[] { inverse }, new BigInteger[] { BigInteger.ONE })),
+						mProofUtils.res(inverse, totalAx, mProofRules.farkas(BigInteger.ONE, inverse)),
 						theory.mTrue);
 			} else {
-				return annotateProof(mProofRules.farkas(new Term[] { funcTerm }, new BigInteger[] { BigInteger.ONE }),
-						theory.mFalse);
+				return annotateProof(mProofRules.farkas(BigInteger.ONE, funcTerm), theory.mFalse);
 			}
 		}
 
@@ -926,7 +924,7 @@ public class ModelProver extends TermTransformer {
 		case SMTLIBConstants.TO_REAL: {
 			assert args.length == 1;
 			final Rational arg = rationalValue(args[0]);
-			return annotateProof(mProofRules.toRealDef(funcTerm), arg.toTerm(fs.getReturnSort()));
+			return annotateProof(mProofRules.toRealDef(args[0]), arg.toTerm(fs.getReturnSort()));
 		}
 
 		case SMTLIBConstants.STORE: {
