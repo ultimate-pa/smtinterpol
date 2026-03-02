@@ -18,16 +18,40 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.AND;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BITVEC;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVADD;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVAND;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVCOMP;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVMUL;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVNAND;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVNEG;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVNEGO;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVNOR;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVNOT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVOR;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSADDO;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSDIV;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSDIVO;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSGE;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSGT;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSLE;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSLT;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSMOD;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSMULO;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSREM;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSSUBO;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSUB;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVUADDO;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVUDIV;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVUGE;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVUGT;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVULE;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVULT;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVUMULO;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVUREM;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVUSUBO;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVXNOR;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVXOR;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.CONCAT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.DIV;
@@ -36,8 +60,11 @@ import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.EXTRACT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.INT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.INT_TO_BV;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.ITE;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.LEQ;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.LT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.MOD;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.MUL;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.OR;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.PLUS;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.REPEAT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.ROTATE_LEFT;
@@ -51,6 +78,7 @@ import java.math.BigInteger;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
@@ -63,15 +91,37 @@ public class BitvectorRules {
 	public static void registerRules(MinimalProofChecker checker) {
 		checker.registerExpand(BVADD, BitvectorRules::expandBvAdd);
 		checker.registerExpand(BVSUB, BitvectorRules::expandBvSub);
+		checker.registerExpand(BVNEG, BitvectorRules::expandBvNeg);
 		checker.registerExpand(BVMUL, BitvectorRules::expandBvMul);
 		checker.registerExpand(BVUDIV, BitvectorRules::expandBvUdiv);
 		checker.registerExpand(BVUREM, BitvectorRules::expandBvUrem);
-		checker.registerExpand(BVNEG, BitvectorRules::expandBvNeg);
+		checker.registerExpand(BVSDIV, BitvectorRules::expandBvSdiv);
+		checker.registerExpand(BVSREM, BitvectorRules::expandBvSrem);
+		checker.registerExpand(BVSMOD, BitvectorRules::expandBvSmod);
+		checker.registerExpand(BVNEGO, BitvectorRules::expandBvNegO);
+		checker.registerExpand(BVUADDO, BitvectorRules::expandBvUAddO);
+		checker.registerExpand(BVSADDO, BitvectorRules::expandBvSAddO);
+		checker.registerExpand(BVUMULO, BitvectorRules::expandBvUMulO);
+		checker.registerExpand(BVSMULO, BitvectorRules::expandBvSMulO);
+		checker.registerExpand(BVSDIVO, BitvectorRules::expandBvSDivO);
+		checker.registerExpand(BVUSUBO, BitvectorRules::expandBvUSubO);
+		checker.registerExpand(BVSSUBO, BitvectorRules::expandBvSSubO);
 		checker.registerExpand(BVNOT, BitvectorRules::expandBvNot);
 		checker.registerExpand(BVAND, BitvectorRules::expandBvAnd);
 		checker.registerExpand(BVOR, BitvectorRules::expandBvOr);
 		checker.registerExpand(BVXOR, BitvectorRules::expandBvXor);
 		checker.registerExpand(BVNAND, BitvectorRules::expandBvNAnd);
+		checker.registerExpand(BVNOR, BitvectorRules::expandBvNOr);
+		checker.registerExpand(BVXNOR, BitvectorRules::expandBvXnor);
+		checker.registerExpand(BVULE, BitvectorRules::expandBvLessGreater);
+		checker.registerExpand(BVULT, BitvectorRules::expandBvLessGreater);
+		checker.registerExpand(BVUGE, BitvectorRules::expandBvLessGreater);
+		checker.registerExpand(BVUGT, BitvectorRules::expandBvLessGreater);
+		checker.registerExpand(BVSLE, BitvectorRules::expandBvLessGreater);
+		checker.registerExpand(BVSLT, BitvectorRules::expandBvLessGreater);
+		checker.registerExpand(BVSGE, BitvectorRules::expandBvLessGreater);
+		checker.registerExpand(BVSGT, BitvectorRules::expandBvLessGreater);
+		checker.registerExpand(BVCOMP, BitvectorRules::expandBvComp);
 		checker.registerExpand(CONCAT, BitvectorRules::expandConcat);
 		checker.registerExpand(EXTRACT, BitvectorRules::expandExtract);
 		checker.registerExpand(REPEAT, BitvectorRules::expandRepeat);
@@ -178,6 +228,103 @@ public class BitvectorRules {
 	}
 
 	/**
+	 * Expand {@code (bvsdiv x y)} to
+	 *
+	 * <pre>{@code
+	 *    (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
+	 *       ((_ int_to_bv k) (ite (< ix 0)
+	 *            (ite (< iy 0) (div (* (- 1) ix) (* (- 1) iy)) (ite (= iy 0) 1 (* (- 1) (div (* (- 1) ix) iy))))
+	 *            (ite (< iy 0) (* (- 1) (div ix (* (- 1) iy))) (ite (= iy 0) (- 1) (div ix iy)))))))
+	 * }</pre>
+	 *
+	 * @param f the function symbol bvsdiv.
+	 * @param args the arguments of the bvsdiv.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvSdiv(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVSDIV;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term dividend = theory.term(SBV_TO_INT, args[0]);
+		final Term divisor = theory.term(SBV_TO_INT, args[1]);
+		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+		final Term one = Rational.ONE.toTerm(divisor.getSort());
+		final Term mone = Rational.MONE.toTerm(divisor.getSort());
+		final Term negDividend = theory.term(MUL, mone, dividend);
+		final Term negDivisor = theory.term(MUL, mone, divisor);
+		final Term xNegCase = theory.term(ITE, theory.term(LT, divisor, zero),
+				theory.term(DIV, negDividend, negDivisor),
+				theory.term(ITE, theory.term(EQUALS, divisor, zero), one,
+						theory.term(MUL, mone, theory.term(DIV, negDividend, divisor))));
+		final Term xPosCase = theory.term(ITE, theory.term(LT, divisor, zero),
+				theory.term(MUL, mone, theory.term(DIV, dividend, negDivisor)),
+				theory.term(ITE, theory.term(EQUALS, divisor, zero), mone,
+						theory.term(DIV, dividend, divisor)));
+		final Term result = theory.term(ITE, theory.term(LT, dividend, zero), xNegCase, xPosCase);
+		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
+	}
+
+	/**
+	 * Expand {@code (bvsrem x y)} to
+	 *
+	 * <pre>{@code
+	 *    (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
+	 *        ((_ int_to_bv k) (ite (= iy 0) ix
+	 *            (ite (< ix 0) (- (mod (- ix) iy)) (mod ix iy))))))
+	 * }</pre>
+	 *
+	 * @param f    the function symbol bvsrem.
+	 * @param args the arguments of the bvsrem.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvSrem(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVSREM;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term dividend = theory.term(SBV_TO_INT, args[0]);
+		final Term divisor = theory.term(SBV_TO_INT, args[1]);
+		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+		final Term mone = Rational.MONE.toTerm(divisor.getSort());
+		final Term xNegCase = theory.term(MUL, mone, theory.term(MOD, theory.term(MUL, mone, dividend), divisor));
+		final Term xPosCase = theory.term(MOD, dividend, divisor);
+		final Term result = theory.term(ITE, theory.term(EQUALS, divisor, zero), dividend,
+				theory.term(ITE, theory.term(LT, dividend, zero), xNegCase, xPosCase));
+		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
+	}
+
+	/**
+	 * Expand {@code (bvsmod x y)} to
+	 *
+	 * <pre>{@code
+	 *    (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
+	 *       ((_ int_to_bv k) (ite (= iy 0) ix (ite (< iy 0) (+ (mod (+ ix (- 1)) iy) iy 1) (mod ix iy)))))
+	 * }</pre>
+	 *
+	 * So the sign of the modulo matches the sign of the divisor, not the sign of
+	 * the dividend.
+	 *
+	 * @param f    the function symbol bvsmod.
+	 * @param args the arguments of the bvsmod.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvSmod(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVSMOD;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term dividend = theory.term(SBV_TO_INT, args[0]);
+		final Term divisor = theory.term(SBV_TO_INT, args[1]);
+		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+		final Term one = Rational.MONE.toTerm(divisor.getSort());
+		final Term mone = Rational.MONE.toTerm(divisor.getSort());
+		final Term yNegCase = theory.term(PLUS,
+				theory.term(MOD, theory.term(PLUS, dividend, mone), divisor), divisor, one);
+		final Term yPosCase = theory.term(MOD, dividend, divisor);
+		final Term result = theory.term(ITE, theory.term(EQUALS, divisor, zero), dividend,
+				theory.term(ITE, theory.term(LT, divisor, zero), yNegCase, yPosCase));
+		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
+	}
+
+	/**
 	 * Expand `(bvneg a)` to `((_int_to_bv k) (* (- 1) (ubv_to_int a1)))`.
 	 *
 	 * @param arg the argument of the bvneg.
@@ -191,6 +338,165 @@ public class BitvectorRules {
 		final Term minusOne = Rational.MONE.toTerm(theory.getSort(INT));
 		final Term convArg = theory.term(MUL, minusOne, theory.term(UBV_TO_INT, arg));
 		return theory.term(INT_TO_BV, arg.getSort().getIndices(), null, convArg);
+	}
+
+	/**
+	 * Expand {@code (bvnego x)} to {@code (= (ubv_to_int x) 2^k-1)}.
+	 *
+	 * @param f    the function symbol bvnego.
+	 * @param args the arguments of the bvnego.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvNegO(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVNEGO;
+		assert args.length == 1;
+		final Theory theory = args[0].getTheory();
+		final Term arg = theory.term(SBV_TO_INT, args[0]);
+		final int bitLength = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		final Rational signBit = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength - 1), BigInteger.ONE).negate();
+		return theory.term(EQUALS, arg, signBit.toTerm(arg.getSort()));
+	}
+
+	/**
+	 * Expand {@code (bvuaddo x y)} to
+	 * {@code (<= 2^k (+ (ubv_to_int x) (ubv_to_int y))}.
+	 *
+	 * @param f    the function symbol bvuaddo.
+	 * @param args the arguments of the bvuaddo.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvUAddO(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVUADDO;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final int bitLength = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		final Term arg0 = theory.term(UBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
+		final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength), BigInteger.ONE);
+		return theory.term(LEQ, pow2.toTerm(arg0.getSort()), theory.term(PLUS, arg0, arg1));
+	}
+
+	/**
+	 * Expand {@code (bvsaddo x y)} to
+	 * {@code (or (< (+ (sbv_to_int x) (sbv_to_int y) -2^k-1) (<= 2^k-1 (+ (sbv_to_int x) (sbv_to_int y))}.
+	 *
+	 * @param f    the function symbol bvsaddo.
+	 * @param args the arguments of the bvsaddo.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvSAddO(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVSADDO;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final int bitLength = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		final Term arg0 = theory.term(SBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(SBV_TO_INT, args[1]);
+		final Term sum = theory.term(PLUS, arg0, arg1);
+		final Rational maxInt = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength - 1), BigInteger.ONE);
+		final Rational minInt = maxInt.negate();
+		final Sort sort = arg0.getSort();
+		return theory.term(OR, theory.term(LT, sum, minInt.toTerm(sort)), theory.term(LEQ, maxInt.toTerm(sort), sum));
+	}
+
+	/**
+	 * Expand {@code (bvumulo x y)} to
+	 * {@code (<= 2^k (* (ubv_to_int x) (ubv_to_int y))}.
+	 *
+	 * @param f    the function symbol bvumulo.
+	 * @param args the arguments of the bvumulo.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvUMulO(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVUMULO;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final int bitLength = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		final Term arg0 = theory.term(UBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
+		final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength), BigInteger.ONE);
+		return theory.term(LEQ, pow2.toTerm(arg0.getSort()), theory.term(MUL, arg0, arg1));
+	}
+
+	/**
+	 * Expand {@code (bvsmulo x y)} to
+	 * {@code (or (< (* (sbv_to_int x) (sbv_to_int y) -2^k-1) (<= 2^k-1 (* (sbv_to_int x) (sbv_to_int y))}.
+	 *
+	 * @param f    the function symbol bvsmulo.
+	 * @param args the arguments of the bvsmulo.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvSMulO(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVSMULO;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final int bitLength = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		final Term arg0 = theory.term(SBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(SBV_TO_INT, args[1]);
+		final Term prod = theory.term(MUL, arg0, arg1);
+		final Rational maxInt = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength - 1), BigInteger.ONE);
+		final Rational minInt = maxInt.negate();
+		final Sort sort = arg0.getSort();
+		return theory.term(OR, theory.term(LT, prod, minInt.toTerm(sort)), theory.term(LEQ, maxInt.toTerm(sort), prod));
+	}
+
+	/**
+	 * Expand {@code (bvdivo x y)} to
+	 * {@code (and (= (sbv_to_int x) -2^k-1) (= (sbv_to_int y) (- 1))}.
+	 *
+	 * @param f    the function symbol bvdivo.
+	 * @param args the arguments of the bvdivo.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvSDivO(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVSDIVO;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term arg0 = theory.term(SBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(SBV_TO_INT, args[1]);
+		final int bitLength = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		final Rational signBit = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength - 1), BigInteger.ONE).negate();
+		final Sort sort = arg0.getSort();
+		return theory.term(AND, theory.term(EQUALS, arg0, signBit.toTerm(sort)),
+				theory.term(EQUALS, arg1, Rational.MONE.toTerm(sort)));
+	}
+
+	/**
+	 * Expand {@code (bvusubo x y)} to {@code (< (ubv_to_int x) (ubv_to_int y))}.
+	 *
+	 * @param f    the function symbol bvuaddo.
+	 * @param args the arguments of the bvuaddo.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvUSubO(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVUSUBO;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term arg0 = theory.term(UBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
+		return theory.term(LT, arg0, arg1);
+	}
+
+	/**
+	 * Expand {@code (bvssubo x y)} to
+	 * {@code (let ((diff (+ (sbv_to_int x) (* (- 1) (sbv_to_int y))))) (or (< diff -2^k-1) (<= 2^k-1 diff))) }.
+	 *
+	 * @param f    the function symbol bvsaddo.
+	 * @param args the arguments of the bvsaddo.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvSSubO(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVSSUBO;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final int bitLength = Integer.parseInt(args[0].getSort().getIndices()[0]);
+		final Term arg0 = theory.term(SBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(SBV_TO_INT, args[1]);
+		final Sort sort = arg0.getSort();
+		final Term mone = Rational.MONE.toTerm(sort);
+		final Term diff = theory.term(PLUS, arg0, theory.term(MUL, mone, arg1));
+		final Rational maxInt = Rational.valueOf(BigInteger.ONE.shiftLeft(bitLength - 1), BigInteger.ONE);
+		final Rational minInt = maxInt.negate();
+		return theory.term(OR, theory.term(LT, diff, minInt.toTerm(sort)), theory.term(LEQ, maxInt.toTerm(sort), diff));
 	}
 
 	private static Term buildIntegerNot(Term convTerm) {
@@ -282,8 +588,7 @@ public class BitvectorRules {
 	}
 
 	/**
-	 * Expand `(bvnand a1 ...)` to `((_int_to_bv k) (+ (- 1) (* (- 1) (& (ubv_to_int
-	 * a1) ...))))`
+	 * Expand `(bvnand a1 a2)` to `(bvnot (bvand a1 a2))`
 	 *
 	 * @param args the arguments of the bvnand.
 	 * @return the expanded term.
@@ -292,12 +597,108 @@ public class BitvectorRules {
 		assert f.isIntern() && f.getName() == BVNAND;
 		assert args.length == 2;
 		final Theory theory = args[0].getTheory();
+		return theory.term(BVNOT, theory.term(BVAND, args));
+	}
+
+	/**
+	 * Expand `(bvnor a1 a2)` to `(bvnot (bvor a1 a2))`
+	 *
+	 * @param args the arguments of the bvnand.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvNOr(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVNOR;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		return theory.term(BVNOT, theory.term(BVOR, args));
+	}
+
+	/**
+	 * Expand `(bvxnor a1 a2)` to `(bvnot (bvxor a1 a2))`
+	 *
+	 * @param args the arguments of the bvnand.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvXnor(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVXNOR;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		return theory.term(BVNOT, theory.term(BVXOR, args));
+	}
+
+	/**
+	 * Expand `(bvule a1 a2)` to `(<= (ubv_to_int a1) (ubv_to_int a2))` and similar.
+	 *
+	 * @param f    the function symbol to convert, must be one of bvule, bvult,
+	 *             bvuge, bvugt, bvsle, bvslt, bvsge, bvsgt.
+	 * @param args the arguments of the comparison operator.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvLessGreater(FunctionSymbol f, Term... args) {
+		assert f.isIntern();
+		assert args.length >= 2;
+		boolean signed;
+		final boolean isGt;
+		final boolean strict;
+		switch (f.getName()) {
+		case BVULE:
+			signed = false;
+			strict = false;
+			isGt = false;
+			break;
+		case BVULT:
+			signed = false;
+			strict = true;
+			isGt = false;
+			break;
+		case BVUGE:
+			signed = false;
+			strict = false;
+			isGt = true;
+			break;
+		case BVUGT:
+			signed = false;
+			strict = true;
+			isGt = true;
+			break;
+		case BVSLE:
+			signed = true;
+			strict = false;
+			isGt = false;
+			break;
+		case BVSLT:
+			signed = true;
+			strict = true;
+			isGt = false;
+			break;
+		case BVSGE:
+			signed = true;
+			strict = false;
+			isGt = true;
+			break;
+		case BVSGT:
+			signed = true;
+			strict = true;
+			isGt = true;
+			break;
+		default:
+			throw new AssertionError();
+		}
+		final Theory theory = args[0].getTheory();
 		final Term[] convArgs = new Term[args.length];
 		for (int i = 0; i < convArgs.length; i++) {
-			convArgs[i] = theory.term(UBV_TO_INT, args[i]);
+			convArgs[i] = theory.term(signed ? SBV_TO_INT : UBV_TO_INT, args[isGt ? 1 - i : i]);
 		}
-		final Term andTerm = theory.term(SMTInterpolConstants.INTAND, convArgs);
-		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, buildIntegerNot(andTerm));
+		return theory.term(strict ? LT : LEQ, convArgs);
+	}
+
+	public static Term expandBvComp(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVCOMP;
+		final Theory theory = args[0].getTheory();
+		// bit comparator: equals #b1 iff all bits are equal
+		final Sort bvSort1 = theory.getSort(BITVEC, new String[] { "1" });
+		return theory.term(ITE, theory.term(EQUALS, args[0], args[1]), theory.constant(BigInteger.ONE, bvSort1),
+				theory.constant(BigInteger.ZERO, bvSort1));
 	}
 
 	/**

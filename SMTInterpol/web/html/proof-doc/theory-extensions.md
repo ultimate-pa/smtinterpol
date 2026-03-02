@@ -283,12 +283,14 @@ We have the following correspondences:
 In these axioms `2^k`, `2^(k-1)` stand for the corresponding numerals,
 e.g., for $k=3$ the axiom `(int2sbv2int 3 t0)` proves the clause
 `( +(= (sbv_to_int ((_ int_to_bv 3) t0)) (+ (mod (+ t0 4) 8) (- 4))))`.
-The axiom is syntactic, i.e., the term `(+ t0 4)` is not simplified.
+The axiom is syntactic, i.e., the term `(+ t0 4)` is not simplified if t0 is
+an arithmetic term.
 In `(ubv2int2bv t0)` the width `k` is implicitly determined by the sort
 of `t0`, which is `(_ BitVec k)`.  This is not possible for the other
 two axioms because `t0` has sort `Int`.
 
 The following definitions handle arithmetic:
+
 ```
 (define-fun bvadd ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
    ((_ int_to_bv k) (+ (ubv_to_int x) (ubv_to_int y))))
@@ -305,32 +307,45 @@ The following definitions handle arithmetic:
 (define-fun bvsdiv ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
    (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
    ((_ int_to_bv k) (ite (< ix 0)
-            (ite (< iy 0) (div (- ix) (- iy)) (ite (= iy 0) 1 (- (div (- ix) iy))))
-            (ite (< iy 0) (- (div ix (- iy))) (ite (= iy 0) (- 1) (div ix iy)))))))
+            (ite (< iy 0) (div (* (- 1) ix) (* (- 1) iy)) (ite (= iy 0) 1 (* (- 1) (div (* (- 1) ix) iy))))
+            (ite (< iy 0) (* (- 1) (div ix (* (- 1) iy))) (ite (= iy 0) (- 1) (div ix iy)))))))
 (define-fun bvsrem ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
    (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
    ((_ int_to_bv k) (ite (= iy 0) ix
-            (ite (< ix 0) (- (mod (- ix) iy)) (mod ix iy))))))
+            (ite (< ix 0) (* (- 1) (mod (* (- 1) ix) iy)) (mod ix iy))))))
 (define-fun bvsmod ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
    (let ((ix (sbv_to_int x)) (iy (sbv_to_int y)))
-   ((_ int_to_bv k) (ite (= iy 0) ix (ite (< iy 0) (+ (mod (+ ix (- 1)) (- iy)) iy 1) (mod ix iy)))))
+   ((_ int_to_bv k) (ite (= iy 0) ix (ite (< iy 0) (+ (mod (+ ix (- 1)) iy) iy 1) (mod ix iy)))))
 (define-fun bvnego ((x (_ BitVec k))) Bool
-   (= (ubv_to_int x) 2^(k-1)))
+   (= (sbv_to_int x) (- 2^(k-1))))
 (define-fun bvuaddo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
    (<= 2^k (+ (ubv_to_int x) (ubv_to_int y))))
-(define-fun bvsaddo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
-   (or (< (+ (sbv_to_int x) (sbv_to_int y)) 2^(k-1)) (<= 2^(k-1) (+ (sbv_to_int x) (sbv_to_int y)))))
 (define-fun bvumulo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
    (<= 2^k (* (ubv_to_int x) (ubv_to_int y))))
-(define-fun bvsmulo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
-   (or (< (* (sbv_to_int x) (sbv_to_int y)) 2^(k-1)) (<= 2^(k-1) (* (sbv_to_int x) (sbv_to_int y)))))
-(define-fun bvsdivo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
-   (and (= (ubv_to_int x) 2^(k-1)) (= (sbv_to_int y) (- 1))))
 (define-fun bvusubo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
    (< (ubv_to_int x) (ubv_to_int y)))
+(define-fun bvsaddo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (let ((sum (+ (sbv_to_int x) (sbv_to_int y))))
+     (or (< sum (- 2^(k-1))) (<= 2^(k-1) sum)))
+(define-fun bvsmulo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (let ((prod (* (sbv_to_int x) (sbv_to_int y))))
+     (or (< prod (- 2^(k-1))) (<= 2^(k-1) prod)))
+(define-fun bvsdivo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
+   (and (= (sbv_to_int x) (- 2^(k-1))) (= (sbv_to_int y) (- 1))))
 (define-fun bvssubo ((x (_ BitVec k)) (y (_ BitVec k))) Bool
-   (or (< (sbv_to_int x) (+ (sbv_to_int y)) 2^(k-1)) (<= (+ (sbv_to_int y) 2^(k-1)) (sbv_to_int x))))
+   (let ((diff (+ (sbv_to_int x) (* (- 1) (sbv_to_int y)))))
+     (or (< diff (- 2^(k-1))) (<= 2^(k-1) diff)))
 ```
+
+Again, `2^(k-1)` and `2^k` stand for the corresponding numerals
+where `k` is the length of the bitvector.
+
+We use `(* (- 1) x)` instead of `(- x)` to avoid another expansion of `-`.
+Note that the sign of `bvsrem` always matches the sign of the dividend and the sign of `bvsmod` always
+matches the sign of the divisor. The rounding behavior of `bvsdiv` is towards zero and corresponds
+to the modulo computed by `bvsrem`. This contrasts to integer `div` and `mod`, where `mod` is always
+non-negative and `div` rounds to negative infinity.
+
 
 For shifts, we define a function `pow2` for shifts and its inverse `log2`. We add a few axioms.
 

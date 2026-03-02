@@ -16,7 +16,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IPolynomialUnifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 
-public class BvToIntUtils extends BvUtils {
+public class BvToIntUtils {
 
 	private final Sort mInteger;
 	IProofTracker mTracker;
