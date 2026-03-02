@@ -294,6 +294,54 @@ public class ModelProver extends TermTransformer {
 					pushTerm(expanded);
 					return;
 				}
+				case SMTLIBConstants.BVNEGO: {
+					final Term expanded = BitvectorRules.expandBvNegO(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVUADDO: {
+					final Term expanded = BitvectorRules.expandBvUAddO(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVSADDO: {
+					final Term expanded = BitvectorRules.expandBvSAddO(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVUMULO: {
+					final Term expanded = BitvectorRules.expandBvUMulO(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVSMULO: {
+					final Term expanded = BitvectorRules.expandBvSMulO(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVSDIVO: {
+					final Term expanded = BitvectorRules.expandBvSDivO(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVUSUBO: {
+					final Term expanded = BitvectorRules.expandBvUSubO(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+					pushTerm(expanded);
+					return;
+				}
+				case SMTLIBConstants.BVSSUBO: {
+					final Term expanded = BitvectorRules.expandBvSSubO(fs, appParams);
+					enqueueTransitivityStep(appTerm, expanded, mProofRules.expand(appTerm));
+					pushTerm(expanded);
+					return;
+				}
 				case SMTLIBConstants.BVNOT: {
 					assert appParams.length == 1;
 					final Term expanded = BitvectorRules.expandBvNot(fs, appParams);
