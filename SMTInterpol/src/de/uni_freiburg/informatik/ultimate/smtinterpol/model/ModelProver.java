@@ -110,40 +110,6 @@ public class ModelProver extends TermTransformer {
 	}
 
 	/**
-	 * A helper to enqueue either the true or the false branch of an ite.
-	 *
-	 * @author Jochen Hoenicke
-	 */
-	private static class MatchSelector implements Walker {
-
-		private final MatchTerm mMatch;
-
-		public MatchSelector(final MatchTerm match) {
-			mMatch = match;
-		}
-
-		@Override
-		public void walk(final NonRecursive engine) {
-			final Theory theory = mMatch.getTheory();
-			final ModelProver eval = (ModelProver) engine;
-			final ApplicationTerm dataTerm = (ApplicationTerm) eval.getConverted();
-			for (int i = 0; i < mMatch.getConstructors().length; i++) {
-				final Constructor cons = mMatch.getConstructors()[i];
-				if (cons == null) {
-					// default value
-					eval.pushTerm(theory.let(mMatch.getVariables()[i][0], dataTerm, mMatch.getCases()[i]));
-					return;
-				} else if (dataTerm.getFunction().getName() == cons.getName()) {
-					eval.pushTerm(eval.mUnletter.unlet(
-							theory.let(mMatch.getVariables()[i], dataTerm.getParameters(), mMatch.getCases()[i])));
-					return;
-				}
-			}
-			throw new InternalError("Match term not total or data term not evaluated");
-		}
-	}
-
-	/**
 	 * The model where to evaluate in.
 	 */
 	private final Model mModel;
