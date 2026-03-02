@@ -710,6 +710,56 @@ example, for <code>(+ i0 r1 i2 r3)</code> where <code>i0</code>,
 <code>expand</code> axiom looks like:</p>
 <pre><code>(expand (+ i0 r1 i2 r3)): ( +(= (+ i0 r1 i2 r3)
                                 (+ (to_real i0) r1 (to_real i2) r3)))</code></pre>
+<p>For algebraic completeness of the real numbers we need a generic
+representation of algebraic numbers. We use
+<code>(root-of (coeffs m0 ... mn) L R)</code> to represent a root of the
+uni-variate polynomial with the coefficients <code>m0</code>,…,
+<code>mn</code>, provided the sign of the polynomial differ at
+<code>L</code> and <code>R</code> or it evaluates to zero at L or R. The
+sign condition ensures that the root is existing. If
+<code>L &lt;= R</code>, then the value returned by <code>root-of</code>
+is in the closed interval <code>[L,R]</code> (if the sign condition does
+not hold, <code>root-of</code> returns an arbitrary value in the
+interval). If <code>m(L)</code> or <code>m(R)</code> is zero, then the
+value returned by <code>root-of</code> can be <code>L</code> or
+<code>R</code>. The terms <code>m0</code>, …, <code>mn</code>,
+<code>L</code>, <code>R</code> can be any arbitrary SMT-LIB terms. For
+example, if <code>p</code> and <code>q</code> are uninterpreted
+constants of type <code>Real</code>, the term</p>
+<pre><code>(let ((D (+ (* p p) (* (- 4.0) q)
+  (root-of (coeffs q p 1.0)
+    (+ (* (/ 1.0 2.0) D) (* (/ (- 1.0) 2.0) p))
+    (+ (/ 1.0 2.0) (* (/ (- 1.0) 2.0) p))))</code></pre>
+<p>represents a root of the polynomial <code>x^2 + px + q</code> if
+<code>D &gt;=0</code> (which ensures the sign condition). The root lies
+in the interval <code>[D/2-b/2, 1/2-b/2]</code> for
+<code>D &lt;= 1</code>. For reasoning about <code>root-of</code> we use
+the following axioms:</p>
+<pre><code>⟨arith-axiom⟩ ::= …
+ | (root-of-low m L R)    ;( -(&lt;= L R) +(&lt;= L (root-of m L R)) )
+ | (root-of-high m L R)   ;( -(&lt;= L R) +(&lt;= (root-of m L R) R) )
+ | (root-of-exists1 m L R (peval m L) (peval m R) (peval m (root-of m L R)))
+  ; where (peval m t) is some normalization of the polynomial `(+ m0 (* t (+ m1 ... (* t mn)....)))`
+  ;( -(&lt;= (peval m L) 0.0) -(&lt;= 0.0 (peval m R)) +(= (peval m (root-of m L R)) 0.0) )
+ | (root-of-exists2 m L R (peval m L) (peval m R) (peval m (root-of m L R)))
+  ; where (peval m t) is some normalization of the polynomial `(+ m0 (* t (+ m1 ... (* t mn)....)))`
+  ;( -(&lt;= 0.0 (peval m L)) -(&lt;= (peval m R) 0.0) +(= (peval m (root-of m L R)) 0.0) )</code></pre>
+<p>As in the axioms <code>mulPos</code>, the terms
+<code>(peval m t)</code> must be provided as arguments because the
+normalization of polynomials is only unique modulo the order of the
+monomials and factors inside each monomial. The axioms
+<code>root-of-low/root-of-high</code> ensure that the value is always
+within the closed interval. We do not require that
+<code>L &lt;= R</code>, for <code>(root-of-exists1/2)</code>, because
+the axiom is sound without it.</p>
+<p>If you want to show
+<code>(=&gt; (&lt;= (* 4.0 q) (* p p)) (exists ((x Real)) (+ (* x x) (* p x) q)))</code>,
+you can use the <code>root-of</code> term from the example above as a
+witness for the existential quantifier. The proof still requires a case
+distinction on <code>(&lt;= 0.0 D)</code> and <code>(&lt;= D 1.0)</code>
+because the sign of <code>(peval m L)</code> and
+<code>(peval m R)</code> flip at <code>D = 1</code> and the other
+<code>root-of-exists</code> axiom is needed.</p>
 <p>Note that the axiom <code>farkas</code> and <code>mulpos</code> are
 the only axioms that introduce negated literals. The axiom
 <code>farkas</code> also supports equalities but treats them in the same

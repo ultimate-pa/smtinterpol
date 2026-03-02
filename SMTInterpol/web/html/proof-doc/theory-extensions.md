@@ -183,6 +183,51 @@ axiom looks like:
                                 (+ (to_real i0) r1 (to_real i2) r3)))
 ```
 
+For algebraic completeness of the real numbers we need a generic representation
+of algebraic numbers.  We use `(root-of (coeffs m0 ... mn) L R)` to represent
+a root of the uni-variate polynomial with the coefficients `m0`,..., `mn`, provided
+the sign of the polynomial differ at `L` and `R` or it evaluates to zero at L or R.
+The sign condition ensures that the root is existing.
+If `L <= R`, then the value returned by `root-of` is in the closed interval `[L,R]` (if
+the sign condition does not hold, `root-of` returns an arbitrary value in the interval).
+If `m(L)` or `m(R)` is zero, then the value returned by `root-of` can be `L` or `R`.
+The terms `m0`, ..., `mn`, `L`, `R` can be any arbitrary SMT-LIB terms.
+For example, if `p` and `q` are uninterpreted constants of type `Real`, the term
+
+```
+(let ((D (+ (* p p) (* (- 4.0) q)
+  (root-of (coeffs q p 1.0)
+    (+ (* (/ 1.0 2.0) D) (* (/ (- 1.0) 2.0) p))
+    (+ (/ 1.0 2.0) (* (/ (- 1.0) 2.0) p))))
+```
+
+represents a root of the polynomial `x^2 + px + q` if `D >=0` (which ensures the sign condition).
+The root lies in the interval `[D/2-b/2, 1/2-b/2]` for `D <= 1`.
+For reasoning about `root-of` we use the following axioms:
+
+```
+⟨arith-axiom⟩ ::= …
+ | (root-of-low m L R)    ;( -(<= L R) +(<= L (root-of m L R)) )
+ | (root-of-high m L R)   ;( -(<= L R) +(<= (root-of m L R) R) )
+ | (root-of-exists1 m L R (peval m L) (peval m R) (peval m (root-of m L R)))
+  ; where (peval m t) is some normalization of the polynomial `(+ m0 (* t (+ m1 ... (* t mn)....)))`
+  ;( -(<= (peval m L) 0.0) -(<= 0.0 (peval m R)) +(= (peval m (root-of m L R)) 0.0) )
+ | (root-of-exists2 m L R (peval m L) (peval m R) (peval m (root-of m L R)))
+  ; where (peval m t) is some normalization of the polynomial `(+ m0 (* t (+ m1 ... (* t mn)....)))`
+  ;( -(<= 0.0 (peval m L)) -(<= (peval m R) 0.0) +(= (peval m (root-of m L R)) 0.0) )
+```
+
+As in the axioms `mulPos`, the terms `(peval m t)` must be provided as arguments because the
+normalization of polynomials is only unique modulo the order of the monomials and factors
+inside each monomial.
+The axioms `root-of-low/root-of-high` ensure that the value is always within the closed interval.
+We do not require that `L <= R`, for `(root-of-exists1/2)`, because the axiom is sound without it.
+
+If you want to show `(=> (<= (* 4.0 q) (* p p)) (exists ((x Real)) (+ (* x x) (* p x) q)))`, you can
+use the `root-of` term from the example above as a witness for the existential quantifier.  The
+proof still requires a case distinction on `(<= 0.0 D)` and `(<= D 1.0)` because the sign of
+`(peval m L)` and `(peval m R)` flip at `D = 1` and the other `root-of-exists` axiom is needed.
+
 Note that the axiom `farkas` and `mulpos` are the only axioms that introduce negated literals.
 The axiom `farkas` also supports equalities but treats them in the same way as inequalites `<=`.
 If the opposite direction is required, symmetry must be applied first.
