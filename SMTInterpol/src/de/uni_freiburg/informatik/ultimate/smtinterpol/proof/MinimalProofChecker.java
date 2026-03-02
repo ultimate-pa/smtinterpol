@@ -112,6 +112,11 @@ public class MinimalProofChecker extends NonRecursive {
 	private final HashMap<String, Expander> mInternalFunctionExpander;
 
 	/**
+	 * Map from function name to the expander class for the expand axiom.
+	 */
+	private final HashMap<String, Axiom> mTheoryAxioms;
+
+	/**
 	 * The result stack. This contains the terms proved by the proof terms.
 	 */
 	private final Stack<ProofLiteral[]> mStackResults = new Stack<>();
@@ -129,6 +134,7 @@ public class MinimalProofChecker extends NonRecursive {
 		mLogger = logger;
 		mFunctionDefinitions = new HashMap<>();
 		mInternalFunctionExpander = new HashMap<>();
+		mTheoryAxioms = new HashMap<>();
 		addTheoryDefinitions();
 	}
 
@@ -274,6 +280,10 @@ public class MinimalProofChecker extends NonRecursive {
 
 	void registerExpand(String funcName, Expander expander) {
 		mInternalFunctionExpander.put(funcName, expander);
+	}
+
+	void registerAxiom(String ruleName, Axiom axiom) {
+		mTheoryAxioms.put(":" + ruleName, axiom);
 	}
 
 	private void addTheoryDefinitions() {
@@ -468,6 +478,17 @@ public class MinimalProofChecker extends NonRecursive {
 		final Theory theory = axiom.getTheory();
 		assert ProofRules.isAxiom(axiom);
 		final Annotation[] annots = ((AnnotatedTerm) axiom).getAnnotations();
+
+		if (mTheoryAxioms.containsKey(annots[0].getKey())) {
+			assert annots.length == 1;
+			final Object[] params = (Object[]) annots[0].getValue();
+			try {
+				return mTheoryAxioms.get(annots[0].getKey()).computeAxiom(this, theory, params);
+			} catch (final RuntimeException ex) {
+				return reportViolatedSideCondition(axiom);
+			}
+		}
+
 		switch (annots[0].getKey()) {
 		case ":" + ProofRules.ORACLE: {
 			mNumOracles++;
@@ -1001,215 +1022,6 @@ public class MinimalProofChecker extends NonRecursive {
 			return new ProofLiteral[] { new ProofLiteral(quant, !isForall),
 					new ProofLiteral(new FormulaUnLet().unlet(letted), isForall) };
 		}
-		case ":" + ProofRules.TRICHOTOMY: {
-			if (!theory.getLogic().isArithmetic() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			if (params.length != 2) {
-				throw new AssertionError();
-			}
-			return ArithmeticRules.trichotomy(this, theory, params);
-		}
-		case ":" + ProofRules.TOTAL: {
-			if (!theory.getLogic().isArithmetic() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert params.length == 2;
-			return ArithmeticRules.total(this, theory, params);
-		}
-		case ":" + ProofRules.TOTALINT: {
-			if (!theory.getLogic().hasIntegers() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires integer arithmetic");
-				return getTrueClause(theory);
-			}
-			assert annots.length == 1;
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert params.length == 2;
-			final ProofLiteral[] result = ArithmeticRules.totalInt(this, theory, params);
-			if (result == null) {
-				return reportViolatedSideCondition(axiom);
-			}
-			return result;
-		}
-		case ":" + ProofRules.FARKAS: {
-			if (!theory.getLogic().isArithmetic() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires arithmetic");
-				return getTrueClause(theory);
-			}
-			final Object[] params = (Object[]) annots[0].getValue();
-			assert annots.length == 1;
-			if (!ArithmeticRules.checkFarkas(params)) {
-				return reportViolatedSideCondition(axiom);
-			}
-			final HashSet<ProofLiteral> clause = new HashSet<>();
-			for (int i = 1; i < params.length; i += 2) {
-				clause.add(new ProofLiteral((Term) params[i], false));
-			}
-			return clause.toArray(new ProofLiteral[clause.size()]);
-		}
-		case ":" + ProofRules.MULPOS: {
-			if (!theory.getLogic().isArithmetic() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] ineqs = (Term[]) annots[0].getValue();
-			assert annots.length == 0;
-			if (!ArithmeticRules.checkMulPos(ineqs)) {
-				return reportViolatedSideCondition(axiom);
-			}
-			final HashSet<ProofLiteral> clause = new HashSet<>();
-			for (int i = 0; i < ineqs.length; i++) {
-				clause.add(new ProofLiteral(ineqs[i], i == ineqs.length - 1));
-			}
-			return clause.toArray(new ProofLiteral[clause.size()]);
-		}
-		case ":" + ProofRules.POLYADD: {
-			if (!theory.getLogic().isArithmetic() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert params.length == 2;
-			if (!ArithmeticRules.checkPolyAdd(params[0], params[1])) {
-				return reportViolatedSideCondition(axiom);
-			}
-			return new ProofLiteral[] {
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true) };
-		}
-		case ":" + ProofRules.POLYMUL: {
-			if (!theory.getLogic().isArithmetic() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert params.length == 2;
-			if (!ArithmeticRules.checkPolyMul(params[0], params[1])) {
-				return reportViolatedSideCondition(axiom);
-			}
-			return new ProofLiteral[] {
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, params[0], params[1]), true) };
-		}
-		case ":" + ProofRules.TOREALDEF: {
-			if (!theory.getLogic().hasReals() || (!theory.getLogic().isIRA() && !theory.getLogic().isBitVector())) {
-				reportError("Proof requires arithmetic");
-				return getTrueClause(theory);
-			}
-			assert annots.length == 1;
-			final Object[] params = (Object[]) annots[0].getValue();
-			assert params.length == 1;
-			final Term integerTerm = (Term) params[0];
-			final Term lhs = theory.term(SMTLIBConstants.TO_REAL, integerTerm);
-			final Term rhs = ArithmeticRules.computePolyToReal(integerTerm);
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, rhs), true) };
-		}
-		case ":" + ProofRules.DIVIDEDEF: {
-			if (!theory.getLogic().hasReals()) {
-				reportError("Proof requires real arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] divParams = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert divParams.length >= 2;
-			final Term divide = theory.term(SMTLIBConstants.DIVIDE, divParams);
-			final Term[] mulParams = new Term[divParams.length];
-			System.arraycopy(divParams, 1, mulParams, 0, divParams.length - 1);
-			mulParams[divParams.length - 1] = divide;
-			final Term lhs = theory.term(SMTLIBConstants.MUL, mulParams);
-			final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>();
-			clause.add(new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, lhs, divParams[0]), true));
-			for (int i = 1; i < divParams.length; i++) {
-				clause.add(new ProofLiteral(
-						theory.term(SMTLIBConstants.EQUALS, divParams[i], Rational.ZERO.toTerm(divParams[i].getSort())),
-						true));
-			}
-			return clause.toArray(new ProofLiteral[clause.size()]);
-		}
-		case ":" + ProofRules.TOINTLOW: {
-			if (!theory.getLogic().isIRA()) {
-				reportError("Proof requires integer and real arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert params.length == 1;
-			final Term arg = params[0];
-			final Term toRealToInt = theory.term(SMTLIBConstants.TO_REAL, theory.term(SMTLIBConstants.TO_INT, arg));
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, toRealToInt, arg), true) };
-		}
-		case ":" + ProofRules.TOINTHIGH: {
-			if (!theory.getLogic().isIRA()) {
-				reportError("Proof requires integer and real arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert params.length == 1;
-			final Term arg = params[0];
-			final Term toRealToInt = theory.term(SMTLIBConstants.TO_REAL, theory.term(SMTLIBConstants.TO_INT, arg));
-			final Term toRealPlusOne = theory.term(SMTLIBConstants.PLUS, toRealToInt,
-					Rational.ONE.toTerm(arg.getSort()));
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, toRealPlusOne), true) };
-		}
-		case ":" + ProofRules.DIVLOW: {
-			if (!theory.getLogic().hasIntegers() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires integer arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert params.length == 2;
-			final Term arg = params[0];
-			final Term divisor = params[1];
-			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
-			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
-			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, mulDivTerm, arg), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
-		}
-		case ":" + ProofRules.DIVHIGH: {
-			if (!theory.getLogic().hasIntegers() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires integer arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert params.length == 2;
-			final Term arg = params[0];
-			final Term divisor = params[1];
-			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
-			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
-			final Term mulDivTermPlus = theory.term(SMTLIBConstants.PLUS, mulDivTerm,
-					theory.term(SMTLIBConstants.ABS, divisor));
-			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, mulDivTermPlus), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
-		}
-		case ":" + ProofRules.MODDEF: {
-			if (!theory.getLogic().hasIntegers() && !theory.getLogic().isBitVector()) {
-				reportError("Proof requires integer arithmetic");
-				return getTrueClause(theory);
-			}
-			final Term[] params = (Term[]) annots[0].getValue();
-			assert annots.length == 1;
-			assert params.length == 2;
-			final Term arg = params[0];
-			final Term divisor = params[1];
-			final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
-			final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
-			final Term modTerm = theory.term(SMTLIBConstants.MOD, arg, divisor);
-			final Term modDef = theory.term(SMTLIBConstants.PLUS, mulDivTerm, modTerm);
-			final Term zero = Rational.ZERO.toTerm(divisor.getSort());
-			return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, modDef, arg), true),
-					new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
-		}
 		case ":" + ProofRules.SELECTSTORE1: {
 			if (!theory.getLogic().isArray()) {
 				reportError("Proof requires array theory");
@@ -1424,133 +1236,6 @@ public class MinimalProofChecker extends NonRecursive {
 			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
 			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
 		}
-		case ":" + ProofRules.BVCONST: {
-			if (!theory.getLogic().isBitVector()) {
-				reportError("Proof requires bit vector theory");
-				return getTrueClause(theory);
-			}
-			assert annots.length == 1;
-			final Object[] ruleParams = (Object[]) annots[0].getValue();
-			assert ruleParams.length == 2;
-			final Term natTerm = (Term) ruleParams[0];
-			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")
-					|| !(natTerm instanceof ConstantTerm)
-					|| !(((ConstantTerm) natTerm).getValue() instanceof Rational)) {
-				reportError("Expected constant integer argument");
-				return getTrueClause(theory);
-			}
-			final Rational constRational = (Rational) ((ConstantTerm) natTerm).getValue();
-			final BigInteger constValue = constRational.numerator();
-			final Integer bitLengthInt = (Integer) ruleParams[1];
-			final String bitLength = bitLengthInt.toString();
-			if (!constRational.denominator().equals(BigInteger.ONE) || constValue.signum() < 0
-					|| constValue.bitLength() > bitLengthInt) {
-				reportError("Constant integer argument out of range");
-				return getTrueClause(theory);
-			}
-			final Term bvTerm = theory.term("bv" + constValue.toString(), new String[] { bitLength }, null);
-			final Term int2bvTerm = theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm);
-			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, bvTerm, int2bvTerm);
-			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
-		}
-		case ":" + ProofRules.BVLITERAL: {
-			if (!theory.getLogic().isBitVector()) {
-				reportError("Proof requires bit vector theory");
-				return getTrueClause(theory);
-			}
-			assert annots.length == 1;
-			final Object[] ruleParams = (Object[]) annots[0].getValue();
-			assert ruleParams.length == 1;
-			final Term litTerm = (Term) ruleParams[0];
-			if (!litTerm.getSort().isInternal() || !litTerm.getSort().getName().equals(SMTLIBConstants.BITVEC)
-					|| !(litTerm instanceof ConstantTerm) || !(((ConstantTerm) litTerm).getValue() instanceof String)) {
-				reportError("Expected literal argument");
-				return getTrueClause(theory);
-			}
-			final String litValue = (String) ((ConstantTerm) litTerm).getValue();
-			int bitLengthInt;
-			BigInteger constValue;
-			if (litValue.matches("#b[01]+")) {
-				constValue = new BigInteger(litValue.substring(2), 2);
-				bitLengthInt = litValue.length() - 2;
-			} else if (litValue.matches("#x[0-9a-fA-F]+")) {
-				constValue = new BigInteger(litValue.substring(2), 16);
-				bitLengthInt = 4 * (litValue.length() - 2);
-			} else {
-				reportError("Expected bit-vector literal");
-				return getTrueClause(theory);
-			}
-			final Term constTerm = Rational.valueOf(constValue, BigInteger.ONE).toTerm(theory.getNumericSort());
-			final Term int2bvTerm = theory.term(SMTLIBConstants.INT_TO_BV,
-					new String[] { String.valueOf(bitLengthInt) }, null, constTerm);
-			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, litTerm, int2bvTerm);
-			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
-		}
-		case ":" + ProofRules.INT2UBV2INT: {
-			if (!theory.getLogic().isBitVector()) {
-				reportError("Proof requires bit vector theory");
-				return getTrueClause(theory);
-			}
-			assert annots.length == 1;
-			final Object[] ruleParams = (Object[]) annots[0].getValue();
-			assert ruleParams.length == 2;
-			final Term natTerm = (Term) ruleParams[1];
-			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")) {
-				reportError("Expected integer argument");
-				return getTrueClause(natTerm.getTheory());
-			}
-			final int bl = (Integer) ruleParams[0];
-			final String bitLength = Integer.toString(bl);
-			final Term nat2bv2nat = theory.term(SMTLIBConstants.UBV_TO_INT,
-					theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm));
-			final BigInteger pow2 = BigInteger.ONE.shiftLeft(bl);
-			final Term pow2Term = theory.constant(Rational.valueOf(pow2, BigInteger.ONE), theory.getNumericSort());
-			final Term modTerm = theory.term(SMTLIBConstants.MOD, natTerm, pow2Term);
-			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, nat2bv2nat, modTerm);
-			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
-		}
-		case ":" + ProofRules.INT2SBV2INT: {
-			if (!theory.getLogic().isBitVector()) {
-				reportError("Proof requires bit vector theory");
-				return getTrueClause(theory);
-			}
-			assert annots.length == 1;
-			final Object[] ruleParams = (Object[]) annots[0].getValue();
-			assert ruleParams.length == 2;
-			final Term natTerm = (Term) ruleParams[1];
-			if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")) {
-				reportError("Expected integer argument");
-				return getTrueClause(natTerm.getTheory());
-			}
-			final Sort intSort = natTerm.getSort();
-			final int bl = (Integer) ruleParams[0];
-			final String bitLength = Integer.toString(bl);
-			final Term nat2bv2nat = theory.term(SMTLIBConstants.SBV_TO_INT,
-					theory.term(SMTLIBConstants.INT_TO_BV, new String[] { bitLength }, null, natTerm));
-			final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bl), BigInteger.ONE);
-			final Rational pow2sign = Rational.valueOf(BigInteger.ONE.shiftLeft(bl - 1), BigInteger.ONE);
-			final Term shiftTerm = theory.term(SMTLIBConstants.PLUS, natTerm, pow2sign.toTerm(intSort));
-			final Term modTerm = theory.term(SMTLIBConstants.MOD, shiftTerm, pow2.toTerm(intSort));
-			final Term resultTerm = theory.term(SMTLIBConstants.PLUS, modTerm, pow2sign.negate().toTerm(intSort));
-			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, nat2bv2nat, resultTerm);
-			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
-		}
-		case ":" + ProofRules.UBV2INT2BV: {
-			if (!theory.getLogic().isBitVector()) {
-				reportError("Proof requires bit vector theory");
-				return getTrueClause(theory);
-			}
-			assert annots.length == 1;
-			final Object[] ruleParams = (Object[]) annots[0].getValue();
-			assert ruleParams.length == 1;
-			final Term bvTerm = (Term) ruleParams[0];
-			assert bvTerm.getSort().isBitVecSort();
-			final String[] bitLength = bvTerm.getSort().getIndices();
-			final Term bv2int2bv = theory.term(SMTLIBConstants.INT_TO_BV, bitLength, null,
-					theory.term(SMTLIBConstants.UBV_TO_INT, bvTerm));
-			final Term provedEq = theory.term(SMTLIBConstants.EQUALS, bv2int2bv, bvTerm);
-			return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
-		}
 		default:
 			reportError("Unknown axiom %s", axiom);
 			return getTrueClause(axiom.getTheory());
@@ -1725,5 +1410,9 @@ public class MinimalProofChecker extends NonRecursive {
 
 	static interface Expander {
 		public Term expand(FunctionSymbol f, Term[] args);
+	}
+
+	static interface Axiom {
+		public ProofLiteral[] computeAxiom(MinimalProofChecker checker, Theory theory, Object[] params);
 	}
 }

@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.DIVIDE;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.EQUALS;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.GEQ;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.GT;
@@ -27,14 +28,18 @@ import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.LT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.MINUS;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.MUL;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.PLUS;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.TO_INT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.TO_REAL;
 
 import java.math.BigInteger;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
@@ -43,6 +48,27 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
  * Proof rules for arithmetic.
  */
 public class ArithmeticRules {
+
+	public static void registerRules(MinimalProofChecker checker) {
+		checker.registerExpand(MINUS, ArithmeticRules::expandMinus);
+		checker.registerExpand(GT, ArithmeticRules::expandGt);
+		checker.registerExpand(GEQ, ArithmeticRules::expandGeq);
+
+		checker.registerAxiom(ProofRules.TRICHOTOMY, ArithmeticRules::trichotomy);
+		checker.registerAxiom(ProofRules.TOTAL, ArithmeticRules::total);
+		checker.registerAxiom(ProofRules.TOTALINT, ArithmeticRules::totalInt);
+		checker.registerAxiom(ProofRules.FARKAS, ArithmeticRules::farkas);
+		checker.registerAxiom(ProofRules.MULPOS, ArithmeticRules::mulPos);
+		checker.registerAxiom(ProofRules.POLYADD, ArithmeticRules::polyAdd);
+		checker.registerAxiom(ProofRules.POLYMUL, ArithmeticRules::polyMul);
+		checker.registerAxiom(ProofRules.TOREALDEF, ArithmeticRules::toRealDef);
+		checker.registerAxiom(ProofRules.DIVIDEDEF, ArithmeticRules::divideDef);
+		checker.registerAxiom(ProofRules.TOINTLOW, ArithmeticRules::toIntLow);
+		checker.registerAxiom(ProofRules.TOINTHIGH, ArithmeticRules::toIntHigh);
+		checker.registerAxiom(ProofRules.DIVLOW, ArithmeticRules::divLow);
+		checker.registerAxiom(ProofRules.DIVHIGH, ArithmeticRules::divHigh);
+		checker.registerAxiom(ProofRules.MODDEF, ArithmeticRules::modDef);
+	}
 
 	public static Term expandMinus(FunctionSymbol f, Term[] params) {
 		assert f.getName() == MINUS && params.length <= 2;
@@ -65,21 +91,23 @@ public class ArithmeticRules {
 		return t.term(LEQ, params[1], params[0]);
 	}
 
-	public static ProofLiteral[] trichotomy(MinimalProofChecker checker, Theory theory, Term[] params) {
-		return new ProofLiteral[] { new ProofLiteral(theory.term(LT, params), true),
-				new ProofLiteral(theory.term(EQUALS, params), true),
-				new ProofLiteral(theory.term(LT, params[1], params[0]), true) };
+	public static ProofLiteral[] trichotomy(MinimalProofChecker checker, Theory theory, Object[] params) {
+		final Term[] args = (Term[]) params;
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LT, args), true),
+				new ProofLiteral(theory.term(EQUALS, args), true),
+				new ProofLiteral(theory.term(LT, args[1], args[0]), true) };
 	}
 
-	public static ProofLiteral[] total(MinimalProofChecker checker, Theory theory, Term[] params) {
-		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, params[0], params[1]), true),
-				new ProofLiteral(theory.term(LT, params[1], params[0]), true) };
+	public static ProofLiteral[] total(MinimalProofChecker checker, Theory theory, Object[] params) {
+		final Term[] args = (Term[]) params;
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, args[0], args[1]), true),
+				new ProofLiteral(theory.term(LT, args[1], args[0]), true) };
 
 	}
 
-	public static ProofLiteral[] totalInt(MinimalProofChecker checker, Theory theory, Term[] params) {
-		final Term x = params[0];
-		final Term cTerm = params[1];
+	public static ProofLiteral[] totalInt(MinimalProofChecker checker, Theory theory, Object[] params) {
+		final Term x = (Term) params[0];
+		final Term cTerm = (Term) params[1];
 		final Rational c = (Rational) ((ConstantTerm) cTerm).getValue();
 		if (x.getSort().getName() != INT || cTerm.getSort() != x.getSort()
 				|| !c.denominator().equals(BigInteger.ONE)) {
@@ -90,10 +118,126 @@ public class ArithmeticRules {
 				new ProofLiteral(theory.term(LEQ, cPlusOne, x), true) };
 	}
 
-	public static void registerRules(MinimalProofChecker checker) {
-		checker.registerExpand(MINUS, ArithmeticRules::expandMinus);
-		checker.registerExpand(GT, ArithmeticRules::expandGt);
-		checker.registerExpand(GEQ, ArithmeticRules::expandGeq);
+	public static ProofLiteral[] farkas(MinimalProofChecker checker, Theory theory, Object[] params) {
+		if (!ArithmeticRules.checkFarkas(params)) {
+			throw new IllegalArgumentException("Side condition violated");
+		}
+		final HashSet<ProofLiteral> clause = new HashSet<>();
+		for (int i = 1; i < params.length; i += 2) {
+			clause.add(new ProofLiteral((Term) params[i], false));
+		}
+		return clause.toArray(new ProofLiteral[clause.size()]);
+	}
+
+	public static ProofLiteral[] mulPos(MinimalProofChecker checker, Theory theory, Object[] params) {
+		final Term[] ineqs = (Term[]) params;
+		if (!ArithmeticRules.checkMulPos(ineqs)) {
+			throw new IllegalArgumentException("Side condition violated");
+		}
+		final HashSet<ProofLiteral> clause = new HashSet<>();
+		for (int i = 0; i < ineqs.length; i++) {
+			clause.add(new ProofLiteral(ineqs[i], i == ineqs.length - 1));
+		}
+		return clause.toArray(new ProofLiteral[clause.size()]);
+	}
+
+	public static ProofLiteral[] polyAdd(MinimalProofChecker checker, Theory theory, Object[] axParams) {
+		final Term[] params = (Term[]) axParams;
+		assert params.length == 2;
+		if (!ArithmeticRules.checkPolyAdd(params[0], params[1])) {
+			throw new IllegalArgumentException("Side condition violated");
+		}
+		return new ProofLiteral[] { new ProofLiteral(theory.term(EQUALS, params[0], params[1]), true) };
+	}
+
+	public static ProofLiteral[] polyMul(MinimalProofChecker checker, Theory theory, Object[] axParams) {
+		final Term[] params = (Term[]) axParams;
+		assert params.length == 2;
+		if (!ArithmeticRules.checkPolyMul(params[0], params[1])) {
+			throw new IllegalArgumentException("Side condition violated");
+		}
+		return new ProofLiteral[] { new ProofLiteral(theory.term(EQUALS, params[0], params[1]), true) };
+	}
+
+	public static ProofLiteral[] toRealDef(MinimalProofChecker checker, Theory theory, Object[] params) {
+		assert params.length == 1;
+		final Term integerTerm = (Term) params[0];
+		final Term lhs = theory.term(TO_REAL, integerTerm);
+		final Term rhs = ArithmeticRules.computePolyToReal(integerTerm);
+		return new ProofLiteral[] { new ProofLiteral(theory.term(EQUALS, lhs, rhs), true) };
+	}
+
+	public static ProofLiteral[] divideDef(MinimalProofChecker checker, Theory theory, Object[] axParams) {
+		final Term[] divParams = (Term[]) axParams;
+		assert divParams.length >= 2;
+		final Term divide = theory.term(DIVIDE, divParams);
+		final Term[] mulParams = new Term[divParams.length];
+		System.arraycopy(divParams, 1, mulParams, 0, divParams.length - 1);
+		mulParams[divParams.length - 1] = divide;
+		final Term lhs = theory.term(MUL, mulParams);
+		final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>();
+		clause.add(new ProofLiteral(theory.term(EQUALS, lhs, divParams[0]), true));
+		for (int i = 1; i < divParams.length; i++) {
+			clause.add(new ProofLiteral(
+					theory.term(EQUALS, divParams[i], Rational.ZERO.toTerm(divParams[i].getSort())),
+					true));
+		}
+		return clause.toArray(new ProofLiteral[clause.size()]);
+	}
+
+	public static ProofLiteral[] toIntLow(MinimalProofChecker checker, Theory theory, Object[] axParams) {
+		assert axParams.length == 1;
+		final Term arg = (Term) axParams[0];
+		final Term toRealToInt = theory.term(TO_REAL, theory.term(TO_INT, arg));
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, toRealToInt, arg), true) };
+	}
+
+	public static ProofLiteral[] toIntHigh(MinimalProofChecker checker, Theory theory, Object[] axParams) {
+		assert axParams.length == 1;
+		final Term arg = (Term) axParams[0];
+		final Term toRealToInt = theory.term(TO_REAL, theory.term(TO_INT, arg));
+		final Term toRealPlusOne = theory.term(PLUS, toRealToInt, Rational.ONE.toTerm(arg.getSort()));
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LT, arg, toRealPlusOne), true) };
+	}
+
+	public static ProofLiteral[] divLow(MinimalProofChecker checker, Theory theory, Object[] axParams) {
+		final Term[] params = (Term[]) axParams;
+		assert params.length == 2;
+		final Term arg = params[0];
+		final Term divisor = params[1];
+		final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
+		final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
+		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+		return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LEQ, mulDivTerm, arg), true),
+				new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
+	}
+
+	public static ProofLiteral[] divHigh(MinimalProofChecker checker, Theory theory, Object[] axParams) {
+		final Term[] params = (Term[]) axParams;
+		assert params.length == 2;
+		final Term arg = params[0];
+		final Term divisor = params[1];
+		final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
+		final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
+		final Term mulDivTermPlus = theory.term(SMTLIBConstants.PLUS, mulDivTerm,
+				theory.term(SMTLIBConstants.ABS, divisor));
+		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+		return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.LT, arg, mulDivTermPlus), true),
+				new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
+	}
+
+	public static ProofLiteral[] modDef(MinimalProofChecker checker, Theory theory, Object[] axParams) {
+		final Term[] params = (Term[]) axParams;
+		assert params.length == 2;
+		final Term arg = params[0];
+		final Term divisor = params[1];
+		final Term divTerm = theory.term(SMTLIBConstants.DIV, arg, divisor);
+		final Term mulDivTerm = theory.term(SMTLIBConstants.MUL, divisor, divTerm);
+		final Term modTerm = theory.term(SMTLIBConstants.MOD, arg, divisor);
+		final Term modDef = theory.term(SMTLIBConstants.PLUS, mulDivTerm, modTerm);
+		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
+		return new ProofLiteral[] { new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, modDef, arg), true),
+				new ProofLiteral(theory.term(SMTLIBConstants.EQUALS, divisor, zero), true) };
 	}
 
 	public static boolean checkFarkas(final Object[] params) {

@@ -119,6 +119,17 @@ public class ProofRules {
 	public final static String INT2SBV2INT = "int2sbv2int";
 	public final static String UBV2INT2BV = "ubv2int2bv";
 
+	public final static String POW2CONST = "pow2const";
+	public final static String POW2ADD = "pow2add";
+	public final static String LOG2LOW = "log2low";
+	public final static String LOG2HIGH = "log2high";
+
+	public final static String BWANDFLAT = "&flat";
+	public final static String BWANDSHIFT = "&shift";
+	public final static String BWANDSPLIT = "&split";
+	public final static String BWANDBOUND = "&bound";
+	public final static String BWANDNONNEG = "&nonneg";
+
 	/**
 	 * sort name for proofs.
 	 */

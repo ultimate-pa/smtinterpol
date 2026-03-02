@@ -283,7 +283,7 @@ We have the following correspondences:
 In these axioms `2^k`, `2^(k-1)` stand for the corresponding numerals,
 e.g., for $k=3$ the axiom `(int2sbv2int 3 t0)` proves the clause
 `( +(= (sbv_to_int ((_ int_to_bv 3) t0)) (+ (mod (+ t0 4) 8) (- 4))))`.
-The axiom is syntactic, i.e., the term `(+ t0 4)` is not simplified if t0 is
+The axiom is syntactic, i.e., the term `(+ t0 4)` is not simplified if `t0` is
 an arithmetic term.
 In `(ubv2int2bv t0)` the width `k` is implicitly determined by the sort
 of `t0`, which is `(_ BitVec k)`.  This is not possible for the other
@@ -344,7 +344,8 @@ We use `(* (- 1) x)` instead of `(- x)` to avoid another expansion of `-`.
 Note that the sign of `bvsrem` always matches the sign of the dividend and the sign of `bvsmod` always
 matches the sign of the divisor. The rounding behavior of `bvsdiv` is towards zero and corresponds
 to the modulo computed by `bvsrem`. This contrasts to integer `div` and `mod`, where `mod` is always
-non-negative and `div` rounds to negative infinity.
+non-negative and `div` rounds to negative infinity for positive divisor and to positive infinity for
+negative divisor.
 
 
 For shifts, we define a function `pow2` for shifts and its inverse `log2`. We add a few axioms.
@@ -394,8 +395,7 @@ Using this function we can define the logical operators:
 (define-fun bvor ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
    ((_ int_to_bv k) (+ (ubv_to_int x) (ubv_to_int y) (* (- 1) (& (ubv_to_int x) (ubv_to_int y))))))
 (define-fun bvxor ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k)
-   ((_ int_to_bv k) (+ (ubv_to_int x) (ubv_to_int y) (* (- 2) (&
-   (ubv_to_int x) (ubv_to_int y))))))
+   ((_ int_to_bv k) (+ (ubv_to_int x) (ubv_to_int y) (* (- 2) (& (ubv_to_int x) (ubv_to_int y))))))
 (define-fun bvnand ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k) (bvnot (bvand x y)))
 (define-fun bvnor  ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k) (bvnot (bvor x y)))
 (define-fun bvxnor ((x (_ BitVec k)) (y (_ BitVec k))) (_ BitVec k) (bvnot (bvxor x y)))

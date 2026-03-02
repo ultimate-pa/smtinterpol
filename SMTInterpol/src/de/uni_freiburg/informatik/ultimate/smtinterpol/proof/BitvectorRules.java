@@ -22,7 +22,9 @@ import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.AND;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BITVEC;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVADD;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVAND;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVASHR;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVCOMP;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVLSHR;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVMUL;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVNAND;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVNEG;
@@ -35,6 +37,7 @@ import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSDIV;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSDIVO;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSGE;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSGT;
+import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSHL;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSLE;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSLT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BVSMOD;
@@ -75,7 +78,11 @@ import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.UBV_TO_I
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.ZERO_EXTEND;
 
 import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.HashSet;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -122,6 +129,9 @@ public class BitvectorRules {
 		checker.registerExpand(BVSGE, BitvectorRules::expandBvLessGreater);
 		checker.registerExpand(BVSGT, BitvectorRules::expandBvLessGreater);
 		checker.registerExpand(BVCOMP, BitvectorRules::expandBvComp);
+		checker.registerExpand(BVSHL, BitvectorRules::expandBvShl);
+		checker.registerExpand(BVLSHR, BitvectorRules::expandBvLShr);
+		checker.registerExpand(BVASHR, BitvectorRules::expandBvAShr);
 		checker.registerExpand(CONCAT, BitvectorRules::expandConcat);
 		checker.registerExpand(EXTRACT, BitvectorRules::expandExtract);
 		checker.registerExpand(REPEAT, BitvectorRules::expandRepeat);
@@ -129,6 +139,21 @@ public class BitvectorRules {
 		checker.registerExpand(ZERO_EXTEND, BitvectorRules::expandZeroExtend);
 		checker.registerExpand(ROTATE_LEFT, BitvectorRules::expandRotateLeft);
 		checker.registerExpand(ROTATE_RIGHT, BitvectorRules::expandRotateRight);
+
+		checker.registerAxiom(ProofRules.BVCONST, BitvectorRules::bvConst);
+		checker.registerAxiom(ProofRules.BVLITERAL, BitvectorRules::bvLiteral);
+		checker.registerAxiom(ProofRules.INT2UBV2INT, BitvectorRules::int2ubv2int);
+		checker.registerAxiom(ProofRules.INT2SBV2INT, BitvectorRules::int2sbv2int);
+		checker.registerAxiom(ProofRules.UBV2INT2BV, BitvectorRules::ubv2int2bv);
+		checker.registerAxiom(ProofRules.POW2CONST, BitvectorRules::pow2Const);
+		checker.registerAxiom(ProofRules.POW2ADD, BitvectorRules::pow2Add);
+		checker.registerAxiom(ProofRules.LOG2LOW, BitvectorRules::log2Low);
+		checker.registerAxiom(ProofRules.LOG2HIGH, BitvectorRules::log2High);
+		checker.registerAxiom(ProofRules.BWANDFLAT, BitvectorRules::bwandFlat);
+		checker.registerAxiom(ProofRules.BWANDSHIFT, BitvectorRules::bwandShift);
+		checker.registerAxiom(ProofRules.BWANDSPLIT, BitvectorRules::bwandSplit);
+		checker.registerAxiom(ProofRules.BWANDBOUND, BitvectorRules::bwandBound);
+		checker.registerAxiom(ProofRules.BWANDNONNEG, BitvectorRules::bwandNonNeg);
 	}
 
 	/**
@@ -694,6 +719,7 @@ public class BitvectorRules {
 
 	public static Term expandBvComp(FunctionSymbol f, Term... args) {
 		assert f.isIntern() && f.getName() == BVCOMP;
+		assert args.length == 2;
 		final Theory theory = args[0].getTheory();
 		// bit comparator: equals #b1 iff all bits are equal
 		final Sort bvSort1 = theory.getSort(BITVEC, new String[] { "1" });
@@ -702,10 +728,64 @@ public class BitvectorRules {
 	}
 
 	/**
+	 * Expand `(bvshl a1 a2)` to `((_int_to_bv k) (* (ubv_to_int a1) (pow2
+	 * (ubv_to_int a2))))`.
+	 *
+	 * @param f    the function symbol bvshl.
+	 * @param args the arguments of the bvshl.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvShl(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVSHL;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term arg0 = theory.term(UBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
+		final Term result = theory.term(MUL, arg0, theory.term(SMTInterpolConstants.INTPOW2, arg1));
+		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
+	}
+
+	/**
+	 * Expand `(bvlshr a1 a2)` to `((_int_to_bv k) (div (ubv_to_int a1) (pow2
+	 * (ubv_to_int a2))))`.
+	 *
+	 * @param f    the function symbol bvlshr.
+	 * @param args the arguments of the bvlshr.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvLShr(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVLSHR;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term arg0 = theory.term(UBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
+		final Term result = theory.term(DIV, arg0, theory.term(SMTInterpolConstants.INTPOW2, arg1));
+		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
+	}
+
+	/**
+	 * Expand `(bvashr a1 a2)` to `((_int_to_bv k) (div (sbv_to_int a1) (pow2
+	 * (ubv_to_int a2))))`.
+	 *
+	 * @param f    the function symbol bvashr.
+	 * @param args the arguments of the bvashr.
+	 * @return the expanded term.
+	 */
+	public static Term expandBvAShr(FunctionSymbol f, Term... args) {
+		assert f.isIntern() && f.getName() == BVASHR;
+		assert args.length == 2;
+		final Theory theory = args[0].getTheory();
+		final Term arg0 = theory.term(SBV_TO_INT, args[0]);
+		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
+		final Term result = theory.term(DIV, arg0, theory.term(SMTInterpolConstants.INTPOW2, arg1));
+		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
+	}
+
+	/**
 	 * Expand `(concat a1 .. an)` to `((_int_to_bv k) (+ (* 2^... (ubv_to_int a1))
 	 * ...)
 	 *
-	 * @param args the arguments of the bvand.
+	 * @param args the arguments of the concat.
 	 * @return the expanded term.
 	 */
 	public static Term expandConcat(FunctionSymbol f, Term... args) {
@@ -857,5 +937,243 @@ public class BitvectorRules {
 		assert args.length == 1;
 		final int bitSize = Integer.parseInt(args[0].getSort().getIndices()[0]);
 		return rotate(bitSize - cnt, cnt, args[0]);
+	}
+
+	/******** AXIOMS **********/
+
+	public static ProofLiteral[] bvConst(MinimalProofChecker minimalProofChecker, Theory theory, Object[] ruleParams) {
+		assert ruleParams.length == 2;
+		final Term natTerm = (Term) ruleParams[0];
+		if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")
+				|| !(natTerm instanceof ConstantTerm) || !(((ConstantTerm) natTerm).getValue() instanceof Rational)) {
+			throw new IllegalArgumentException("Expected constant integer argument");
+		}
+		final Rational constRational = (Rational) ((ConstantTerm) natTerm).getValue();
+		final BigInteger constValue = constRational.numerator();
+		final Integer bitLengthInt = (Integer) ruleParams[1];
+		final String bitLength = bitLengthInt.toString();
+		if (!constRational.denominator().equals(BigInteger.ONE) || constValue.signum() < 0
+				|| constValue.bitLength() > bitLengthInt) {
+			throw new IllegalArgumentException("Constant integer argument out of range");
+		}
+		final Term bvTerm = theory.term("bv" + constValue.toString(), new String[] { bitLength }, null);
+		final Term int2bvTerm = theory.term(INT_TO_BV, new String[] { bitLength }, null, natTerm);
+		final Term provedEq = theory.term(EQUALS, bvTerm, int2bvTerm);
+		return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+	}
+
+	public static ProofLiteral[] bvLiteral(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 1;
+		final Term litTerm = (ConstantTerm) params[0];
+		final String litValue = (String) ((ConstantTerm) litTerm).getValue();
+		final int bitLengthInt;
+		final BigInteger constValue;
+		if (litValue.matches("#b[01]+")) {
+			constValue = new BigInteger(litValue.substring(2), 2);
+			bitLengthInt = litValue.length() - 2;
+		} else if (litValue.matches("#x[0-9a-fA-F]+")) {
+			constValue = new BigInteger(litValue.substring(2), 16);
+			bitLengthInt = 4 * (litValue.length() - 2);
+		} else {
+			throw new IllegalArgumentException("Expected bitvector literal");
+		}
+		final Term constTerm = Rational.valueOf(constValue, BigInteger.ONE).toTerm(theory.getNumericSort());
+		final Term int2bvTerm = theory.term(INT_TO_BV, new String[] { String.valueOf(bitLengthInt) },
+				null, constTerm);
+		final Term provedEq = theory.term(EQUALS, litTerm, int2bvTerm);
+		return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+	}
+
+	public static ProofLiteral[] int2ubv2int(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 2;
+		final Term natTerm = (Term) params[1];
+		if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")) {
+			throw new IllegalArgumentException("Expected integer argument");
+		}
+		final int bl = (Integer) params[0];
+		final String bitLength = Integer.toString(bl);
+		final Term nat2bv2nat = theory.term(UBV_TO_INT,
+				theory.term(INT_TO_BV, new String[] { bitLength }, null, natTerm));
+		final BigInteger pow2 = BigInteger.ONE.shiftLeft(bl);
+		final Term pow2Term = theory.constant(Rational.valueOf(pow2, BigInteger.ONE), theory.getNumericSort());
+		final Term modTerm = theory.term(MOD, natTerm, pow2Term);
+		final Term provedEq = theory.term(EQUALS, nat2bv2nat, modTerm);
+		return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+	}
+
+	public static ProofLiteral[] int2sbv2int(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 2;
+		final Term natTerm = (Term) params[1];
+		if (!natTerm.getSort().isInternal() || !natTerm.getSort().getName().equals("Int")) {
+			throw new IllegalArgumentException("Expected integer argument");
+		}
+		final Sort intSort = natTerm.getSort();
+		final int bl = (Integer) params[0];
+		final String bitLength = Integer.toString(bl);
+		final Term nat2bv2nat = theory.term(SBV_TO_INT,
+				theory.term(INT_TO_BV, new String[] { bitLength }, null, natTerm));
+		final Rational pow2 = Rational.valueOf(BigInteger.ONE.shiftLeft(bl), BigInteger.ONE);
+		final Rational pow2sign = Rational.valueOf(BigInteger.ONE.shiftLeft(bl - 1), BigInteger.ONE);
+		final Term shiftTerm = theory.term(PLUS, natTerm, pow2sign.toTerm(intSort));
+		final Term modTerm = theory.term(MOD, shiftTerm, pow2.toTerm(intSort));
+		final Term resultTerm = theory.term(PLUS, modTerm, pow2sign.negate().toTerm(intSort));
+		final Term provedEq = theory.term(EQUALS, nat2bv2nat, resultTerm);
+		return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+	}
+
+	public static ProofLiteral[] ubv2int2bv(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 1;
+		final Term bvTerm = (Term) params[0];
+		assert bvTerm.getSort().isBitVecSort();
+		final String[] bitLength = bvTerm.getSort().getIndices();
+		final Term bv2int2bv = theory.term(INT_TO_BV, bitLength, null, theory.term(UBV_TO_INT, bvTerm));
+		final Term provedEq = theory.term(EQUALS, bv2int2bv, bvTerm);
+		return new ProofLiteral[] { new ProofLiteral(provedEq, true) };
+	}
+
+	public static ProofLiteral[] pow2Const(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 1;
+		final Sort sort = theory.getSort(INT);
+		final int k = (int) params[0];
+		final Term pow2kTerm = theory.term(SMTInterpolConstants.INTPOW2, Rational.valueOf(k, 1).toTerm(sort));
+		final Rational pow2kRat = Rational.valueOf(BigInteger.ONE.shiftLeft(k), BigInteger.ONE);
+		return new ProofLiteral[] {
+				new ProofLiteral(theory.term(EQUALS, pow2kTerm, pow2kRat.toTerm(sort)),
+						true) };
+	}
+
+	public static ProofLiteral[] pow2Add(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 2;
+		final Term n = (Term) params[0];
+		final Term m = (Term) params[1];
+		final Term pow2nm = theory.term(SMTInterpolConstants.INTPOW2, theory.term(PLUS, n, m));
+		final Term pow2n = theory.term(SMTInterpolConstants.INTPOW2, n);
+		final Term pow2m = theory.term(SMTInterpolConstants.INTPOW2, m);
+		final Term zero = Rational.ZERO.toTerm(n.getSort());
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, n), false),
+				new ProofLiteral(theory.term(LEQ, zero, m), false),
+				new ProofLiteral(theory.term(EQUALS, pow2nm, theory.term(MUL, pow2n, pow2m)), true) };
+
+	}
+
+	public static ProofLiteral[] log2Low(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 1;
+		final Term a = (Term) params[0];
+		final Term pow2log2a = theory.term(SMTInterpolConstants.INTPOW2, theory.term(SMTInterpolConstants.INTLOG2, a));
+		final Term zero = Rational.ZERO.toTerm(a.getSort());
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, a), false),
+				new ProofLiteral(theory.term(LEQ, pow2log2a, a), true) };
+	}
+
+	public static ProofLiteral[] log2High(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 1;
+		final Term a = (Term) params[0];
+		final Term pow2log2a = theory.term(SMTInterpolConstants.INTPOW2, theory.term(SMTInterpolConstants.INTLOG2, a));
+		final Sort sort = a.getSort();
+		final Term zero = Rational.ZERO.toTerm(sort);
+		final Term two = Rational.TWO.toTerm(sort);
+		return new ProofLiteral[] {
+				new ProofLiteral(theory.term(LEQ, zero, a), false),
+				new ProofLiteral(theory.term(LT, a, theory.term(MUL, two, pow2log2a)), true)
+		};
+	}
+
+	public static ProofLiteral[] bwandFlat(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 2;
+		final Term lhsTerm = (Term) params[0];
+		final Term rhsTerm = (Term) params[1];
+		final HashSet<Term> lhs = new HashSet<>();
+		final HashSet<Term> rhs = new HashSet<>();
+
+		// lhs term may be nested once.
+		if (ProofRules.isApplication(SMTInterpolConstants.INTAND, lhsTerm)) {
+			for (final Term lhsSubTerm : ((ApplicationTerm) lhsTerm).getParameters()) {
+				if (ProofRules.isApplication(SMTInterpolConstants.INTAND, lhsSubTerm)) {
+					lhs.addAll(Arrays.asList(((ApplicationTerm) lhsSubTerm).getParameters()));
+				} else {
+					lhs.add(lhsSubTerm);
+				}
+			}
+		} else {
+			lhs.add(lhsTerm);
+		}
+		// rhs term must be flat.
+		if (ProofRules.isApplication(SMTInterpolConstants.INTAND, rhsTerm)) {
+			rhs.addAll(Arrays.asList(((ApplicationTerm) rhsTerm).getParameters()));
+		} else {
+			rhs.add(rhsTerm);
+		}
+
+		// ignore any -1 parameter.
+		final Sort intSort = theory.getSort(INT);
+		final Term mone = Rational.MONE.toTerm(intSort);
+		lhs.remove(mone);
+		rhs.remove(mone);
+
+		// the sets must be equal.
+		if (!lhs.equals(rhs)) {
+			throw new IllegalArgumentException("Side condition violated");
+		}
+
+		// and is commutative, associative, idempotent, and -1 is neutral element
+		return new ProofLiteral[] { new ProofLiteral(theory.term(EQUALS, lhsTerm, rhsTerm), true) };
+	}
+
+	public static ProofLiteral[] bwandShift(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 3;
+		final Term a = (Term) params[0];
+		final Term b = (Term) params[1];
+		final Term k = (Term) params[2];
+
+		// type checking ensures that all terms are integer terms.
+		final Term pow2k = theory.term(SMTInterpolConstants.INTPOW2, k);
+		final Term ashrkandb = theory.term(SMTInterpolConstants.INTAND, theory.term(DIV, a, pow2k), b);
+		final Term zero = Rational.ZERO.toTerm(k.getSort());
+		final Term lhs = theory.term(MUL, ashrkandb, pow2k);
+		final Term rhs = theory.term(SMTInterpolConstants.INTAND, a, theory.term(MUL, b, pow2k));
+
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, k), false),
+				new ProofLiteral(theory.term(EQUALS, lhs, rhs), true) };
+	}
+
+	public static ProofLiteral[] bwandSplit(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 3;
+		final Term a = (Term) params[0];
+		final Term b = (Term) params[1];
+
+		// type checking ensures that all terms are integer terms.
+		final Term aandb = theory.term(SMTInterpolConstants.INTAND, a, b);
+		final Term mone = Rational.MONE.toTerm(b.getSort());
+		final Term notb = theory.term(PLUS, theory.term(MUL, mone, b), mone);
+		final Term aandnotb = theory.term(SMTInterpolConstants.INTAND, a, notb);
+		final Term lhs = theory.term(PLUS, aandb, aandnotb);
+
+		return new ProofLiteral[] { new ProofLiteral(theory.term(EQUALS, lhs, a), true) };
+	}
+
+	public static ProofLiteral[] bwandBound(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 3;
+		final Term a = (Term) params[0];
+		final Term b = (Term) params[1];
+
+		// type checking ensures that all terms are integer terms.
+		final Term aandb = theory.term(SMTInterpolConstants.INTAND, a, b);
+		final Term zero = Rational.ZERO.toTerm(a.getSort());
+
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, a), false),
+				new ProofLiteral(theory.term(LEQ, aandb, a), true) };
+	}
+
+	public static ProofLiteral[] bwandNonNeg(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
+		assert params.length == 3;
+		final Term a = (Term) params[0];
+		final Term b = (Term) params[1];
+
+		// type checking ensures that all terms are integer terms.
+		final Term aandb = theory.term(SMTInterpolConstants.INTAND, a, b);
+		final Term zero = Rational.ZERO.toTerm(a.getSort());
+
+		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, a), false),
+				new ProofLiteral(theory.term(LEQ, zero, aandb), true) };
 	}
 }
