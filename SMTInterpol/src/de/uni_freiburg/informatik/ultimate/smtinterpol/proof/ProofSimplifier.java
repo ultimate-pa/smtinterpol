@@ -50,6 +50,11 @@ import de.uni_freiburg.informatik.ultimate.logic.TermTransformer;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ArithmeticRules;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.DataTypeRules;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.MinimalProofChecker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
@@ -1161,7 +1166,7 @@ public class ProofSimplifier extends TermTransformer {
 
 	private Term convertTautInt2Ubv2Int(final ProofLiteral[] clause) {
 		assert clause.length == 1;
-		final ApplicationTerm goalEq = (ApplicationTerm) clause[0].mAtom;
+		final ApplicationTerm goalEq = (ApplicationTerm) clause[0].getAtom();
 		final ApplicationTerm int2bv2intTerm = (ApplicationTerm) goalEq.getParameters()[0];
 		final Term goalModTerm = goalEq.getParameters()[1];
 		return proveInt2Bv2Int(int2bv2intTerm, goalModTerm);
@@ -1169,12 +1174,12 @@ public class ProofSimplifier extends TermTransformer {
 
 	private Term convertTautUbv2Int2Bv(final ProofLiteral[] clause) {
 		assert clause.length == 1;
-		return mProofRules.ubv2int2bv(((ApplicationTerm) clause[0].mAtom).getParameters()[1]);
+		return mProofRules.ubv2int2bv(((ApplicationTerm) clause[0].getAtom()).getParameters()[1]);
 	}
 
 	private Term convertTautInt2bv(final ProofLiteral[] clause) {
 		assert clause.length == 1;
-		final ApplicationTerm goalEq = (ApplicationTerm) clause[0].mAtom;
+		final ApplicationTerm goalEq = (ApplicationTerm) clause[0].getAtom();
 		final Theory theory = goalEq.getTheory();
 		final ApplicationTerm lhsBv = (ApplicationTerm) goalEq.getParameters()[0];
 		final ApplicationTerm rhsBv = (ApplicationTerm) goalEq.getParameters()[1];
@@ -1195,7 +1200,7 @@ public class ProofSimplifier extends TermTransformer {
 
 	private Term convertTautUbv2IntBound(final ProofLiteral[] clause) {
 		assert clause.length == 1;
-		final ApplicationTerm goalLeq = (ApplicationTerm) clause[0].mAtom;
+		final ApplicationTerm goalLeq = (ApplicationTerm) clause[0].getAtom();
 		assert isApplication(SMTLIBConstants.LEQ, goalLeq) && isZero(goalLeq.getParameters()[1]);
 		final Term goalLhs = goalLeq.getParameters()[0];
 		final Polynomial leqPoly = new Polynomial(goalLhs);

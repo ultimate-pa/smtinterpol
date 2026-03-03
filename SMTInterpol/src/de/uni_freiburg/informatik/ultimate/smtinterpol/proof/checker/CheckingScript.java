@@ -42,7 +42,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.MinimalProofChecker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.MinimalProofChecker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 
 public class CheckingScript extends NoopScript {

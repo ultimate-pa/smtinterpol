@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -245,7 +245,7 @@ public class MinimalProofChecker extends NonRecursive {
 	}
 
 	void registerAxiom(String ruleName, Axiom axiom) {
-		mTheoryAxioms.put(":" + ruleName, axiom);
+		mTheoryAxioms.put(ruleName, axiom);
 	}
 
 	private void addTheoryDefinitions() {
@@ -448,7 +448,7 @@ public class MinimalProofChecker extends NonRecursive {
 		assert ProofRules.isAxiom(axiom);
 		final Annotation[] annots = ((AnnotatedTerm) axiom).getAnnotations();
 
-		if (annots[0].getKey() == ":" + ProofRules.ORACLE) {
+		if (annots[0].getKey() == ProofRules.ORACLE) {
 			mNumOracles++;
 			mNumAxioms--;
 			reportWarning("Used oracle: %s", Arrays.asList(annots).subList(1, annots.length));

@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute;
 
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.AND;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.BITVEC;
@@ -76,6 +76,9 @@ import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.SBV_TO_I
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.SIGN_EXTEND;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.UBV_TO_INT;
 import static de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants.ZERO_EXTEND;
+import static de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants.INTAND;
+import static de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants.INTLOG2;
+import static de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants.INTPOW2;
 
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -88,7 +91,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 
 /**
  * Helper class to expand bitvector operations.
@@ -560,7 +562,7 @@ public class BitvectorRules {
 		for (int i = 0; i < convArgs.length; i++) {
 			convArgs[i] = theory.term(UBV_TO_INT, args[i]);
 		}
-		final Term andTerm = theory.term(SMTInterpolConstants.INTAND, convArgs);
+		final Term andTerm = theory.term(INTAND, convArgs);
 		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, andTerm);
 	}
 
@@ -587,7 +589,7 @@ public class BitvectorRules {
 		for (int i = 0; i < convArgs.length; i++) {
 			convArgs[i] = theory.term(UBV_TO_INT, args[i]);
 		}
-		final Term andTerm = theory.term(SMTInterpolConstants.INTAND, convArgs);
+		final Term andTerm = theory.term(INTAND, convArgs);
 		final Term plusTerm = buildOrXorPlus(convArgs, Rational.MONE, andTerm);
 		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, plusTerm);
 	}
@@ -607,7 +609,7 @@ public class BitvectorRules {
 		for (int i = 0; i < convArgs.length; i++) {
 			convArgs[i] = theory.term(UBV_TO_INT, args[i]);
 		}
-		final Term andTerm = theory.term(SMTInterpolConstants.INTAND, convArgs);
+		final Term andTerm = theory.term(INTAND, convArgs);
 		final Term plusTerm = buildOrXorPlus(convArgs, Rational.valueOf(-2, 1), andTerm);
 		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, plusTerm);
 	}
@@ -741,7 +743,7 @@ public class BitvectorRules {
 		final Theory theory = args[0].getTheory();
 		final Term arg0 = theory.term(UBV_TO_INT, args[0]);
 		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
-		final Term result = theory.term(MUL, arg0, theory.term(SMTInterpolConstants.INTPOW2, arg1));
+		final Term result = theory.term(MUL, arg0, theory.term(INTPOW2, arg1));
 		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
 	}
 
@@ -759,7 +761,7 @@ public class BitvectorRules {
 		final Theory theory = args[0].getTheory();
 		final Term arg0 = theory.term(UBV_TO_INT, args[0]);
 		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
-		final Term result = theory.term(DIV, arg0, theory.term(SMTInterpolConstants.INTPOW2, arg1));
+		final Term result = theory.term(DIV, arg0, theory.term(INTPOW2, arg1));
 		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
 	}
 
@@ -777,7 +779,7 @@ public class BitvectorRules {
 		final Theory theory = args[0].getTheory();
 		final Term arg0 = theory.term(SBV_TO_INT, args[0]);
 		final Term arg1 = theory.term(UBV_TO_INT, args[1]);
-		final Term result = theory.term(DIV, arg0, theory.term(SMTInterpolConstants.INTPOW2, arg1));
+		final Term result = theory.term(DIV, arg0, theory.term(INTPOW2, arg1));
 		return theory.term(INT_TO_BV, args[0].getSort().getIndices(), null, result);
 	}
 
@@ -1035,7 +1037,7 @@ public class BitvectorRules {
 		assert params.length == 1;
 		final Sort sort = theory.getSort(INT);
 		final int k = (int) params[0];
-		final Term pow2kTerm = theory.term(SMTInterpolConstants.INTPOW2, Rational.valueOf(k, 1).toTerm(sort));
+		final Term pow2kTerm = theory.term(INTPOW2, Rational.valueOf(k, 1).toTerm(sort));
 		final Rational pow2kRat = Rational.valueOf(BigInteger.ONE.shiftLeft(k), BigInteger.ONE);
 		return new ProofLiteral[] {
 				new ProofLiteral(theory.term(EQUALS, pow2kTerm, pow2kRat.toTerm(sort)),
@@ -1046,9 +1048,9 @@ public class BitvectorRules {
 		assert params.length == 2;
 		final Term n = (Term) params[0];
 		final Term m = (Term) params[1];
-		final Term pow2nm = theory.term(SMTInterpolConstants.INTPOW2, theory.term(PLUS, n, m));
-		final Term pow2n = theory.term(SMTInterpolConstants.INTPOW2, n);
-		final Term pow2m = theory.term(SMTInterpolConstants.INTPOW2, m);
+		final Term pow2nm = theory.term(INTPOW2, theory.term(PLUS, n, m));
+		final Term pow2n = theory.term(INTPOW2, n);
+		final Term pow2m = theory.term(INTPOW2, m);
 		final Term zero = Rational.ZERO.toTerm(n.getSort());
 		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, n), false),
 				new ProofLiteral(theory.term(LEQ, zero, m), false),
@@ -1059,7 +1061,7 @@ public class BitvectorRules {
 	public static ProofLiteral[] log2Low(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
 		assert params.length == 1;
 		final Term a = (Term) params[0];
-		final Term pow2log2a = theory.term(SMTInterpolConstants.INTPOW2, theory.term(SMTInterpolConstants.INTLOG2, a));
+		final Term pow2log2a = theory.term(INTPOW2, theory.term(INTLOG2, a));
 		final Term zero = Rational.ZERO.toTerm(a.getSort());
 		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, a), false),
 				new ProofLiteral(theory.term(LEQ, pow2log2a, a), true) };
@@ -1068,7 +1070,7 @@ public class BitvectorRules {
 	public static ProofLiteral[] log2High(MinimalProofChecker minimalProofChecker, Theory theory, Object[] params) {
 		assert params.length == 1;
 		final Term a = (Term) params[0];
-		final Term pow2log2a = theory.term(SMTInterpolConstants.INTPOW2, theory.term(SMTInterpolConstants.INTLOG2, a));
+		final Term pow2log2a = theory.term(INTPOW2, theory.term(INTLOG2, a));
 		final Sort sort = a.getSort();
 		final Term zero = Rational.ZERO.toTerm(sort);
 		final Term two = Rational.TWO.toTerm(sort);
@@ -1086,9 +1088,9 @@ public class BitvectorRules {
 		final HashSet<Term> rhs = new HashSet<>();
 
 		// lhs term may be nested once.
-		if (ProofRules.isApplication(SMTInterpolConstants.INTAND, lhsTerm)) {
+		if (ProofRules.isApplication(INTAND, lhsTerm)) {
 			for (final Term lhsSubTerm : ((ApplicationTerm) lhsTerm).getParameters()) {
-				if (ProofRules.isApplication(SMTInterpolConstants.INTAND, lhsSubTerm)) {
+				if (ProofRules.isApplication(INTAND, lhsSubTerm)) {
 					lhs.addAll(Arrays.asList(((ApplicationTerm) lhsSubTerm).getParameters()));
 				} else {
 					lhs.add(lhsSubTerm);
@@ -1098,7 +1100,7 @@ public class BitvectorRules {
 			lhs.add(lhsTerm);
 		}
 		// rhs term must be flat.
-		if (ProofRules.isApplication(SMTInterpolConstants.INTAND, rhsTerm)) {
+		if (ProofRules.isApplication(INTAND, rhsTerm)) {
 			rhs.addAll(Arrays.asList(((ApplicationTerm) rhsTerm).getParameters()));
 		} else {
 			rhs.add(rhsTerm);
@@ -1126,11 +1128,11 @@ public class BitvectorRules {
 		final Term k = (Term) params[2];
 
 		// type checking ensures that all terms are integer terms.
-		final Term pow2k = theory.term(SMTInterpolConstants.INTPOW2, k);
-		final Term ashrkandb = theory.term(SMTInterpolConstants.INTAND, theory.term(DIV, a, pow2k), b);
+		final Term pow2k = theory.term(INTPOW2, k);
+		final Term ashrkandb = theory.term(INTAND, theory.term(DIV, a, pow2k), b);
 		final Term zero = Rational.ZERO.toTerm(k.getSort());
 		final Term lhs = theory.term(MUL, ashrkandb, pow2k);
-		final Term rhs = theory.term(SMTInterpolConstants.INTAND, a, theory.term(MUL, b, pow2k));
+		final Term rhs = theory.term(INTAND, a, theory.term(MUL, b, pow2k));
 
 		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, k), false),
 				new ProofLiteral(theory.term(EQUALS, lhs, rhs), true) };
@@ -1142,10 +1144,10 @@ public class BitvectorRules {
 		final Term b = (Term) params[1];
 
 		// type checking ensures that all terms are integer terms.
-		final Term aandb = theory.term(SMTInterpolConstants.INTAND, a, b);
+		final Term aandb = theory.term(INTAND, a, b);
 		final Term mone = Rational.MONE.toTerm(b.getSort());
 		final Term notb = theory.term(PLUS, theory.term(MUL, mone, b), mone);
-		final Term aandnotb = theory.term(SMTInterpolConstants.INTAND, a, notb);
+		final Term aandnotb = theory.term(INTAND, a, notb);
 		final Term lhs = theory.term(PLUS, aandb, aandnotb);
 
 		return new ProofLiteral[] { new ProofLiteral(theory.term(EQUALS, lhs, a), true) };
@@ -1157,7 +1159,7 @@ public class BitvectorRules {
 		final Term b = (Term) params[1];
 
 		// type checking ensures that all terms are integer terms.
-		final Term aandb = theory.term(SMTInterpolConstants.INTAND, a, b);
+		final Term aandb = theory.term(INTAND, a, b);
 		final Term zero = Rational.ZERO.toTerm(a.getSort());
 
 		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, a), false),
@@ -1170,7 +1172,7 @@ public class BitvectorRules {
 		final Term b = (Term) params[1];
 
 		// type checking ensures that all terms are integer terms.
-		final Term aandb = theory.term(SMTInterpolConstants.INTAND, a, b);
+		final Term aandb = theory.term(INTAND, a, b);
 		final Term zero = Rational.ZERO.toTerm(a.getSort());
 
 		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, zero, a), false),

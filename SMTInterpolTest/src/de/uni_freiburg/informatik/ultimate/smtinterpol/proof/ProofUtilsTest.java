@@ -35,6 +35,9 @@ import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.MinimalProofChecker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 
 @RunWith(JUnit4.class)

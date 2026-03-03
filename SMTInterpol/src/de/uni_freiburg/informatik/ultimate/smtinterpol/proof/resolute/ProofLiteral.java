@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute;
 
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 

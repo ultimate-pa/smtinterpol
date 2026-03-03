@@ -44,11 +44,11 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.BitvectorRules;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.DataTypeRules;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofUtils;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.BitvectorRules;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.DataTypeRules;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 
 /**

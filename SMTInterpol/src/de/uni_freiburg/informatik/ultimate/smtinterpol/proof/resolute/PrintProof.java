@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
  */
-package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
+package de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -92,7 +92,7 @@ public class PrintProof extends PrintTerm {
 				return;
 			} else if (annotTerm.getSubterm() instanceof ApplicationTerm
 					&& ((ApplicationTerm) annotTerm.getSubterm()).getFunction().getName() == ProofRules.PREFIX + ProofRules.AXIOM) {
-				if (annots[0].getKey().equals(":" + ProofRules.ORACLE)) {
+				if (annots[0].getKey().equals(ProofRules.ORACLE)) {
 					assert annots.length >= 1;
 					final Object[] clause = (Object[]) annots[0].getValue();
 					mTodo.add(")");
