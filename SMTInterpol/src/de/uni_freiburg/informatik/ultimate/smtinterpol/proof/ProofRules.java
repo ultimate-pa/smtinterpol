@@ -19,7 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import java.math.BigInteger;
-import java.util.HashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -357,7 +356,7 @@ public class ProofRules {
 	}
 
 	private Term xorAxiom(final String name, final Term[]... xorArgs) {
-		assert checkXorParams(xorArgs);
+		assert CoreRules.checkXorParams(xorArgs);
 		return mTheory.annotatedTerm(new Annotation[] { new Annotation(name, xorArgs) }, mAxiom);
 	}
 
@@ -774,21 +773,6 @@ public class ProofRules {
 			return func.isIntern() && func.getName().equals(funcName);
 		}
 		return false;
-	}
-
-	public static boolean checkXorParams(final Term[][] xorArgs) {
-		assert xorArgs.length == 3;
-		final HashSet<Term> xorSum = new HashSet<>();
-		for (final Term[] args : xorArgs) {
-			for (final Term arg : args) {
-				if (xorSum.contains(arg)) {
-					xorSum.remove(arg);
-				} else {
-					xorSum.add(arg);
-				}
-			}
-		}
-		return xorSum.isEmpty();
 	}
 
 	public static boolean checkConstructorPath(Term consTerm, final int[] positions) {

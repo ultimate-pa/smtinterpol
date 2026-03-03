@@ -45,7 +45,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.BitvectorRules;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.MinimalProofChecker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.DataTypeRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofUtils;
@@ -397,7 +397,7 @@ public class ModelProver extends TermTransformer {
 			throw new SMTLIBException("Quantifiers not supported in model proofs");
 		} else if (term instanceof MatchTerm) {
 			final MatchTerm matchTerm = (MatchTerm) term;
-			final Term iteTerm = MinimalProofChecker.buildIteForMatch(matchTerm);
+			final Term iteTerm = DataTypeRules.buildIteForMatch(matchTerm);
 			enqueueTransitivityStep(matchTerm, iteTerm, mProofRules.dtMatch(matchTerm));
 			pushTerm(iteTerm);
 			return;

@@ -1089,7 +1089,7 @@ public class ProofSimplifier extends TermTransformer {
 		}
 		final Theory theory = matchTerm.getTheory();
 		final Term dataTerm = matchTerm.getDataTerm();
-		Term iteTerm = MinimalProofChecker.buildIteForMatch(matchTerm);
+		Term iteTerm = DataTypeRules.buildIteForMatch(matchTerm);
 
 		final ArrayList<Term> eqSequence = new ArrayList<>();
 		eqSequence.add(matchTerm);
@@ -1532,8 +1532,8 @@ public class ProofSimplifier extends TermTransformer {
 			theory.pop();
 		}
 
-		final Term oldIte = MinimalProofChecker.buildIteForMatch(oldMatch);
-		final Term newIte = MinimalProofChecker.buildIteForMatch(newMatch);
+		final Term oldIte = DataTypeRules.buildIteForMatch(oldMatch);
+		final Term newIte = DataTypeRules.buildIteForMatch(newMatch);
 		Term iteEqualsProof = null;
 		boolean needReflData = false;
 		Term oldSub = oldIte;
