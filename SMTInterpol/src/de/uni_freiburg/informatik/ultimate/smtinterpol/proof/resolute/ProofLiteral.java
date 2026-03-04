@@ -27,8 +27,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
  * @author Jochen Hoenicke
  */
 public class ProofLiteral {
-	Term mAtom;
-	boolean mPositive;
+	private final Term mAtom;
+	private final boolean mPositive;
 
 	public ProofLiteral(final Term atom, final boolean positive) {
 		mAtom = atom;

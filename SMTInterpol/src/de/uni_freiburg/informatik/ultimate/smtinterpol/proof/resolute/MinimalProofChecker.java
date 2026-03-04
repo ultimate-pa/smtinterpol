@@ -98,12 +98,12 @@ public class MinimalProofChecker extends NonRecursive {
 	private final HashMap<FunctionSymbol, Term> mFunctionDefinitions;
 
 	/**
-	 * Map from function name to the expander class for the expand axiom.
+	 * Map from function name to the expander for the expand axiom.
 	 */
 	private final HashMap<String, Expander> mInternalFunctionExpander;
 
 	/**
-	 * Map from function name to the expander class for the expand axiom.
+	 * Map from axiom rule name to the implementation that computes the clause.
 	 */
 	private final HashMap<String, Axiom> mTheoryAxioms;
 
@@ -178,7 +178,7 @@ public class MinimalProofChecker extends NonRecursive {
 		final ProofLiteral[] result = getProvedClause(funcDefs, proof);
 		Term destFormula = createAnd(mSkript.getAssertions());
 		destFormula = unletter.transform(destFormula);
-		if (result != null && result.length != 1 || result[0].getPolarity() != true
+		if (result == null || result.length != 1 || !result[0].getPolarity()
 				|| result[0].getAtom() != destFormula) {
 			reportError("The proof did not prove the assertions but %s", Arrays.asList(result));
 			return false;

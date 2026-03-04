@@ -29,7 +29,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
- * Proof rules for the core theory.
+ * Proof rules for the array theory.
  */
 public class ArrayRules {
 

@@ -804,17 +804,17 @@ public class ProofRules {
 
 	public static boolean isDefineFun(final Term proof) {
 		return proof instanceof AnnotatedTerm
-				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DEFINE_FUN;
+				&& ANNOT_DEFINE_FUN.equals(((AnnotatedTerm) proof).getAnnotations()[0].getKey());
 	}
 
 	public static boolean isRefineFun(final Term proof) {
 		return proof instanceof AnnotatedTerm
-				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_REFINE_FUN;
+				&& ANNOT_REFINE_FUN.equals(((AnnotatedTerm) proof).getAnnotations()[0].getKey());
 	}
 
 	public static boolean isDeclareFun(final Term proof) {
 		return proof instanceof AnnotatedTerm
-				&& ((AnnotatedTerm) proof).getAnnotations()[0].getKey() == ANNOT_DECLARE_FUN;
+				&& ANNOT_DECLARE_FUN.equals(((AnnotatedTerm) proof).getAnnotations()[0].getKey());
 	}
 
 	public static boolean isProof(final Term proof) {

@@ -32,7 +32,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 
 /**
- * Proof rules for the core theory.
+ * Proof rules for the datatype theory.
  */
 public class DataTypeRules {
 

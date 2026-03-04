@@ -341,7 +341,7 @@ public class BitvectorRules {
 		final Term dividend = theory.term(SBV_TO_INT, args[0]);
 		final Term divisor = theory.term(SBV_TO_INT, args[1]);
 		final Term zero = Rational.ZERO.toTerm(divisor.getSort());
-		final Term one = Rational.MONE.toTerm(divisor.getSort());
+		final Term one = Rational.ONE.toTerm(divisor.getSort());
 		final Term mone = Rational.MONE.toTerm(divisor.getSort());
 		final Term yNegCase = theory.term(PLUS,
 				theory.term(MOD, theory.term(PLUS, dividend, mone), divisor), divisor, one);

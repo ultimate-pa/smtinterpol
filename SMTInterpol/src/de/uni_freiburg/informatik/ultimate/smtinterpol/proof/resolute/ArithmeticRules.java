@@ -109,9 +109,9 @@ public class ArithmeticRules {
 		final Term x = (Term) params[0];
 		final Term cTerm = (Term) params[1];
 		final Rational c = (Rational) ((ConstantTerm) cTerm).getValue();
-		if (x.getSort().getName() != INT || cTerm.getSort() != x.getSort()
+		if (!x.getSort().getName().equals(INT) || cTerm.getSort() != x.getSort()
 				|| !c.denominator().equals(BigInteger.ONE)) {
-			return null;
+			throw new IllegalArgumentException("total-int: x must be Int, c integer constant of same sort");
 		}
 		final Term cPlusOne = c.add(Rational.ONE).toTerm(x.getSort());
 		return new ProofLiteral[] { new ProofLiteral(theory.term(LEQ, x, cTerm), true),
@@ -355,9 +355,6 @@ public class ArithmeticRules {
 			poly.mul(new Polynomial(t));
 		}
 		poly.add(Rational.MONE, result);
-		if (!poly.isZero()) {
-			System.err.println("STOP");
-		}
 		return poly.isZero();
 	}
 
