@@ -162,6 +162,17 @@ public class CClosure implements ITheory {
 	 */
 	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences = new ArrayDeque<>();
 
+	/**
+	 * Global map from signature to trigger. Used for congruence finder and reverse triggers. Signatures are rehashed at
+	 * checkpoint when the todo is processed.
+	 */
+	final Map<Signature, Trigger> mSignatureToTrigger = new HashMap<>();
+	/**
+	 * Todo stack for deferred signature rehash: (oldRep, backRefList). Pushed when the smaller class is merged;
+	 * processed at checkpoint.
+	 */
+	final ArrayDeque<SignatureTodoEntry> mSignatureTodo = new ArrayDeque<>();
+
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
 
@@ -870,6 +881,34 @@ public class CClosure implements ITheory {
 	}
 
 	/**
+	 * Push the smaller class's back-ref list onto the signature todo. Called from merge when merging two classes; the
+	 * actual rehash and trigger merge happen at checkpoint.
+	 *
+	 * @param oldRep
+	 *            the former representative of the smaller class (src).
+	 * @param backRefs
+	 *            the list of (signature, listIndex, trigger) back-refs from that representative.
+	 */
+	void pushSignatureTodo(final CCTerm oldRep, final List<SignatureBackRef> backRefs) {
+		if (!backRefs.isEmpty()) {
+			mSignatureTodo.push(new SignatureTodoEntry(oldRep, backRefs));
+		}
+	}
+
+	/**
+	 * Find the MergeUndoInfo on the undo stack for the given old representative. Used at checkpoint to attach
+	 * signature-undo entries.
+	 */
+	MergeUndoInfo findMergeUndoInfo(final CCTerm oldRep) {
+		for (final UndoInfo info : mUndoStack) {
+			if (info instanceof MergeUndoInfo && ((MergeUndoInfo) info).getOldRep() == oldRep) {
+				return (MergeUndoInfo) info;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Get the merge depth, i.e., the number of merges that already happened. We use
 	 * the undo stack, so we also count separations, but that shouldn't matter.
 	 *
@@ -1412,15 +1451,55 @@ public class CClosure implements ITheory {
 	private static class UndoInfo {
 	}
 
+	/**
+	 * Entry for the signature todo stack: old representative and its back-ref list to process at checkpoint.
+	 */
+	static final class SignatureTodoEntry {
+		final CCTerm mOldRep;
+		final List<SignatureBackRef> mBackRefs;
+
+		SignatureTodoEntry(final CCTerm oldRep, final List<SignatureBackRef> backRefs) {
+			mOldRep = oldRep;
+			mBackRefs = backRefs;
+		}
+	}
+
+	/**
+	 * Record for undoing a signature rehash: restore map to (newSig -> previousTrigger).
+	 */
+	static final class SignatureUndoEntry {
+		final Signature mNewSig;
+		final Trigger mPreviousTrigger;
+
+		SignatureUndoEntry(final Signature newSig, final Trigger previousTrigger) {
+			mNewSig = newSig;
+			mPreviousTrigger = previousTrigger;
+		}
+	}
+
 	private static class MergeUndoInfo extends UndoInfo {
 		final CCTerm mOldRep;
+		/**
+		 * Signature rehash undo entries produced when processing the todo at checkpoint. Filled in by checkpoint.
+		 */
+		List<SignatureUndoEntry> mSignatureUndos;
 
 		public MergeUndoInfo(final CCTerm oldRep) {
 			mOldRep = oldRep;
+			mSignatureUndos = null;
 		}
 
 		public CCTerm getOldRep() {
 			return mOldRep;
+		}
+
+		/** Called at checkpoint when processing the signature todo. */
+		@SuppressWarnings("unused")
+		void addSignatureUndo(final Signature newSig, final Trigger previousTrigger) {
+			if (mSignatureUndos == null) {
+				mSignatureUndos = new ArrayList<>();
+			}
+			mSignatureUndos.add(new SignatureUndoEntry(newSig, previousTrigger));
 		}
 	}
 
