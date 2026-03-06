@@ -1046,7 +1046,7 @@ public class DPLLEngine {
 		}
 		mLogger.debug("DPLL: final check");
 		for (final ITheory t : mTheories) {
-			final Clause conflict = t.computeConflictClause();
+			final Clause conflict = t.finalCheck();
 			if (conflict != null) {
 				return conflict;
 			}

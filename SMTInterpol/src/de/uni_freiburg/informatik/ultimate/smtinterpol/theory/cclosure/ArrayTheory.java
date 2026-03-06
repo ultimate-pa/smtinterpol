@@ -706,7 +706,7 @@ public class ArrayTheory implements ITheory {
 	}
 
 	@Override
-	public Clause computeConflictClause() {
+	public Clause finalCheck() {
 		do {
 			final Clause conflict = checkpoint();
 			if (conflict != null) {

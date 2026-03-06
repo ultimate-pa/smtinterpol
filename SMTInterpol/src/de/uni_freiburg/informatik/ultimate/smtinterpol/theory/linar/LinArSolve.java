@@ -664,7 +664,7 @@ public class LinArSolve implements ITheory {
 	}
 
 	@Override
-	public Clause computeConflictClause() {
+	public Clause finalCheck() {
 		mSuggestions.clear();
 		mClausifier.getLogger().debug("Final Check LA");
 		assert mOob.isEmpty();

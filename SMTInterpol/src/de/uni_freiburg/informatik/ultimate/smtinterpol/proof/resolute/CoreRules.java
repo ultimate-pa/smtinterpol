@@ -620,8 +620,8 @@ public class CoreRules {
 	}
 
 	static class FunctionSplit {
-		FunctionSymbol mFunc;
-		Term[] mParams;
+		final FunctionSymbol mFunc;
+		final Term[] mParams;
 
 		public FunctionSplit(FunctionSymbol func, Term[] params) {
 			mFunc = func;
