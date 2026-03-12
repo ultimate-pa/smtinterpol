@@ -18,65 +18,83 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleList;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
 
 /**
  * Trigger that holds two lists: reverse triggers and function applications (on the argument). When merged, both lists
  * are joined and every ReverseTrigger in one list is activated on every function application in the other list (and
  * vice versa).
  *
- * @author Jochen Hoenicke, Jürgen Christ
+ * @author Jochen Hoenicke
  */
-public final class ReverseTriggerTrigger implements Trigger {
+public final class ReverseTriggerTrigger extends SignatureTrigger {
 
 	private final SimpleList<ReverseTrigger> mTriggers = new SimpleList<>();
-	private final List<CCAppTerm> mApplications = new ArrayList<>();
+	private final SimpleList<AppTermEntry> mApplications = new SimpleList<>();
 
-	public SimpleList<ReverseTrigger> getTriggers() {
-		return mTriggers;
-	}
 
-	public List<CCAppTerm> getApplications() {
-		return mApplications;
-	}
-
-	/**
-	 * Add a reverse trigger to the triggers list. The trigger must not be in any list.
-	 */
-	public void addTrigger(final ReverseTrigger trigger) {
+	public ReverseTriggerTrigger(ReverseTrigger trigger) {
+		super(FuncWithPosition.of(trigger.getFunctionSymbol(), trigger.getArgPosition()), new CCTerm[] { trigger.getArgument() });
 		mTriggers.append(trigger);
 	}
 
-	/**
-	 * Add a function application to the applications list.
-	 */
-	public void addApplication(final CCAppTerm app) {
-		mApplications.add(app);
+	public ReverseTriggerTrigger(CCAppTerm app, int argPosition) {
+		super(FuncWithPosition.of(app.getFunctionSymbol(), argPosition), new CCTerm[] { app.getArgument(argPosition) });
+		mApplications.append(new AppTermEntry(app));
 	}
 
 	@Override
-	public void merge(final CClosure engine, final Trigger other) {
+	public void merge(final CClosure engine, final SignatureTrigger other) {
+		super.merge(engine, other);
 		assert other instanceof ReverseTriggerTrigger;
 		final ReverseTriggerTrigger otherRev = (ReverseTriggerTrigger) other;
 
 		// Cross-activate: every trigger in this list on every app in other's list
 		for (final ReverseTrigger trigger : mTriggers) {
-			for (final CCAppTerm app : otherRev.mApplications) {
-				trigger.activate(app, false);
+			for (final AppTermEntry app : otherRev.mApplications) {
+				trigger.activate(app.getAppTerm(), false);
 			}
 		}
 		// Every trigger in other's list on every app in this list
 		for (final ReverseTrigger trigger : otherRev.mTriggers) {
-			for (final CCAppTerm app : mApplications) {
-				trigger.activate(app, false);
+			for (final AppTermEntry app : mApplications) {
+				trigger.activate(app.getAppTerm(), false);
 			}
 		}
 
 		// Join both lists
 		mTriggers.joinList(otherRev.mTriggers);
-		mApplications.addAll(otherRev.mApplications);
+		mApplications.joinList(otherRev.mApplications);
+	}
+
+	@Override
+	public void undoMerge(final CClosure engine, final SignatureTrigger other) {
+		super.undoMerge(engine, other);
+		assert other instanceof ReverseTriggerTrigger;
+		final ReverseTriggerTrigger otherRev = (ReverseTriggerTrigger) other;
+
+		// unjoin both lists
+		mTriggers.unjoinList(otherRev.mTriggers);
+		mApplications.unjoinList(otherRev.mApplications);
+	}
+
+
+	static final class AppTermEntry extends SimpleListable<AppTermEntry> {
+		private CCAppTerm mAppTerm;
+
+		public AppTermEntry(CCAppTerm appTerm) {
+			mAppTerm = appTerm;
+		}
+
+		CCAppTerm getAppTerm() {
+			return mAppTerm;
+		}
+
+		@Override
+		public String toString() {
+			return mAppTerm.toString();
+		}
 	}
 }

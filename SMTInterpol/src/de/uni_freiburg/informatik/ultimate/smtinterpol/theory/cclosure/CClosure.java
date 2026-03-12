@@ -20,11 +20,16 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
@@ -110,11 +115,6 @@ public class CClosure implements ITheory {
 	 * wrong decision level. We need to recheck them after any backtrack, if they still can be propagated.
 	 */
 	ArrayQueue<Literal> mRecheckOnBacktrackLits = new ArrayQueue<>();
-	/**
-	 * The list of congruent terms that were already congruent when one of the terms was created and thus may be merged
-	 * too late on the wrong decision level. We need to recheck after any backtrack, if they are still congruent.
-	 */
-	ArrayQueue<SymmetricPair<CCAppTerm>> mRecheckOnBacktrackCongs = new ArrayQueue<>();
 
 	/**
 	 * A mapping from function symbol or string (the latter only for {@code select/@diff/store}) to the corresponding
@@ -164,14 +164,20 @@ public class CClosure implements ITheory {
 
 	/**
 	 * Global map from signature to trigger. Used for congruence finder and reverse triggers. Signatures are rehashed at
-	 * checkpoint when the todo is processed.
+	 * checkpoint when the todo is processed. When moving a signature to its new hash (after representative change), we
+	 * remove the old entry by key reference (see {@link #removeSignatureByRef(Signature)}) and then put the same key
+	 * again (its hashCode/equals use representatives, so it now maps to the new bucket). We do not keep the old key in
+	 * the map, since that would leave the map inconsistent.
 	 */
-	final Map<Signature, Trigger> mSignatureToTrigger = new HashMap<>();
+	final Set<SignatureTrigger> mSignatureTriggers = new HashSet<>();
 	/**
 	 * Todo stack for deferred signature rehash: (oldRep, backRefList). Pushed when the smaller class is merged;
 	 * processed at checkpoint.
 	 */
 	final ArrayDeque<SignatureTodoEntry> mSignatureTodo = new ArrayDeque<>();
+
+	final Map<FunctionSymbol, BitSet> mWatchedArgs = new HashMap<>();
+	final Map<FunctionSymbol, SimpleList<ReverseTrigger>> mFindTriggers = new HashMap<>();
 
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
@@ -315,44 +321,24 @@ public class CClosure implements ITheory {
 			if (term.getAge() > 0) {
 				getLogger().debug("Create new AppTerm %s of age %d", term, term.getAge());
 			}
+			ArrayDeque<CCTerm> args = new ArrayDeque<>();
+			CCTerm curr = term;
+			while (curr instanceof CCAppTerm) {
+				CCAppTerm currAppTerm = (CCAppTerm) curr;
+				args.addFirst(currAppTerm.getArg());
+				curr =  currAppTerm.getFunc();
+			}
+			FunctionSymbol fsym = ((CCBaseTerm) curr).getFunctionSymbol();
+			CCTerm[] argsArray = args.toArray(new CCTerm[args.size()]);
+			CongruenceTrigger congruenceTrigger = new CongruenceTrigger(term, fsym, argsArray);
+			for (int i = 0; i < argsArray.length; i++) {
+				SignatureBackRef backref = new SignatureBackRef(congruenceTrigger, i);
+				addSignatureBackRef(argsArray[i], backref);
+			}
+			addSignature(congruenceTrigger);
+			addSignature(new FindTriggerTrigger(term));
 		}
 		mAllTerms.add(term);
-		term.addParentInfo(this);
-		final CCAppTerm congruentTerm = findCongruentAppTerm(func, arg);
-		getLogger().debug("createAppTerm %s congruent: %s", term, congruentTerm);
-		if (congruentTerm != null) {
-			// Here, we do not have the resulting term in the equivalence class
-			// Mark pending congruence
-			mRecheckOnBacktrackCongs.add(new SymmetricPair<>(term, congruentTerm));
-			addPendingCongruence(term, congruentTerm);
-		}
-
-		if (!isFunc) {
-			/* if this created a complete application term, activate corresponding triggers */
-			CCTerm partialApp = term;
-			while (partialApp instanceof CCAppTerm) {
-				final CCAppTerm app = (CCAppTerm) partialApp;
-				final CCTerm appArg = app.getArg();
-				/* E-Matching: activate reverse trigger */
-				final int parentpos = app.getFunc().mParentPosition;
-				final CCParentInfo argInfo = appArg.getRepresentative().mCCPars.getInfo(parentpos);
-				if (argInfo != null) {
-					for (final ReverseTrigger trigger : argInfo.mReverseTriggers) {
-						trigger.activate(term, true);
-					}
-				}
-				partialApp = app.getFunc();
-			}
-			/* E-Matching: activate find trigger */
-			{
-				final CCParentInfo funcInfo = partialApp.mCCPars.getInfo(0);
-				if (funcInfo != null) {
-					for (final ReverseTrigger trigger : funcInfo.mReverseTriggers) {
-						trigger.activate(term, true);
-					}
-				}
-			}
-		}
 		return term;
 	}
 
@@ -570,6 +556,22 @@ public class CClosure implements ITheory {
 	}
 
 	/**
+	 * Insert a signature backref into the given term.  This handles terms that are not the representative and
+	 * adds the backref to all relevant lists.
+	 * @param term
+	 *            the ccterm to insert the backref into.
+	 * @param backref
+	 *            the backref to insert.
+	 */
+	public void addSignatureBackRef(CCTerm arg, final SignatureBackRef backref) {
+		while (arg != arg.mRep) {
+			arg.mSignatureBackRefs.prependIntoJoined(backref, false);
+			arg = arg.mRep;
+		}
+		arg.mSignatureBackRefs.prependIntoJoined(backref, true);
+	}
+
+	/**
 	 * Insert a Reverse trigger that will be activated as soon as a new function application of the given function
 	 * symbol with a given argument at a given position exists.
 	 *
@@ -584,16 +586,19 @@ public class CClosure implements ITheory {
 	 */
 	public void insertReverseTrigger(final FunctionSymbol sym, CCTerm arg, final int argPos,
 			final ReverseTrigger trigger) {
-		final CCTerm func = getFuncTerm(sym);
-		final int parentPos = func.mParentPosition + argPos;
-		while (arg != arg.mRep) {
-			final CCParentInfo info = arg.mCCPars.createInfo(parentPos);
-			info.mReverseTriggers.prependIntoJoined(trigger, false);
-			arg = arg.mRep;
+		BitSet watchedArgs = mWatchedArgs.get(sym);
+		if (watchedArgs == null) {
+			watchedArgs = new BitSet();
+			mWatchedArgs.put(sym, watchedArgs);
 		}
-		final CCParentInfo info = arg.mCCPars.createInfo(parentPos);
-		info.mReverseTriggers.prependIntoJoined(trigger, true);
-	}
+		if (!watchedArgs.get(argPos)) {
+			watchedArgs.set(argPos);
+
+		}
+		ReverseTriggerTrigger reverseTriggerTrigger = new ReverseTriggerTrigger(trigger);
+		addSignature(reverseTriggerTrigger);
+		addSignatureBackRef(arg, new SignatureBackRef(reverseTriggerTrigger, argPos));
+}
 
 	/**
 	 * Insert a Reverse trigger that will be activated as soon as a new function application of the given function
@@ -605,9 +610,12 @@ public class CClosure implements ITheory {
 	 *            the Reverse trigger.
 	 */
 	public void insertReverseTrigger(final FunctionSymbol sym, final ReverseTrigger trigger) {
-		final CCTerm func = getFuncTerm(sym);
-		final CCParentInfo info = func.mCCPars.createInfo(0);
-		info.mReverseTriggers.append(trigger);
+		SimpleList<ReverseTrigger> findTriggers = mFindTriggers.get(sym);
+		if (findTriggers == null) {
+			findTriggers = new SimpleList<>();
+			mFindTriggers.put(sym, findTriggers);
+		}
+		findTriggers.append(trigger);
 	}
 
 	/**
@@ -639,6 +647,21 @@ public class CClosure implements ITheory {
 		}
 		final CCParentInfo info = termWithTrigger.mCCPars.createInfo(parentPos);
 		info.mReverseTriggers.undoPrependIntoJoined(trigger, true);
+	}
+
+
+	public void removeSignature(SignatureTrigger signatureTrigger) {
+		mSignatureTriggers.remove(signatureTrigger);
+	}
+
+	public void addSignature(SignatureTrigger signatureTrigger) {
+		SignatureTrigger mergeTrigger = mSignatureTriggers.contains(signatureTrigger);
+		if (mergeTrigger != null) {
+			mergeTrigger.merge(this, signatureTrigger);
+			mUndoStack.push(new TriggerMergeUndoEntry(mergeTrigger, signatureTrigger));
+		} else {
+			mSignatureTriggers.add(signatureTrigger);
+		}
 	}
 
 	/**
@@ -1178,6 +1201,7 @@ public class CClosure implements ITheory {
 
 	@Override
 	public void backtrackStart() {
+		mSignatureTodo.clear();
 		mPendingLits.clear();
 		mPendingCongruences.clear();
 	}
@@ -1227,23 +1251,6 @@ public class CClosure implements ITheory {
 		 * Recheck the propagated literals again on the next backtrack.
 		 */
 		mRecheckOnBacktrackLits = newRecheckOnBacktrackLits;
-
-		/*
-		 * Recheck congruences and propagate them.
-		 */
-		final ArrayQueue<SymmetricPair<CCAppTerm>> newRecheckOnBacktrackCongs = new ArrayQueue<>();
-		for (final SymmetricPair<CCAppTerm> cong : mRecheckOnBacktrackCongs) {
-			final CCAppTerm lhs = cong.getFirst();
-			final CCAppTerm rhs = cong.getSecond();
-			if (lhs.mArg.mRepStar == rhs.mArg.mRepStar && lhs.mFunc.mRepStar == rhs.mFunc.mRepStar) {
-				getLogger().debug("Still congruent: %s and %s", lhs, rhs);
-				addPendingCongruence(lhs, rhs);
-				newRecheckOnBacktrackCongs.add(cong);
-			} else {
-				getLogger().debug("No longer congruent: %s and %s", lhs, rhs);
-			}
-		}
-		mRecheckOnBacktrackCongs = newRecheckOnBacktrackCongs;
 		return buildCongruence();
 	}
 
@@ -1279,17 +1286,28 @@ public class CClosure implements ITheory {
 	 */
 	@SuppressWarnings("unused")
 	private Clause buildCongruence() {
-		SymmetricPair<CCAppTerm> cong;
-		while ((cong = mPendingCongruences.poll()) != null) {
-			getLogger().debug("PC %s", cong);
-			final CCAppTerm lhs = cong.getFirst();
-			final CCAppTerm rhs = cong.getSecond();
-			assert lhs.mArg.mRepStar == rhs.mArg.mRepStar
-					&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar : "Unchecked buildCongruence with non-holding congruence!";
-			final Clause res = lhs.merge(this, rhs, null);
-			if (res != null) {
-				getLogger().debug("buildCongruence: conflict %s", res);
-				return res;
+		while (!mSignatureTodo.isEmpty() || !mPendingCongruences.isEmpty()) {
+			while (!mSignatureTodo.isEmpty()) {
+				SignatureTodoEntry todo = mSignatureTodo.poll();
+				CCTerm oldRep = todo.mOldRep;
+				SimpleList<SignatureBackRef> backRefs = todo.mBackRefs;
+				for (SignatureBackRef backRef: backRefs) {
+					SignatureTrigger signatureTrigger = backRef.getSignatureTrigger();
+					signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep.getRepresentative());
+				}
+			}
+			SymmetricPair<CCAppTerm> cong;
+			while ((cong = mPendingCongruences.poll()) != null) {
+				getLogger().debug("PC %s", cong);
+				final CCAppTerm lhs = cong.getFirst();
+				final CCAppTerm rhs = cong.getSecond();
+				assert lhs.mArg.mRepStar == rhs.mArg.mRepStar
+						&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar : "Unchecked buildCongruence with non-holding congruence!";
+				final Clause res = lhs.merge(this, rhs, null);
+				if (res != null) {
+					getLogger().debug("buildCongruence: conflict %s", res);
+					return res;
+				}
 			}
 		}
 		assert !Config.EXPENSIVE_ASSERTS || checkCongruence();
@@ -1303,9 +1321,14 @@ public class CClosure implements ITheory {
 				final CCTerm oldRep = ((MergeUndoInfo) top).getOldRep();
 				oldRep.mRepStar.invertEqualEdges(this);
 				oldRep.undoMerge(this, oldRep.mEqualEdge);
-			} else {
+			} else if (top instanceof SepUndoInfo) {
 				final CCEquality diseq = ((SepUndoInfo) top).getDiseq();
 				undoSep(diseq);
+			} else if (top instanceof TriggerMergeUndoEntry) {
+				final TriggerMergeUndoEntry signatureUndo = (TriggerMergeUndoEntry) top;
+				signatureUndo.getMergedTrigger().undoMerge(this,signatureUndo.getPreviousTrigger());
+			} else {
+				throw new AssertionError("Unknown undo info type: " + top);
 			}
 		}
 	}
@@ -1382,16 +1405,16 @@ public class CClosure implements ITheory {
 		assert mDecideLevelToUndoStackSize.isEmpty();
 		backtrackStack(0);
 		mPendingLits.clear();
-		mRecheckOnBacktrackCongs.clear();
 		mRecheckOnBacktrackLits.clear();
 		mPendingCongruences.clear();
+		mSignatureTodo.clear();
 	}
 
 	@Override
 	public void pop() {
 		assert mDecideLevelToUndoStackSize.isEmpty();
 		assert mUndoStack.isEmpty();
-		assert mRecheckOnBacktrackCongs.isEmpty();
+		assert mSignatureTodo.isEmpty();
 		assert mRecheckOnBacktrackLits.isEmpty();
 		assert mPendingCongruences.isEmpty();
 		mNumFunctionPositions = mNumFunctionPositionsStack.remove(mNumFunctionPositionsStack.size() - 1);
@@ -1456,50 +1479,46 @@ public class CClosure implements ITheory {
 	 */
 	static final class SignatureTodoEntry {
 		final CCTerm mOldRep;
-		final List<SignatureBackRef> mBackRefs;
+		final SimpleList<SignatureBackRef> mBackRefs;
 
-		SignatureTodoEntry(final CCTerm oldRep, final List<SignatureBackRef> backRefs) {
+		SignatureTodoEntry(final CCTerm oldRep, final SimpleList<SignatureBackRef> backRefs) {
 			mOldRep = oldRep;
 			mBackRefs = backRefs;
 		}
 	}
 
 	/**
-	 * Record for undoing a signature rehash: restore map to (newSig -> previousTrigger).
+	 * Record for undoing a trigger merge: remove the merged trigger from the map by reference (see
+	 * {@link #removeSignatureByRef(Signature)}) and put (mMergedTrigger, mPreviousTrigger). The same key object then hashes
+	 * back to the old bucket after merge undo.
 	 */
-	static final class SignatureUndoEntry {
-		final Signature mNewSig;
-		final Trigger mPreviousTrigger;
+	static final class TriggerMergeUndoEntry extends UndoInfo {
+		final SignatureTrigger mMergedTrigger;
+		final SignatureTrigger mPreviousTrigger;
 
-		SignatureUndoEntry(final Signature newSig, final Trigger previousTrigger) {
-			mNewSig = newSig;
+		TriggerMergeUndoEntry(final SignatureTrigger mergedTrigger, final SignatureTrigger previousTrigger) {
+			mMergedTrigger = mergedTrigger;
 			mPreviousTrigger = previousTrigger;
+		}
+
+		SignatureTrigger getMergedTrigger() {
+			return mMergedTrigger;
+		}
+
+		SignatureTrigger getPreviousTrigger() {
+			return mPreviousTrigger;
 		}
 	}
 
 	private static class MergeUndoInfo extends UndoInfo {
 		final CCTerm mOldRep;
-		/**
-		 * Signature rehash undo entries produced when processing the todo at checkpoint. Filled in by checkpoint.
-		 */
-		List<SignatureUndoEntry> mSignatureUndos;
 
 		public MergeUndoInfo(final CCTerm oldRep) {
 			mOldRep = oldRep;
-			mSignatureUndos = null;
 		}
 
 		public CCTerm getOldRep() {
 			return mOldRep;
-		}
-
-		/** Called at checkpoint when processing the signature todo. */
-		@SuppressWarnings("unused")
-		void addSignatureUndo(final Signature newSig, final Trigger previousTrigger) {
-			if (mSignatureUndos == null) {
-				mSignatureUndos = new ArrayList<>();
-			}
-			mSignatureUndos.add(new SignatureUndoEntry(newSig, previousTrigger));
 		}
 	}
 
