@@ -109,10 +109,18 @@ This package implements the **theory of equality** (congruence closure) for SMTI
 
 ---
 
-## E-Matching (Triggers)
+## Signature Trigger   (Congruence & E-Matching)
+
+- **SignatureTrigger**: A trigger watches a signature, which is an identifier plus an array of ccterm representatives.  When merging classes the signature is updated.  If two triggers have the same signature, they are merged and some action is executed.
+- **CongruenceTrigger**: A signature trigger for every function application.  The merge operation propagates the congruence.
+- **FindTriggerTrigger**: A trigger watching on function symbol and containing FindTrigger and/or applications on this function symbol.  A merge triggers every find trigger with every application.  Since the signature is only the function symbol, all find trigger and all applications of the function symbol are merged.
+- **ReverseTriggerTrigger**: Similarly a trigger watching on a function symbol and one of its args containing ReverseTrigger and/or function applications.  A merge triggers every reverse trigger with every application that matches that argument.
+
+## E-Matching Trigger.
 
 - **CompareTrigger**: registered for a pair of CCTerms; **activated** when that pair’s representatives become equal (during merge). Used for instance for quantifier instantiation.
 - **ReverseTrigger**: registered for a (function symbol, argument position). **Activated** when a new CCAppTerm appears that has a term in the relevant position (e.g. from **createAppTerm** or when an argument is merged into that position). **DTReverseTrigger** implements datatype-specific behaviour (e.g. selector/constructor/tester rules).
+- **MasterReverseTrigger**: a find trigger that is registered for a function symbol for every position where a reverse trigger is created.  This will watch the i-th argument to enable the reverse trigger mechanism for this argument.
 
 ---
 

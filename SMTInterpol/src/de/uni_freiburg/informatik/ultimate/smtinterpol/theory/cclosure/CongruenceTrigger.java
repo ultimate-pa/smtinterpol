@@ -18,15 +18,18 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import java.util.ArrayDeque;
+
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+
 /**
  * Trigger that holds a single CCAppTerm for congruence propagation. When merged with another CongruenceTrigger (same
  * signature after rehash), the equality between the two applications is propagated via
  * {@link CClosure#addPendingCongruence}; the existing trigger's application is kept (not the incoming one).
  *
- * @author Jochen Hoenicke, Jürgen Christ
+ * @author Jochen Hoenicke
  */
-public final class CongruenceTrigger implements Trigger {
-
+public final class CongruenceTrigger extends SignatureTrigger {
 	private CCAppTerm mApp;
 
 	/**
@@ -35,7 +38,8 @@ public final class CongruenceTrigger implements Trigger {
 	 * @param app
 	 *            the (kept) application term for this signature.
 	 */
-	public CongruenceTrigger(final CCAppTerm app) {
+	public CongruenceTrigger(final CCAppTerm app, FunctionSymbol func, CCTerm[] args) {
+		super(func, args);
 		mApp = app;
 	}
 
@@ -44,10 +48,16 @@ public final class CongruenceTrigger implements Trigger {
 	}
 
 	@Override
-	public void merge(final CClosure engine, final Trigger other) {
+	public void merge(final CClosure engine, final SignatureTrigger other) {
+		super.merge(engine, other);
 		assert other instanceof CongruenceTrigger;
 		final CongruenceTrigger otherCong = (CongruenceTrigger) other;
 		engine.addPendingCongruence(mApp, otherCong.mApp);
-		// Keep the existing app (this.mApp); no change to mApp.
+	}
+
+	public void undoMerge(final CClosure engine, final SignatureTrigger other) {
+		super.undoMerge(engine, other);
+		assert other instanceof CongruenceTrigger;
+		final CongruenceTrigger otherCong = (CongruenceTrigger) other;
 	}
 }

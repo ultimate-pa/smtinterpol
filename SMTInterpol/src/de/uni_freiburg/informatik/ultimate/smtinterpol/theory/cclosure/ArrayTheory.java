@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -180,33 +181,6 @@ public class ArrayTheory implements ITheory {
 			mTerm = ccterm;
 			mPrimaryEdge = mSecondaryEdge = null;
 			mPrimaryStore = null;
-		}
-
-		/**
-		 * Fill the select information for the current node. This needs to be called when a new array node is created.
-		 * It finds all select applications using the ccterm information and adds them to the mSelects hash map.
-		 */
-		public void computeSelects() {
-			mSelects = new LinkedHashMap<>();
-			for (CCParentInfo info = mTerm.mCCPars; info != null; info = info.mNext) {
-				if (info.mCCParents == null || info.mCCParents.isEmpty()) {
-					continue;
-				}
-				final CCTerm funcTerm = info.mCCParents.iterator().next().getData().getFunc();
-				if (!(funcTerm instanceof CCBaseTerm)
-						|| ((CCBaseTerm) funcTerm).getFunctionSymbol().getName() != "select") {
-					continue;
-				}
-				for (final CCAppTerm.Parent pa : info.mCCParents) {
-					final CCParentInfo selectas = pa.getData().getRepresentative().mCCPars.getExistingParentInfo(0);
-					for (final CCAppTerm.Parent spa : selectas.mCCParents) {
-						final CCAppTerm select = spa.getData();
-						assert (getArrayFromSelect(select).getRepresentative() == mTerm);
-						assert (select != null);
-						mSelects.put(select.mArg.getRepresentative(), select);
-					}
-				}
-			}
 		}
 
 		/**
@@ -1408,18 +1382,41 @@ public class ArrayTheory implements ITheory {
 		}
 	}
 
+	/**
+	 * Fill the select information for the current node. This needs to be called when a new array node is created.
+	 * It finds all select applications using the ccterm information and adds them to the mSelects hash map.
+	 */
+	private void collectSelects(Sort arraySort) {
+		Sort indexSort = arraySort.getArguments()[0];
+		FunctionSymbol selectFsym = arraySort.getTheory().getFunction(SMTLIBConstants.SELECT, arraySort, indexSort);
+		for (CCTerm select : mCClosure.getAllFuncApps(selectFsym)) {
+			final CCAppTerm selectApp = (CCAppTerm) select;
+			final CCTerm array = getArrayFromSelect(selectApp);
+			final CCTerm index = getIndexFromSelect(selectApp);
+			ArrayNode node = mCongRoots.get(array.getRepresentative());
+			node.mSelects.put(index.getRepresentative(), selectApp);
+		}
+	}
+		
+
+
 	private boolean buildWeakEq() {
 		mNumBuildWeakEQ++;
 		final long startTime = System.nanoTime();
+		HashSet<Sort> arraySorts = new HashSet<>();
 		mCongRoots = new LinkedHashMap<>();
 		for (final CCTerm array : mArrays) {
 			final CCTerm rep = array.getRepresentative();
 			if (!mCongRoots.containsKey(rep)) {
 				final ArrayNode node = new ArrayNode(rep);
-				node.computeSelects();
 				mCongRoots.put(rep, node);
+				arraySorts.add(array.getFlatTerm().getSort());
 			}
 		}
+		for (Sort arraySort : arraySorts) {
+			collectSelects(arraySort);
+		}
+		
 		for (final CCAppTerm term : mConsts) {
 			setConst(term);
 		}

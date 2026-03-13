@@ -89,10 +89,15 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	 * its representative rep took place.
 	 */
 	int mMergeTime = Integer.MAX_VALUE;
-	CCParentInfo mCCPars;
+	// CCParentInfo mCCPars;
 	SimpleList<CCTerm> mMembers;
 	int mNumMembers;
 	SimpleList<CCTermPairHash.Info.Entry> mPairInfos;
+	/**
+	 * The list of signature backrefs for all terms in the congruence class.  The representative has all backrefs,
+	 * the other terms point to the sublists that correspond to their children.
+	 */
+	SimpleList<SignatureBackRef> mSignatureBackRefs;
 	/**
 	 * A CCTerm in the current equivalence class that is shared with other theories, i.e. linear arithmetic. This is
 	 * used to propagate equalities between shared terms when two equivalence classes are merged that both have a shared
@@ -136,11 +141,11 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 
 	protected CCTerm(final boolean isFunc, final int parentPos, final int hash, final int age) {
 		mIsFunc = isFunc;
-		mCCPars = null;
+		// mCCPars = null;
 		if (isFunc) {
 			mParentPosition = parentPos;
 		}
-		mCCPars = new CCParentInfo();
+		// mCCPars = new CCParentInfo();
 		mRep = mRepStar = this;
 		mMembers = new SimpleList<>();
 		mPairInfos = new SimpleList<>();
@@ -192,11 +197,11 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				}
 			}
 			if (this == mRepStar) {
-				assert (mCCPars != null);
-				for (CCParentInfo parInfo = mCCPars.mNext; parInfo != null; parInfo = parInfo.mNext) {
-					assert parInfo.mCCParents.wellformed();
-					assert parInfo.mNext == null || parInfo.mFuncSymbNr < parInfo.mNext.mFuncSymbNr;
-				}
+				// assert (mCCPars != null);
+				// for (CCParentInfo parInfo = mCCPars.mNext; parInfo != null; parInfo = parInfo.mNext) {
+				// 	assert parInfo.mCCParents.wellformed();
+				// 	assert parInfo.mNext == null || parInfo.mFuncSymbNr < parInfo.mNext.mFuncSymbNr;
+				// }
 				for (final CCTerm m : mMembers) {
 					assert m.mRepStar == this;
 				}
@@ -374,14 +379,14 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		Clause res;
 		if (src.mNumMembers > dest.mNumMembers) {
 			res = lhs.mergeInternal(engine, this, reason);
-			if (res == null && reason == null) {
-				((CCAppTerm)this).markParentInfos();
-			}
+			// if (res == null && reason == null) {
+				// ((CCAppTerm)this).markParentInfos();
+			// }
 		} else {
 			res = mergeInternal(engine, lhs, reason);
-			if (res == null && reason == null) {
-				((CCAppTerm)lhs).markParentInfos();
-			}
+			// if (res == null && reason == null) {
+			// 	((CCAppTerm)lhs).markParentInfos();
+			// }
 		}
 		assert invariant();
 		assert lhs.invariant();
@@ -513,98 +518,99 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			time = System.nanoTime();
 		}
 		/* Compute congruence closure */
-		if (mIsFunc) {
-			final CCParentInfo srcParentInfo = src.mCCPars.mNext;
-			final CCParentInfo destParentInfo = dest.mCCPars.mNext;
-			// assert (srcParentInfo == null || srcParentInfo.m_Next == null);
-			// assert (destParentInfo == null || destParentInfo.m_Next == null);
-			if (srcParentInfo != null) {
-				assert(srcParentInfo.mFuncSymbNr == destParentInfo.mFuncSymbNr);
-				assert srcParentInfo.mReverseTriggers.isEmpty();
-				tloop: for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
-					if (t1.isMarked()) {
-							continue;
-						}
-					final CCAppTerm t = t1.getData();
-					for (final CCAppTerm.Parent u1 : destParentInfo.mCCParents) {
-						if (u1.isMarked()) {
-							continue;
-						}
-						engine.incCcCount();
-						if (t.mArg.mRepStar == u1.getData().mArg.mRepStar) {
-							engine.addPendingCongruence(t, u1.getData());
-							continue tloop;
-						}
-					}
-				}
-				destParentInfo.mCCParents.joinList(srcParentInfo.mCCParents);
-			}
-		} else {
-			CCParentInfo srcParentInfo = src.mCCPars.mNext;
-			CCParentInfo destParentInfo = dest.mCCPars.mNext;
-			while (srcParentInfo != null && destParentInfo != null) {
-				if (srcParentInfo.mFuncSymbNr < destParentInfo.mFuncSymbNr) {
-					srcParentInfo = srcParentInfo.mNext;
-				} else if (srcParentInfo.mFuncSymbNr > destParentInfo.mFuncSymbNr) {
-					destParentInfo = destParentInfo.mNext;
-				} else {
-					assert(srcParentInfo.mFuncSymbNr == destParentInfo.mFuncSymbNr);
-					tloop: for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
-						if (t1.isMarked()) {
-								continue;
-							}
-						final CCAppTerm t = t1.getData();
-						for (final CCAppTerm.Parent u1 : destParentInfo.mCCParents) {
-							if (u1.isMarked()) {
-								continue;
-							}
-							engine.incCcCount();
-							if (t.mFunc.mRepStar == u1.getData().mFunc.mRepStar) {
-								engine.addPendingCongruence(t, u1.getData());
-								continue tloop;
-							}
-						}
-					}
-					// E-Matching
-					if (!srcParentInfo.mReverseTriggers.isEmpty()) {
-						for (final CCAppTerm.Parent parent : destParentInfo.mCCParents) {
-							if (parent.isMarked()) {
-								continue;
-							}
-							List<CCTerm> appTerms = Collections.singletonList(parent.getData());
-							while (appTerms.get(0).mIsFunc) {
-								appTerms = CClosure.getApplications(appTerms);
-							}
-							for (final CCTerm appTerm : appTerms) {
-								for (final ReverseTrigger trigger : srcParentInfo.mReverseTriggers) {
-									trigger.activate((CCAppTerm) appTerm, false);
-								}
-							}
-						}
-					}
-					if (!destParentInfo.mReverseTriggers.isEmpty()) {
-						for (final CCAppTerm.Parent parent : srcParentInfo.mCCParents) {
-							if (parent.isMarked()) {
-								continue;
-							}
-							List<CCTerm> appTerms = Collections.singletonList(parent.getData());
-							while (appTerms.get(0).mIsFunc) {
-								appTerms = CClosure.getApplications(appTerms);
-							}
-							for (final CCTerm appTerm : appTerms) {
-								for (final ReverseTrigger trigger : destParentInfo.mReverseTriggers) {
-									trigger.activate((CCAppTerm) appTerm, false);
-								}
-							}
-						}
-					}
+		engine.pushSignatureTodo(src, src.mSignatureBackRefs);
+		// if (mIsFunc) {
+		// 	final CCParentInfo srcParentInfo = src.mCCPars.mNext;
+		// 	final CCParentInfo destParentInfo = dest.mCCPars.mNext;
+		// 	// assert (srcParentInfo == null || srcParentInfo.m_Next == null);
+		// 	// assert (destParentInfo == null || destParentInfo.m_Next == null);
+		// 	if (srcParentInfo != null) {
+		// 		assert(srcParentInfo.mFuncSymbNr == destParentInfo.mFuncSymbNr);
+		// 		assert srcParentInfo.mReverseTriggers.isEmpty();
+		// 		tloop: for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
+		// 			if (t1.isMarked()) {
+		// 					continue;
+		// 				}
+		// 			final CCAppTerm t = t1.getData();
+		// 			for (final CCAppTerm.Parent u1 : destParentInfo.mCCParents) {
+		// 				if (u1.isMarked()) {
+		// 					continue;
+		// 				}
+		// 				engine.incCcCount();
+		// 				if (t.mArg.mRepStar == u1.getData().mArg.mRepStar) {
+		// 					engine.addPendingCongruence(t, u1.getData());
+		// 					continue tloop;
+		// 				}
+		// 			}
+		// 		}
+		// 		destParentInfo.mCCParents.joinList(srcParentInfo.mCCParents);
+		// 	}
+		// } else {
+		// 	CCParentInfo srcParentInfo = src.mCCPars.mNext;
+		// 	CCParentInfo destParentInfo = dest.mCCPars.mNext;
+		// 	while (srcParentInfo != null && destParentInfo != null) {
+		// 		if (srcParentInfo.mFuncSymbNr < destParentInfo.mFuncSymbNr) {
+		// 			srcParentInfo = srcParentInfo.mNext;
+		// 		} else if (srcParentInfo.mFuncSymbNr > destParentInfo.mFuncSymbNr) {
+		// 			destParentInfo = destParentInfo.mNext;
+		// 		} else {
+		// 			assert(srcParentInfo.mFuncSymbNr == destParentInfo.mFuncSymbNr);
+		// 			tloop: for (final CCAppTerm.Parent t1 : srcParentInfo.mCCParents) {
+		// 				if (t1.isMarked()) {
+		// 						continue;
+		// 					}
+		// 				final CCAppTerm t = t1.getData();
+		// 				for (final CCAppTerm.Parent u1 : destParentInfo.mCCParents) {
+		// 					if (u1.isMarked()) {
+		// 						continue;
+		// 					}
+		// 					engine.incCcCount();
+		// 					if (t.mFunc.mRepStar == u1.getData().mFunc.mRepStar) {
+		// 						engine.addPendingCongruence(t, u1.getData());
+		// 						continue tloop;
+		// 					}
+		// 				}
+		// 			}
+		// 			// E-Matching
+		// 			if (!srcParentInfo.mReverseTriggers.isEmpty()) {
+		// 				for (final CCAppTerm.Parent parent : destParentInfo.mCCParents) {
+		// 					if (parent.isMarked()) {
+		// 						continue;
+		// 					}
+		// 					List<CCTerm> appTerms = Collections.singletonList(parent.getData());
+		// 					while (appTerms.get(0).mIsFunc) {
+		// 						appTerms = CClosure.getApplications(appTerms);
+		// 					}
+		// 					for (final CCTerm appTerm : appTerms) {
+		// 						for (final ReverseTrigger trigger : srcParentInfo.mReverseTriggers) {
+		// 							trigger.activate((CCAppTerm) appTerm, false);
+		// 						}
+		// 					}
+		// 				}
+		// 			}
+		// 			if (!destParentInfo.mReverseTriggers.isEmpty()) {
+		// 				for (final CCAppTerm.Parent parent : srcParentInfo.mCCParents) {
+		// 					if (parent.isMarked()) {
+		// 						continue;
+		// 					}
+		// 					List<CCTerm> appTerms = Collections.singletonList(parent.getData());
+		// 					while (appTerms.get(0).mIsFunc) {
+		// 						appTerms = CClosure.getApplications(appTerms);
+		// 					}
+		// 					for (final CCTerm appTerm : appTerms) {
+		// 						for (final ReverseTrigger trigger : destParentInfo.mReverseTriggers) {
+		// 							trigger.activate((CCAppTerm) appTerm, false);
+		// 						}
+		// 					}
+		// 				}
+		// 			}
 
-					srcParentInfo = srcParentInfo.mNext;
-					destParentInfo = destParentInfo.mNext;
-				}
-			}
-			dest.mCCPars.mergeParentInfo(src.mCCPars);
-		}
+		// 			srcParentInfo = srcParentInfo.mNext;
+		// 			destParentInfo = destParentInfo.mNext;
+		// 		}
+		// 	}
+		// 	dest.mCCPars.mergeParentInfo(src.mCCPars);
+		// }
 
 		if (Config.PROFILE_TIME) {
 			engine.addCcTime(System.nanoTime() - time);
@@ -634,45 +640,46 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		mOldRep = null;
 		dest = mRepStar;
 		assert src.mRep == dest;
-		dest.mCCPars.unmergeParentInfo(src.mCCPars);
+		// dest.mCCPars.unmergeParentInfo(src.mCCPars);
 		// Congruence merge
-		if (src.mReasonLiteral == null) {
-			((CCAppTerm) this).unmarkParentInfos();
-		}
+		// if (src.mReasonLiteral == null) {
+		// 	((CCAppTerm) this).unmarkParentInfos();
+		// }
 
 		//System.err.println("Unmerge "+this+"+"+lhs+" -> "+src+" "+dest);
 		//Logger.getRootLogger().debug("U"+lhs+"=="+this);
 		src.mReasonLiteral = null;
-		for (final CCTermPairHash.Info.Entry pentry : src.mPairInfos.reverse()) {
-			final CCTermPairHash.Info info = pentry.getInfo();
-			assert pentry.getOtherEntry().mOther == src;
-			engine.mPairHash.add(pentry.getInfo());
-			assert pentry.mOther.mPairInfos.wellformed();
-			pentry.mOther.mPairInfos.append(pentry.getOtherEntry());
-			assert pentry.mOther.mPairInfos.wellformed();
-			final CCTerm other = pentry.mOther;
-			assert other.mRepStar == other;
-			if (other != dest) {
-				//System.err.println("UM "+src+" "+other+" "+dest);
-				final CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other);
-				if (destInfo == null) {
-					continue;
-				}
-				destInfo.mCompareTriggers.unjoinList(info.mCompareTriggers);
-				assert destInfo.mEqlits.wellformed();
-				destInfo.mEqlits.unjoinList(info.mEqlits);
-				assert info.mEqlits.wellformed() && destInfo.mEqlits.wellformed();
-				if (destInfo.mDiseq == info.mDiseq) {
-					destInfo.mDiseq = null;
-				}
-				/* Check if we can remove destInfo since it is empty now */
-				if (destInfo.mDiseq == null && destInfo.mEqlits.isEmpty() && destInfo.mCompareTriggers.isEmpty()) {
-					destInfo.mLhsEntry.unlink();
-					destInfo.mRhsEntry.unlink();
-					engine.removePairHash(destInfo);
-				}
-			}
-		}
+		// for (final CCTermPairHash.Info.Entry pentry : src.mPairInfos.reverse()) {
+		// 	final CCTermPairHash.Info info = pentry.getInfo();
+		// 	assert pentry.getOtherEntry().mOther == src;
+		// 	engine.mPairHash.add(pentry.getInfo());
+		// 	assert pentry.mOther.mPairInfos.wellformed();
+		// 	pentry.mOther.mPairInfos.append(pentry.getOtherEntry());
+		// 	assert pentry.mOther.mPairInfos.wellformed();
+		// 	final CCTerm other = pentry.mOther;
+		// 	assert other.mRepStar == other;
+		// 	if (other != dest) {
+		// 		//System.err.println("UM "+src+" "+other+" "+dest);
+		// 		final CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other);
+		// 		if (destInfo == null) {
+		// 			continue;
+		// 		}
+		// 		destInfo.mCompareTriggers.unjoinList(info.mCompareTriggers);
+		// 		assert destInfo.mEqlits.wellformed();
+		// 		destInfo.mEqlits.unjoinList(info.mEqlits);
+		// 		assert info.mEqlits.wellformed() && destInfo.mEqlits.wellformed();
+		// 		if (destInfo.mDiseq == info.mDiseq) {
+		// 			destInfo.mDiseq = null;
+		// 		}
+		// 		/* Check if we can remove destInfo since it is empty now */
+		// 		if (destInfo.mDiseq == null && destInfo.mEqlits.isEmpty() && destInfo.mCompareTriggers.isEmpty()) {
+		// 			destInfo.mLhsEntry.unlink();
+		// 			destInfo.mRhsEntry.unlink();
+		// 			engine.removePairHash(destInfo);
+		// 		}
+		// 	}
+		// }
+		engine.pushSignatureTodo(src, src.mSignatureBackRefs);
 
 		dest.mNumMembers -= src.mNumMembers;
 		if (Config.PROFILE_TIME) {

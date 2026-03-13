@@ -28,12 +28,14 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
  * global signature-to-trigger map in CClosure. Hash and equality are based on the <em>representatives</em> of the
  * terms, so when representatives change (e.g. after a merge), the same term array yields a different signature key.
  *
- * @author Jochen Hoenicke, Jürgen Christ
+ * @author Jochen Hoenicke
  */
-public final class Signature {
+public class SignatureTrigger {
 
 	private final Object mId;
 	private final CCTerm[] mTerms;
+
+	private SignatureTrigger mMergedTrigger;
 
 	/**
 	 * Create a signature with the given identifier and non-empty term array. The array may contain any CCTerms, not
@@ -44,7 +46,7 @@ public final class Signature {
 	 * @param terms
 	 *            non-empty array of CCTerms.
 	 */
-	public Signature(final Object id, final CCTerm[] terms) {
+	public SignatureTrigger(final Object id, final CCTerm[] terms) {
 		if (terms == null || terms.length == 0) {
 			throw new IllegalArgumentException("terms must be non-empty");
 		}
@@ -71,11 +73,43 @@ public final class Signature {
 		return Arrays.asList(mTerms);
 	}
 
+	public void rehash(CClosure engine, int argPosition, CCTerm newRep) {
+		/* only if not merged */
+		if (mMergedTrigger == null) {
+			engine.removeSignature(this);
+			mTerms[argPosition] = newRep;
+			engine.addSignature(this);
+		}
+	}
+	
+	/**
+	 * Merge this trigger with another. Called by CClosure.addSignature when a Trigger with the same signature already exists.
+	 * This combines the information of the two triggers into a single trigger, and may also trigger actions like adding pending congruences or activating reverse triggers.
+	 * @param engine the congruence closure engine.
+	 * @param other the trigger that was merged into this trigger.
+	 */
+	public void merge(CClosure engine, SignatureTrigger other) {
+		assert other.mMergedTrigger == null;
+		other.mMergedTrigger = this;
+	}
+
+	/**
+	 * Undo the merge of this trigger with another. Called when undoing a merge at checkpoint.
+	 * @param engine
+	 *            the congruence closure engine.
+	 * @param other
+	 *            the trigger that was merged into this trigger.
+	 */
+	public void undoMerge(CClosure engine, SignatureTrigger other) {
+		assert other.mMergedTrigger == this;
+		other.mMergedTrigger = null;
+	}
+
 	@Override
 	public int hashCode() {
 		int h = mId.hashCode();
 		for (final CCTerm t : mTerms) {
-			h = HashUtils.hashJenkins(h, t.getRepresentative());
+			h = HashUtils.hashJenkins(h, t);
 		}
 		return h;
 	}
@@ -85,15 +119,15 @@ public final class Signature {
 		if (this == obj) {
 			return true;
 		}
-		if (!(obj instanceof Signature)) {
+		if (!(obj instanceof SignatureTrigger)) {
 			return false;
 		}
-		final Signature other = (Signature) obj;
+		final SignatureTrigger other = (SignatureTrigger) obj;
 		if (!mId.equals(other.mId) || mTerms.length != other.mTerms.length) {
 			return false;
 		}
 		for (int i = 0; i < mTerms.length; i++) {
-			if (mTerms[i].getRepresentative() != other.mTerms[i].getRepresentative()) {
+			if (mTerms[i] != other.mTerms[i]) {
 				return false;
 			}
 		}

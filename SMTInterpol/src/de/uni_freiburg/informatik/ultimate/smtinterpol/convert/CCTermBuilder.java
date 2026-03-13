@@ -74,11 +74,10 @@ public class CCTermBuilder {
 					mOps.push(new SaveCCTerm(mTerm));
 					final ApplicationTerm at = (ApplicationTerm) mTerm;
 					final Term[] args = at.getParameters();
+					mOps.push(new BuildCCAppTerm(fs));
 					for (int i = args.length - 1; i >= 0; --i) {
-						mOps.push(new BuildCCAppTerm(i != args.length - 1));
 						mOps.push(new BuildCCTerm(args[i]));
 					}
-					mConverted.push(cclosure.getFuncTerm(fs));
 				} else {
 					// We have an intern function symbol
 					ccTerm = cclosure.createAnonTerm(mTerm);
@@ -113,17 +112,19 @@ public class CCTermBuilder {
 	 * @author Juergen Christ
 	 */
 	private class BuildCCAppTerm implements Operation {
-		private final boolean mIsFunc;
+		private final FunctionSymbol mFunc;
 
-		public BuildCCAppTerm(final boolean isFunc) {
-			mIsFunc = isFunc;
+		public BuildCCAppTerm(FunctionSymbol func) {
+			mFunc = func;
 		}
 
 		@Override
 		public void perform() {
-			final CCTerm arg = mConverted.pop();
-			final CCTerm func = mConverted.pop();
-			mConverted.push(mClausifier.getCClosure().createAppTerm(mIsFunc, func, arg, mSource));
+			CCTerm[] args = new CCTerm[mFunc.getParameterSorts().length];
+			for (int i = args.length - 1; i >= 0; i--) {
+				args[i] = mConverted.pop();
+			}
+			mConverted.push(mClausifier.getCClosure().createAppTerm(mFunc, args, mSource));
 		}
 	}
 }

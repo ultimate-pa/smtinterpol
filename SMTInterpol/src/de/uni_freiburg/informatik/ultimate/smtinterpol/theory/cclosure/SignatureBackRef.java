@@ -18,34 +18,30 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
+
 /**
  * A back-reference from a representative to a signature: the representative appears in the signature's term list at
  * listIndex, and the trigger is the value stored in the global map for that signature. When the representative
  * changes (merge), this back-ref is pushed to the todo stack and processed at checkpoint (rehash, merge triggers).
  *
- * @author Jochen Hoenicke, Jürgen Christ
+ * @author Jochen Hoenicke
  */
-public final class SignatureBackRef {
+public final class SignatureBackRef extends SimpleListable<SignatureBackRef> {
 
-	private final Signature mSignature;
-	private final int mListIndex;
-	private final Trigger mTrigger;
+	private final SignatureTrigger mSignatureTrigger;
+	private final int mArgPosition;
 
-	public SignatureBackRef(final Signature signature, final int listIndex, final Trigger trigger) {
-		mSignature = signature;
-		mListIndex = listIndex;
-		mTrigger = trigger;
+	public SignatureBackRef(final SignatureTrigger signatureTrigger, final int argPosition) {
+		mSignatureTrigger = signatureTrigger;
+		mArgPosition = argPosition;
 	}
 
-	public Signature getSignature() {
-		return mSignature;
+	public SignatureTrigger getSignatureTrigger() {
+		return mSignatureTrigger;
 	}
 
-	public int getListIndex() {
-		return mListIndex;
-	}
-
-	public Trigger getTrigger() {
-		return mTrigger;
+	public int getArgPosition() {
+		return mArgPosition;
 	}
 }

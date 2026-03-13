@@ -28,27 +28,30 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
  *
  * @author Jochen Hoenicke
  */
-public final class ReverseTriggerTrigger extends SignatureTrigger {
-
+public final class FindTriggerTrigger extends SignatureTrigger {
 	private final SimpleList<ReverseTrigger> mTriggers = new SimpleList<>();
 	private final SimpleList<AppTermEntry> mApplications = new SimpleList<>();
 
 
-	public ReverseTriggerTrigger(MasterReverseTrigger masterTrigger, ReverseTrigger trigger) {
-		super(masterTrigger, new CCTerm[] { trigger.getArgument() });
+	public FindTriggerTrigger(ReverseTrigger trigger) {
+		super(trigger.getFunctionSymbol(), new CCTerm[0]);
 		mTriggers.append(trigger);
 	}
 
-	public ReverseTriggerTrigger(MasterReverseTrigger masterTrigger, CCAppTerm app, int argPosition) {
-		super(masterTrigger, new CCTerm[] { app.getArgument(argPosition) });
-		mApplications.append(new AppTermEntry(app));
+	public FindTriggerTrigger(CCAppTerm appTerm) {
+		super(appTerm.getFunctionSymbol(), new CCTerm[0]);
+		mApplications.append(new AppTermEntry(appTerm));
+	}
+
+	public SimpleList<AppTermEntry> getApplications() {
+		return mApplications;
 	}
 
 	@Override
 	public void merge(final CClosure engine, final SignatureTrigger other) {
 		super.merge(engine, other);
-		assert other instanceof ReverseTriggerTrigger;
-		final ReverseTriggerTrigger otherRev = (ReverseTriggerTrigger) other;
+		assert other instanceof FindTriggerTrigger;
+		final FindTriggerTrigger otherRev = (FindTriggerTrigger) other;
 
 		// Cross-activate: every trigger in this list on every app in other's list
 		for (final ReverseTrigger trigger : mTriggers) {
@@ -71,8 +74,8 @@ public final class ReverseTriggerTrigger extends SignatureTrigger {
 	@Override
 	public void undoMerge(final CClosure engine, final SignatureTrigger other) {
 		super.undoMerge(engine, other);
-		assert other instanceof ReverseTriggerTrigger;
-		final ReverseTriggerTrigger otherRev = (ReverseTriggerTrigger) other;
+		assert other instanceof FindTriggerTrigger;
+		final FindTriggerTrigger otherRev = (FindTriggerTrigger) other;
 
 		// unjoin both lists
 		mTriggers.unjoinList(otherRev.mTriggers);

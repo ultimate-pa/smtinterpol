@@ -50,7 +50,8 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.Model;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.FindTriggerTrigger.AppTermEntry;
+// import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.EQAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
@@ -169,15 +170,12 @@ public class CClosure implements ITheory {
 	 * again (its hashCode/equals use representatives, so it now maps to the new bucket). We do not keep the old key in
 	 * the map, since that would leave the map inconsistent.
 	 */
-	final Set<SignatureTrigger> mSignatureTriggers = new HashSet<>();
+	final Map<SignatureTrigger, SignatureTrigger> mSignatureTriggers = new HashMap<>();
 	/**
 	 * Todo stack for deferred signature rehash: (oldRep, backRefList). Pushed when the smaller class is merged;
 	 * processed at checkpoint.
 	 */
 	final ArrayDeque<SignatureTodoEntry> mSignatureTodo = new ArrayDeque<>();
-
-	final Map<FunctionSymbol, BitSet> mWatchedArgs = new HashMap<>();
-	final Map<FunctionSymbol, SimpleList<ReverseTrigger>> mFindTriggers = new HashMap<>();
 
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
@@ -262,128 +260,56 @@ public class CClosure implements ITheory {
 		}
 	}
 
-	/**
-	 * Searches for the congruent term of {@code CCAppTerm(func,arg)} that would have been merged on the lowest decision
-	 * level.
-	 *
-	 * @param func
-	 *            The CCTerm representing the function.
-	 * @param arg
-	 *            The CCTerm representing the argument.
-	 * @return The congruent CCAppTerm or null if there is no congruent application.
-	 */
-	private CCAppTerm findCongruentAppTerm(final CCTerm func, final CCTerm arg) {
-		final CCParentInfo argInfo = arg.getRepresentative().mCCPars.getInfo(func.mParentPosition);
-		int congruenceLevel = Integer.MAX_VALUE;
-		CCAppTerm congruentTerm = null;
-		// Look for all congruent terms for the argument.
-		for (final Parent p : argInfo.mCCParents) {
-			final CCAppTerm papp = p.getData();
-			final CCTerm pfunc = papp.getFunc();
-			final CCTerm parg = papp.getArg();
-			assert parg.getRepresentative() == arg.getRepresentative();
-			if (pfunc.getRepresentative() != func.getRepresentative()) {
-				// this term is not congruent
-				continue;
-			}
-			if (pfunc == func && parg == arg) {
-				// this is the app term for which we search a congruent term; skip it
-				continue;
-			}
-			// compute the level where the congruence occurred
-			final int level = Math.max(getMergeStackDepth(pfunc, func), getMergeStackDepth(parg, arg));
-			// store the congruence with the smallest level
-			if (level < congruenceLevel) {
-				congruenceLevel = level;
-				congruentTerm = papp;
-			}
-		}
-		return congruentTerm;
-	}
-
-	public CCAppTerm createAppTerm(final boolean isFunc, final CCTerm func, final CCTerm arg,
-			final SourceAnnotation source) {
-		assert func.mIsFunc;
-		final CCParentInfo info = arg.mRepStar.mCCPars.getExistingParentInfo(func.mParentPosition);
-		if (info != null) {
-			final SimpleList<CCAppTerm.Parent> prevParents = info.mCCParents;
-			assert prevParents.wellformed();
-			for (final CCAppTerm.Parent termpar : prevParents) {
-				final CCAppTerm term = termpar.getData();
-				if (term.mFunc == func && term.mArg == arg) {
-					return term;
-				}
-			}
-		}
-		final CCAppTerm term = new CCAppTerm(isFunc, isFunc ? func.mParentPosition + 1 : 0, func, arg, this,
-				source.isFromQuantTheory());
-		if (!isFunc) {
+	public CCTerm createAppTerm(FunctionSymbol func, final CCTerm[] args, final SourceAnnotation source) {
+		if (args.length > 0) {
+			final CCAppTerm term = new CCAppTerm(func, args, this, source.isFromQuantTheory());
 			if (term.getAge() > 0) {
 				getLogger().debug("Create new AppTerm %s of age %d", term, term.getAge());
 			}
-			ArrayDeque<CCTerm> args = new ArrayDeque<>();
-			CCTerm curr = term;
-			while (curr instanceof CCAppTerm) {
-				CCAppTerm currAppTerm = (CCAppTerm) curr;
-				args.addFirst(currAppTerm.getArg());
-				curr =  currAppTerm.getFunc();
+			CCTerm[] argReps = new CCTerm[args.length];
+			for (int i = 0; i < args.length; i++) {
+				argReps[i] = args[i].getRepresentative();
 			}
-			FunctionSymbol fsym = ((CCBaseTerm) curr).getFunctionSymbol();
-			CCTerm[] argsArray = args.toArray(new CCTerm[args.size()]);
-			CongruenceTrigger congruenceTrigger = new CongruenceTrigger(term, fsym, argsArray);
-			for (int i = 0; i < argsArray.length; i++) {
-				SignatureBackRef backref = new SignatureBackRef(congruenceTrigger, i);
-				addSignatureBackRef(argsArray[i], backref);
-			}
+			CongruenceTrigger congruenceTrigger = new CongruenceTrigger(term, func, argReps);
 			addSignature(congruenceTrigger);
 			addSignature(new FindTriggerTrigger(term));
-		}
-		mAllTerms.add(term);
-		return term;
-	}
-
-	/**
-	 * Function to retrieve the CCTerm representing a function symbol.
-	 *
-	 * @param sym
-	 *            Function symbol.
-	 * @return CCTerm representing this function symbol in the egraph.
-	 */
-	public CCTerm getFuncTerm(final FunctionSymbol sym) {
-		CCBaseTerm term = mSymbolicTerms.get(sym);
-		if (term == null) {
-			term = new CCBaseTerm(sym.getParameterSorts().length > 0, mNumFunctionPositions, sym);
 			mAllTerms.add(term);
-			mNumFunctionPositions += sym.getParameterSorts().length;
-			mSymbolicTerms.put(sym, term);
+			return term;
+		} else {
+			CCBaseTerm term = mSymbolicTerms.get(func);
+			if (term == null) {
+				term = new CCBaseTerm(false, 0, func);
+				mAllTerms.add(term);
+				mSymbolicTerms.put(func, term);
+			}
+			return term;	
 		}
-		return term;
 	}
 
-	/**
-	 * Get all terms that appear under a given function at a given position.
-	 *
-	 * @param sym
-	 *            the function symbol
-	 * @param argPos
-	 *            the argument position
-	 * @return the CCTerms that appear under the given function as argPos-th argument.
-	 */
-	public Collection<CCTerm> getArgTermsForFunc(final FunctionSymbol sym, final int argPos) {
-		assert sym.getParameterSorts().length > argPos;
-		final List<CCTerm> args = new ArrayList<>();
-		List<CCTerm> parents = new ArrayList<>();
-		parents.add(getFuncTerm(sym));
-		for (int i = 0; i <= argPos; i++) {
-			parents = getApplications(parents);
-		}
-		// Collect the arguments at argPos
-		for (final CCTerm par : parents) {
-			assert par instanceof CCAppTerm;
-			args.add(((CCAppTerm) par).getArg());
-		}
-		return args;
-	}
+	// /**
+	//  * Get all terms that appear under a given function at a given position.
+	//  *
+	//  * @param sym
+	//  *            the function symbol
+	//  * @param argPos
+	//  *            the argument position
+	//  * @return the CCTerms that appear under the given function as argPos-th argument.
+	//  */
+	// public Collection<CCTerm> getArgTermsForFunc(final FunctionSymbol sym, final int argPos) {
+	// 	assert sym.getParameterSorts().length > argPos;
+	// 	final List<CCTerm> args = new ArrayList<>();
+	// 	List<CCTerm> parents = new ArrayList<>();
+	// 	parents.add(getFuncTerm(sym));
+	// 	for (int i = 0; i <= argPos; i++) {
+	// 		parents = getApplications(parents);
+	// 	}
+	// 	// Collect the arguments at argPos
+	// 	for (final CCTerm par : parents) {
+	// 		assert par instanceof CCAppTerm;
+	// 		args.add(((CCAppTerm) par).getArg());
+	// 	}
+	// 	return args;
+	// }
 
 	/**
 	 * Get all terms that are a (complete) function application of the given function symbol.
@@ -393,61 +319,63 @@ public class CClosure implements ITheory {
 	 * @return all function applications of the given function symbol.
 	 */
 	public List<CCTerm> getAllFuncApps(final FunctionSymbol sym) {
-		List<CCTerm> parents = Collections.singletonList(getFuncTerm(sym));
-		for (int i = 0; i < sym.getParameterSorts().length; i++) {
-			parents = getApplications(parents);
+		SignatureTrigger sig = new SignatureTrigger(sym, new CCTerm[0]);
+		FindTriggerTrigger findTrigger = (FindTriggerTrigger) mSignatureTriggers.get(sig);
+		List<CCTerm> parents = new ArrayList<>();
+		for (AppTermEntry appTerm : findTrigger.getApplications()) {
+			parents.add(appTerm.getAppTerm());
 		}
 		return parents;
 	}
 
-	/**
-	 * Get all applications given partial functions.
-	 *
-	 * @param partialFunctions
-	 *            CCTerms that are partial functions.
-	 * @return all CCTerms that are applications of the given partial functions.
-	 */
-	static List<CCTerm> getApplications(final List<CCTerm> partialFunctions) {
-		final List<CCTerm> applications = new ArrayList<>();
-		for (final CCTerm funcTerm : partialFunctions) {
-			final CCParentInfo info = funcTerm.getRepresentative().mCCPars.getInfo(0);
-			if (info != null) {
-				for (final Parent grandparent : info.mCCParents) {
-					applications.add(grandparent.getData());
-				}
-			}
-		}
-		return applications;
-	}
+	// /**
+	//  * Get all applications given partial functions.
+	//  *
+	//  * @param partialFunctions
+	//  *            CCTerms that are partial functions.
+	//  * @return all CCTerms that are applications of the given partial functions.
+	//  */
+	// static List<CCTerm> getApplications(final List<CCTerm> partialFunctions) {
+	// 	final List<CCTerm> applications = new ArrayList<>();
+	// 	for (final CCTerm funcTerm : partialFunctions) {
+	// 		final CCParentInfo info = funcTerm.getRepresentative().mCCPars.getInfo(0);
+	// 		if (info != null) {
+	// 			for (final Parent grandparent : info.mCCParents) {
+	// 				applications.add(grandparent.getData());
+	// 			}
+	// 		}
+	// 	}
+	// 	return applications;
+	// }
 
-	/**
-	 * Get all (complete) function applications of a given function symbol with a given argument at a given position.
-	 *
-	 * @param sym
-	 *            the function symbol.
-	 * @param arg
-	 *            the argument the application term should contain.
-	 * @param argPos
-	 *            the position of the given argument.
-	 * @return all function applications of the given function symbol with the given argument at the given position.
-	 */
-	public List<CCTerm> getAllFuncAppsForArg(final FunctionSymbol sym, final CCTerm arg, final int argPos) {
-		final CCTerm funcTerm = getFuncTerm(sym);
-		final int parentPosition = funcTerm.mParentPosition + argPos;
-		final CCParentInfo info = arg.getRepresentative().mCCPars.getInfo(parentPosition);
-		List<CCTerm> funcApps = new ArrayList<>();
-		if (info != null) {
-			for (final Parent parent : info.mCCParents) {
-				if (!parent.isMarked()) {
-					funcApps.add(parent.getData());
-				}
-			}
-			for (int i = argPos + 1; i < sym.getParameterSorts().length; i++) {
-				funcApps = getApplications(funcApps);
-			}
-		}
-		return funcApps;
-	}
+	// /**
+	//  * Get all (complete) function applications of a given function symbol with a given argument at a given position.
+	//  *
+	//  * @param sym
+	//  *            the function symbol.
+	//  * @param arg
+	//  *            the argument the application term should contain.
+	//  * @param argPos
+	//  *            the position of the given argument.
+	//  * @return all function applications of the given function symbol with the given argument at the given position.
+	//  */
+	// public List<CCTerm> getAllFuncAppsForArg(final FunctionSymbol sym, final CCTerm arg, final int argPos) {
+	// 	final CCTerm funcTerm = getFuncTerm(sym);
+	// 	final int parentPosition = funcTerm.mParentPosition + argPos;
+	// 	final CCParentInfo info = arg.getRepresentative().mCCPars.getInfo(parentPosition);
+	// 	List<CCTerm> funcApps = new ArrayList<>();
+	// 	if (info != null) {
+	// 		for (final Parent parent : info.mCCParents) {
+	// 			if (!parent.isMarked()) {
+	// 				funcApps.add(parent.getData());
+	// 			}
+	// 		}
+	// 		for (int i = argPos + 1; i < sym.getParameterSorts().length; i++) {
+	// 			funcApps = getApplications(funcApps);
+	// 		}
+	// 	}
+	// 	return funcApps;
+	// }
 
 	/**
 	 * Insert a Compare trigger that will be activated as soon as the two given CCTerms are equal. It is inserted into
@@ -586,19 +514,11 @@ public class CClosure implements ITheory {
 	 */
 	public void insertReverseTrigger(final FunctionSymbol sym, CCTerm arg, final int argPos,
 			final ReverseTrigger trigger) {
-		BitSet watchedArgs = mWatchedArgs.get(sym);
-		if (watchedArgs == null) {
-			watchedArgs = new BitSet();
-			mWatchedArgs.put(sym, watchedArgs);
-		}
-		if (!watchedArgs.get(argPos)) {
-			watchedArgs.set(argPos);
-
-		}
-		ReverseTriggerTrigger reverseTriggerTrigger = new ReverseTriggerTrigger(trigger);
+		MasterReverseTrigger masterTrigger = MasterReverseTrigger.of(this, sym, argPos);
+		ReverseTriggerTrigger reverseTriggerTrigger = new ReverseTriggerTrigger(masterTrigger, trigger);
 		addSignature(reverseTriggerTrigger);
 		addSignatureBackRef(arg, new SignatureBackRef(reverseTriggerTrigger, argPos));
-}
+	}
 
 	/**
 	 * Insert a Reverse trigger that will be activated as soon as a new function application of the given function
@@ -609,44 +529,39 @@ public class CClosure implements ITheory {
 	 * @param trigger
 	 *            the Reverse trigger.
 	 */
-	public void insertReverseTrigger(final FunctionSymbol sym, final ReverseTrigger trigger) {
-		SimpleList<ReverseTrigger> findTriggers = mFindTriggers.get(sym);
-		if (findTriggers == null) {
-			findTriggers = new SimpleList<>();
-			mFindTriggers.put(sym, findTriggers);
-		}
-		findTriggers.append(trigger);
+	public void insertFindTrigger(final FunctionSymbol sym, final ReverseTrigger trigger) {
+		addSignature(new FindTriggerTrigger(trigger));
 	}
 
 	/**
 	 * Remove a given Reverse trigger.
 	 */
 	public void removeReverseTrigger(final ReverseTrigger trigger) {
-		final CCTerm func = getFuncTerm(trigger.getFunctionSymbol());
-		CCTerm termWithTrigger;
-		final int parentPos;
-		if (trigger.getArgPosition() < 0) {
-			/* this is a find trigger */
-			assert func == func.mRep;
-			termWithTrigger = func;
-			parentPos = 0;
-		} else {
-			/* this is a reverse trigger */
-			termWithTrigger = trigger.getArgument();
-			parentPos = func.mParentPosition + trigger.getArgPosition();
-		}
-		if (!mAllTerms.contains(termWithTrigger)) {
-			return; // FIXME This is a workaround for the problem that pop() first removes terms, then triggers, as it
-			// is executed for CClosure first. Then this method can be called for a trigger where the
-			// corresponding term has already been removed.
-		}
-		while (termWithTrigger != termWithTrigger.mRep) {
-			final CCParentInfo info = termWithTrigger.mCCPars.createInfo(parentPos);
-			info.mReverseTriggers.undoPrependIntoJoined(trigger, false);
-			termWithTrigger = termWithTrigger.mRep;
-		}
-		final CCParentInfo info = termWithTrigger.mCCPars.createInfo(parentPos);
-		info.mReverseTriggers.undoPrependIntoJoined(trigger, true);
+		// final CCTerm func = getFuncTerm(trigger.getFunctionSymbol());
+		// CCTerm termWithTrigger;
+		// final int parentPos;
+		// if (trigger.getArgPosition() < 0) {
+		// 	/* this is a find trigger */
+		// 	assert func == func.mRep;
+		// 	termWithTrigger = func;
+		// 	parentPos = 0;
+		// } else {
+		// 	/* this is a reverse trigger */
+		// 	termWithTrigger = trigger.getArgument();
+		// 	parentPos = func.mParentPosition + trigger.getArgPosition();
+		// }
+		// if (!mAllTerms.contains(termWithTrigger)) {
+		// 	return; // FIXME This is a workaround for the problem that pop() first removes terms, then triggers, as it
+		// 	// is executed for CClosure first. Then this method can be called for a trigger where the
+		// 	// corresponding term has already been removed.
+		// }
+		// while (termWithTrigger != termWithTrigger.mRep) {
+		// 	final CCParentInfo info = termWithTrigger.mCCPars.createInfo(parentPos);
+		// 	info.mReverseTriggers.undoPrependIntoJoined(trigger, false);
+		// 	termWithTrigger = termWithTrigger.mRep;
+		// }
+		// final CCParentInfo info = termWithTrigger.mCCPars.createInfo(parentPos);
+		// info.mReverseTriggers.undoPrependIntoJoined(trigger, true);
 	}
 
 
@@ -655,12 +570,12 @@ public class CClosure implements ITheory {
 	}
 
 	public void addSignature(SignatureTrigger signatureTrigger) {
-		SignatureTrigger mergeTrigger = mSignatureTriggers.contains(signatureTrigger);
+		SignatureTrigger mergeTrigger = mSignatureTriggers.get(signatureTrigger);
 		if (mergeTrigger != null) {
 			mergeTrigger.merge(this, signatureTrigger);
 			mUndoStack.push(new TriggerMergeUndoEntry(mergeTrigger, signatureTrigger));
 		} else {
-			mSignatureTriggers.add(signatureTrigger);
+			mSignatureTriggers.put(signatureTrigger, signatureTrigger);
 		}
 	}
 
@@ -679,45 +594,47 @@ public class CClosure implements ITheory {
 		}
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm at = (ApplicationTerm) term;
-			CCTerm func = getFuncTerm(at.getFunction()).getRepresentative();
-			for (final Term argTerm : at.getParameters()) {
-				final CCTerm arg = getCCTermRep(argTerm);
-				if (arg == null) {
-					return null;
-				}
-				func = findCCAppTermRep(func, arg);
-				if (func == null) {
+			FunctionSymbol funcSym = at.getFunction();
+			Term[] params = at.getParameters();
+			CCTerm[] argReps = new CCTerm[params.length];
+			for (int i = 0; i < params.length; i++) {
+				argReps[i] = getCCTermRep(params[i]);
+				if (argReps[i] == null) {
 					return null;
 				}
 			}
-			return func;
+			SignatureTrigger sig = new SignatureTrigger(funcSym, argReps);
+			CongruenceTrigger congTrigger = (CongruenceTrigger) mSignatureTriggers.get(sig);
+			if (congTrigger != null) {
+				return congTrigger.getApp().getRepresentative();
+			}
 		}
 		return null;
 	}
 
-	/**
-	 * Find the representative CCTerm for the application of funcRep and argRep. This function does not create new
-	 * terms. If there is no equivalent CCTerm it returns null. If a term that is congruent to the given term already
-	 * exists it will return the representative of this congruent term.
-	 *
-	 * @param funcRep
-	 *            the representative of the partial function application term.
-	 * @param argRep
-	 *            the representative of the argument term.
-	 * @return The representative of the application, or null if no congruent term exists in the CClosure.
-	 */
-	private CCTerm findCCAppTermRep(final CCTerm funcRep, final CCTerm argRep) {
-		final CCParentInfo info = funcRep.mCCPars.getInfo(0);
-		if (info == null) {
-			return null;
-		}
-		for (final Parent parent : info.mCCParents) {
-			if (parent.getData().getArg().getRepresentative() == argRep) {
-				return parent.getData().getRepresentative();
-			}
-		}
-		return null;
-	}
+	// /**
+	//  * Find the representative CCTerm for the application of funcRep and argRep. This function does not create new
+	//  * terms. If there is no equivalent CCTerm it returns null. If a term that is congruent to the given term already
+	//  * exists it will return the representative of this congruent term.
+	//  *
+	//  * @param funcRep
+	//  *            the representative of the partial function application term.
+	//  * @param argRep
+	//  *            the representative of the argument term.
+	//  * @return The representative of the application, or null if no congruent term exists in the CClosure.
+	//  */
+	// private CCTerm findCCAppTermRep(final CCTerm funcRep, final CCTerm argRep) {
+	// 	final CCParentInfo info = funcRep.mCCPars.getInfo(0);
+	// 	if (info == null) {
+	// 		return null;
+	// 	}
+	// 	for (final Parent parent : info.mCCParents) {
+	// 		if (parent.getData().getArg().getRepresentative() == argRep) {
+	// 			return parent.getData().getRepresentative();
+	// 		}
+	// 	}
+	// 	return null;
+	// }
 
 	/**
 	 * For two given CCTerms, check if the equality is set.
@@ -912,7 +829,7 @@ public class CClosure implements ITheory {
 	 * @param backRefs
 	 *            the list of (signature, listIndex, trigger) back-refs from that representative.
 	 */
-	void pushSignatureTodo(final CCTerm oldRep, final List<SignatureBackRef> backRefs) {
+	void pushSignatureTodo(final CCTerm oldRep, final SimpleList<SignatureBackRef> backRefs) {
 		if (!backRefs.isEmpty()) {
 			mSignatureTodo.push(new SignatureTodoEntry(oldRep, backRefs));
 		}
@@ -1163,10 +1080,19 @@ public class CClosure implements ITheory {
 				}
 				if (t1.getRepresentative() != t2.getRepresentative() && t2 instanceof CCAppTerm) {
 					final CCAppTerm a2 = (CCAppTerm) t2;
-					if (a1.getFunc().getRepresentative() == a2.getFunc().getRepresentative()
-							&& a1.getArg().getRepresentative() == a2.getArg().getRepresentative()) {
-						getLogger().fatal("Should be congruent: " + t1 + " and " + t2);
-						return false;
+					if (a1.getFunctionSymbol() == a2.getFunctionSymbol()) {
+						CCTerm[] args1 = a1.getArguments();
+						CCTerm[] args2 = a2.getArguments();
+						int i;
+						for (int i = 0; i < args1.length; i++) {
+							if (args1[i].getRepresentative() != args2[i].getRepresentative()) {
+								break;
+							}
+						}
+						if (i == args1.length) {
+							getLogger().fatal("Should be congruent: " + t1 + " and " + t2);
+							return false;
+						}
 					}
 				}
 			}
@@ -1270,8 +1196,8 @@ public class CClosure implements ITheory {
 	}
 
 	void addPendingCongruence(final CCAppTerm first, final CCAppTerm second) {
-		assert (first.mLeftParInfo.inList() && second.mLeftParInfo.inList());
-		assert (first.mRightParInfo.inList() && second.mRightParInfo.inList());
+		// assert (first.mLeftParInfo.inList() && second.mLeftParInfo.inList());
+		// assert (first.mRightParInfo.inList() && second.mRightParInfo.inList());
 		getLogger().debug("addPendingCongruence: %s %s", first, second);
 		mPendingCongruences.add(new SymmetricPair<>(first, second));
 	}
@@ -1301,8 +1227,7 @@ public class CClosure implements ITheory {
 				getLogger().debug("PC %s", cong);
 				final CCAppTerm lhs = cong.getFirst();
 				final CCAppTerm rhs = cong.getSecond();
-				assert lhs.mArg.mRepStar == rhs.mArg.mRepStar
-						&& lhs.mFunc.mRepStar == rhs.mFunc.mRepStar : "Unchecked buildCongruence with non-holding congruence!";
+				assert lhs.getFunctionSymbol() == rhs.getFunctionSymbol();
 				final Clause res = lhs.merge(this, rhs, null);
 				if (res != null) {
 					getLogger().debug("buildCongruence: conflict %s", res);
@@ -1394,9 +1319,14 @@ public class CClosure implements ITheory {
 			final CCTermPairHash.Info info = t.mPairInfos.iterator().next().getInfo();
 			mPairHash.removePairInfo(info);
 		}
-		if (t instanceof CCAppTerm) {
-			final CCAppTerm at = (CCAppTerm) t;
-			at.unlinkParentInfos();
+		if (t instanceof CCAppTerm && !t.isFunc()) {
+			final ApplicationTerm flatTerm = (ApplicationTerm) t.getFlatTerm();
+			FunctionSymbol fsymb = flatTerm.getFunction();
+			Term[] params = flatTerm.getParameters();			
+			for (int i = 0; i < params.length; i++) {
+				CCTerm arg = mAnonTerms.get(params[i]);
+				arg.mBackRefs.prepareRemove(new SignatureBackRef(sig, i));
+			}
 		}
 	}
 
