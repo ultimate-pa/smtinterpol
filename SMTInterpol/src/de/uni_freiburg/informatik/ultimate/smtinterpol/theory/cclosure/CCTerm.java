@@ -18,9 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
-import java.util.Collections;
-import java.util.List;
-
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -97,7 +94,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	 * The list of signature backrefs for all terms in the congruence class.  The representative has all backrefs,
 	 * the other terms point to the sublists that correspond to their children.
 	 */
-	SimpleList<SignatureBackRef> mSignatureBackRefs; 
+	SimpleList<SignatureBackRef> mSignatureBackRefs;
 	/**
 	 * A CCTerm in the current equivalence class that is shared with other theories, i.e. linear arithmetic. This is
 	 * used to propagate equalities between shared terms when two equivalence classes are merged that both have a shared
@@ -506,9 +503,11 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			time = System.nanoTime();
 		}
 		/* Compute congruence closure */
+		System.err.println("Src Backrefs: " + src.mSignatureBackRefs);
 		if (!src.mSignatureBackRefs.isEmpty()) {
 			engine.pushSignatureTodo(src, src.mSignatureBackRefs);
 		}
+		dest.mSignatureBackRefs.joinList(src.mSignatureBackRefs);
 		// if (mIsFunc) {
 		// 	final CCParentInfo srcParentInfo = src.mCCPars.mNext;
 		// 	final CCParentInfo destParentInfo = dest.mCCPars.mNext;
@@ -636,6 +635,12 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		// 	((CCAppTerm) this).unmarkParentInfos();
 		// }
 
+		dest.mSignatureBackRefs.unjoinList(src.mSignatureBackRefs);
+		System.err.println("PUSH SIGNATURE TODO " + src.mSignatureBackRefs);
+		if (!src.mSignatureBackRefs.isEmpty()) {
+			engine.pushSignatureTodo(src, src.mSignatureBackRefs);
+		}
+
 		//System.err.println("Unmerge "+this+"+"+lhs+" -> "+src+" "+dest);
 		//Logger.getRootLogger().debug("U"+lhs+"=="+this);
 		src.mReasonLiteral = null;
@@ -668,10 +673,6 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 					engine.removePairHash(destInfo);
 				}
 			}
-		}
-		System.err.println("PUSH SIGNATURE TODO " + src.mSignatureBackRefs);
-		if (!src.mSignatureBackRefs.isEmpty()) {
-			engine.pushSignatureTodo(src, src.mSignatureBackRefs);
 		}
 
 		dest.mNumMembers -= src.mNumMembers;
