@@ -435,6 +435,7 @@ public class CCProofGenerator {
 					if (path.length == 2) {
 						// A path of length 2 must be a congruence, otherwise we would not be able to explain it
 						final ProofInfo congruence = findCongruencePaths(path[0], path[1]);
+						assert congruence != null;
 						mPathProofMap.put(pathEnds, congruence);
 					} else {
 						final ProofInfo pathInfo = new ProofInfo();
@@ -724,14 +725,16 @@ public class CCProofGenerator {
 		final CCTerm[] secondArgs = secondApp.getArguments();
 		assert firstArgs.length == secondArgs.length;
 		for (int i = 0; i < firstArgs.length; i++) {
-			final SymmetricPair<CCTerm> argPair = new SymmetricPair<>(firstArgs[i], secondArgs[i]);
-			if (isEqualityLiteral(argPair)) {
-				proofInfo.addLiteral(mEqualityLiterals.get(argPair));
-			} else if (mPathProofMap.containsKey(argPair)) {
-				proofInfo.addSubProof(mPathProofMap.get(argPair));
-			} else {
-				// If no path was found for the arguments, termPair is not a congruence!
-				return null;
+			if (firstArgs[i] != secondArgs[i]) {
+				final SymmetricPair<CCTerm> argPair = new SymmetricPair<>(firstArgs[i], secondArgs[i]);
+				if (isEqualityLiteral(argPair)) {
+					proofInfo.addLiteral(mEqualityLiterals.get(argPair));
+				} else if (mPathProofMap.containsKey(argPair)) {
+					proofInfo.addSubProof(mPathProofMap.get(argPair));
+				} else {
+					// If no path was found for the arguments, termPair is not a congruence!
+					return null;
+				}
 			}
 		}
 		return proofInfo;
