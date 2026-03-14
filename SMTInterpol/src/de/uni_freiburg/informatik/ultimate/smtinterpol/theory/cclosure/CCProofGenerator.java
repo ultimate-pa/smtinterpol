@@ -709,28 +709,30 @@ public class CCProofGenerator {
 		final ProofInfo proofInfo = new ProofInfo();
 		proofInfo.mLemmaDiseq = new SymmetricPair<>(first, second);
 		proofInfo.mProofPaths = new IndexedPath[] { new IndexedPath(null, new CCTerm[] { first, second }) };
-		while (first != second) {
-			if (!(first instanceof CCAppTerm) || !(second instanceof CCAppTerm)) {
-				// This is not a congruence
+		if (!(first instanceof CCAppTerm) || !(second instanceof CCAppTerm)) {
+			// This is not a congruence
+			return null;
+		}
+		final CCAppTerm firstApp = (CCAppTerm) first;
+		final CCAppTerm secondApp = (CCAppTerm) second;
+		if (firstApp.getFunctionSymbol() != secondApp.getFunctionSymbol()) {
+			// This is not a congruence
+			return null;
+		}
+
+		final CCTerm[] firstArgs = firstApp.getArguments();
+		final CCTerm[] secondArgs = secondApp.getArguments();
+		assert firstArgs.length == secondArgs.length;
+		for (int i = 0; i < firstArgs.length; i++) {
+			final SymmetricPair<CCTerm> argPair = new SymmetricPair<>(firstArgs[i], secondArgs[i]);
+			if (isEqualityLiteral(argPair)) {
+				proofInfo.addLiteral(mEqualityLiterals.get(argPair));
+			} else if (mPathProofMap.containsKey(argPair)) {
+				proofInfo.addSubProof(mPathProofMap.get(argPair));
+			} else {
+				// If no path was found for the arguments, termPair is not a congruence!
 				return null;
 			}
-			final CCTerm firstArg = ((CCAppTerm) first).getArg();
-			final CCTerm secondArg = ((CCAppTerm) second).getArg();
-			final SymmetricPair<CCTerm> argPair = new SymmetricPair<>(firstArg, secondArg);
-			if (firstArg != secondArg) {
-				if (isEqualityLiteral(argPair)) {
-					proofInfo.addLiteral(mEqualityLiterals.get(argPair));
-				} else if (mPathProofMap.containsKey(argPair)) {
-					proofInfo.addSubProof(mPathProofMap.get(argPair));
-				} else {
-					// If no path was found for the arguments, termPair is not a congruence!
-					return null;
-				}
-			}
-			// Continue with the function term. If it is a CCAppTerm itself, this
-			// corresponds to a function with several arguments.
-			first = ((CCAppTerm) first).getFunc();
-			second = ((CCAppTerm) second).getFunc();
 		}
 		return proofInfo;
 	}

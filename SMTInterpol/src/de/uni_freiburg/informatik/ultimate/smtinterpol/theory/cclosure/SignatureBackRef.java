@@ -44,4 +44,8 @@ public final class SignatureBackRef extends SimpleListable<SignatureBackRef> {
 	public int getArgPosition() {
 		return mArgPosition;
 	}
+
+	public String toString() {
+		return "SignatureBackRef(" + mSignatureTrigger + ", " + mArgPosition + ")";
+	}
 }

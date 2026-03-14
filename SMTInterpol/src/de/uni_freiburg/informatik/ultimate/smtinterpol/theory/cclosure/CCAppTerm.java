@@ -23,102 +23,39 @@ import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 public class CCAppTerm extends CCTerm {
 	final FunctionSymbol mFunc;
 	final CCTerm[] mArgs;
-//	final Parent mLeftParInfo, mRightParInfo;
 	Term mSmtTerm;
-
-	// class Parent extends SimpleListable<Parent> {
-	// 	private boolean mMark = false;
-
-	// 	CCAppTerm getData() {
-	// 		return CCAppTerm.this;
-	// 	}
-
-	// 	public final boolean isMarked() {
-	// 		assert (!mMark || CCAppTerm.this.mRepStar.mNumMembers > 1);
-	// 		return mMark;
-	// 	}
-
-	// 	@Override
-	// 	public String toString() {
-	// 		return CCAppTerm.this.toString();
-	// 	}
-	// }
 
 	public CCAppTerm(FunctionSymbol fsym, final CCTerm[] args,
 			final CClosure engine, final boolean isFromQuant) {
-		super(false, 0, HashUtils.hashJenkins(func.hashCode(), args), isFromQuant ? 0 : 1);
-		if (isFromQuant) {
-			for (int i = 0; i < args.length; i++) {
-				mAge = Math.max(mAge, args[i].mAge + 1);
-			}
-		}
-		mFunc = func;
+		super(HashUtils.hashJenkins(fsym.hashCode(), (Object[]) args), isFromQuant ? CCAppTerm.computeAge(args) : 0);
+		mFunc = fsym;
 		mArgs = args;
-		// mLeftParInfo = new Parent();
-		// mRightParInfo = new Parent();
+	}
+	
+	private final static int computeAge(CCTerm[] args) {
+		int age = 1;
+		for (int i = 0; i < args.length; i++) {
+			age = Math.max(age, args[i].mAge + 1);
+		}
+		return age;
 	}
 
 	public FunctionSymbol getFunctionSymbol() {
 		return mFunc;
 	}
 
+	public CCTerm[] getArguments() {
+		return mArgs;
+	}
+
 	public CCTerm getArgument(int argPosition) {
 		return mArgs[argPosition];
 	}
-
-	// /**
-	//  * Add this app term to the parent info lists of its function and argument. Also adds it to the mCCPars of all the
-	//  * oldReps on the path to the repStar, which is necessary for unmerging correctly.
-	//  *
-	//  * @param engine
-	//  *            the congruence closure engine.
-	//  */
-	// public void addParentInfo(final CClosure engine) {
-	// 	CCTerm func = mFunc;
-	// 	CCTerm arg = mArg;
-
-	// 	/*
-	// 	 * Store the parent info in all mCCPars of the representatives occuring on the path to the root, so that it is
-	// 	 * still present when we unmerge later.
-	// 	 *
-	// 	 * Also find the first congruent application term.
-	// 	 */
-	// 	while (func.mRep != func || arg.mRep != arg) {
-	// 		if (arg.mMergeTime < func.mMergeTime) {
-	// 			// Reverse arg rep
-	// 			arg.mCCPars.addParentInfo(func.mParentPosition, mRightParInfo, false, null);
-	// 			arg = arg.mRep;
-	// 		} else {
-	// 			// Reverse func rep
-	// 			func.mCCPars.addParentInfo(0, mLeftParInfo, false, null);
-	// 			func = func.mRep;
-	// 		}
-	// 	}
-	// 	func.mCCPars.addParentInfo(0, mLeftParInfo, true, engine);
-	// 	arg.mCCPars.addParentInfo(func.mParentPosition, mRightParInfo, true, engine);
-	// 	assert invariant();
-	// 	assert func.invariant();
-	// 	assert arg.invariant();
-	// }
-
-	// public void unlinkParentInfos() {
-	// 	mLeftParInfo.removeFromList();
-	// 	mRightParInfo.removeFromList();
-	// }
-
-	// public void markParentInfos() {
-	// 	mLeftParInfo.mMark = mRightParInfo.mMark = true;
-	// }
-
-	// public void unmarkParentInfos() {
-	// 	mLeftParInfo.mMark = mRightParInfo.mMark = false;
-	// }
 
 	@Override
 	public String toString() {
@@ -137,12 +74,12 @@ public class CCAppTerm extends CCTerm {
 					sb.append("@" + id);
 				} else {
 					visited.put(app, visited.size());
-					todo.add("(");
+					todo.add(")");
 					for (int i = app.mArgs.length - 1; i >= 0; i--) {
 						todo.add(app.mArgs[i]);
 						todo.add(" ");
 					}
-					todo.add(app.mFunc);
+					todo.add(app.mFunc.getApplicationString());
 					todo.add("(");
 				}
 			} else if (item instanceof CCBaseTerm) {

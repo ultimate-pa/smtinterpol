@@ -57,7 +57,5 @@ public final class CongruenceTrigger extends SignatureTrigger {
 
 	public void undoMerge(final CClosure engine, final SignatureTrigger other) {
 		super.undoMerge(engine, other);
-		assert other instanceof CongruenceTrigger;
-		final CongruenceTrigger otherCong = (CongruenceTrigger) other;
 	}
 }

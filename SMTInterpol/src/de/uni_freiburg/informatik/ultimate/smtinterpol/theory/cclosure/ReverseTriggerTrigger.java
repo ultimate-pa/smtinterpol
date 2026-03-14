@@ -44,6 +44,10 @@ public final class ReverseTriggerTrigger extends SignatureTrigger {
 		mApplications.append(new AppTermEntry(app));
 	}
 
+	public SimpleList<AppTermEntry> getApplications() {
+		return mApplications;
+	}
+
 	@Override
 	public void merge(final CClosure engine, final SignatureTrigger other) {
 		super.merge(engine, other);

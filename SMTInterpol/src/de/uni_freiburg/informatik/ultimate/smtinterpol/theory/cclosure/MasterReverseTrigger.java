@@ -46,7 +46,7 @@ public final class MasterReverseTrigger extends ReverseTrigger {
 		}
 		final MasterReverseTrigger masterReverseTrigger = new MasterReverseTrigger(engine, functionSymbol, argPosition);
 		sUnifier.put(hash, masterReverseTrigger);
-		engine.insertFindTrigger(functionSymbol, masterReverseTrigger);		engine.addSignature(new FindTriggerTrigger(masterReverseTrigger));
+		engine.insertFindTrigger(functionSymbol, masterReverseTrigger);
 		return masterReverseTrigger;
 	}
 

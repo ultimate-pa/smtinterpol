@@ -97,7 +97,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	 * The list of signature backrefs for all terms in the congruence class.  The representative has all backrefs,
 	 * the other terms point to the sublists that correspond to their children.
 	 */
-	SimpleList<SignatureBackRef> mSignatureBackRefs;
+	SimpleList<SignatureBackRef> mSignatureBackRefs; 
 	/**
 	 * A CCTerm in the current equivalence class that is shared with other theories, i.e. linear arithmetic. This is
 	 * used to propagate equalities between shared terms when two equivalence classes are merged that both have a shared
@@ -136,28 +136,16 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		}
 	}
 
-	boolean mIsFunc;
-	int mParentPosition;
-
-	protected CCTerm(final boolean isFunc, final int parentPos, final int hash, final int age) {
-		mIsFunc = isFunc;
-		// mCCPars = null;
-		if (isFunc) {
-			mParentPosition = parentPos;
-		}
-		// mCCPars = new CCParentInfo();
+	protected CCTerm(final int hash, final int age) {
 		mRep = mRepStar = this;
 		mMembers = new SimpleList<>();
 		mPairInfos = new SimpleList<>();
+		mSignatureBackRefs = new SimpleList<>();
 		mMembers.append(this);
 		mNumMembers = 1;
 		assert invariant();
 		mHashCode = hash;
 		mAge = age;
-	}
-
-	public boolean isFunc() {
-		return mIsFunc;
 	}
 
 	boolean pairHashValid(final CClosure engine) {
@@ -518,7 +506,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			time = System.nanoTime();
 		}
 		/* Compute congruence closure */
-		engine.pushSignatureTodo(src, src.mSignatureBackRefs);
+		if (!src.mSignatureBackRefs.isEmpty()) {
+			engine.pushSignatureTodo(src, src.mSignatureBackRefs);
+		}
 		// if (mIsFunc) {
 		// 	final CCParentInfo srcParentInfo = src.mCCPars.mNext;
 		// 	final CCParentInfo destParentInfo = dest.mCCPars.mNext;
@@ -649,37 +639,40 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		//System.err.println("Unmerge "+this+"+"+lhs+" -> "+src+" "+dest);
 		//Logger.getRootLogger().debug("U"+lhs+"=="+this);
 		src.mReasonLiteral = null;
-		// for (final CCTermPairHash.Info.Entry pentry : src.mPairInfos.reverse()) {
-		// 	final CCTermPairHash.Info info = pentry.getInfo();
-		// 	assert pentry.getOtherEntry().mOther == src;
-		// 	engine.mPairHash.add(pentry.getInfo());
-		// 	assert pentry.mOther.mPairInfos.wellformed();
-		// 	pentry.mOther.mPairInfos.append(pentry.getOtherEntry());
-		// 	assert pentry.mOther.mPairInfos.wellformed();
-		// 	final CCTerm other = pentry.mOther;
-		// 	assert other.mRepStar == other;
-		// 	if (other != dest) {
-		// 		//System.err.println("UM "+src+" "+other+" "+dest);
-		// 		final CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other);
-		// 		if (destInfo == null) {
-		// 			continue;
-		// 		}
-		// 		destInfo.mCompareTriggers.unjoinList(info.mCompareTriggers);
-		// 		assert destInfo.mEqlits.wellformed();
-		// 		destInfo.mEqlits.unjoinList(info.mEqlits);
-		// 		assert info.mEqlits.wellformed() && destInfo.mEqlits.wellformed();
-		// 		if (destInfo.mDiseq == info.mDiseq) {
-		// 			destInfo.mDiseq = null;
-		// 		}
-		// 		/* Check if we can remove destInfo since it is empty now */
-		// 		if (destInfo.mDiseq == null && destInfo.mEqlits.isEmpty() && destInfo.mCompareTriggers.isEmpty()) {
-		// 			destInfo.mLhsEntry.unlink();
-		// 			destInfo.mRhsEntry.unlink();
-		// 			engine.removePairHash(destInfo);
-		// 		}
-		// 	}
-		// }
-		engine.pushSignatureTodo(src, src.mSignatureBackRefs);
+		for (final CCTermPairHash.Info.Entry pentry : src.mPairInfos.reverse()) {
+			final CCTermPairHash.Info info = pentry.getInfo();
+			assert pentry.getOtherEntry().mOther == src;
+			engine.mPairHash.add(pentry.getInfo());
+			assert pentry.mOther.mPairInfos.wellformed();
+			pentry.mOther.mPairInfos.append(pentry.getOtherEntry());
+			assert pentry.mOther.mPairInfos.wellformed();
+			final CCTerm other = pentry.mOther;
+			assert other.mRepStar == other;
+			if (other != dest) {
+				//System.err.println("UM "+src+" "+other+" "+dest);
+				final CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other);
+				if (destInfo == null) {
+					continue;
+				}
+				destInfo.mCompareTriggers.unjoinList(info.mCompareTriggers);
+				assert destInfo.mEqlits.wellformed();
+				destInfo.mEqlits.unjoinList(info.mEqlits);
+				assert info.mEqlits.wellformed() && destInfo.mEqlits.wellformed();
+				if (destInfo.mDiseq == info.mDiseq) {
+					destInfo.mDiseq = null;
+				}
+				/* Check if we can remove destInfo since it is empty now */
+				if (destInfo.mDiseq == null && destInfo.mEqlits.isEmpty() && destInfo.mCompareTriggers.isEmpty()) {
+					destInfo.mLhsEntry.unlink();
+					destInfo.mRhsEntry.unlink();
+					engine.removePairHash(destInfo);
+				}
+			}
+		}
+		System.err.println("PUSH SIGNATURE TODO " + src.mSignatureBackRefs);
+		if (!src.mSignatureBackRefs.isEmpty()) {
+			engine.pushSignatureTodo(src, src.mSignatureBackRefs);
+		}
 
 		dest.mNumMembers -= src.mNumMembers;
 		if (Config.PROFILE_TIME) {

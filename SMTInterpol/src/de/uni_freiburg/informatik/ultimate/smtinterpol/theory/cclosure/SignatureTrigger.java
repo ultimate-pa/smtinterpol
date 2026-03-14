@@ -34,9 +34,9 @@ public class SignatureTrigger {
 
 	private final Object mId;
 	private final CCTerm[] mTerms;
+	private int mLastHashCode;
 
 	private SignatureTrigger mMergedTrigger;
-
 	/**
 	 * Create a signature with the given identifier and non-empty term array. The array may contain any CCTerms, not
 	 * necessarily representatives. The array is copied defensively.
@@ -47,11 +47,11 @@ public class SignatureTrigger {
 	 *            non-empty array of CCTerms.
 	 */
 	public SignatureTrigger(final Object id, final CCTerm[] terms) {
-		if (terms == null || terms.length == 0) {
-			throw new IllegalArgumentException("terms must be non-empty");
-		}
 		mId = id;
-		mTerms = terms.clone();
+		mTerms = terms;
+		recomputeHashCode();
+		System.err.println("INIT HASH " + this);
+		System.err.println("OLD HASH " + hashCode());
 	}
 
 	public Object getId() {
@@ -76,8 +76,11 @@ public class SignatureTrigger {
 	public void rehash(CClosure engine, int argPosition, CCTerm newRep) {
 		/* only if not merged */
 		if (mMergedTrigger == null) {
+			System.err.println("REHASH " + this);
+			System.err.println("OLD HASH " + hashCode());
 			engine.removeSignature(this);
-			mTerms[argPosition] = newRep;
+			recomputeHashCode();
+			System.err.println("NEW HASH " + hashCode());
 			engine.addSignature(this);
 		}
 	}
@@ -89,6 +92,7 @@ public class SignatureTrigger {
 	 * @param other the trigger that was merged into this trigger.
 	 */
 	public void merge(CClosure engine, SignatureTrigger other) {
+		System.err.println("MERGE " + this + " with " + other);
 		assert other.mMergedTrigger == null;
 		other.mMergedTrigger = this;
 	}
@@ -101,17 +105,22 @@ public class SignatureTrigger {
 	 *            the trigger that was merged into this trigger.
 	 */
 	public void undoMerge(CClosure engine, SignatureTrigger other) {
+		System.err.println("UNDO MERGE " + this + " with " + other);
 		assert other.mMergedTrigger == this;
 		other.mMergedTrigger = null;
 	}
 
 	@Override
 	public int hashCode() {
+		return mLastHashCode;
+	}
+
+	public void recomputeHashCode() {
 		int h = mId.hashCode();
 		for (final CCTerm t : mTerms) {
-			h = HashUtils.hashJenkins(h, t);
+			h = HashUtils.hashJenkins(h, t.getRepresentative());
 		}
-		return h;
+		mLastHashCode = h;
 	}
 
 	@Override
@@ -127,7 +136,7 @@ public class SignatureTrigger {
 			return false;
 		}
 		for (int i = 0; i < mTerms.length; i++) {
-			if (mTerms[i] != other.mTerms[i]) {
+			if (mTerms[i].getRepresentative() != other.mTerms[i].getRepresentative()) {
 				return false;
 			}
 		}

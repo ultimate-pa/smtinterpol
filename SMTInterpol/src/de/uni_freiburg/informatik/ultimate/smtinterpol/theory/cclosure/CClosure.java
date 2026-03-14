@@ -197,7 +197,7 @@ public class CClosure implements ITheory {
 	}
 
 	public CCTerm createAnonTerm(final Term term) {
-		final CCTerm ccTerm = new CCBaseTerm(false, mNumFunctionPositions, term);
+		final CCTerm ccTerm = new CCBaseTerm(term);
 		mAllTerms.add(ccTerm);
 		mAnonTerms.put(term, ccTerm);
 		return ccTerm;
@@ -266,11 +266,10 @@ public class CClosure implements ITheory {
 			if (term.getAge() > 0) {
 				getLogger().debug("Create new AppTerm %s of age %d", term, term.getAge());
 			}
-			CCTerm[] argReps = new CCTerm[args.length];
+			CongruenceTrigger congruenceTrigger = new CongruenceTrigger(term, func, args);
 			for (int i = 0; i < args.length; i++) {
-				argReps[i] = args[i].getRepresentative();
+				addSignatureBackRef(args[i], new SignatureBackRef(congruenceTrigger, i));
 			}
-			CongruenceTrigger congruenceTrigger = new CongruenceTrigger(term, func, argReps);
 			addSignature(congruenceTrigger);
 			addSignature(new FindTriggerTrigger(term));
 			mAllTerms.add(term);
@@ -278,38 +277,13 @@ public class CClosure implements ITheory {
 		} else {
 			CCBaseTerm term = mSymbolicTerms.get(func);
 			if (term == null) {
-				term = new CCBaseTerm(false, 0, func);
+				term = new CCBaseTerm(func);
 				mAllTerms.add(term);
 				mSymbolicTerms.put(func, term);
 			}
 			return term;	
 		}
 	}
-
-	// /**
-	//  * Get all terms that appear under a given function at a given position.
-	//  *
-	//  * @param sym
-	//  *            the function symbol
-	//  * @param argPos
-	//  *            the argument position
-	//  * @return the CCTerms that appear under the given function as argPos-th argument.
-	//  */
-	// public Collection<CCTerm> getArgTermsForFunc(final FunctionSymbol sym, final int argPos) {
-	// 	assert sym.getParameterSorts().length > argPos;
-	// 	final List<CCTerm> args = new ArrayList<>();
-	// 	List<CCTerm> parents = new ArrayList<>();
-	// 	parents.add(getFuncTerm(sym));
-	// 	for (int i = 0; i <= argPos; i++) {
-	// 		parents = getApplications(parents);
-	// 	}
-	// 	// Collect the arguments at argPos
-	// 	for (final CCTerm par : parents) {
-	// 		assert par instanceof CCAppTerm;
-	// 		args.add(((CCAppTerm) par).getArg());
-	// 	}
-	// 	return args;
-	// }
 
 	/**
 	 * Get all terms that are a (complete) function application of the given function symbol.
@@ -318,64 +292,18 @@ public class CClosure implements ITheory {
 	 *            the function symbol.
 	 * @return all function applications of the given function symbol.
 	 */
-	public List<CCTerm> getAllFuncApps(final FunctionSymbol sym) {
+	public List<CCAppTerm> getAllFuncApps(final FunctionSymbol sym) {
 		SignatureTrigger sig = new SignatureTrigger(sym, new CCTerm[0]);
 		FindTriggerTrigger findTrigger = (FindTriggerTrigger) mSignatureTriggers.get(sig);
-		List<CCTerm> parents = new ArrayList<>();
+		if (findTrigger == null) {
+			return Collections.emptyList();
+		}
+		List<CCAppTerm> parents = new ArrayList<>();
 		for (AppTermEntry appTerm : findTrigger.getApplications()) {
 			parents.add(appTerm.getAppTerm());
 		}
 		return parents;
 	}
-
-	// /**
-	//  * Get all applications given partial functions.
-	//  *
-	//  * @param partialFunctions
-	//  *            CCTerms that are partial functions.
-	//  * @return all CCTerms that are applications of the given partial functions.
-	//  */
-	// static List<CCTerm> getApplications(final List<CCTerm> partialFunctions) {
-	// 	final List<CCTerm> applications = new ArrayList<>();
-	// 	for (final CCTerm funcTerm : partialFunctions) {
-	// 		final CCParentInfo info = funcTerm.getRepresentative().mCCPars.getInfo(0);
-	// 		if (info != null) {
-	// 			for (final Parent grandparent : info.mCCParents) {
-	// 				applications.add(grandparent.getData());
-	// 			}
-	// 		}
-	// 	}
-	// 	return applications;
-	// }
-
-	// /**
-	//  * Get all (complete) function applications of a given function symbol with a given argument at a given position.
-	//  *
-	//  * @param sym
-	//  *            the function symbol.
-	//  * @param arg
-	//  *            the argument the application term should contain.
-	//  * @param argPos
-	//  *            the position of the given argument.
-	//  * @return all function applications of the given function symbol with the given argument at the given position.
-	//  */
-	// public List<CCTerm> getAllFuncAppsForArg(final FunctionSymbol sym, final CCTerm arg, final int argPos) {
-	// 	final CCTerm funcTerm = getFuncTerm(sym);
-	// 	final int parentPosition = funcTerm.mParentPosition + argPos;
-	// 	final CCParentInfo info = arg.getRepresentative().mCCPars.getInfo(parentPosition);
-	// 	List<CCTerm> funcApps = new ArrayList<>();
-	// 	if (info != null) {
-	// 		for (final Parent parent : info.mCCParents) {
-	// 			if (!parent.isMarked()) {
-	// 				funcApps.add(parent.getData());
-	// 			}
-	// 		}
-	// 		for (int i = argPos + 1; i < sym.getParameterSorts().length; i++) {
-	// 			funcApps = getApplications(funcApps);
-	// 		}
-	// 	}
-	// 	return funcApps;
-	// }
 
 	/**
 	 * Insert a Compare trigger that will be activated as soon as the two given CCTerms are equal. It is inserted into
@@ -566,15 +494,19 @@ public class CClosure implements ITheory {
 
 
 	public void removeSignature(SignatureTrigger signatureTrigger) {
-		mSignatureTriggers.remove(signatureTrigger);
+		if (mSignatureTriggers.get(signatureTrigger) == signatureTrigger) {
+			mSignatureTriggers.remove(signatureTrigger);
+		} 
 	}
 
 	public void addSignature(SignatureTrigger signatureTrigger) {
 		SignatureTrigger mergeTrigger = mSignatureTriggers.get(signatureTrigger);
 		if (mergeTrigger != null) {
 			mergeTrigger.merge(this, signatureTrigger);
+			System.err.println("ADD MERGED SIGNATURE " + signatureTrigger);
 			mUndoStack.push(new TriggerMergeUndoEntry(mergeTrigger, signatureTrigger));
 		} else {
+			System.err.println("ADD FRESH SIGNATURE " + signatureTrigger);
 			mSignatureTriggers.put(signatureTrigger, signatureTrigger);
 		}
 	}
@@ -1048,7 +980,7 @@ public class CClosure implements ITheory {
 		// assert(checkCongruence());
 		logger.info("Equivalence Classes:");
 		for (final CCTerm t : mAllTerms) {
-			if (t == t.mRepStar && !t.isFunc()) {
+			if (t == t.mRepStar) {
 				final StringBuilder sb = new StringBuilder();
 				String comma = "";
 				for (final CCTerm t2 : t.mMembers) {
@@ -1081,10 +1013,10 @@ public class CClosure implements ITheory {
 				if (t1.getRepresentative() != t2.getRepresentative() && t2 instanceof CCAppTerm) {
 					final CCAppTerm a2 = (CCAppTerm) t2;
 					if (a1.getFunctionSymbol() == a2.getFunctionSymbol()) {
-						CCTerm[] args1 = a1.getArguments();
-						CCTerm[] args2 = a2.getArguments();
+						CCTerm[] args1 = a1.mArgs;
+						CCTerm[] args2 = a2.mArgs;
 						int i;
-						for (int i = 0; i < args1.length; i++) {
+						for (i = 0; i < args1.length; i++) {
 							if (args1[i].getRepresentative() != args2[i].getRepresentative()) {
 								break;
 							}
@@ -1215,11 +1147,15 @@ public class CClosure implements ITheory {
 		while (!mSignatureTodo.isEmpty() || !mPendingCongruences.isEmpty()) {
 			while (!mSignatureTodo.isEmpty()) {
 				SignatureTodoEntry todo = mSignatureTodo.poll();
-				CCTerm oldRep = todo.mOldRep;
-				SimpleList<SignatureBackRef> backRefs = todo.mBackRefs;
-				for (SignatureBackRef backRef: backRefs) {
-					SignatureTrigger signatureTrigger = backRef.getSignatureTrigger();
-					signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep.getRepresentative());
+				if (todo.mSingleTrigger != null) {
+					todo.mSingleTrigger.rehash(this, -1, null);
+				} else {
+					CCTerm oldRep = todo.mOldRep;
+					SimpleList<SignatureBackRef> backRefs = todo.mBackRefs;
+					for (SignatureBackRef backRef: backRefs) {
+						SignatureTrigger signatureTrigger = backRef.getSignatureTrigger();
+						signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep.getRepresentative());
+					}
 				}
 			}
 			SymmetricPair<CCAppTerm> cong;
@@ -1252,6 +1188,7 @@ public class CClosure implements ITheory {
 			} else if (top instanceof TriggerMergeUndoEntry) {
 				final TriggerMergeUndoEntry signatureUndo = (TriggerMergeUndoEntry) top;
 				signatureUndo.getMergedTrigger().undoMerge(this,signatureUndo.getPreviousTrigger());
+				mSignatureTodo.push(new SignatureTodoEntry(signatureUndo.getPreviousTrigger()));
 			} else {
 				throw new AssertionError("Unknown undo info type: " + top);
 			}
@@ -1319,13 +1256,12 @@ public class CClosure implements ITheory {
 			final CCTermPairHash.Info info = t.mPairInfos.iterator().next().getInfo();
 			mPairHash.removePairInfo(info);
 		}
-		if (t instanceof CCAppTerm && !t.isFunc()) {
+		if (t instanceof CCAppTerm) {
 			final ApplicationTerm flatTerm = (ApplicationTerm) t.getFlatTerm();
 			FunctionSymbol fsymb = flatTerm.getFunction();
 			Term[] params = flatTerm.getParameters();			
 			for (int i = 0; i < params.length; i++) {
 				CCTerm arg = mAnonTerms.get(params[i]);
-				arg.mBackRefs.prepareRemove(new SignatureBackRef(sig, i));
 			}
 		}
 	}
@@ -1411,9 +1347,18 @@ public class CClosure implements ITheory {
 		final CCTerm mOldRep;
 		final SimpleList<SignatureBackRef> mBackRefs;
 
+		final SignatureTrigger mSingleTrigger;
+
 		SignatureTodoEntry(final CCTerm oldRep, final SimpleList<SignatureBackRef> backRefs) {
 			mOldRep = oldRep;
 			mBackRefs = backRefs;
+			mSingleTrigger = null;
+		}
+
+		SignatureTodoEntry(final SignatureTrigger singleTrigger) {
+			mOldRep = null;
+			mBackRefs = null;
+			mSingleTrigger = singleTrigger;
 		}
 	}
 
