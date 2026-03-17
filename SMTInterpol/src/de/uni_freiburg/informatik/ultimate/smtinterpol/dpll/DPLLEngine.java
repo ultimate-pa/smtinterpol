@@ -1485,9 +1485,9 @@ public class DPLLEngine {
 				backtrackLiteral(lit);
 			}
 			mDPLLStack.clear();
-			for (final ITheory t : mTheories) {
-				t.backtrackAll();
-			}
+		}
+		for (final ITheory t : mTheories) {
+			t.backtrackAll();
 		}
 		unlearnClauses(targetstacklevel);
 		assert mCurrentDecideLevel == 0;

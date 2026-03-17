@@ -250,9 +250,9 @@ public class DataTypeTheory implements ITheory {
 		final CCTerm falseCC = mClausifier.getCCTerm(mTheory.mFalse);
 		for (final CCTerm cct : falseCC.getRepresentative().mMembers) {
 			if (cct instanceof CCAppTerm) {
-				CCAppTerm appTerm = (CCAppTerm) cct;
+				final CCAppTerm appTerm = (CCAppTerm) cct;
 				if (appTerm.getFunctionSymbol().getName().equals(SMTLIBConstants.IS)) {
-					CCTerm arg = appTerm.getArgument(0);
+					final CCTerm arg = appTerm.getArgument(0);
 					falseIsFuns.putIfAbsent(arg.getRepresentative(), new LinkedHashSet<>());
 					falseIsFuns.get(arg.getRepresentative()).add(appTerm);
 				}
@@ -420,17 +420,16 @@ public class DataTypeTheory implements ITheory {
 			if (!(ccTerm instanceof CCAppTerm)) {
 				continue;
 			}
-			CCAppTerm appTerm = (CCAppTerm) ccTerm;
+			final CCAppTerm appTerm = (CCAppTerm) ccTerm;
 			final FunctionSymbol fs = appTerm.getFunctionSymbol();
 			if (fs.isSelector() || fs.getName().equals(SMTLIBConstants.IS)) {
 				final CCTerm argTerm = appTerm.getArgument(0);
 				final CCTerm consTerm = argTerm.getRepresentative().getSharedTerm();
 				if (consTerm != null) {
-					final CCAppTerm consAppTerm = (CCAppTerm) consTerm;
 					final ApplicationTerm consApp = (ApplicationTerm) consTerm.getFlatTerm();
 					if (fs.getName().equals(SMTLIBConstants.IS)) {
 						final Term truthValue;
-						if (fs.getIndices()[0].equals(consAppTerm.getFunctionSymbol().getName())) {
+						if (fs.getIndices()[0].equals(consApp.getFunction().getName())) {
 							truthValue = mClausifier.getTheory().mTrue;
 						} else {
 							truthValue = mClausifier.getTheory().mFalse;
@@ -439,7 +438,8 @@ public class DataTypeTheory implements ITheory {
 						if (ccTerm.getRepresentative() != truthCC.getRepresentative()) {
 							mCClosure.getLogger().error("Unpropagated is of constructor");
 							@SuppressWarnings("unchecked")
-							final SymmetricPair<CCTerm>[] reason = new SymmetricPair[] { new SymmetricPair<>(consTerm, argTerm) };
+							final SymmetricPair<CCTerm>[] reason = consTerm == argTerm ? new SymmetricPair[0]
+									: new SymmetricPair[] { new SymmetricPair<>(consTerm, argTerm) };
 							final SymmetricPair<CCTerm> mainEq = new SymmetricPair<>(ccTerm, truthCC);
 							final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, mainEq, reason, consTerm);
 							addPendingLemma(lemma);
@@ -450,12 +450,12 @@ public class DataTypeTheory implements ITheory {
 						final String[] allSelectorNames = constructor.getSelectors();
 						for (int i = 0; i < allSelectorNames.length; i++) {
 							if (allSelectorNames[i].equals(fs.getName())) {
-								final CCTerm consArg = consAppTerm.getArgument(i);
+								final CCTerm consArg = ((CCAppTerm) consTerm).getArgument(i);
 								if (ccTerm.getRepresentative() != consArg.getRepresentative()) {
 									mCClosure.getLogger().error("Unpropagated selector of constructor");
 									@SuppressWarnings("unchecked")
-									final SymmetricPair<CCTerm>[] reason = new SymmetricPair[] {
-											new SymmetricPair<>(consTerm, argTerm) };
+									final SymmetricPair<CCTerm>[] reason = consTerm == argTerm ? new SymmetricPair[0]
+											: new SymmetricPair[] { new SymmetricPair<>(consTerm, argTerm) };
 									final SymmetricPair<CCTerm> mainEq = new SymmetricPair<>(ccTerm, consArg);
 									final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, mainEq, reason,
 											consTerm);
@@ -481,28 +481,28 @@ public class DataTypeTheory implements ITheory {
 	private Map<FunctionSymbol, CCAppTerm> getSelectorsAndTesters(final CCTerm ccTerm) {
 		assert ccTerm == ccTerm.getRepresentative();
 		final LinkedHashMap<FunctionSymbol, CCAppTerm> map = new LinkedHashMap<>();
-		Sort dataTypeSort = ccTerm.mFlatTerm.getSort();
-		DataType dataType = (DataType) ccTerm.mFlatTerm.getSort().getSortSymbol();
-		for (Constructor constructor : dataType.getConstructors()) {
-			for (String selector : constructor.getSelectors()) {
-				FunctionSymbol selectorFunc = mTheory.getFunction(selector, dataTypeSort);
-				MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, selectorFunc, 0);
-				ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccTerm }));
+		final Sort dataTypeSort = ccTerm.mFlatTerm.getSort();
+		final DataType dataType = (DataType) ccTerm.mFlatTerm.getSort().getSortSymbol();
+		for (final Constructor constructor : dataType.getConstructors()) {
+			for (final String selector : constructor.getSelectors()) {
+				final FunctionSymbol selectorFunc = mTheory.getFunction(selector, dataTypeSort);
+				final MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, selectorFunc, 0);
+				final ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccTerm }));
 				if (revTriggerTrigger != null) {
-					for (AppTermEntry appTerm : revTriggerTrigger.getApplications()) {
+					for (final AppTermEntry appTerm : revTriggerTrigger.getApplications()) {
 						map.put(selectorFunc, appTerm.getAppTerm());
 						break; // only one selector
 					}
-				} 
+				}
 			}
-			FunctionSymbol isFunc = mTheory.getFunctionWithResult(SMTLIBConstants.IS, new String[] { constructor.getName() }, null, dataTypeSort);
-			MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, isFunc, 0);
-			ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccTerm }));
+			final FunctionSymbol isFunc = mTheory.getFunctionWithResult(SMTLIBConstants.IS, new String[] { constructor.getName() }, null, dataTypeSort);
+			final MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, isFunc, 0);
+			final ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccTerm }));
 			if (revTriggerTrigger != null) {
-				for (AppTermEntry appTerm : revTriggerTrigger.getApplications()) {
+				for (final AppTermEntry appTerm : revTriggerTrigger.getApplications()) {
 					map.put(isFunc, appTerm.getAppTerm());
 					break; // only one is-function
-				} 
+				}
 			}
 		}
 		return map;
@@ -531,10 +531,13 @@ public class DataTypeTheory implements ITheory {
 		 */
 		final CCTerm sharedTerm = rep.getSharedTerm();
 		if (sharedTerm != null) {
-			CCAppTerm func = (CCAppTerm) sharedTerm;
-			for (CCTerm arg : ((CCAppTerm) func).getArguments()) {
-				if (arg.getFlatTerm().getSort().getSortSymbol().isDatatype()) {
-					children.add(arg);
+			// check if this is a constructor with arguments.
+			if (sharedTerm instanceof CCAppTerm) {
+				final CCAppTerm func = (CCAppTerm) sharedTerm;
+				for (final CCTerm arg : func.getArguments()) {
+					if (arg.getFlatTerm().getSort().getSortSymbol().isDatatype()) {
+						children.add(arg);
+					}
 				}
 			}
 			return children;
@@ -622,7 +625,7 @@ public class DataTypeTheory implements ITheory {
 				// selector.
 				// Get the corresponding tester or create it if it does not exists.
 				// If it exists, the corresponding tester is true.
-				CCAppTerm selectTerm = (CCAppTerm) currentAsChild;
+				final CCAppTerm selectTerm = (CCAppTerm) currentAsChild;
 				prevAsParent = selectTerm.getArgument(0);
 				final FunctionSymbol selectorFunc = selectTerm.getFunctionSymbol();
 				final Constructor cons = getConstructor(selectorFunc);
@@ -869,8 +872,8 @@ public class DataTypeTheory implements ITheory {
 		for (int i = 0; i < constr.getArgumentSorts().length; i++) {
 			if (mClausifier.isStablyInfinite(constr.getArgumentSorts()[i].mapSort(dataTypeSort.getArguments()))) {
 				final FunctionSymbol selector = mTheory.getFunction(constr.getSelectors()[i], dataTypeSort);
-				MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, selector, 0);
-				ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccterm }));
+				final MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, selector, 0);
+				final ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccterm }));
 				if (revTriggerTrigger == null || revTriggerTrigger.getApplications().isEmpty()) {
 					return true;
 				}
@@ -970,12 +973,17 @@ public class DataTypeTheory implements ITheory {
 				continue;
 			}
 			for (final CCTerm ct : ccTerms) {
-				CCTerm sharedTerm = ct.getSharedTerm();
+				final CCTerm sharedTerm = ct.getSharedTerm();
 				if (sharedTerm != null) {
-					CCAppTerm constrAppTerm = (CCAppTerm) sharedTerm;
-					final FunctionSymbol constr = constrAppTerm.getFunctionSymbol();
-					final CCTerm[] args = constrAppTerm.getArguments();
-					valueMap.put(ct, new ConstrTerm(constr, args));
+					if (sharedTerm instanceof CCAppTerm) {
+						final CCAppTerm constrAppTerm = (CCAppTerm) sharedTerm;
+						final FunctionSymbol constr = constrAppTerm.getFunctionSymbol();
+						final CCTerm[] args = constrAppTerm.getArguments();
+						valueMap.put(ct, new ConstrTerm(constr, args));
+					} else {
+						final ApplicationTerm appTerm = (ApplicationTerm) sharedTerm.getFlatTerm();
+						valueMap.put(ct, new ConstrTerm(appTerm.getFunction(), new CCTerm[0]));
+					}
 				} else {
 					final Map<FunctionSymbol, CCAppTerm> selectorsAndTester = getSelectorsAndTesters(ct);
 					final Constructor constr = findConstructorFromTester(ct, selectorsAndTester, modelBuilder);

@@ -78,7 +78,5 @@ public final class MasterReverseTrigger extends ReverseTrigger {
 		assert appTerm.getFunctionSymbol() == mFunctionSymbol;
 		final ReverseTriggerTrigger reverseTriggerTrigger = new ReverseTriggerTrigger(this, appTerm, mArgPosition);
 		mEngine.addSignature(reverseTriggerTrigger);
-		mEngine.addSignatureBackRef(appTerm.getArgument(mArgPosition),
-				new SignatureBackRef(reverseTriggerTrigger, mArgPosition));
 	}
 }

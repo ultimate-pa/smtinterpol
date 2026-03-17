@@ -503,7 +503,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			time = System.nanoTime();
 		}
 		/* Compute congruence closure */
-		System.err.println("Src Backrefs: " + src.mSignatureBackRefs);
+		// System.err.println("Src Backrefs: " + src.mSignatureBackRefs);
 		if (!src.mSignatureBackRefs.isEmpty()) {
 			engine.pushSignatureTodo(src, src.mSignatureBackRefs);
 		}
@@ -636,7 +636,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		// }
 
 		dest.mSignatureBackRefs.unjoinList(src.mSignatureBackRefs);
-		System.err.println("PUSH SIGNATURE TODO " + src.mSignatureBackRefs);
+		// System.err.println("PUSH SIGNATURE TODO " + src.mSignatureBackRefs);
 		if (!src.mSignatureBackRefs.isEmpty()) {
 			engine.pushSignatureTodo(src, src.mSignatureBackRefs);
 		}

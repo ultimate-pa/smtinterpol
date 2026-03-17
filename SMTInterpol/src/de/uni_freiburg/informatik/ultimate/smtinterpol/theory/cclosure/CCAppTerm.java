@@ -30,13 +30,16 @@ public class CCAppTerm extends CCTerm {
 	final CCTerm[] mArgs;
 	Term mSmtTerm;
 
+	CongruenceTrigger mCongTrigger;
+	FindTriggerTrigger mFindTrigger;
+
 	public CCAppTerm(FunctionSymbol fsym, final CCTerm[] args,
 			final CClosure engine, final boolean isFromQuant) {
 		super(HashUtils.hashJenkins(fsym.hashCode(), (Object[]) args), isFromQuant ? CCAppTerm.computeAge(args) : 0);
 		mFunc = fsym;
 		mArgs = args;
 	}
-	
+
 	private final static int computeAge(CCTerm[] args) {
 		int age = 1;
 		for (int i = 0; i < args.length; i++) {

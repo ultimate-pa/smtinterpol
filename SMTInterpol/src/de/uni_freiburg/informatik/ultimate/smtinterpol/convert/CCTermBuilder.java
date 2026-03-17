@@ -66,15 +66,14 @@ public class CCTermBuilder {
 				mConverted.push(ccTerm);
 			} else {
 				final CClosure cclosure = mClausifier.getCClosure();
-				if (Clausifier.needCCTerm(mTerm)) {
+				if (Clausifier.needCCTerm(mTerm) && ((ApplicationTerm) mTerm).getParameters().length > 0) {
 					final FunctionSymbol fs = ((ApplicationTerm) mTerm).getFunction();
 					if (fs.isIntern() && fs.getName() == "select") {
 						mClausifier.getArrayTheory().cleanCaches();
 					}
-					mOps.push(new SaveCCTerm(mTerm));
 					final ApplicationTerm at = (ApplicationTerm) mTerm;
 					final Term[] args = at.getParameters();
-					mOps.push(new BuildCCAppTerm(fs));
+					mOps.push(new BuildCCAppTerm(at));
 					for (int i = args.length - 1; i >= 0; --i) {
 						mOps.push(new BuildCCTerm(args[i]));
 					}
@@ -90,41 +89,30 @@ public class CCTermBuilder {
 		}
 	}
 
-	private class SaveCCTerm implements Operation {
-		private final Term mTerm;
-
-		public SaveCCTerm(final Term term) {
-			mTerm = term;
-		}
-
-		@Override
-		public void perform() {
-			final CCTerm ccTerm = mConverted.peek();
-			mClausifier.getCClosure().addTerm(ccTerm, mTerm);
-			mClausifier.shareCCTerm(mTerm, ccTerm);
-			mClausifier.addTermAxioms(mTerm, mSource);
-		}
-	}
-
 	/**
 	 * Helper class to build the intermediate CCAppTerms. Note that all these terms will be func terms.
 	 *
 	 * @author Juergen Christ
 	 */
 	private class BuildCCAppTerm implements Operation {
-		private final FunctionSymbol mFunc;
+		private final ApplicationTerm mAppTerm;
 
-		public BuildCCAppTerm(FunctionSymbol func) {
-			mFunc = func;
+		public BuildCCAppTerm(ApplicationTerm appTerm) {
+			mAppTerm = appTerm;
 		}
 
 		@Override
 		public void perform() {
-			CCTerm[] args = new CCTerm[mFunc.getParameterSorts().length];
+			final CCTerm[] args = new CCTerm[mAppTerm.getParameters().length];
 			for (int i = args.length - 1; i >= 0; i--) {
 				args[i] = mConverted.pop();
 			}
-			mConverted.push(mClausifier.getCClosure().createAppTerm(mFunc, args, mSource));
+			assert mClausifier.getCCTerm(mAppTerm) == null;
+			final CCTerm ccTerm = mClausifier.getCClosure().createAppTerm(mAppTerm.getFunction(), args, mSource);
+			mClausifier.getCClosure().addTerm(ccTerm, mAppTerm);
+			mClausifier.shareCCTerm(mAppTerm, ccTerm);
+			mClausifier.addTermAxioms(mAppTerm, mSource);
+			mConverted.push(ccTerm);
 		}
 	}
 }

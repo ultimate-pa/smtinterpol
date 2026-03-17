@@ -37,6 +37,7 @@ public class SignatureTrigger {
 	private int mLastHashCode;
 
 	private SignatureTrigger mMergedTrigger;
+	private SignatureBackRef[] mBackrefs;
 	/**
 	 * Create a signature with the given identifier and non-empty term array. The array may contain any CCTerms, not
 	 * necessarily representatives. The array is copied defensively.
@@ -50,8 +51,8 @@ public class SignatureTrigger {
 		mId = id;
 		mTerms = terms;
 		recomputeHashCode();
-		System.err.println("INIT HASH " + this);
-		System.err.println("OLD HASH " + hashCode());
+		// System.err.println("INIT HASH " + this);
+		// System.err.println("OLD HASH " + hashCode());
 	}
 
 	public Object getId() {
@@ -76,15 +77,17 @@ public class SignatureTrigger {
 	public void rehash(CClosure engine, int argPosition, CCTerm newRep) {
 		/* only if not merged */
 		if (mMergedTrigger == null) {
-			System.err.println("REHASH " + this);
-			System.err.println("OLD HASH " + hashCode());
-			engine.removeSignature(this);
-			recomputeHashCode();
-			System.err.println("NEW HASH " + hashCode());
-			engine.addSignature(this);
+			if (argPosition >= 0) {
+				// System.err.println("REHASH " + this);
+				// System.err.println("OLD HASH " + hashCode());
+				engine.removeSignatureHash(this);
+				recomputeHashCode();
+				// System.err.println("NEW HASH " + hashCode());
+			}
+			engine.addSignatureHash(this);
 		}
 	}
-	
+
 	/**
 	 * Merge this trigger with another. Called by CClosure.addSignature when a Trigger with the same signature already exists.
 	 * This combines the information of the two triggers into a single trigger, and may also trigger actions like adding pending congruences or activating reverse triggers.
@@ -92,7 +95,8 @@ public class SignatureTrigger {
 	 * @param other the trigger that was merged into this trigger.
 	 */
 	public void merge(CClosure engine, SignatureTrigger other) {
-		System.err.println("MERGE " + this + " with " + other);
+		assert this != other;
+		// System.err.println("MERGE " + this + " with " + other);
 		assert other.mMergedTrigger == null;
 		other.mMergedTrigger = this;
 	}
@@ -105,7 +109,7 @@ public class SignatureTrigger {
 	 *            the trigger that was merged into this trigger.
 	 */
 	public void undoMerge(CClosure engine, SignatureTrigger other) {
-		System.err.println("UNDO MERGE " + this + " with " + other);
+		// System.err.println("UNDO MERGE " + this + " with " + other);
 		assert other.mMergedTrigger == this;
 		other.mMergedTrigger = null;
 	}
@@ -150,5 +154,28 @@ public class SignatureTrigger {
 			sb.append(',').append(t);
 		}
 		return sb.append(']').toString();
+	}
+
+	public boolean unmerge(CClosure cclosure) {
+		if (mMergedTrigger != null) {
+			mMergedTrigger.undoMerge(cclosure, this);
+			return true;
+		}
+		return false;
+	}
+
+	public void addBackrefs(CClosure cclosure) {
+		mBackrefs = new SignatureBackRef[mTerms.length];
+		for (int i = 0; i < mTerms.length; i++) {
+			mBackrefs[i] = new SignatureBackRef(this, i);
+			cclosure.addSignatureBackRef(mTerms[i], mBackrefs[i]);
+		}
+	}
+
+	public void removeBackrefs(CClosure cclosure) {
+		for (int i = 0; i < mTerms.length; i++) {
+			cclosure.removeSignatureBackRef(mTerms[i], mBackrefs[i]);
+		}
+		mBackrefs = null;
 	}
 }
