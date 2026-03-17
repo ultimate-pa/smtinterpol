@@ -167,10 +167,9 @@ public class CClosure implements ITheory {
 	 */
 	final Map<SignatureTrigger, SignatureTrigger> mSignatureTriggers = new HashMap<>();
 	/**
-	 * Todo stack for deferred signature rehash: (oldRep, backRefList). Pushed when the smaller class is merged;
-	 * processed at checkpoint.
+	 * Todo list of deferred signatures.
 	 */
-	final ArrayDeque<SignatureTodoEntry> mSignatureTodo = new ArrayDeque<>();
+	final SimpleList<SignatureTrigger> mSignatureTodo = new SimpleList<SignatureTrigger>();
 
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
 	private long mCcCount, mMergeCount;
@@ -480,9 +479,26 @@ public class CClosure implements ITheory {
 		addSignatureHash(signatureTrigger);
 	}
 
+	private boolean undoContainsInfoFor(SignatureTrigger signatureTrigger) {
+		for (final UndoInfo undoInfo : mUndoStack) {
+			if (undoInfo instanceof TriggerMergeUndoEntry) {
+				final TriggerMergeUndoEntry triggerInfo = (TriggerMergeUndoEntry) undoInfo;
+				if (triggerInfo.mMergedTrigger == signatureTrigger) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	public void removeSignature(SignatureTrigger signatureTrigger) {
+		assert !undoContainsInfoFor(signatureTrigger);
 		if (!signatureTrigger.unmerge(this)) {
-			mSignatureTriggers.remove(signatureTrigger);
+			if (signatureTrigger.inList()) {
+				signatureTrigger.removeFromList();
+			} else {
+				mSignatureTriggers.remove(signatureTrigger);
+			}
 		}
 		signatureTrigger.removeBackrefs(this);
 	}
@@ -724,6 +740,19 @@ public class CClosure implements ITheory {
 	}
 
 	/**
+	 * Move a signature trigger from the global signature hashes to the todo list.
+	 *
+	 * @param signatureTrigger
+	 * @return true, if the signature was added, false if it already was in the
+	 */
+	public void moveToSignatureTodo(SignatureTrigger signatureTrigger) {
+		if (!signatureTrigger.inList()) {
+			mSignatureTodo.append(signatureTrigger);
+			removeSignatureHash(signatureTrigger);
+		}
+	}
+
+	/**
 	 * Push the smaller class's back-ref list onto the signature todo. Called from merge when merging two classes; the
 	 * actual rehash and trigger merge happen at checkpoint.
 	 *
@@ -732,9 +761,10 @@ public class CClosure implements ITheory {
 	 * @param backRefs
 	 *            the list of (signature, listIndex, trigger) back-refs from that representative.
 	 */
-	void pushSignatureTodo(final CCTerm oldRep, final SimpleList<SignatureBackRef> backRefs) {
-		if (!backRefs.isEmpty()) {
-			mSignatureTodo.push(new SignatureTodoEntry(oldRep, backRefs));
+	void rehashSignatures(final CCTerm oldRep, final SimpleList<SignatureBackRef> backRefs) {
+		for (final SignatureBackRef backRef : backRefs) {
+			final SignatureTrigger signatureTrigger = backRef.getSignatureTrigger();
+			signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep.getRepresentative());
 		}
 	}
 
@@ -1030,7 +1060,6 @@ public class CClosure implements ITheory {
 
 	@Override
 	public void backtrackStart() {
-		mSignatureTodo.clear();
 		mPendingLits.clear();
 		mPendingCongruences.clear();
 	}
@@ -1117,17 +1146,8 @@ public class CClosure implements ITheory {
 	private Clause buildCongruence() {
 		while (!mSignatureTodo.isEmpty() || !mPendingCongruences.isEmpty()) {
 			while (!mSignatureTodo.isEmpty()) {
-				final SignatureTodoEntry todo = mSignatureTodo.poll();
-				if (todo.mSingleTrigger != null) {
-					todo.mSingleTrigger.rehash(this, -1, null);
-				} else {
-					final CCTerm oldRep = todo.mOldRep;
-					final SimpleList<SignatureBackRef> backRefs = todo.mBackRefs;
-					for (final SignatureBackRef backRef: backRefs) {
-						final SignatureTrigger signatureTrigger = backRef.getSignatureTrigger();
-						signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep.getRepresentative());
-					}
-				}
+				final SignatureTrigger trigger = mSignatureTodo.removeFirst();
+				addSignatureHash(trigger);
 			}
 			SymmetricPair<CCAppTerm> cong;
 			while ((cong = mPendingCongruences.poll()) != null) {
@@ -1159,7 +1179,7 @@ public class CClosure implements ITheory {
 			} else if (top instanceof TriggerMergeUndoEntry) {
 				final TriggerMergeUndoEntry signatureUndo = (TriggerMergeUndoEntry) top;
 				signatureUndo.getMergedTrigger().undoMerge(this,signatureUndo.getPreviousTrigger());
-				mSignatureTodo.push(new SignatureTodoEntry(signatureUndo.getPreviousTrigger()));
+				mSignatureTodo.append(signatureUndo.getPreviousTrigger());
 			} else {
 				throw new AssertionError("Unknown undo info type: " + top);
 			}
@@ -1241,14 +1261,13 @@ public class CClosure implements ITheory {
 		mPendingLits.clear();
 		mRecheckOnBacktrackLits.clear();
 		mPendingCongruences.clear();
-		mSignatureTodo.clear();
 	}
 
 	@Override
 	public void pop() {
 		assert mDecideLevelToUndoStackSize.isEmpty();
 		assert mUndoStack.isEmpty();
-		assert mSignatureTodo.isEmpty();
+		// assert mSignatureTodo.isEmpty();
 		assert mRecheckOnBacktrackLits.isEmpty();
 		assert mPendingCongruences.isEmpty();
 		mNumFunctionPositions = mNumFunctionPositionsStack.remove(mNumFunctionPositionsStack.size() - 1);

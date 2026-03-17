@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import java.util.Arrays;
 import java.util.List;
 
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 /**
@@ -30,7 +31,7 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
  *
  * @author Jochen Hoenicke
  */
-public class SignatureTrigger {
+public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 
 	private final Object mId;
 	private final CCTerm[] mTerms;
@@ -77,14 +78,8 @@ public class SignatureTrigger {
 	public void rehash(CClosure engine, int argPosition, CCTerm newRep) {
 		/* only if not merged */
 		if (mMergedTrigger == null) {
-			if (argPosition >= 0) {
-				// System.err.println("REHASH " + this);
-				// System.err.println("OLD HASH " + hashCode());
-				engine.removeSignatureHash(this);
-				recomputeHashCode();
-				// System.err.println("NEW HASH " + hashCode());
-			}
-			engine.addSignatureHash(this);
+			engine.moveToSignatureTodo(this);
+			recomputeHashCode();
 		}
 	}
 
