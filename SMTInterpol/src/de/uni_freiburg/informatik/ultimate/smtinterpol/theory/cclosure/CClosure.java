@@ -444,10 +444,10 @@ public class CClosure implements ITheory {
 	 */
 	public void insertReverseTrigger(final FunctionSymbol sym, CCTerm arg, final int argPos,
 			final ReverseTrigger trigger) {
+		assert trigger.mSignatureTrigger == null;
 		final MasterReverseTrigger masterTrigger = MasterReverseTrigger.of(this, sym, argPos);
 		final ReverseTriggerTrigger reverseTriggerTrigger = new ReverseTriggerTrigger(masterTrigger, trigger);
 		addSignature(reverseTriggerTrigger);
-		reverseTriggerTrigger.addBackrefs(this);
 		trigger.mSignatureTrigger = reverseTriggerTrigger;
 	}
 
@@ -486,19 +486,28 @@ public class CClosure implements ITheory {
 				if (triggerInfo.mMergedTrigger == signatureTrigger) {
 					return true;
 				}
+				if (triggerInfo.mPreviousTrigger == signatureTrigger) {
+					getLogger().debug("Trigger still on Undo: %d %s %s", signatureTrigger.hashCode(), signatureTrigger,
+							undoInfo);
+					return true;
+				}
 			}
 		}
 		return false;
 	}
 
 	public void removeSignature(SignatureTrigger signatureTrigger) {
-		assert !undoContainsInfoFor(signatureTrigger);
+		// assert !undoContainsInfoFor(signatureTrigger);
 		if (!signatureTrigger.unmerge(this)) {
 			if (signatureTrigger.inList()) {
 				signatureTrigger.removeFromList();
+				assert mSignatureTriggers.get(signatureTrigger) != signatureTrigger;
 			} else {
+				assert mSignatureTriggers.get(signatureTrigger) == signatureTrigger;
 				mSignatureTriggers.remove(signatureTrigger);
 			}
+		} else {
+			assert false;
 		}
 		signatureTrigger.removeBackrefs(this);
 	}
@@ -1109,7 +1118,7 @@ public class CClosure implements ITheory {
 		 * Recheck the propagated literals again on the next backtrack.
 		 */
 		mRecheckOnBacktrackLits = newRecheckOnBacktrackLits;
-		return buildCongruence();
+		return null;
 	}
 
 	@Override

@@ -86,4 +86,9 @@ public class EMReverseTrigger extends de.uni_freiburg.informatik.ultimate.smtint
 		}
 	}
 
+	@Override
+	public String toString() {
+		return "EMReverse[" + mFunc.getName() + "," + mArgPos + "," + mArg + "]";
+	}
+
 }

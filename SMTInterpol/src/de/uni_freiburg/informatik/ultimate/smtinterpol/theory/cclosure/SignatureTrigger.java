@@ -78,6 +78,7 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 	public void rehash(CClosure engine, int argPosition, CCTerm newRep) {
 		/* only if not merged */
 		if (mMergedTrigger == null) {
+			assert mBackrefs != null;
 			engine.moveToSignatureTodo(this);
 			recomputeHashCode();
 		}
