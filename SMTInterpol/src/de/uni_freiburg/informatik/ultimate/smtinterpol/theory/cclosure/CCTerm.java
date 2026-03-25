@@ -496,7 +496,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		}
 		/* Compute congruence closure */
 		engine.getLogger().debug("Merge Backrefs: %s", src.mSignatureBackRefs);
-		engine.rehashSignatures(src, src.mSignatureBackRefs);
+		engine.rehashSignatures(src, dest, src.mSignatureBackRefs);
 		dest.mSignatureBackRefs.joinList(src.mSignatureBackRefs);
 
 		if (Config.PROFILE_TIME) {
@@ -572,7 +572,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		src.mRep = src;
 
 		engine.getLogger().debug("Unmerge Backrefs: %s", src.mSignatureBackRefs);
-		engine.rehashSignatures(src, src.mSignatureBackRefs);
+		engine.rehashSignatures(dest, src, src.mSignatureBackRefs);
 
 		assert src.mMergeTime == engine.getMergeDepth();
 		src.mMergeTime = Integer.MAX_VALUE;

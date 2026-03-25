@@ -51,9 +51,7 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 	public SignatureTrigger(final Object id, final CCTerm[] terms) {
 		mId = id;
 		mTerms = terms;
-		recomputeHashCode();
-		// System.err.println("INIT HASH " + this);
-		// System.err.println("OLD HASH " + hashCode());
+		mLastHashCode = computeHashCode();
 	}
 
 	public Object getId() {
@@ -75,12 +73,13 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 		return Arrays.asList(mTerms);
 	}
 
-	public void rehash(CClosure engine, int argPosition, CCTerm newRep) {
+	public void rehash(CClosure engine, int argPosition, CCTerm oldRep, CCTerm newRep) {
 		/* only if not merged */
 		if (mMergedTrigger == null) {
 			assert mBackrefs != null;
 			engine.moveToSignatureTodo(this);
-			recomputeHashCode();
+			recomputeHashCode(argPosition, oldRep, newRep);
+			assert mLastHashCode == computeHashCode();
 		}
 	}
 
@@ -115,12 +114,18 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 		return mLastHashCode;
 	}
 
-	public void recomputeHashCode() {
+	public int computeHashCode() {
 		int h = mId.hashCode();
-		for (final CCTerm t : mTerms) {
-			h = HashUtils.hashJenkins(h, t.getRepresentative());
+		for (int i = 0; i < mTerms.length; i++) {
+			h ^= HashUtils.hashJenkins(i, mTerms[i].getRepresentative());
 		}
-		mLastHashCode = h;
+		return h;
+	}
+
+	public void recomputeHashCode(int argPos, CCTerm oldRep, CCTerm newRep) {
+		final int hOld = HashUtils.hashJenkins(argPos, oldRep);
+		final int hNew = HashUtils.hashJenkins(argPos, newRep);
+		mLastHashCode ^= hOld ^ hNew;
 	}
 
 	@Override

@@ -57,17 +57,21 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 /**
  * This class implements the theory of equality, a.k.a. congruence closure.
  *
- * This theory understands equality literals in particular CCEquality and can propagate literals that follow by
- * transitivity and/or congruence. It can also find all conflicts on these equalities. Internally it uses an equality
- * graph to represent the known equalities between terms.
+ * This theory understands equality literals in particular CCEquality and can
+ * propagate literals that follow by transitivity and/or congruence. It can also
+ * find all conflicts on these equalities. Internally it uses an equality graph
+ * to represent the known equalities between terms.
  *
- * This theory can be combined with other theories using Nelson-Oppen theory combination. For every subterm in the
- * equality graph that is shared with the other theories (currently only linear arithmetic), it will propagate
- * equalities between these shared subterms when they become equal. For these shared subterms, it also creates and
- * propagates an LAEquality when the corresponding CCEquality is created/set.
+ * This theory can be combined with other theories using Nelson-Oppen theory
+ * combination. For every subterm in the equality graph that is shared with the
+ * other theories (currently only linear arithmetic), it will propagate
+ * equalities between these shared subterms when they become equal. For these
+ * shared subterms, it also creates and propagates an LAEquality when the
+ * corresponding CCEquality is created/set.
  *
- * The equality graph is implemented by a union-merge data structure. The nodes in the equality graph (terms) are
- * implemented by the class CCTerm. See the description of this class for details on the implementation.
+ * The equality graph is implemented by a union-merge data structure. The nodes
+ * in the equality graph (terms) are implemented by the class CCTerm. See the
+ * description of this class for details on the implementation.
  *
  * @author Jochen Hoenicke, Jürgen Christ
  */
@@ -77,44 +81,50 @@ public class CClosure implements ITheory {
 	 */
 	final Clausifier mClausifier;
 	/**
-	 * For every term that is not a real function application of uninterpreted functions, this maps it to the
-	 * corresponding cc-term, if that was created.
+	 * For every term that is not a real function application of uninterpreted
+	 * functions, this maps it to the corresponding cc-term, if that was created.
 	 *
 	 * TODO: Do we still need this? The clausifier has also a similar map.
 	 */
 	final Map<Term, CCTerm> mAnonTerms = new HashMap<>();
 	/**
-	 * The list of all cc-terms that are full function applications and thus correspond to a term.
+	 * The list of all cc-terms that are full function applications and thus
+	 * correspond to a term.
 	 *
-	 * TODO: This is somewhat redundant, as the clausifier term data has also all terms.
+	 * TODO: This is somewhat redundant, as the clausifier term data has also all
+	 * terms.
 	 */
 	final ScopedArrayList<CCTerm> mAllTerms = new ScopedArrayList<>();
 	/**
-	 * For each pair of congruence classes this maps to the corresponding pair info. The pair info contains the list of
-	 * equalities between cc-terms of the congruence classes, the first set diseq that proves that these congruence
+	 * For each pair of congruence classes this maps to the corresponding pair info.
+	 * The pair info contains the list of equalities between cc-terms of the
+	 * congruence classes, the first set diseq that proves that these congruence
 	 * classes were disjoint, and the compare trigger for these two classes.
 	 *
-	 * This also contains info for non-representatives of congruence classes, namely the state, when this was last time
-	 * a representative. This info is used to restore pair hash information on unmerge.
+	 * This also contains info for non-representatives of congruence classes, namely
+	 * the state, when this was last time a representative. This info is used to
+	 * restore pair hash information on unmerge.
 	 *
 	 * @see CCTermPairHash, CCTermPairHash.Info
 	 */
 	final CCTermPairHash mPairHash = new CCTermPairHash();
 
 	/**
-	 * These are the list of literals that we can propagate. Each literal must be a consequence of the current
-	 * congruence closure graph.
+	 * These are the list of literals that we can propagate. Each literal must be a
+	 * consequence of the current congruence closure graph.
 	 */
 	final ArrayQueue<Literal> mPendingLits = new ArrayQueue<>();
 	/**
-	 * The list of CCEquality literals that were created when they were already true and thus may have been added to the
-	 * wrong decision level. We need to recheck them after any backtrack, if they still can be propagated.
+	 * The list of CCEquality literals that were created when they were already true
+	 * and thus may have been added to the wrong decision level. We need to recheck
+	 * them after any backtrack, if they still can be propagated.
 	 */
 	ArrayQueue<Literal> mRecheckOnBacktrackLits = new ArrayQueue<>();
 
 	/**
-	 * A mapping from function symbol or string (the latter only for {@code select/@diff/store}) to the corresponding
-	 * CCBaseTerm that represents this function symbol.
+	 * A mapping from function symbol or string (the latter only for
+	 * {@code select/@diff/store}) to the corresponding CCBaseTerm that represents
+	 * this function symbol.
 	 *
 	 * TODO: does this belong to clausifier?
 	 *
@@ -129,12 +139,15 @@ public class CClosure implements ITheory {
 	 */
 	final ArrayList<Integer> mNumFunctionPositionsStack = new ArrayList<>();
 	/**
-	 * The number of function argument positions. This is used to give each argument position in each function symbol a
-	 * unique number. Two terms can only cause a congruence if they occur at the same index in the same function symbol.
-	 * Thus we only need to match parent information for each such index with each other on merge.
+	 * The number of function argument positions. This is used to give each argument
+	 * position in each function symbol a unique number. Two terms can only cause a
+	 * congruence if they occur at the same index in the same function symbol. Thus
+	 * we only need to match parent information for each such index with each other
+	 * on merge.
 	 *
-	 * This number is used to generate a unique index for every function symbol argument position. When a new function
-	 * symbol is added as a CCBaseTerm this number is used to give the arguments a unique index and this number is
+	 * This number is used to generate a unique index for every function symbol
+	 * argument position. When a new function symbol is added as a CCBaseTerm this
+	 * number is used to give the arguments a unique index and this number is
 	 * increased by the number of arguments of this function symbol.
 	 */
 	int mNumFunctionPositions;
@@ -159,11 +172,14 @@ public class CClosure implements ITheory {
 	final ArrayDeque<SymmetricPair<CCAppTerm>> mPendingCongruences = new ArrayDeque<>();
 
 	/**
-	 * Global map from signature to trigger. Used for congruence finder and reverse triggers. Signatures are rehashed at
-	 * checkpoint when the todo is processed. When moving a signature to its new hash (after representative change), we
-	 * remove the old entry by key reference (see {@link #removeSignatureByRef(Signature)}) and then put the same key
-	 * again (its hashCode/equals use representatives, so it now maps to the new bucket). We do not keep the old key in
-	 * the map, since that would leave the map inconsistent.
+	 * Global map from signature to trigger. Used for congruence finder and reverse
+	 * triggers. Signatures are rehashed at checkpoint when the todo is processed.
+	 * When moving a signature to its new hash (after representative change), we
+	 * remove the old entry by key reference (see
+	 * {@link #removeSignatureByRef(Signature)}) and then put the same key again
+	 * (its hashCode/equals use representatives, so it now maps to the new bucket).
+	 * We do not keep the old key in the map, since that would leave the map
+	 * inconsistent.
 	 */
 	final Map<SignatureTrigger, SignatureTrigger> mSignatureTriggers = new HashMap<>();
 	/**
@@ -171,7 +187,7 @@ public class CClosure implements ITheory {
 	 */
 	final SimpleList<SignatureTrigger> mSignatureTodo = new SimpleList<SignatureTrigger>();
 
-	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime;
+	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime, mSigHashTime;
 	private long mCcCount, mMergeCount;
 
 	public CClosure(final Clausifier clausifier) {
@@ -198,7 +214,9 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Get the merge height where t1 and t2 were merged into the same congruence class.
+	 * Get the merge height where t1 and t2 were merged into the same congruence
+	 * class.
+	 *
 	 * @param t1 the first term.
 	 * @param t2 the second term.
 	 * @return the mMergeDepth when t1 and t2 were merged.
@@ -208,7 +226,10 @@ public class CClosure implements ITheory {
 		if (t1 == t2) {
 			return -1;
 		}
-		/* first compute the number of rep edges to the common representative for both terms */
+		/*
+		 * first compute the number of rep edges to the common representative for both
+		 * terms
+		 */
 		int depth1 = 0;
 		int depth2 = 0;
 		for (CCTerm t = t1; t != t.mRep; t = t.mRep) {
@@ -218,8 +239,8 @@ public class CClosure implements ITheory {
 			depth2++;
 		}
 		/*
-		 * Move to the common ancestor. If the common ancestor is one of the terms, the previous edge gives us the merge
-		 * time.
+		 * Move to the common ancestor. If the common ancestor is one of the terms, the
+		 * previous edge gives us the merge time.
 		 */
 		while (depth1 > depth2) {
 			if (t1.mRep == t2) {
@@ -239,8 +260,8 @@ public class CClosure implements ITheory {
 		assert t1 != t2;
 		assert depth2 == depth1;
 		/*
-		 * If the common ancestor is not one of the two terms, we find it here. One of the previous edges merged t1 and
-		 * t2, namely the one that happened later.
+		 * If the common ancestor is not one of the two terms, we find it here. One of
+		 * the previous edges merged t1 and t2, namely the one that happened later.
 		 */
 		while (true) {
 			assert t1 != t2;
@@ -276,10 +297,10 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Get all terms that are a (complete) function application of the given function symbol.
+	 * Get all terms that are a (complete) function application of the given
+	 * function symbol.
 	 *
-	 * @param sym
-	 *            the function symbol.
+	 * @param sym the function symbol.
 	 * @return all function applications of the given function symbol.
 	 */
 	public List<CCAppTerm> getAllFuncApps(final FunctionSymbol sym) {
@@ -296,15 +317,13 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Insert a Compare trigger that will be activated as soon as the two given CCTerms are equal. It is inserted into
-	 * the pair hash tables and all intermediate pair infos.
+	 * Insert a Compare trigger that will be activated as soon as the two given
+	 * CCTerms are equal. It is inserted into the pair hash tables and all
+	 * intermediate pair infos.
 	 *
-	 * @param t1
-	 *            the first CCTerm.
-	 * @param t2
-	 *            the second CCTerm.
-	 * @param trigger
-	 *            the Compare trigger.
+	 * @param t1      the first CCTerm.
+	 * @param t2      the second CCTerm.
+	 * @param trigger the Compare trigger.
 	 */
 	public void insertCompareTrigger(CCTerm t1, CCTerm t2, final CompareTrigger trigger) {
 		assert t1.getRepresentative() != t2.getRepresentative();
@@ -317,7 +336,8 @@ public class CClosure implements ITheory {
 				t2 = tmp;
 			}
 
-			// if t1 is its own representative, then t2 should also be the representative because of merge time
+			// if t1 is its own representative, then t2 should also be the representative
+			// because of merge time
 			if (t1.mRep == t1) {
 				assert t2.mRep == t2;
 				// Insert this entry into the pair hash, create it if necessary.
@@ -360,8 +380,10 @@ public class CClosure implements ITheory {
 		CCTerm t1 = trigger.getLhs();
 		CCTerm t2 = trigger.getRhs();
 		if (!mAllTerms.contains(t1) || !mAllTerms.contains(t2)) {
-			return; // FIXME This is a workaround for the problem that pop() first removes terms, then triggers, as it
-			// is executed for CClosure first. Then this method can be called for a trigger where the
+			return; // FIXME This is a workaround for the problem that pop() first removes terms,
+					// then triggers, as it
+			// is executed for CClosure first. Then this method can be called for a trigger
+			// where the
 			// corresponding terms have already been removed.
 		}
 		while (true) {
@@ -372,7 +394,8 @@ public class CClosure implements ITheory {
 				t2 = tmp;
 			}
 
-			// if t1 is its own representative, then t2 should also be the representative because of merge time
+			// if t1 is its own representative, then t2 should also be the representative
+			// because of merge time
 			if (t1.mRep == t1) {
 				assert t2.mRep == t2;
 				// Insert this entry into the pair hash, create it if necessary.
@@ -383,7 +406,8 @@ public class CClosure implements ITheory {
 			}
 
 			// find the pair info entry in the pair info list of t1 or create a new one.
-			// isLast is set if t1 was merged with t2; in this case the equality entry lists were not joined.
+			// isLast is set if t1 was merged with t2; in this case the equality entry lists
+			// were not joined.
 			assert t1.mRep != t2;
 			boolean found = false;
 			for (final CCTermPairHash.Info.Entry pentry : t1.mPairInfos) {
@@ -402,12 +426,11 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Insert a signature backref into the given term.  This handles terms that are not the representative and
-	 * adds the backref to all relevant lists.
-	 * @param term
-	 *            the ccterm to insert the backref into.
-	 * @param backref
-	 *            the backref to insert.
+	 * Insert a signature backref into the given term. This handles terms that are
+	 * not the representative and adds the backref to all relevant lists.
+	 *
+	 * @param term    the ccterm to insert the backref into.
+	 * @param backref the backref to insert.
 	 */
 	public void addSignatureBackRef(CCTerm arg, final SignatureBackRef backref) {
 		while (arg != arg.mRep) {
@@ -452,13 +475,11 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Insert a Reverse trigger that will be activated as soon as a new function application of the given function
-	 * symbol exists.
+	 * Insert a Reverse trigger that will be activated as soon as a new function
+	 * application of the given function symbol exists.
 	 *
-	 * @param fSym
-	 *            the function symbol.
-	 * @param trigger
-	 *            the Reverse trigger.
+	 * @param fSym    the function symbol.
+	 * @param trigger the Reverse trigger.
 	 */
 	public void insertFindTrigger(final FunctionSymbol sym, final ReverseTrigger trigger) {
 		final FindTriggerTrigger findTriggerTrigger = new FindTriggerTrigger(trigger);
@@ -476,7 +497,7 @@ public class CClosure implements ITheory {
 
 	public void addSignature(SignatureTrigger signatureTrigger) {
 		signatureTrigger.addBackrefs(this);
-		addSignatureHash(signatureTrigger);
+		mSignatureTodo.append(signatureTrigger);
 	}
 
 	private boolean undoContainsInfoFor(SignatureTrigger signatureTrigger) {
@@ -532,13 +553,14 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Find the representative CCTerm for the given term. This function does not create new terms. If there is no
-	 * equivalent CCTerm, it returns null. If a term that is congruent to the given term already exists, it will return
-	 * the representative of this congruent term.
+	 * Find the representative CCTerm for the given term. This function does not
+	 * create new terms. If there is no equivalent CCTerm, it returns null. If a
+	 * term that is congruent to the given term already exists, it will return the
+	 * representative of this congruent term.
 	 *
-	 * @param term
-	 *            The term which a representative is searched for.
-	 * @return The representative, or null if no congruent term exists in the CClosure.
+	 * @param term The term which a representative is searched for.
+	 * @return The representative, or null if no congruent term exists in the
+	 *         CClosure.
 	 */
 	public CCTerm getCCTermRep(final Term term) {
 		if (mAnonTerms.containsKey(term)) {
@@ -586,14 +608,13 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Insert an equality entry into the pair hash table and all pair infos of the intermediate representatives.
+	 * Insert an equality entry into the pair hash table and all pair infos of the
+	 * intermediate representatives.
 	 *
-	 * @param t1
-	 *            one side of the equality.
-	 * @param t2
-	 *            the other side of the equality
-	 * @param eqentry
-	 *            the equality entry that should be inserted into the pair infos.
+	 * @param t1      one side of the equality.
+	 * @param t2      the other side of the equality
+	 * @param eqentry the equality entry that should be inserted into the pair
+	 *                infos.
 	 */
 	public void insertEqualityEntry(CCTerm t1, CCTerm t2, final CCEquality.Entry eqentry) {
 		while (true) {
@@ -604,7 +625,8 @@ public class CClosure implements ITheory {
 				t2 = tmp;
 			}
 
-			// if t1 is its own representative, then t2 should also be the representative because of merge time
+			// if t1 is its own representative, then t2 should also be the representative
+			// because of merge time
 			if (t1.mRep == t1) {
 				assert t2.mRep == t2;
 				// Insert this entry into the pair hash, create it if necessary.
@@ -618,7 +640,8 @@ public class CClosure implements ITheory {
 			}
 
 			// find the pair info entry in the pair info list of t1 or create a new one.
-			// isLast is set if t1 was merged with t2; in this case the equality entry lists were not joined.
+			// isLast is set if t1 was merged with t2; in this case the equality entry lists
+			// were not joined.
 			final boolean isLast = t1.mRep == t2;
 			boolean found = false;
 			for (final CCTermPairHash.Info.Entry pentry : t1.mPairInfos) {
@@ -762,24 +785,25 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Push the smaller class's back-ref list onto the signature todo. Called from merge when merging two classes; the
-	 * actual rehash and trigger merge happen at checkpoint.
+	 * Push the smaller class's back-ref list onto the signature todo. Called from
+	 * merge when merging two classes; the actual rehash and trigger merge happen at
+	 * checkpoint.
 	 *
-	 * @param oldRep
-	 *            the former representative of the smaller class (src).
-	 * @param backRefs
-	 *            the list of (signature, listIndex, trigger) back-refs from that representative.
+	 * @param oldRep   the former representative of the smaller class (src).
+	 * @param newRep   the new representative of the smaller class (dest).
+	 * @param backRefs the list of (signature, listIndex, trigger) back-refs from
+	 *                 that representative.
 	 */
-	void rehashSignatures(final CCTerm oldRep, final SimpleList<SignatureBackRef> backRefs) {
+	void rehashSignatures(final CCTerm oldRep, final CCTerm newRep, final SimpleList<SignatureBackRef> backRefs) {
 		for (final SignatureBackRef backRef : backRefs) {
 			final SignatureTrigger signatureTrigger = backRef.getSignatureTrigger();
-			signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep.getRepresentative());
+			signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep, newRep);
 		}
 	}
 
 	/**
-	 * Find the MergeUndoInfo on the undo stack for the given old representative. Used at checkpoint to attach
-	 * signature-undo entries.
+	 * Find the MergeUndoInfo on the undo stack for the given old representative.
+	 * Used at checkpoint to attach signature-undo entries.
 	 */
 	MergeUndoInfo findMergeUndoInfo(final CCTerm oldRep) {
 		for (final UndoInfo info : mUndoStack) {
@@ -917,13 +941,12 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Compute the earliest decide level at which the path between lhs and rhs exists. There must be a path, i.e.
+	 * Compute the earliest decide level at which the path between lhs and rhs
+	 * exists. There must be a path, i.e.
 	 * {@code lhs.getRepresentative() == rhs.getRepresentative()}.
 	 *
-	 * @param lhs
-	 *            the start of the path
-	 * @param rhs
-	 *            the end of the path
+	 * @param lhs the start of the path
+	 * @param rhs the end of the path
 	 * @return the earliest decide level.
 	 */
 	public int getDecideLevelForPath(final CCTerm lhs, final CCTerm rhs) {
@@ -1012,8 +1035,10 @@ public class CClosure implements ITheory {
 			final CCAppTerm a1 = (CCAppTerm) t1;
 			skip = true;
 			for (final CCTerm t2 : mAllTerms) {
-				// don't check symmetric cases: skip all terms in the inner loop up to and including the term t1.
-				// Thus we check exactly the pairs (t1,t2) where t1 occurs (strictly) before t2 in mAllTerms.
+				// don't check symmetric cases: skip all terms in the inner loop up to and
+				// including the term t1.
+				// Thus we check exactly the pairs (t1,t2) where t1 occurs (strictly) before t2
+				// in mAllTerms.
 				if (skip) {
 					if (t1 == t2) {
 						skip = false;
@@ -1044,7 +1069,8 @@ public class CClosure implements ITheory {
 
 	@Override
 	public void printStatistics(final LogProxy logger) {
-		logger.info("CCTimes: iE " + mInvertEdgeTime + " eq " + mEqTime + " cc " + mCcTime + " setRep " + mSetRepTime);
+		logger.info("CCTimes: iE " + mInvertEdgeTime / 1000000 + " eq " + mEqTime / 1000000 + " cc " + mCcTime / 1000000
+				+ " setRep " + mSetRepTime / 1000000 + " sh " + mSigHashTime / 1000000);
 		logger.info("Merges: " + mMergeCount + ", cc:" + mCcCount);
 	}
 
@@ -1076,9 +1102,10 @@ public class CClosure implements ITheory {
 	@Override
 	public Clause backtrackComplete() {
 		/*
-		 * If a literal was propagated when it was created it may not be on the right decision level. After backtracking
-		 * we may need to propagate these literals again, if they are still implied by the CC graph. Here we go through
-		 * the list of all such literals and check if we ned to propagate them again.
+		 * If a literal was propagated when it was created it may not be on the right
+		 * decision level. After backtracking we may need to propagate these literals
+		 * again, if they are still implied by the CC graph. Here we go through the list
+		 * of all such literals and check if we ned to propagate them again.
 		 */
 		final ArrayQueue<Literal> newRecheckOnBacktrackLits = new ArrayQueue<>();
 		for (final Literal l : mRecheckOnBacktrackLits) {
@@ -1086,7 +1113,10 @@ public class CClosure implements ITheory {
 			if (eq.getDecideStatus() != null) {
 				/* We did not yet backtrack the literal; keep it for later */
 				newRecheckOnBacktrackLits.add(l);
-				/* It may have an LAEquality that was backtracked. Then we need to propagate the LAEquality. */
+				/*
+				 * It may have an LAEquality that was backtracked. Then we need to propagate the
+				 * LAEquality.
+				 */
 				final LAEquality laeq = eq.getLASharedData();
 				if (laeq != null && laeq.getDecideStatus() == null) {
 					getLogger().debug("repropagating LAEQ: %s -> %s", eq, laeq);
@@ -1144,20 +1174,22 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Add all pending congruences to the CC graph. We do not merge congruences immediately but wait for checkpoint.
-	 * Then this method is called to merge congruent function applications.
+	 * Add all pending congruences to the CC graph. We do not merge congruences
+	 * immediately but wait for checkpoint. Then this method is called to merge
+	 * congruent function applications.
 	 *
-	 * @param checked
-	 *            if true, congruences are only applied if they still hold.
+	 * @param checked if true, congruences are only applied if they still hold.
 	 * @return A conflict clause if a conflict was found, null otherwise.
 	 */
 	@SuppressWarnings("unused")
 	private Clause buildCongruence() {
 		while (!mSignatureTodo.isEmpty() || !mPendingCongruences.isEmpty()) {
+			final long time = System.nanoTime();
 			while (!mSignatureTodo.isEmpty()) {
 				final SignatureTrigger trigger = mSignatureTodo.removeFirst();
 				addSignatureHash(trigger);
 			}
+			mSigHashTime += System.nanoTime() - time;
 			SymmetricPair<CCAppTerm> cong;
 			while ((cong = mPendingCongruences.poll()) != null) {
 				getLogger().debug("PC %s", cong);
@@ -1187,7 +1219,7 @@ public class CClosure implements ITheory {
 				undoSep(diseq);
 			} else if (top instanceof TriggerMergeUndoEntry) {
 				final TriggerMergeUndoEntry signatureUndo = (TriggerMergeUndoEntry) top;
-				signatureUndo.getMergedTrigger().undoMerge(this,signatureUndo.getPreviousTrigger());
+				signatureUndo.getMergedTrigger().undoMerge(this, signatureUndo.getPreviousTrigger());
 				mSignatureTodo.append(signatureUndo.getPreviousTrigger());
 			} else {
 				throw new AssertionError("Unknown undo info type: " + top);
@@ -1337,7 +1369,8 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Entry for the signature todo stack: old representative and its back-ref list to process at checkpoint.
+	 * Entry for the signature todo stack: old representative and its back-ref list
+	 * to process at checkpoint.
 	 */
 	static final class SignatureTodoEntry {
 		final CCTerm mOldRep;
@@ -1359,9 +1392,10 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Record for undoing a trigger merge: remove the merged trigger from the map by reference (see
-	 * {@link #removeSignatureByRef(Signature)}) and put (mMergedTrigger, mPreviousTrigger). The same key object then hashes
-	 * back to the old bucket after merge undo.
+	 * Record for undoing a trigger merge: remove the merged trigger from the map by
+	 * reference (see {@link #removeSignatureByRef(Signature)}) and put
+	 * (mMergedTrigger, mPreviousTrigger). The same key object then hashes back to
+	 * the old bucket after merge undo.
 	 */
 	static final class TriggerMergeUndoEntry extends UndoInfo {
 		final SignatureTrigger mMergedTrigger;
