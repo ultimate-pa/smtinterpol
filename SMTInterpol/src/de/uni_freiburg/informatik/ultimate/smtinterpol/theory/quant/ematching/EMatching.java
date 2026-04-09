@@ -198,6 +198,7 @@ public class EMatching {
 		}
 		while (!mTodoStack.isEmpty() && !mQuantTheory.getEngine().isTerminationRequested()) {
 			final Triple<ICode, CCTerm[], Integer> code = mTodoStack.pop();
+			mQuantTheory.getLogger().debug("EM-Code: %s", code);
 			assert code.getThird() <= mQuantTheory.getEngine().getDecideLevel();
 			code.getFirst().execute(code.getSecond(), code.getThird());
 		}

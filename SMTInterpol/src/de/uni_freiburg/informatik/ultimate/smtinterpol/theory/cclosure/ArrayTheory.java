@@ -1009,7 +1009,7 @@ public class ArrayTheory implements ITheory {
 			return ((CCAppTerm) term).getFunctionSymbol().getName().equals(SMTLIBConstants.STORE);
 		}
 		return false;
-	}	
+	}
 
 	public static boolean isConstTerm(final CCTerm term) {
 		if (term instanceof CCAppTerm) {
@@ -1358,23 +1358,23 @@ public class ArrayTheory implements ITheory {
 	 * It finds all select applications using the ccterm information and adds them to the mSelects hash map.
 	 */
 	private void collectSelects(Sort arraySort) {
-		Sort indexSort = arraySort.getArguments()[0];
-		FunctionSymbol selectFsym = arraySort.getTheory().getFunction(SMTLIBConstants.SELECT, arraySort, indexSort);
-		for (CCTerm select : mCClosure.getAllFuncApps(selectFsym)) {
+		final Sort indexSort = arraySort.getArguments()[0];
+		final FunctionSymbol selectFsym = arraySort.getTheory().getFunction(SMTLIBConstants.SELECT, arraySort, indexSort);
+		for (final CCTerm select : mCClosure.getAllFuncApps(selectFsym)) {
 			final CCAppTerm selectApp = (CCAppTerm) select;
 			final CCTerm array = getArrayFromSelect(selectApp);
 			final CCTerm index = getIndexFromSelect(selectApp);
-			ArrayNode node = mCongRoots.get(array.getRepresentative());
+			final ArrayNode node = mCongRoots.get(array.getRepresentative());
 			node.mSelects.put(index.getRepresentative(), selectApp);
 		}
 	}
-		
+
 
 
 	private boolean buildWeakEq() {
 		mNumBuildWeakEQ++;
 		final long startTime = System.nanoTime();
-		HashSet<Sort> arraySorts = new HashSet<>();
+		final HashSet<Sort> arraySorts = new HashSet<>();
 		mCongRoots = new LinkedHashMap<>();
 		for (final CCTerm array : mArrays) {
 			final CCTerm rep = array.getRepresentative();
@@ -1385,10 +1385,10 @@ public class ArrayTheory implements ITheory {
 				arraySorts.add(array.getFlatTerm().getSort());
 			}
 		}
-		for (Sort arraySort : arraySorts) {
+		for (final Sort arraySort : arraySorts) {
 			collectSelects(arraySort);
 		}
-		
+
 		for (final CCAppTerm term : mConsts) {
 			setConst(term);
 		}
@@ -1465,7 +1465,7 @@ public class ArrayTheory implements ITheory {
 							final Term diffTerm = theory.term(SMTInterpolConstants.DIFF, array, array);
 							final Term selectTerm = theory.term(SMTLIBConstants.SELECT, array, diffTerm);
 							mClausifier.addTermAxioms(selectTerm, new SourceAnnotation("", null));
-							assert mCongRoots == null;
+							cleanCaches();
 							return true;
 						}
 						constRep = weakRep.mSelects.values().iterator().next().getRepresentative();

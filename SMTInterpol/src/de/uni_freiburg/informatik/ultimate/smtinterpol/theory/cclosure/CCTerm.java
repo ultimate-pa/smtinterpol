@@ -426,6 +426,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
+		engine.rehashSignatures(src, dest, src.mSignatureBackRefs);
 		/* Update rep fields */
 		src.mRep = dest;
 		for (final CCTerm t : src.mMembers) {
@@ -496,7 +497,6 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		}
 		/* Compute congruence closure */
 		engine.getLogger().debug("Merge Backrefs: %s", src.mSignatureBackRefs);
-		engine.rehashSignatures(src, dest, src.mSignatureBackRefs);
 		dest.mSignatureBackRefs.joinList(src.mSignatureBackRefs);
 
 		if (Config.PROFILE_TIME) {
@@ -529,6 +529,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		assert src.mRep == dest;
 
 		dest.mSignatureBackRefs.unjoinList(src.mSignatureBackRefs);
+		engine.getLogger().debug("Unmerge Backrefs: %s", src.mSignatureBackRefs);
+		engine.rehashSignatures(dest, src, src.mSignatureBackRefs);
 
 		src.mReasonLiteral = null;
 		for (final CCTermPairHash.Info.Entry pentry : src.mPairInfos.reverse()) {
@@ -570,9 +572,6 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			t.mRepStar = src;
 		}
 		src.mRep = src;
-
-		engine.getLogger().debug("Unmerge Backrefs: %s", src.mSignatureBackRefs);
-		engine.rehashSignatures(dest, src, src.mSignatureBackRefs);
 
 		assert src.mMergeTime == engine.getMergeDepth();
 		src.mMergeTime = Integer.MAX_VALUE;

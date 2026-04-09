@@ -77,9 +77,11 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 		/* only if not merged */
 		if (mMergedTrigger == null) {
 			assert mBackrefs != null;
-			engine.moveToSignatureTodo(this);
+			if (!inList()) {
+				assert mLastHashCode == computeHashCode();
+				engine.moveToSignatureTodo(this);
+			}
 			recomputeHashCode(argPosition, oldRep, newRep);
-			assert mLastHashCode == computeHashCode();
 		}
 	}
 
@@ -111,6 +113,7 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 
 	@Override
 	public int hashCode() {
+		assert computeHashCode() == mLastHashCode;
 		return mLastHashCode;
 	}
 
@@ -123,8 +126,9 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 	}
 
 	public void recomputeHashCode(int argPos, CCTerm oldRep, CCTerm newRep) {
-		final int hOld = HashUtils.hashJenkins(argPos, oldRep);
-		final int hNew = HashUtils.hashJenkins(argPos, newRep);
+		final int hOld = HashUtils.hashJenkins(argPos, oldRep.hashCode());
+		final int hNew = HashUtils.hashJenkins(argPos, newRep.hashCode());
+		// assert computeHashCode() == (mLastHashCode ^ hOld ^ hNew);
 		mLastHashCode ^= hOld ^ hNew;
 	}
 
