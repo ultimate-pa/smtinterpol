@@ -682,7 +682,11 @@ public class ArrayTheory implements ITheory {
 	@Override
 	public Clause finalCheck() {
 		do {
-			final Clause conflict = checkpoint();
+			Clause conflict = mCClosure.checkpoint();
+			if (conflict != null) {
+				return conflict;
+			}
+			conflict = checkpoint();
 			if (conflict != null) {
 				return conflict;
 			}
@@ -911,8 +915,14 @@ public class ArrayTheory implements ITheory {
 					Term nodeValue;
 					if (hasFiniteIndexSort(node.mTerm.getFlatTerm().getSort())) {
 						// the array is based on a certain const value, see computeWeakEqExt()
-						final CCTerm value = (CCTerm) mArrayModels.get(node).get(null);
-						nodeValue = t.term(SMTLIBConstants.CONST, null, arraySort, builder.getModelValue(value));
+						final Term valueTerm;
+						if (hasFiniteElemSort(node.mTerm.getFlatTerm().getSort())) {
+							final CCTerm value = (CCTerm) mArrayModels.get(node).get(null);
+							valueTerm = builder.getModelValue(value);
+						} else {
+							valueTerm = model.extendFresh(valueSort);
+						}
+						nodeValue = t.term(SMTLIBConstants.CONST, null, arraySort, valueTerm);
 					} else {
 						// this is not a weakly related to a constant array. Use some fresh array.
 						nodeValue = model.extendFresh(arraySort);
@@ -1452,26 +1462,33 @@ public class ArrayTheory implements ITheory {
 					constRep = getValueFromConst(weakRep.mConstTerm).getRepresentative();
 					nodeMapping.put(null, constRep);
 				} else if (hasFiniteIndexSort(arraySort)) {
-					// For finite index sorts, we cannot just assume a fresh array. We need
-					// to start with some const array.
-					constRep = defaultValue.get(arraySort);
-					if (constRep == null) {
-						// we set the constRep to the first select term. If there is no select term, we
-						// create one.
-						if (weakRep.mSelects.isEmpty()) {
-							// just create the (select a (diff a a)) term
-							final Term array = weakRep.mTerm.getFlatTerm();
-							final Theory theory = array.getTheory();
-							final Term diffTerm = theory.term(SMTInterpolConstants.DIFF, array, array);
-							final Term selectTerm = theory.term(SMTLIBConstants.SELECT, array, diffTerm);
-							mClausifier.addTermAxioms(selectTerm, new SourceAnnotation("", null));
-							cleanCaches();
-							return true;
+					// For finite index sorts we cannot just assume that non weak-equivalent arrays
+					// are different. Instead we start all arrays with the same const value. If the
+					// element sort is also finite, we need to choose a value from the domain, and
+					// we choose some select term. If the element sort is infinite, we choose a
+					// fresh value for the array.
+					if (hasFiniteElemSort(arraySort)) {
+						constRep = defaultValue.get(arraySort);
+						if (constRep == null) {
+							// we set the constRep to the first select term. If there is no select term, we
+							// create one.
+							if (weakRep.mSelects.isEmpty()) {
+								// just create the (select a (diff a a)) term
+								final Term array = weakRep.mTerm.getFlatTerm();
+								final Theory theory = array.getTheory();
+								final Term diffTerm = theory.term(SMTInterpolConstants.DIFF, array, array);
+								final Term selectTerm = theory.term(SMTLIBConstants.SELECT, array, diffTerm);
+								mClausifier.addTermAxioms(selectTerm, new SourceAnnotation("", null));
+								cleanCaches();
+								return true;
+							}
+							constRep = weakRep.mSelects.values().iterator().next().getRepresentative();
+							defaultValue.put(arraySort, constRep);
 						}
-						constRep = weakRep.mSelects.values().iterator().next().getRepresentative();
+						nodeMapping.put(null, constRep);
+					} else {
+						nodeMapping.put(null, node.mTerm.mFlatTerm.getSort());
 					}
-					defaultValue.put(arraySort, constRep);
-					nodeMapping.put(null, constRep);
 				} else if (mNeedDiffIndexLevel >= 0) {
 					// If we have quantified array indices, we need to handle extensionality for
 					// arrays that are not weakly equivalent. Unless the arrays have different
@@ -1538,6 +1555,13 @@ public class ArrayTheory implements ITheory {
 		assert sort.isArraySort();
 		assert sort.getArguments().length == 2;
 		final Sort indexSort = sort.getArguments()[0];
+		return !mClausifier.isStablyInfinite(indexSort);
+	}
+
+	private boolean hasFiniteElemSort(Sort sort) {
+		assert sort.isArraySort();
+		assert sort.getArguments().length == 2;
+		final Sort indexSort = sort.getArguments()[1];
 		return !mClausifier.isStablyInfinite(indexSort);
 	}
 
