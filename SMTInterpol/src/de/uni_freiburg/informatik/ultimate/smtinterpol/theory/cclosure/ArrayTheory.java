@@ -1439,7 +1439,7 @@ public class ArrayTheory implements ITheory {
 		 */
 		mArrayModels = new LinkedHashMap<>();
 		final HashMap<Sort, CCTerm> defaultValue = new HashMap<>();
-		final HashMap<Map<CCTerm, Object>, ArrayNode> inverse = new HashMap<>();
+		final HashMap<Sort, HashMap<Map<CCTerm, Object>, ArrayNode>> inverse = new HashMap<>();
 		final HashSet<SymmetricPair<ArrayNode>> propEqualities = new LinkedHashSet<>();
 		final ArrayDeque<ArrayNode> todoQueue = new ArrayDeque<>(mCongRoots.values());
 		while (!todoQueue.isEmpty()) {
@@ -1520,7 +1520,7 @@ public class ArrayTheory implements ITheory {
 				}
 			}
 			mArrayModels.put(node, nodeMapping);
-			final ArrayNode prev = inverse.put(nodeMapping, node);
+			final ArrayNode prev = inverse.computeIfAbsent(arraySort, s -> new HashMap<>()).put(nodeMapping, node);
 			if (prev != null) {
 				propEqualities.add(new SymmetricPair<>(prev, node));
 			}
