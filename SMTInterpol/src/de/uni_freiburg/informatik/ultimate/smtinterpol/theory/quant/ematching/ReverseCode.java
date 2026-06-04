@@ -18,11 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching;
 
-import java.util.Arrays;
-import java.util.List;
-
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 
 /**

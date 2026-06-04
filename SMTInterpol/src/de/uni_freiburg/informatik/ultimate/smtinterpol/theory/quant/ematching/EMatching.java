@@ -207,6 +207,10 @@ public class EMatching {
 		}
 	}
 
+	public boolean isDone() {
+		return mTodoStack.isEmpty();
+	}
+
 	/**
 	 * Undo everything that E-Matching did since the given decision level, i.e., remove triggers and interesting
 	 * instantiations. All items on the to-do-stack added since the given decision level must be removed as well.
