@@ -220,7 +220,13 @@ public class QuantifierTheory implements ITheory {
 			switch (mInstantiationMethod) {
 			case E_MATCHING_CONFLICT:
 				mNumCheckpointsWithNewEval++;
-				mEMatching.run();
+				do {
+					mEMatching.run();
+					conflict = mCClosure.checkpoint();
+				} while (conflict == null && !mEMatching.isDone());
+				if (conflict != null) {
+					return conflict;
+				}
 				potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
 				if (Config.PROFILE_TIME) {
 					mFindEmatchingTime += System.nanoTime() - time;
@@ -232,7 +238,13 @@ public class QuantifierTheory implements ITheory {
 				break;
 			case E_MATCHING_EAGER:
 				mNumCheckpointsWithNewEval++;
-				mEMatching.run();
+				do {
+					mEMatching.run();
+					conflict = mCClosure.checkpoint();
+				} while (conflict == null && !mEMatching.isDone());
+				if (conflict != null) {
+					return conflict;
+				}
 				potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
 				if (Config.PROFILE_TIME) {
 					mFindEmatchingTime += System.nanoTime() - time;
@@ -282,8 +294,6 @@ public class QuantifierTheory implements ITheory {
 					conflict = mCClosure.checkpoint();
 				} while (conflict == null && !mEMatching.isDone());
 				if (conflict != null) {
-					mNumConflicts++;
-					mEngine.learnClause(conflict);
 					return conflict;
 				}
 				potentiallyInterestingInstances = mInstantiationManager.computeEMatchingInstances();
@@ -303,8 +313,6 @@ public class QuantifierTheory implements ITheory {
 					conflict = mCClosure.checkpoint();
 				} while (conflict == null && !mEMatching.isDone());
 				if (conflict != null) {
-					mNumConflicts++;
-					mEngine.learnClause(conflict);
 					return conflict;
 				}
 				potentiallyInterestingInstances = mInstantiationManager.findConflictAndUnitInstancesWithEMatching();
