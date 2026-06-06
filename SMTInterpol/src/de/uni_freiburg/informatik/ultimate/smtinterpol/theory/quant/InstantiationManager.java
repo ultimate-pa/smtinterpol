@@ -1461,7 +1461,7 @@ public class InstantiationManager {
 			return mDefaultValueForLitDawgs;
 		}
 		final InfinitesimalNumber upperBound = mQuantTheory.mLinArSolve.getUpperBound(mat);
-		smtAff.mul(Rational.MONE);
+		mat.negate();
 		final InfinitesimalNumber negLowerBound = mQuantTheory.mLinArSolve.getUpperBound(mat);
 		if (upperBound.signum() == 0 && negLowerBound.signum() == 0) {
 			return InstanceValue.TRUE;
