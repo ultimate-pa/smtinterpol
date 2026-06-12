@@ -22,6 +22,7 @@ import java.util.ArrayDeque;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
@@ -36,10 +37,22 @@ public class CCTermBuilder {
 
 	private final ArrayDeque<Operation> mOps = new ArrayDeque<>();
 	private final ArrayDeque<CCTerm> mConverted = new ArrayDeque<>();
+	/**
+	 * The constant offsets of the converted CCTerms, parallel to {@link #mConverted}: the term that produced
+	 * {@code mConverted.peek()} equals that CCTerm plus {@code mOffsets.peek()}. This carries the {@code +5} of an
+	 * offset-free term like {@code x+5} up to the enclosing application so it ends up in the app term's argument
+	 * offsets. Offsets are {@link Rational#ZERO} unless offset equalities are enabled.
+	 */
+	private final ArrayDeque<Rational> mOffsets = new ArrayDeque<>();
 
 	public CCTermBuilder(Clausifier clausifier, final SourceAnnotation source) {
 		mClausifier = clausifier;
 		mSource = source;
+	}
+
+	private void pushResult(final CCTerm ccTerm, final Rational offset) {
+		mConverted.push(ccTerm);
+		mOffsets.push(offset);
 	}
 
 	public CCTerm convert(final Term t) {
@@ -48,7 +61,9 @@ public class CCTermBuilder {
 			mOps.pop().perform();
 		}
 		final CCTerm res = mConverted.pop();
+		mOffsets.pop();
 		assert mConverted.isEmpty();
+		assert mOffsets.isEmpty();
 		return res;
 	}
 
@@ -63,10 +78,15 @@ public class CCTermBuilder {
 		public void perform() {
 			CCTerm ccTerm = mClausifier.getCCTerm(mTerm);
 			if (ccTerm != null) {
-				mConverted.push(ccTerm);
+				pushResult(ccTerm, mClausifier.getTermConstant(mTerm));
 			} else {
 				final CClosure cclosure = mClausifier.getCClosure();
-				if (Clausifier.needCCTerm(mTerm) && ((ApplicationTerm) mTerm).getParameters().length > 0) {
+				final Term offsetFree = mClausifier.getOffsetFreeTerm(mTerm);
+				if (offsetFree != mTerm) {
+					// Numeric term with a non-zero constant: build the offset-free CCTerm and remember the constant.
+					mOps.push(new MapOffsetFreeTerm(mTerm, mClausifier.getTermConstant(mTerm)));
+					mOps.push(new BuildCCTerm(offsetFree));
+				} else if (Clausifier.needCCTerm(mTerm) && ((ApplicationTerm) mTerm).getParameters().length > 0) {
 					final FunctionSymbol fs = ((ApplicationTerm) mTerm).getFunction();
 					if (fs.isIntern() && fs.getName() == "select") {
 						mClausifier.getArrayTheory().cleanCaches();
@@ -83,9 +103,34 @@ public class CCTermBuilder {
 					cclosure.addTerm(ccTerm, mTerm);
 					mClausifier.shareCCTerm(mTerm, ccTerm);
 					mClausifier.addTermAxioms(mTerm, mSource);
-					mConverted.push(ccTerm);
+					pushResult(ccTerm, Rational.ZERO);
 				}
 			}
+		}
+	}
+
+	/**
+	 * Maps a numeric term with a non-zero constant to the (already built) CCTerm of its offset-free part, and pushes
+	 * that CCTerm together with the constant offset.
+	 */
+	private class MapOffsetFreeTerm implements Operation {
+		private final Term mTerm;
+		private final Rational mOffset;
+
+		public MapOffsetFreeTerm(final Term term, final Rational offset) {
+			mTerm = term;
+			mOffset = offset;
+		}
+
+		@Override
+		public void perform() {
+			final CCTerm offsetFreeCCTerm = mConverted.pop();
+			mOffsets.pop();
+			if (mClausifier.getCCTerm(mTerm) == null) {
+				mClausifier.shareCCTerm(mTerm, offsetFreeCCTerm);
+				mClausifier.addTermAxioms(mTerm, mSource);
+			}
+			pushResult(offsetFreeCCTerm, mOffset);
 		}
 	}
 
@@ -104,15 +149,26 @@ public class CCTermBuilder {
 		@Override
 		public void perform() {
 			final CCTerm[] args = new CCTerm[mAppTerm.getParameters().length];
+			Rational[] argOffsets = null;
 			for (int i = args.length - 1; i >= 0; i--) {
 				args[i] = mConverted.pop();
+				final Rational offset = mOffsets.pop();
+				if (!offset.equals(Rational.ZERO)) {
+					if (argOffsets == null) {
+						argOffsets = new Rational[args.length];
+						java.util.Arrays.fill(argOffsets, Rational.ZERO);
+					}
+					argOffsets[i] = offset;
+				}
 			}
 			assert mClausifier.getCCTerm(mAppTerm) == null;
-			final CCTerm ccTerm = mClausifier.getCClosure().createAppTerm(mAppTerm.getFunction(), args, mSource);
+			final CCTerm ccTerm =
+					mClausifier.getCClosure().createAppTerm(mAppTerm.getFunction(), args, argOffsets, mSource);
 			mClausifier.getCClosure().addTerm(ccTerm, mAppTerm);
 			mClausifier.shareCCTerm(mAppTerm, ccTerm);
 			mClausifier.addTermAxioms(mAppTerm, mSource);
-			mConverted.push(ccTerm);
+			// the application term itself is not numeric-offset; its value is the application
+			pushResult(ccTerm, Rational.ZERO);
 		}
 	}
 }

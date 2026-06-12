@@ -130,7 +130,10 @@ public class EqualityProxy {
 				return eq;
 			}
 		}
-		final CCEquality eq = mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs);
+		// offset such that value(ccLhs) == value(ccRhs) + offset, i.e. the difference of the two terms' constants.
+		final Rational offset = mClausifier.getTermConstant(rhs).sub(mClausifier.getTermConstant(lhs));
+		final CCEquality eq =
+				mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs, offset);
 		final Rational normFactor = computeNormFactor(lhs, rhs);
 		laeq.addDependentAtom(eq);
 		eq.setLASharedData(laeq, normFactor);
@@ -176,7 +179,8 @@ public class EqualityProxy {
 			}
 
 			/* create CC equality */
-			return mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs);
+			final Rational offset = mClausifier.getTermConstant(mRhs).sub(mClausifier.getTermConstant(mLhs));
+			return mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs, offset);
 		}
 	}
 

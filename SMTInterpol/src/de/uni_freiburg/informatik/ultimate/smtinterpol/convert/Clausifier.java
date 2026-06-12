@@ -261,6 +261,12 @@ public class Clausifier {
 	}
 
 	public void share(final CCTerm ccTerm, final LASharedTerm laTerm) {
+		// With offset equalities several terms (e.g. 2x+4y, 2x+4y+1, 2x+4y+5) map to the same offset-free CCTerm. That
+		// CCTerm must be shared with linear arithmetic only once; the others are bridged by their constant offset. The
+		// LASharedTerm is still registered in the term maps (by the callers) so getLATerm lookups keep working.
+		if (ccTerm.getSharedTerm() == ccTerm) {
+			return;
+		}
 		getLASolver().addSharedTerm(laTerm);
 		getCClosure().addSharedTerm(ccTerm);
 	}
@@ -364,7 +370,10 @@ public class Clausifier {
 					final MutableAffineTerm mat = createMutableAffinTerm(new Polynomial(term), source);
 					assert mat.getConstant().mEps == 0;
 					if (!mLATerms.containsKey(term)) {
-						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+						// With offset equalities the shared term is offset-free (the constant is carried as an offset),
+						// so the LASharedTerm has offset zero and is shared with the offset-free CCTerm.
+						final Rational offset = createOffsetEqualities() ? Rational.ZERO : mat.getConstant().mReal;
+						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), offset));
 					}
 				}
 			}
@@ -575,6 +584,43 @@ public class Clausifier {
 
 	public LASharedTerm getLATerm(final Term term) {
 		return mLATerms.get(term);
+	}
+
+	/**
+	 * Whether offset equalities are enabled in the congruence closure. When enabled, numeric terms are represented by
+	 * offset-free CCTerms with the constant carried as an offset.
+	 */
+	public boolean createOffsetEqualities() {
+		return getCClosure() != null && getCClosure().createOffsetEqualities();
+	}
+
+	/**
+	 * The constant offset of a numeric term, i.e. the value such that {@code term == offsetFreeTerm + constant}. Returns
+	 * {@link Rational#ZERO} when offset equalities are disabled or the term is not numeric.
+	 */
+	public Rational getTermConstant(final Term term) {
+		if (!createOffsetEqualities() || !term.getSort().isNumericSort()) {
+			return Rational.ZERO;
+		}
+		return new Polynomial(term).getConstant();
+	}
+
+	/**
+	 * The offset-free part of a numeric term, i.e. the term with its constant summand removed. Two terms that differ
+	 * only by a constant (e.g. {@code 2x+4y+1} and {@code 2x+4y+5}) yield the same canonical offset-free term, so they
+	 * share a single CCTerm. Returns the term itself when it has no constant or offset equalities are disabled.
+	 */
+	public Term getOffsetFreeTerm(final Term term) {
+		if (!createOffsetEqualities() || !term.getSort().isNumericSort()) {
+			return term;
+		}
+		final Polynomial poly = new Polynomial(term);
+		final Rational constant = poly.getConstant();
+		if (constant.equals(Rational.ZERO)) {
+			return term;
+		}
+		poly.add(constant.negate());
+		return mCompiler.unifyPolynomial(poly, term.getSort());
 	}
 
 	public ILiteral getILiteral(final Term term) {

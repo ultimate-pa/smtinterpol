@@ -313,7 +313,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		 * as sterm is a newly shared term, which must be linear independent
 		 * of all previously created terms.
 		 */
-		final CCEquality cceq = engine.createEquality(this, otherSharedTerm, true);
+		// value(this) - value(otherSharedTerm); both are in the same class, so the difference of their offsets.
+		final Rational offset = mOffsetToRep.sub(otherSharedTerm.mOffsetToRep);
+		final CCEquality cceq = engine.createEquality(this, otherSharedTerm, offset, true);
 		assert cceq != null;
 		if (engine.getLogger().isDebugEnabled()) {
 			engine.getLogger().debug("PL: %s", cceq);
@@ -423,9 +425,17 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		final CCTerm src = lhs.mRepStar;
 		final CCTerm dest = mRepStar;
 
-		// Need to prevent MBTC when we get a conflict. Hence a two-way pass
+		/*
+		 * The offset that src (the old representative of the merged class) gets relative to dest: value(src) ==
+		 * value(dest) + delta. It is derived from the reason and the offsets the two merged terms already have relative
+		 * to their respective representatives.
+		 */
+		final Rational delta = reasonDiff(reason, lhs, this).sub(lhs.mOffsetToRep).add(mOffsetToRep);
+
+		// Need to prevent MBTC when we get a conflict. Hence a two-way pass. A disequality conflicts with the merge only
+		// if it forbids exactly the offset delta at which the two classes are being merged.
 		CCEquality diseq = null;
-		final CCTermPairHash.Info diseqInfo = engine.mPairHash.getInfo(src, dest);
+		final CCTermPairHash.Info diseqInfo = engine.mPairHash.getInfo(src, dest, delta);
 		if (diseqInfo != null) {
 			diseq = diseqInfo.mDiseq;
 		}
@@ -435,7 +445,12 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				dest.mSharedTerm = src.mSharedTerm;
 			} else {
 				final boolean createInLA = dest.mSharedTerm.mFlatTerm.getSort().isNumericSort();
-				final CCEquality cceq = engine.createEquality(src.mSharedTerm, dest.mSharedTerm, createInLA);
+				// value(src.mSharedTerm) - value(dest.mSharedTerm) after the merge: the merge offset delta plus the two
+				// shared terms' offsets to their (current) representatives.
+				final Rational sharedOffset =
+						delta.add(src.mSharedTerm.mOffsetToRep).sub(dest.mSharedTerm.mOffsetToRep);
+				final CCEquality cceq =
+						engine.createEquality(src.mSharedTerm, dest.mSharedTerm, sharedOffset, createInLA);
 				/* If cceq cannot be created this is a conflict like merging x+1 and x */
 				sharedTermConflict = (cceq == null);
 				/*
@@ -467,21 +482,16 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 
 		src.mMergeTime = engine.getMergeDepth();
 		engine.recordMerge(lhs);
-		engine.getLogger().debug("M %s %s", this, lhs);
+		engine.getLogger().debug("M %s %s (offset %s)", this, lhs, delta);
 
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
 		/*
-		 * Compute the offset that src (the old representative of the merged class) gets relative to dest. We have
-		 * value(src) = value(dest) + delta, where delta is derived from the reason and the offsets the two merged terms
-		 * already have relative to their respective representatives:
-		 *   delta = (value(lhs) - value(this)) - lhs.mOffsetToRep + this.mOffsetToRep.
-		 * Since src is a representative its own offset was ZERO, so after the shift below src.mOffsetToRep == delta.
-		 * The signatures must be rehashed with this delta as well, since the effective offset of every src-class
-		 * argument increases by delta; rehashing happens before the offsets are actually updated below.
+		 * Rehash the signatures with delta (computed above): the effective offset of every src-class argument increases
+		 * by delta. Since src is a representative its own offset was ZERO, so after the shift below src.mOffsetToRep ==
+		 * delta. Rehashing happens before the offsets are actually updated below.
 		 */
-		final Rational delta = reasonDiff(reason, lhs, this).sub(lhs.mOffsetToRep).add(mOffsetToRep);
 		engine.rehashSignatures(src, dest, delta, src.mSignatureBackRefs);
 		/* Update rep fields and shift offsets of the merged members into dest's frame */
 		src.mRep = dest;
@@ -503,19 +513,28 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			assert pentry.getOtherEntry().mOther == src;
 			final CCTerm other = pentry.mOther;
 			assert other.mRepStar == other;
+			// offset of this info as seen from src: value(src) - value(other)
+			final Rational offFromSrc = pentry.getOffsetToOther();
 			if (other == dest) {
-				assert (info.mDiseq == null);
-				for (final CCEquality.Entry eq : info.mEqlits) {
-					engine.addPending(eq.getCCEquality());
+				if (offFromSrc.equals(delta)) {
+					// The equalities in this info hold at exactly the merge offset, so they are now implied true.
+					assert (info.mDiseq == null);
+					for (final CCEquality.Entry eq : info.mEqlits) {
+						engine.addPending(eq.getCCEquality());
+					}
+					// E-Matching
+					for (final CompareTrigger trigger : info.mCompareTriggers) {
+						trigger.activate();
+					}
 				}
-				// E-Matching
-				for (final CompareTrigger trigger : info.mCompareTriggers) {
-					trigger.activate();
-				}
+				// else: these equalities are at a different offset and become false; the conflict (if any) is detected
+				// when such an equality is asserted (setLiteral), so we do not propagate them eagerly here.
 			} else {
-				CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other);
+				// Re-key the info from src to dest: value(dest) - value(other) = (value(src) - value(other)) - delta.
+				final Rational destOffset = offFromSrc.sub(delta);
+				CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other, destOffset);
 				if (destInfo == null) {
-					destInfo = new CCTermPairHash.Info(dest, other);
+					destInfo = new CCTermPairHash.Info(dest, other, destOffset);
 					engine.mPairHash.add(destInfo);
 				}
 				//System.err.println("M "+src+" "+other+" "+dest);
@@ -569,7 +588,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	}
 
 	public void undoMerge(final CClosure engine, final CCTerm lhs) {
-		engine.getLogger().debug("U %s %s", lhs, this);
+		engine.getLogger().debug("U %s %s (offset %s)", lhs, this, mOldRep == null ? null : mOldRep.mOffsetToRep);
 		long time;
 		CCTerm src, dest;
 
@@ -606,7 +625,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			final CCTerm other = pentry.mOther;
 			assert other.mRepStar == other;
 			if (other != dest) {
-				final CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other);
+				// Mirror the merge re-keying: the merged info lived at value(dest) - value(other) = offFromSrc - delta.
+				final Rational destOffset = pentry.getOffsetToOther().sub(delta);
+				final CCTermPairHash.Info destInfo = engine.mPairHash.getInfo(dest, other, destOffset);
 				if (destInfo == null) {
 					continue;
 				}

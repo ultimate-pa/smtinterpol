@@ -207,6 +207,24 @@ public class CClosure implements ITheory {
 		return getEngine().isProofGenerationEnabled();
 	}
 
+	/**
+	 * Whether offset equalities are created. When enabled, arithmetic terms are turned into offset-free CCTerms (with
+	 * the constant carried as an offset) and equalities between numeric terms become offset equalities. When disabled,
+	 * the classic offset-free-less behaviour is used (every offset is zero).
+	 *
+	 * This is currently forced off while proof generation is enabled, until the proof machinery understands offset
+	 * equalities (a later increment).
+	 */
+	private boolean mOffsetEqualities = true;
+
+	public boolean createOffsetEqualities() {
+		return mOffsetEqualities && !isProofGenerationEnabled();
+	}
+
+	public void setOffsetEqualities(final boolean enabled) {
+		mOffsetEqualities = enabled;
+	}
+
 	public CCTerm createAnonTerm(final Term term) {
 		final CCTerm ccTerm = new CCBaseTerm(term);
 		mAllTerms.add(ccTerm);
@@ -277,9 +295,20 @@ public class CClosure implements ITheory {
 	}
 
 	public CCTerm createAppTerm(FunctionSymbol func, final CCTerm[] args, final SourceAnnotation source) {
+		return createAppTerm(func, args, null, source);
+	}
+
+	/**
+	 * Create a function application CCTerm. The optional {@code argOffsets} array carries the constant offset of each
+	 * argument, so that the actual argument is {@code args[i] + argOffsets[i]} (used for offset-free arguments like the
+	 * {@code +5} in {@code f(x+5)}). It may be {@code null} when every offset is zero.
+	 */
+	public CCTerm createAppTerm(FunctionSymbol func, final CCTerm[] args, final Rational[] argOffsets,
+			final SourceAnnotation source) {
 		assert args.length > 0;
 		if (args.length > 0) {
 			final CCAppTerm term = new CCAppTerm(func, args, this, source.isFromQuantTheory());
+			term.mArgOffsets = argOffsets;
 			if (term.getAge() > 0) {
 				getLogger().debug("Create new AppTerm %s of age %d", term, term.getAge());
 			}
@@ -604,7 +633,10 @@ public class CClosure implements ITheory {
 	public boolean isDiseqSet(final CCTerm first, final CCTerm second) {
 		final CCTerm firstRep = first.getRepresentative();
 		final CCTerm secondRep = second.getRepresentative();
-		final CCTermPairHash.Info diseqInfo = mPairHash.getInfo(firstRep, secondRep);
+		// A diseq disproves value(first) == value(second), i.e. value(firstRep) - value(secondRep) ==
+		// second.mOffsetToRep - first.mOffsetToRep.
+		final Rational offset = second.getOffsetToRep().sub(first.getOffsetToRep());
+		final CCTermPairHash.Info diseqInfo = mPairHash.getInfo(firstRep, secondRep, offset);
 		return diseqInfo != null && diseqInfo.mDiseq != null;
 	}
 
@@ -617,13 +649,15 @@ public class CClosure implements ITheory {
 	 * @param eqentry the equality entry that should be inserted into the pair
 	 *                infos.
 	 */
-	public void insertEqualityEntry(CCTerm t1, CCTerm t2, final CCEquality.Entry eqentry) {
+	public void insertEqualityEntry(CCTerm t1, CCTerm t2, Rational offset, final CCEquality.Entry eqentry) {
+		// offset == value(t1) - value(t2)
 		while (true) {
 			// make t1 the term that was merged before t2 was merged.
 			if (t1.mMergeTime > t2.mMergeTime) {
 				final CCTerm tmp = t1;
 				t1 = t2;
 				t2 = tmp;
+				offset = offset.negate();
 			}
 
 			// if t1 is its own representative, then t2 should also be the representative
@@ -631,9 +665,9 @@ public class CClosure implements ITheory {
 			if (t1.mRep == t1) {
 				assert t2.mRep == t2;
 				// Insert this entry into the pair hash, create it if necessary.
-				CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
+				CCTermPairHash.Info info = mPairHash.getInfo(t1, t2, offset);
 				if (info == null) {
-					info = new CCTermPairHash.Info(t1, t2);
+					info = new CCTermPairHash.Info(t1, t2, offset);
 					mPairHash.add(info);
 				}
 				info.mEqlits.prependIntoJoined(eqentry, true);
@@ -649,7 +683,7 @@ public class CClosure implements ITheory {
 				final CCTermPairHash.Info info = pentry.getInfo();
 				// info might have blocked compare triggers but no eqlits
 				// assert (!info.eqlits.isEmpty());
-				if (pentry.mOther == t2) {
+				if (pentry.mOther == t2 && pentry.getOffsetToOther().equals(offset)) {
 					info.mEqlits.prependIntoJoined(eqentry, isLast);
 					found = true;
 					break;
@@ -657,18 +691,27 @@ public class CClosure implements ITheory {
 			}
 			if (!found) {
 				// we need to create a new entry.
-				final CCTermPairHash.Info info = new CCTermPairHash.Info(t1, t2);
+				final CCTermPairHash.Info info = new CCTermPairHash.Info(t1, t2, offset);
 				info.mRhsEntry.unlink();
 				info.mEqlits.prependIntoJoined(eqentry, isLast);
 			}
 			if (isLast) {
 				break;
 			}
+			// walk t1 up to its representative; value(t1) - value(t1.mRep) = t1.mOffsetToRep - t1.mRep.mOffsetToRep
+			offset = offset.sub(t1.getOffsetToRep()).add(t1.mRep.getOffsetToRep());
 			t1 = t1.mRep;
 		}
 	}
 
-	public CCEquality createCCEquality(final int stackLevel, CCTerm t1, CCTerm t2) {
+	public CCEquality createCCEquality(final int stackLevel, final CCTerm t1, final CCTerm t2) {
+		return createCCEquality(stackLevel, t1, t2, Rational.ZERO);
+	}
+
+	/**
+	 * Create a CCEquality stating {@code value(t1) == value(t2) + offset}.
+	 */
+	public CCEquality createCCEquality(final int stackLevel, CCTerm t1, CCTerm t2, Rational offset) {
 		assert (t1 != t2);
 		CCEquality eq = null;
 		assert t1.invariant();
@@ -680,9 +723,11 @@ public class CClosure implements ITheory {
 			final CCTerm tmp = t2;
 			t2 = t1;
 			t1 = tmp;
+			offset = offset.negate();
 		}
 		eq = new CCEquality(stackLevel, t1, t2);
-		insertEqualityEntry(t1, t2, eq.getEntry());
+		eq.setOffset(offset);
+		insertEqualityEntry(t1, t2, offset, eq.getEntry());
 		getEngine().addAtom(eq);
 
 		assert t1.invariant();
@@ -691,13 +736,22 @@ public class CClosure implements ITheory {
 		assert t2.pairHashValid(this);
 
 		if (t1.mRepStar == t2.mRepStar) {
-			if (getLogger().isDebugEnabled()) {
-				getLogger().debug("CC-Prop: " + eq + " repStar: " + t1.mRepStar);
+			// The two terms are already in the same class. The equality is implied true only if the offset matches the
+			// offset they already have; otherwise it is implied false but we leave it for the SAT solver (setLiteral
+			// detects the conflict if it is ever set true).
+			final Rational existingDiff = t1.getOffsetToRep().sub(t2.getOffsetToRep());
+			if (existingDiff.equals(offset)) {
+				if (getLogger().isDebugEnabled()) {
+					getLogger().debug("CC-Prop: " + eq + " repStar: " + t1.mRepStar);
+				}
+				mPendingLits.add(eq);
+				mRecheckOnBacktrackLits.add(eq);
 			}
-			mPendingLits.add(eq);
-			mRecheckOnBacktrackLits.add(eq);
 		} else {
-			final CCEquality diseq = mPairHash.getInfo(t1.mRepStar, t2.mRepStar).mDiseq;
+			// value(t1Rep) - value(t2Rep) under the equality
+			final Rational repOffset = offset.sub(t1.getOffsetToRep()).add(t2.getOffsetToRep());
+			final CCTermPairHash.Info repInfo = mPairHash.getInfo(t1.mRepStar, t2.mRepStar, repOffset);
+			final CCEquality diseq = repInfo == null ? null : repInfo.mDiseq;
 			if (diseq != null) {
 				if (getLogger().isDebugEnabled()) {
 					getLogger().debug("CC-Prop: " + eq.negate() + " diseq: " + diseq);
@@ -838,6 +892,13 @@ public class CClosure implements ITheory {
 				if (conflict != null) {
 					return conflict;
 				}
+			} else {
+				// The terms are already in the same class. Asserting the equality is a conflict if their actual offset
+				// differs from the offset claimed by the equality (e.g. asserting x == x + 1).
+				final Rational existingDiff = eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep());
+				if (!existingDiff.equals(eq.getOffset())) {
+					return computeCycle(eq);
+				}
 			}
 		} else {
 			final CCTerm left = eq.getLhs().mRepStar;
@@ -845,12 +906,19 @@ public class CClosure implements ITheory {
 
 			/* Check for conflict */
 			if (left == right) {
-				final Clause conflict = computeCycle(eq);
-				if (conflict != null) {
-					return conflict;
+				// They are in the same class. The disequality is a conflict only if they are equal at exactly the
+				// offset the equality claims; if their actual offset differs, the disequality already holds and there
+				// is nothing to separate.
+				final Rational existingDiff = eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep());
+				if (existingDiff.equals(eq.getOffset())) {
+					final Clause conflict = computeCycle(eq);
+					if (conflict != null) {
+						return conflict;
+					}
 				}
+			} else {
+				separate(left, right, eq);
 			}
-			separate(left, right, eq);
 		}
 		final LAEquality laeq = eq.getLASharedData();
 		if (laeq != null) {
@@ -887,7 +955,7 @@ public class CClosure implements ITheory {
 				return;
 			}
 		}
-		final CCTermPairHash.Info info = mPairHash.getInfo(lhs, rhs);
+		final CCTermPairHash.Info info = mPairHash.getInfo(lhs, rhs, repOffset(diseq));
 		assert info.mDiseq == null;
 
 		mUndoStack.push(new SepUndoInfo(diseq));
@@ -903,8 +971,17 @@ public class CClosure implements ITheory {
 		}
 	}
 
+	/**
+	 * The offset of an equality as seen between the representatives of its two sides, i.e.
+	 * {@code value(eq.getLhs().mRepStar) - value(eq.getRhs().mRepStar)} implied by the equality.
+	 */
+	private static Rational repOffset(final CCEquality eq) {
+		return eq.getOffset().sub(eq.getLhs().getOffsetToRep()).add(eq.getRhs().getOffsetToRep());
+	}
+
 	private void undoSep(final CCEquality atom) {
-		final CCTermPairHash.Info destInfo = mPairHash.getInfo(atom.getLhs().mRepStar, atom.getRhs().mRepStar);
+		final CCTermPairHash.Info destInfo =
+				mPairHash.getInfo(atom.getLhs().mRepStar, atom.getRhs().mRepStar, repOffset(atom));
 		assert destInfo != null && destInfo.mDiseq == atom;
 		destInfo.mDiseq = null;
 	}
@@ -993,10 +1070,29 @@ public class CClosure implements ITheory {
 	}
 
 	public CCEquality createEquality(final CCTerm t1, final CCTerm t2, final boolean createLAEquality) {
+		return createEquality(t1, t2, Rational.ZERO, createLAEquality);
+	}
+
+	/**
+	 * Create (and propagate) an equality {@code value(t1) == value(t2) + offset} between two shared terms. The offset is
+	 * encoded into the right-hand term ({@code t2 + offset}) so that the resulting CCEquality carries the offset and the
+	 * linked LAEquality carries the matching constant. With a zero offset this is the classic shared-term equality.
+	 */
+	public CCEquality createEquality(final CCTerm t1, final CCTerm t2, final Rational offset,
+			final boolean createLAEquality) {
 		assert t1 != t2;
-		final EqualityProxy ep = mClausifier.createEqualityProxy(t1.getFlatTerm(), t2.getFlatTerm(), null);
+		final Term lhsTerm = t1.getFlatTerm();
+		Term rhsTerm = t2.getFlatTerm();
+		if (!offset.equals(Rational.ZERO)) {
+			rhsTerm = rhsTerm.getTheory().term("+", rhsTerm, offset.toTerm(rhsTerm.getSort()));
+		}
+		final EqualityProxy ep = mClausifier.createEqualityProxy(lhsTerm, rhsTerm, null);
 		if (ep == EqualityProxy.getFalseProxy()) {
 			return null;
+		}
+		if (!offset.equals(Rational.ZERO) && mClausifier.getCCTerm(rhsTerm) == null) {
+			// the offset term t2+offset is offset-free-equivalent to t2; map it to the same CCTerm.
+			mClausifier.shareCCTerm(rhsTerm, t2);
 		}
 		if (!createLAEquality) {
 			final Literal res = ep.getLiteral(null);
@@ -1007,7 +1103,7 @@ public class CClosure implements ITheory {
 				}
 			}
 		}
-		return ep.createCCEquality(t1.getFlatTerm(), t2.getFlatTerm());
+		return ep.createCCEquality(lhsTerm, rhsTerm);
 	}
 
 	@Override
@@ -1020,6 +1116,9 @@ public class CClosure implements ITheory {
 				String comma = "";
 				for (final CCTerm t2 : t.mMembers) {
 					sb.append(comma).append(t2);
+					if (!t2.getOffsetToRep().equals(Rational.ZERO)) {
+						sb.append("[+").append(t2.getOffsetToRep()).append(']');
+					}
 					comma = "=";
 				}
 				logger.info(sb.toString());
@@ -1131,9 +1230,12 @@ public class CClosure implements ITheory {
 			/* check if literal is still implied by the graph */
 			boolean repropagate = false;
 			if (l.getSign() > 0) {
-				repropagate = (lhs == rhs);
+				// implied true only if the terms are in the same class at the equality's offset
+				repropagate = (lhs == rhs
+						&& eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep()).equals(eq.getOffset()));
 			} else {
-				final CCEquality diseq = mPairHash.getInfo(lhs, rhs).mDiseq;
+				final CCTermPairHash.Info info = mPairHash.getInfo(lhs, rhs, repOffset(eq));
+				final CCEquality diseq = info == null ? null : info.mDiseq;
 				if (diseq != null) {
 					eq.mDiseqReason = diseq;
 					repropagate = true;
@@ -1237,21 +1339,23 @@ public class CClosure implements ITheory {
 	public void removeAtom(final DPLLAtom atom) {
 		if (atom instanceof CCEquality) {
 			final CCEquality cceq = (CCEquality) atom;
-			removeCCEquality(cceq.getLhs(), cceq.getRhs(), cceq);
+			removeCCEquality(cceq.getLhs(), cceq.getRhs(), cceq.getOffset(), cceq);
 		}
 	}
 
-	private void removeCCEquality(CCTerm t1, CCTerm t2, final CCEquality eq) {
+	private void removeCCEquality(CCTerm t1, CCTerm t2, Rational offset, final CCEquality eq) {
 		// TODO Need test for this!!!
+		// offset == value(t1) - value(t2)
 		if (t1.mMergeTime > t2.mMergeTime) {
 			final CCTerm tmp = t1;
 			t1 = t2;
 			t2 = tmp;
+			offset = offset.negate();
 		}
 
 		if (t1.mRep == t1) {
 			assert t2.mRep == t2;
-			final CCTermPairHash.Info info = mPairHash.getInfo(t1, t2);
+			final CCTermPairHash.Info info = mPairHash.getInfo(t1, t2, offset);
 			if (info != null) {
 				// Remove pair hash info
 				info.mEqlits.prepareRemove(eq.getEntry());
@@ -1265,7 +1369,7 @@ public class CClosure implements ITheory {
 			boolean found = false;
 			for (final CCTermPairHash.Info.Entry pentry : t1.mPairInfos) {
 				final CCTermPairHash.Info info = pentry.getInfo();
-				if (pentry.mOther == t2) {
+				if (pentry.mOther == t2 && pentry.getOffsetToOther().equals(offset)) {
 					info.mEqlits.prepareRemove(eq.getEntry());
 					found = true;
 					break;
@@ -1275,7 +1379,7 @@ public class CClosure implements ITheory {
 			if (isLast) {
 				eq.getEntry().removeFromList();
 			} else {
-				removeCCEquality(t1.mRep, t2, eq);
+				removeCCEquality(t1.mRep, t2, offset.sub(t1.getOffsetToRep()).add(t1.mRep.getOffsetToRep()), eq);
 			}
 		}
 		if (eq.getLASharedData() != null) {

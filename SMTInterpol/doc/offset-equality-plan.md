@@ -278,6 +278,18 @@ in its degenerate case.  The flag also doubles as the proof guard: default it
 **off when proof generation is enabled** until offset-aware proof production
 lands, then flip.
 
+### CC↔LA sharing of offset-free terms
+
+When offset equalities are enabled, a numeric term `t = affine + c` is
+represented by the offset-free CCTerm for `affine`, and the **`LASharedTerm` for
+`t` has offset zero** (it represents `affine`, not `t`). Only this offset-free
+CCTerm is `share()`d with the offset-free `LASharedTerm`, so the CC↔LA
+shared-term equality has equal values on both sides and stays sound. The full
+term `t` gets no separate CC↔LA share — the constant `c` (recomputed from the
+polynomial on demand) bridges CC (`affine + c`) and LA (`affine + c`), both
+anchored on the shared `affine`. When the feature is off, `LASharedTerm` keeps
+the constant as its offset and the whole term is shared, exactly as before.
+
 ### Entry pathway via LASharedTerm
 
 The offset machinery already exists in `LASharedTerm` (it stores summands and a

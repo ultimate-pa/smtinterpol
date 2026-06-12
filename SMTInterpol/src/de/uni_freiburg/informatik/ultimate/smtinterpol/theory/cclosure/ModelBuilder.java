@@ -155,6 +155,23 @@ public class ModelBuilder {
 		return mModelValues.get(term.getRepresentative());
 	}
 
+	/**
+	 * The model value of a (numeric) term plus a constant. The representative carries the model value of the offset-free
+	 * class; an individual member's value adds its offset to the representative, and {@code extraOffset} adds a further
+	 * constant (e.g. the structural argument offset of {@code x+5}). For non-numeric terms the offsets are zero and the
+	 * representative's value is returned unchanged.
+	 */
+	private Term getModelValueWithOffset(final CCTerm term, final Rational extraOffset) {
+		final Term repValue = mModelValues.get(term.getRepresentative());
+		final Sort sort = term.getFlatTerm().getSort();
+		if (!sort.isNumericSort()) {
+			assert term.getOffsetToRep().equals(Rational.ZERO) && extraOffset.equals(Rational.ZERO);
+			return repValue;
+		}
+		final Rational value = NumericSortInterpretation.toRational(repValue).add(term.getOffsetToRep()).add(extraOffset);
+		return value.toTerm(sort);
+	}
+
 	public void setModelValue(final CCTerm term, final Term value) {
 		assert term == term.getRepresentative();
 		final Term old = mModelValues.put(term, value);
@@ -172,7 +189,10 @@ public class ModelBuilder {
 				if (sort.isNumericSort()) {
 					Rational v;
 					if (ccterm.getSharedTerm() != null) {
-						v = mEvaluator.evaluate(ccterm.getSharedTerm().getFlatTerm(), mTheory);
+						final CCTerm shared = ccterm.getSharedTerm();
+						// evaluate gives the value of the (offset-free) shared term; the representative's value is that
+						// minus the shared term's offset to the representative.
+						v = mEvaluator.evaluate(shared.getFlatTerm(), mTheory).sub(shared.getOffsetToRep());
 						if (smtterm.getSort().getName().equals("Int") && !v.isIntegral()) {
 							throw new AssertionError("Int term has non-integral value");
 						}
@@ -223,7 +243,7 @@ public class ModelBuilder {
 
 	public void fillInFunctions(final List<CCTerm> terms, final Model model, final Theory t) {
 		for (final CCTerm term : terms) {
-			add(model, term, mModelValues.get(term.getRepresentative()), t);
+			add(model, term, getModelValueWithOffset(term, Rational.ZERO), t);
 		}
 	}
 
@@ -270,7 +290,8 @@ public class ModelBuilder {
 		CCTerm[] ccArgs = app.getArguments();
 		Term[] args = new Term[ccArgs.length];
 		for (int i = 0; i < args.length; i++) {
-			args[i] = mModelValues.get(ccArgs[i].getRepresentative());
+			// the actual argument is ccArgs[i] + structural offset, evaluated at its model value
+			args[i] = getModelValueWithOffset(ccArgs[i], app.getArgOffset(i));
 		}
 		final FunctionSymbol fs = app.getFunctionSymbol();
 		if (!fs.isIntern() || isUndefinedFor(fs, args)) {
