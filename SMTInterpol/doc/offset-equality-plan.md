@@ -296,13 +296,29 @@ offsets.
    through `merge`/`mergeInternal`/`undoMerge` and added the same-class offset
    consistency check. Behavior-preserving (all offsets `ZERO`); no creation site
    emits non-zero offsets yet.
-2. **Signatures + pair hash.** Offset in `SignatureTrigger` hash/equals and
-   `CCAppTerm.mArgOffsets`; re-key `CCTermPairHash.Info` by canonical
-   `(lhs, rhs, offset)`; update the ~10 `CClosure` call sites.
-3. **Creation sites + flag.** Implement the two flag-gated creation sites and
-   turn the flag on (off under proof generation).
+2. **Signatures + pair hash structure.**
+   - **2a (done).** Offset in `SignatureTrigger` hash/equals/recompute (the
+     effective offset is the term's offset to its representative plus the
+     structural `CCAppTerm.mArgOffsets`); the offset delta is threaded through
+     `rehashSignatures` and the merge/undo callers.
+   - **2b (done).** `CCTermPairHash.Info` carries an offset; the cuckoo-hash key
+     and `equals`/`getInfo` are offset-aware (offset hash invariant under
+     negation, so `(A,B,off)` mirrors `(B,A,-off)`). Zero-defaulting overloads
+     keep every existing call site querying offset 0, so it is behavior-
+     preserving. The actual offset-threading through the call sites is deferred
+     to increment 3, where it is testable.
+3. **Creation sites + flag + call-site offset threading.** Implement the two
+   flag-gated creation sites (offset-free CCTerms from `LASharedTerm`;
+   `CCEquality.mOffset` from the offset difference) and, in the same increment,
+   thread the context-derived offsets through `insertEqualityEntry`,
+   `isDiseqSet`, `separate`/`undoSep`, `createCCEquality`, `backtrackComplete`,
+   `removeCCEquality`, the merge-time propagation in `CCTerm.mergeInternal`/
+   `undoMerge` (propagate the matching-offset eqlits as true, the others as
+   negated), and `CompareTrigger.getOffset`. Then turn the flag on (off under
+   proof generation). This is the first end-to-end testable increment.
 4. **Proof production.** Offset-aware `CongruencePath` / `CCProofGenerator`
-   (and proof checker); then enable offsets under proof generation.
+   (and proof checker), and the offset-conflict explanation stubbed in
+   increment 1; then enable offsets under proof generation.
 
 ## Summary of files to change
 
