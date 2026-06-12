@@ -86,7 +86,8 @@ public class CCTermPairHash extends CuckooHashSet<CCTermPairHash.Info> {
 
 		@Override
 		public int hashCode() {
-			return pairHash(mRhsEntry.mOther, mLhsEntry.mOther) ^ offsetHash(mOffset);
+			return pairHash(mRhsEntry.mOther, mLhsEntry.mOther)
+					^ offsetHash(mRhsEntry.mOther, mLhsEntry.mOther, mOffset);
 		}
 
 		public final boolean equals(CCTerm lhs, CCTerm rhs, Rational offset) {
@@ -141,7 +142,7 @@ public class CCTermPairHash extends CuckooHashSet<CCTermPairHash.Info> {
 	 * endpoints but different offsets are distinct entries, so the offset is part of the lookup key.
 	 */
 	public Info getInfo(CCTerm lhs, CCTerm rhs, Rational offset) {
-		final int hash = hashJenkins(pairHash(lhs, rhs) ^ offsetHash(offset));
+		final int hash = hashJenkins(pairHash(lhs, rhs) ^ offsetHash(lhs, rhs, offset));
 		final int hash1 = hash1(hash);
 		Info bucket = (Info) mBuckets[hash1];
 		if (bucket != null && bucket.equals(lhs, rhs, offset)) {
@@ -159,12 +160,25 @@ public class CCTermPairHash extends CuckooHashSet<CCTermPairHash.Info> {
 	}
 
 	/**
-	 * A hash contribution for the offset that is invariant under negation, so that the relationship
-	 * {@code (A, B, off)} and its mirror {@code (B, A, -off)} hash identically. It is zero for a zero offset, so
-	 * offset-free congruence closure keeps the original hash values.
+	 * A hash contribution for the offset of an info between {@code a} and {@code b} with {@code offset == value(a) -
+	 * value(b)}. The offset is expressed in a canonical endpoint orientation (the term with the smaller
+	 * {@link CCTerm#hashCode()} first) before hashing, so that the relationship {@code (a, b, off)} and its mirror
+	 * {@code (b, a, -off)} hash identically, while {@code (a, b, off)} and {@code (a, b, -off)} (i.e. {@code a = b + off}
+	 * versus {@code a = b - off}) get different hashes — important because cuckoo hashing degrades badly on structured
+	 * collisions. We use {@code hashCode()} rather than identity hashes to keep the solver deterministic.
+	 *
+	 * <p>If the two endpoints have equal hash codes (about a one in four billion chance) the orientation is ambiguous,
+	 * so we fall back to the negation-invariant {@code offset.abs()} hash. That keeps the mirror consistent (at the
+	 * cost of {@code off}/{@code -off} colliding only in that rare case).
 	 */
-	static int offsetHash(Rational offset) {
-		return offset.hashCode() ^ offset.negate().hashCode();
+	static int offsetHash(CCTerm a, CCTerm b, Rational offset) {
+		final int ha = a.hashCode();
+		final int hb = b.hashCode();
+		if (ha == hb) {
+			return offset.abs().hashCode();
+		}
+		final Rational canonical = ha < hb ? offset : offset.negate();
+		return canonical.hashCode();
 	}
 
 	public void removePairInfo(Info info) {
