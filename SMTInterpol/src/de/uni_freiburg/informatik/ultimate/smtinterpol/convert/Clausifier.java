@@ -591,7 +591,11 @@ public class Clausifier {
 	 * offset-free CCTerms with the constant carried as an offset.
 	 */
 	public boolean createOffsetEqualities() {
-		return getCClosure() != null && getCClosure().createOffsetEqualities();
+		// Offsets are disabled in the presence of quantifiers: e-matching binds quantifier variables to offset-free
+		// CCTerms and would lose the offset (e.g. match a(x) against a(l+1) but instantiate x := l), which is unsound.
+		// Quantifier-free problems are unaffected. (The quantifier theory is slated for rework; full offset-aware
+		// e-matching is future work.)
+		return mQuantTheory == null && getCClosure() != null && getCClosure().createOffsetEqualities();
 	}
 
 	/**
