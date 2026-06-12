@@ -66,3 +66,7 @@ Instead the term could be represented by
 
     (exists ((x₁ Int)) (exists (x₂ Int) (not (= x₂ x₁))))
 
+In principle, α-renaming could be resolved by de Bruijn indices.  This proof
+format is more strict and only considers two terms equal if the variable names
+before the bounded renaming were equal.  One way to achieve this is to use
+the variable name indexed by its de Bruijn index in the normalized form.
