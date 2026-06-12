@@ -29,6 +29,7 @@ import java.util.Map;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -794,10 +795,11 @@ public class CClosure implements ITheory {
 	 * @param backRefs the list of (signature, listIndex, trigger) back-refs from
 	 *                 that representative.
 	 */
-	void rehashSignatures(final CCTerm oldRep, final CCTerm newRep, final SimpleList<SignatureBackRef> backRefs) {
+	void rehashSignatures(final CCTerm oldRep, final CCTerm newRep, final Rational offsetDelta,
+			final SimpleList<SignatureBackRef> backRefs) {
 		for (final SignatureBackRef backRef : backRefs) {
 			final SignatureTrigger signatureTrigger = backRef.getSignatureTrigger();
-			signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep, newRep);
+			signatureTrigger.rehash(this, backRef.getArgPosition(), oldRep, newRep, offsetDelta);
 		}
 	}
 

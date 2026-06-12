@@ -472,15 +472,17 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
-		engine.rehashSignatures(src, dest, src.mSignatureBackRefs);
 		/*
 		 * Compute the offset that src (the old representative of the merged class) gets relative to dest. We have
 		 * value(src) = value(dest) + delta, where delta is derived from the reason and the offsets the two merged terms
 		 * already have relative to their respective representatives:
 		 *   delta = (value(lhs) - value(this)) - lhs.mOffsetToRep + this.mOffsetToRep.
 		 * Since src is a representative its own offset was ZERO, so after the shift below src.mOffsetToRep == delta.
+		 * The signatures must be rehashed with this delta as well, since the effective offset of every src-class
+		 * argument increases by delta; rehashing happens before the offsets are actually updated below.
 		 */
 		final Rational delta = reasonDiff(reason, lhs, this).sub(lhs.mOffsetToRep).add(mOffsetToRep);
+		engine.rehashSignatures(src, dest, delta, src.mSignatureBackRefs);
 		/* Update rep fields and shift offsets of the merged members into dest's frame */
 		src.mRep = dest;
 		for (final CCTerm t : src.mMembers) {
@@ -583,9 +585,15 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		dest = mRepStar;
 		assert src.mRep == dest;
 
+		/*
+		 * The delta that was added to every src-class member at merge time is src's current offset relative to dest
+		 * (src was a representative with offset ZERO before the merge). Undoing reverses both the representative change
+		 * (dest -> src) and the offset shift (by -delta). Rehash before the offsets below are restored.
+		 */
+		final Rational delta = src.mOffsetToRep;
 		dest.mSignatureBackRefs.unjoinList(src.mSignatureBackRefs);
 		engine.getLogger().debug("Unmerge Backrefs: %s", src.mSignatureBackRefs);
-		engine.rehashSignatures(dest, src, src.mSignatureBackRefs);
+		engine.rehashSignatures(dest, src, delta.negate(), src.mSignatureBackRefs);
 
 		src.mReasonLiteral = null;
 		for (final CCTermPairHash.Info.Entry pentry : src.mPairInfos.reverse()) {
@@ -623,11 +631,9 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			time = System.nanoTime();
 		}
 		/*
-		 * Undo the offset shift applied at merge. src was a representative before the merge (offset ZERO), so the delta
-		 * that was added to every member equals src's current offset relative to dest. Subtracting it restores each
-		 * member's offset relative to src and resets src.mOffsetToRep to ZERO.
+		 * Undo the offset shift applied at merge (delta computed above). Subtracting it restores each member's offset
+		 * relative to src and resets src.mOffsetToRep to ZERO.
 		 */
-		final Rational delta = src.mOffsetToRep;
 		dest.mMembers.unjoinList(src.mMembers);
 		for (final CCTerm t : src.mMembers) {
 			t.mRepStar = src;

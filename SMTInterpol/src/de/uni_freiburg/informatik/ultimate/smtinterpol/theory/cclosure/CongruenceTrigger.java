@@ -39,7 +39,7 @@ public final class CongruenceTrigger extends SignatureTrigger {
 	 *            the (kept) application term for this signature.
 	 */
 	public CongruenceTrigger(final CCAppTerm app, FunctionSymbol func, CCTerm[] args) {
-		super(func, args);
+		super(func, args, app.mArgOffsets);
 		mApp = app;
 	}
 

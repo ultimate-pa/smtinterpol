@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import java.util.Arrays;
 import java.util.List;
 
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
@@ -35,13 +36,22 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 
 	private final Object mId;
 	private final CCTerm[] mTerms;
+	/**
+	 * The structural constant offsets of the signature, parallel to {@link #mTerms}: argument {@code i} of the
+	 * signature is {@code mTerms[i] + mArgOffsets[i]}. This is {@code null} when every offset is zero (the common case),
+	 * which keeps plain congruence closure free of any offset cost. The effective offset that the signature is keyed on
+	 * additionally includes the term's offset to its representative (see {@link #effectiveOffset(int)}), so two
+	 * applications are congruent only if their arguments have the same representative <em>and</em> the same effective
+	 * offset.
+	 */
+	private final Rational[] mArgOffsets;
 	private int mLastHashCode;
 
 	private SignatureTrigger mMergedTrigger;
 	private SignatureBackRef[] mBackrefs;
+
 	/**
-	 * Create a signature with the given identifier and non-empty term array. The array may contain any CCTerms, not
-	 * necessarily representatives. The array is copied defensively.
+	 * Create a signature with the given identifier and non-empty term array, with all structural offsets zero.
 	 *
 	 * @param id
 	 *            opaque identifier (e.g. function symbol for congruence, or trigger id for reverse triggers).
@@ -49,9 +59,33 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 	 *            non-empty array of CCTerms.
 	 */
 	public SignatureTrigger(final Object id, final CCTerm[] terms) {
+		this(id, terms, null);
+	}
+
+	/**
+	 * Create a signature with the given identifier, term array and structural offsets.
+	 *
+	 * @param id
+	 *            opaque identifier (e.g. function symbol for congruence, or trigger id for reverse triggers).
+	 * @param terms
+	 *            non-empty array of CCTerms.
+	 * @param argOffsets
+	 *            the structural offset for each term, or {@code null} when all are zero.
+	 */
+	public SignatureTrigger(final Object id, final CCTerm[] terms, final Rational[] argOffsets) {
 		mId = id;
 		mTerms = terms;
+		mArgOffsets = argOffsets;
 		mLastHashCode = computeHashCode();
+	}
+
+	/**
+	 * The effective offset of argument {@code index}: the term's offset to its representative plus the structural
+	 * offset. This is what determines, together with the representative, whether two signatures are congruent.
+	 */
+	private Rational effectiveOffset(final int index) {
+		final Rational structural = mArgOffsets == null ? Rational.ZERO : mArgOffsets[index];
+		return mTerms[index].mOffsetToRep.add(structural);
 	}
 
 	public Object getId() {
@@ -73,7 +107,7 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 		return Arrays.asList(mTerms);
 	}
 
-	public void rehash(CClosure engine, int argPosition, CCTerm oldRep, CCTerm newRep) {
+	public void rehash(CClosure engine, int argPosition, CCTerm oldRep, CCTerm newRep, Rational offsetDelta) {
 		/* only if not merged */
 		if (mMergedTrigger == null) {
 			assert mBackrefs != null;
@@ -81,7 +115,7 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 				assert mLastHashCode == computeHashCode();
 				engine.moveToSignatureTodo(this);
 			}
-			recomputeHashCode(argPosition, oldRep, newRep);
+			recomputeHashCode(argPosition, oldRep, newRep, offsetDelta);
 		}
 	}
 
@@ -120,16 +154,30 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 	public int computeHashCode() {
 		int h = mId.hashCode();
 		for (int i = 0; i < mTerms.length; i++) {
-			h ^= HashUtils.hashJenkins(i, mTerms[i].getRepresentative());
+			// Use disjoint salts (2*i for the representative, 2*i+1 for the offset) so the two contributions do not
+			// trivially cancel against each other.
+			h ^= HashUtils.hashJenkins(2 * i, mTerms[i].getRepresentative());
+			h ^= HashUtils.hashJenkins(2 * i + 1, effectiveOffset(i).hashCode());
 		}
 		return h;
 	}
 
-	public void recomputeHashCode(int argPos, CCTerm oldRep, CCTerm newRep) {
-		final int hOld = HashUtils.hashJenkins(argPos, oldRep.hashCode());
-		final int hNew = HashUtils.hashJenkins(argPos, newRep.hashCode());
-		// assert computeHashCode() == (mLastHashCode ^ hOld ^ hNew);
-		mLastHashCode ^= hOld ^ hNew;
+	/**
+	 * Incrementally update the cached hash when argument {@code argPos}'s representative changes from {@code oldRep} to
+	 * {@code newRep} and its offset to the representative changes by {@code offsetDelta}. This must be called before the
+	 * term's {@code mOffsetToRep} is actually updated, so {@link #effectiveOffset(int)} still reflects the old value.
+	 */
+	public void recomputeHashCode(int argPos, CCTerm oldRep, CCTerm newRep, Rational offsetDelta) {
+		final int hOldRep = HashUtils.hashJenkins(2 * argPos, oldRep.hashCode());
+		final int hNewRep = HashUtils.hashJenkins(2 * argPos, newRep.hashCode());
+		mLastHashCode ^= hOldRep ^ hNewRep;
+		if (!offsetDelta.equals(Rational.ZERO)) {
+			final Rational oldEff = effectiveOffset(argPos);
+			final Rational newEff = oldEff.add(offsetDelta);
+			final int hOldOff = HashUtils.hashJenkins(2 * argPos + 1, oldEff.hashCode());
+			final int hNewOff = HashUtils.hashJenkins(2 * argPos + 1, newEff.hashCode());
+			mLastHashCode ^= hOldOff ^ hNewOff;
+		}
 	}
 
 	@Override
@@ -146,6 +194,9 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 		}
 		for (int i = 0; i < mTerms.length; i++) {
 			if (mTerms[i].getRepresentative() != other.mTerms[i].getRepresentative()) {
+				return false;
+			}
+			if (!effectiveOffset(i).equals(other.effectiveOffset(i))) {
 				return false;
 			}
 		}
