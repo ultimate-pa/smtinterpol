@@ -1084,7 +1084,9 @@ public class CClosure implements ITheory {
 		final Term lhsTerm = t1.getFlatTerm();
 		Term rhsTerm = t2.getFlatTerm();
 		if (!offset.equals(Rational.ZERO)) {
-			rhsTerm = rhsTerm.getTheory().term("+", rhsTerm, offset.toTerm(rhsTerm.getSort()));
+			// Build the flattened polynomial term t2 + offset. A nested (+ t2 offset) would not be re-parsed
+			// correctly by Polynomial when t2 is itself a normalized sum (the inner sum is treated as one monomial).
+			rhsTerm = mClausifier.addConstantToTerm(rhsTerm, offset);
 		}
 		final EqualityProxy ep = mClausifier.createEqualityProxy(lhsTerm, rhsTerm, null);
 		if (ep == EqualityProxy.getFalseProxy()) {

@@ -96,6 +96,9 @@ public class CCAppTerm extends CCTerm {
 					visited.put(app, visited.size());
 					todo.add(")");
 					for (int i = app.mArgs.length - 1; i >= 0; i--) {
+						if (!app.getArgOffset(i).equals(Rational.ZERO)) {
+							todo.add("+" + app.getArgOffset(i));
+						}
 						todo.add(app.mArgs[i]);
 						todo.add(" ");
 					}

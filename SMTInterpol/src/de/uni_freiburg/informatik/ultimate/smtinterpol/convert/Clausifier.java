@@ -610,6 +610,16 @@ public class Clausifier {
 	 * only by a constant (e.g. {@code 2x+4y+1} and {@code 2x+4y+5}) yield the same canonical offset-free term, so they
 	 * share a single CCTerm. Returns the term itself when it has no constant or offset equalities are disabled.
 	 */
+	/**
+	 * Build the normalized term for {@code term + constant}. The result is a single flattened polynomial term (not a
+	 * nested {@code (+ term constant)}), so that re-parsing it as a Polynomial recovers all summands.
+	 */
+	public Term addConstantToTerm(final Term term, final Rational constant) {
+		final Polynomial poly = new Polynomial(term);
+		poly.add(constant);
+		return mCompiler.unifyPolynomial(poly, term.getSort());
+	}
+
 	public Term getOffsetFreeTerm(final Term term) {
 		if (!createOffsetEqualities() || !term.getSort().isNumericSort()) {
 			return term;
