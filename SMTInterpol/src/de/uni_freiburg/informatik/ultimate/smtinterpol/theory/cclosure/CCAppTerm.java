@@ -22,12 +22,20 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 public class CCAppTerm extends CCTerm {
 	final FunctionSymbol mFunc;
 	final CCTerm[] mArgs;
+	/**
+	 * The constant offset that is added to each argument: argument {@code i} of the represented application is
+	 * {@code mArgs[i] + mArgOffsets[i]}. This lets a term like {@code f(x+5)} use the offset-free CCTerm {@code x} as
+	 * its argument while remembering the {@code +5}. The array is {@code null} when every offset is zero (the common
+	 * case), so plain congruence closure pays no extra cost.
+	 */
+	Rational[] mArgOffsets;
 	Term mSmtTerm;
 
 	CongruenceTrigger mCongTrigger;
@@ -58,6 +66,15 @@ public class CCAppTerm extends CCTerm {
 
 	public CCTerm getArgument(int argPosition) {
 		return mArgs[argPosition];
+	}
+
+	/**
+	 * @return the constant offset added to the argument at the given position, i.e. the argument of the application is
+	 *         {@code getArgument(argPosition) + getArgOffset(argPosition)}. Returns {@link Rational#ZERO} when no
+	 *         offsets are stored.
+	 */
+	public Rational getArgOffset(int argPosition) {
+		return mArgOffsets == null ? Rational.ZERO : mArgOffsets[argPosition];
 	}
 
 	@Override

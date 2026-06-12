@@ -28,6 +28,12 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 public class CCEquality extends DPLLAtom {
 	private final CCTerm mLhs, mRhs;
+	/**
+	 * The constant offset of this equality: it states {@code mLhs == mRhs + mOffset}. For a plain equality this is
+	 * {@link Rational#ZERO}; a non-zero value turns this into an offset equality, used to relate terms that differ by a
+	 * constant (e.g. {@code a == b + 3}).
+	 */
+	private Rational mOffset = Rational.ZERO;
 	CCEquality mDiseqReason;
 	private LAEquality mLasd;
 	private Rational mLAFactor;
@@ -52,6 +58,17 @@ public class CCEquality extends DPLLAtom {
 
 	public CCTerm getRhs() {
 		return mRhs;
+	}
+
+	/**
+	 * @return the constant offset of this equality, such that {@code getLhs() == getRhs() + getOffset()}.
+	 */
+	public Rational getOffset() {
+		return mOffset;
+	}
+
+	public void setOffset(final Rational offset) {
+		mOffset = offset;
 	}
 
 	public Entry getEntry() {
@@ -89,6 +106,9 @@ public class CCEquality extends DPLLAtom {
 
 	@Override
 	public String toString() {
-		return mLhs + " == " + mRhs;
+		if (mOffset.equals(Rational.ZERO)) {
+			return mLhs + " == " + mRhs;
+		}
+		return mLhs + " == " + mRhs + " + " + mOffset;
 	}
 }

@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
@@ -63,6 +64,14 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	 * is the one that contains the members, ccpar and eqlits information.
 	 */
 	CCTerm mRepStar;
+	/**
+	 * The offset of this term relative to its representative: the value of this term equals the value of
+	 * {@link #mRepStar} plus this offset. This realises the affine (offset) equality classes: a member {@code t}
+	 * satisfies {@code t == t.mRepStar + t.mOffsetToRep}. A representative has offset {@link Rational#ZERO} relative to
+	 * itself. As long as no offset equality is ever created this is always {@link Rational#ZERO} and the structure
+	 * degenerates to plain congruence closure.
+	 */
+	Rational mOffsetToRep = Rational.ZERO;
 	/**
 	 * Points to the next merged representative in the congruence class.
 	 * This representative can have another representative of its own, if
@@ -187,6 +196,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 				// 	assert parInfo.mCCParents.wellformed();
 				// 	assert parInfo.mNext == null || parInfo.mFuncSymbNr < parInfo.mNext.mFuncSymbNr;
 				// }
+				assert mOffsetToRep.equals(Rational.ZERO) : "representative must have zero offset";
 				for (final CCTerm m : mMembers) {
 					assert m.mRepStar == this;
 				}
@@ -201,6 +211,13 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 
 	public final CCTerm getRepresentative() {
 		return mRepStar;
+	}
+
+	/**
+	 * @return the offset of this term relative to its representative, i.e. {@code value(this) == value(rep) + offset}.
+	 */
+	public final Rational getOffsetToRep() {
+		return mOffsetToRep;
 	}
 
 	public final boolean isRepresentative() {
@@ -343,6 +360,25 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		}
 	}
 
+	/**
+	 * Compute the value difference {@code value(from) - value(to)} implied by a merge reason. For an offset equality the
+	 * reason states {@code reason.getLhs() == reason.getRhs() + reason.getOffset()}; {@code from} and {@code to} are the
+	 * two terms being merged and must be exactly the two sides of the reason (in either order). A {@code null} reason is
+	 * a congruence merge, where the two function applications have equal value, hence a difference of zero.
+	 */
+	private static Rational reasonDiff(final CCEquality reason, final CCTerm from, final CCTerm to) {
+		if (reason == null) {
+			return Rational.ZERO;
+		}
+		if (from == reason.getLhs() && to == reason.getRhs()) {
+			return reason.getOffset();
+		}
+		if (from == reason.getRhs() && to == reason.getLhs()) {
+			return reason.getOffset().negate();
+		}
+		throw new AssertionError("merge reason does not match the merged terms");
+	}
+
 	public Clause merge(final CClosure engine, final CCTerm lhs, final CCEquality reason) {
 		assert reason != null
 				|| (this instanceof CCAppTerm && lhs instanceof CCAppTerm);
@@ -355,7 +391,17 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		assert dest.invariant();
 		assert dest.pairHashValid(engine);
 		if (src == dest) {
-			/* Terms are already merged. */
+			/*
+			 * Terms are already merged. With offset equalities this is only consistent if the offset implied by the
+			 * reason matches the offset that the two terms already have within their common class. A mismatch (e.g.
+			 * asserting x = x + 1) is a conflict.
+			 */
+			final Rational existingDiff = lhs.mOffsetToRep.sub(mOffsetToRep);
+			if (!existingDiff.equals(reasonDiff(reason, lhs, this))) {
+				// TODO offset-conflict explanation needs the offset-aware proof machinery; it can only be reached once
+				// non-zero offset equalities are created (later increment).
+				throw new UnsupportedOperationException("offset equality conflict explanation not yet implemented");
+			}
 			return null;
 		}
 
@@ -427,10 +473,19 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 			time = System.nanoTime();
 		}
 		engine.rehashSignatures(src, dest, src.mSignatureBackRefs);
-		/* Update rep fields */
+		/*
+		 * Compute the offset that src (the old representative of the merged class) gets relative to dest. We have
+		 * value(src) = value(dest) + delta, where delta is derived from the reason and the offsets the two merged terms
+		 * already have relative to their respective representatives:
+		 *   delta = (value(lhs) - value(this)) - lhs.mOffsetToRep + this.mOffsetToRep.
+		 * Since src is a representative its own offset was ZERO, so after the shift below src.mOffsetToRep == delta.
+		 */
+		final Rational delta = reasonDiff(reason, lhs, this).sub(lhs.mOffsetToRep).add(mOffsetToRep);
+		/* Update rep fields and shift offsets of the merged members into dest's frame */
 		src.mRep = dest;
 		for (final CCTerm t : src.mMembers) {
 			t.mRepStar = dest;
+			t.mOffsetToRep = t.mOffsetToRep.add(delta);
 		}
 		if (Config.PROFILE_TIME) {
 			engine.addSetRepTime(System.nanoTime() - time);
@@ -567,9 +622,16 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
 		}
+		/*
+		 * Undo the offset shift applied at merge. src was a representative before the merge (offset ZERO), so the delta
+		 * that was added to every member equals src's current offset relative to dest. Subtracting it restores each
+		 * member's offset relative to src and resets src.mOffsetToRep to ZERO.
+		 */
+		final Rational delta = src.mOffsetToRep;
 		dest.mMembers.unjoinList(src.mMembers);
 		for (final CCTerm t : src.mMembers) {
 			t.mRepStar = src;
+			t.mOffsetToRep = t.mOffsetToRep.sub(delta);
 		}
 		src.mRep = src;
 
