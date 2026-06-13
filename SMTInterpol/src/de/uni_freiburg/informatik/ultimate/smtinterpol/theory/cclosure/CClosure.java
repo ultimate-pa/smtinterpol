@@ -1155,7 +1155,11 @@ public class CClosure implements ITheory {
 						final CCTerm[] args2 = a2.mArgs;
 						int i;
 						for (i = 0; i < args1.length; i++) {
-							if (args1[i].getRepresentative() != args2[i].getRepresentative()) {
+							// congruent requires the arguments to have the same value, i.e. same representative AND
+							// same offset (offset-free arguments are compared as plain representatives).
+							final CCParameter p1 = CCParameter.of(args1[i], a1.getArgOffset(i));
+							final CCParameter p2 = CCParameter.of(args2[i], a2.getArgOffset(i));
+							if (!p1.sameValueAs(p2)) {
 								break;
 							}
 						}
