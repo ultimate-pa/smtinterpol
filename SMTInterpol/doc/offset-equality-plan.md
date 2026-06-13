@@ -346,6 +346,31 @@ offsets.
 | `CClosure.java` | Update `addEquality()` entry point; update `share()` to propagate offset to LA |
 | `LinArSolve.java` | Post offset equalities (`k ≠ 0`) to CC, not only zero-offset equalities |
 
+## Resume point
+
+Branch `offsetequality`. Done and committed: increments 1, 2a, 2b, 3; the
+deterministic pair-hash offset; the shared-term polynomial-flattening fix
+(`test04`); the quantifier gate (`quanttest001`); the `CCParameter` /
+`OffsettedCCTerm` abstraction with `getValueKey()`; and the `checkCongruence`
+migration. The full unit suite is green; offsets are active for quantifier-free,
+non-proof problems.
+
+**Next:** the `ArrayTheory` migration (steps under "Array index keys" above and
+"Gap-fix order" below). Then LA→CC offset propagation (gap 2), eager negated
+equalities (gap 3), proof production (increment 4), and offset-aware e-matching
+(to re-enable offsets under quantifiers).
+
+**Remaining system-benchmark failures** (with proofs/interpolants disabled so
+offsets are exercised), all non-soundness: `array/difftest004` (crash),
+`nia/divaxiom2` (crash), `bv/test01`, `abv/indexInRange01`, `abv/ext02`
+(unsat → unknown).
+
+**Temporary working-tree change (uncommitted):**
+`SMTInterpolTest/src/system/SystemTest.java` has `:proof-check-mode`,
+`:proof-level` and `:interpolant-check-mode` commented out so the system
+benchmarks exercise offsets (offsets are forced off under proof generation).
+Revert this before merging.
+
 ## Status after increment 3
 
 Increments 1, 2a, 2b and 3 are implemented and committed; offsets are live for
