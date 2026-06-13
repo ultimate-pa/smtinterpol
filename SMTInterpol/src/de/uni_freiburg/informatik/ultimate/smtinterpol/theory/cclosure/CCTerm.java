@@ -49,7 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
  *
  * @author hoenicke
  */
-public abstract class CCTerm extends SimpleListable<CCTerm> {
+public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParameter {
 
 	/**
 	 * The destination of the outgoing equality edge. Every term has at most one
@@ -216,8 +216,20 @@ public abstract class CCTerm extends SimpleListable<CCTerm> {
 	/**
 	 * @return the offset of this term relative to its representative, i.e. {@code value(this) == value(rep) + offset}.
 	 */
+	@Override
 	public final Rational getOffsetToRep() {
 		return mOffsetToRep;
+	}
+
+	/** A bare CCTerm is a {@link CCParameter} for its own value, with structural offset zero. */
+	@Override
+	public final CCTerm getCCTerm() {
+		return this;
+	}
+
+	@Override
+	public final Rational getOffset() {
+		return Rational.ZERO;
 	}
 
 	public final boolean isRepresentative() {
