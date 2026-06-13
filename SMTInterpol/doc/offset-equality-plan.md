@@ -345,3 +345,89 @@ offsets.
 | `CCProofGenerator.java` | Emit offset-equality proof steps |
 | `CClosure.java` | Update `addEquality()` entry point; update `share()` to propagate offset to LA |
 | `LinArSolve.java` | Post offset equalities (`k ≠ 0`) to CC, not only zero-offset equalities |
+
+## Status after increment 3
+
+Increments 1, 2a, 2b and 3 are implemented and committed; offsets are live for
+quantifier-free, non-proof problems and the full unit suite passes. Two further
+fixes landed:
+- the shared-term equality must use a *flattened* polynomial term
+  (`Clausifier.addConstantToTerm`), otherwise a nested `(+ t offset)` is
+  re-parsed with the inner sum collapsed to one monomial (was unsound, e.g.
+  `bv/test04`);
+- offsets are disabled in the presence of quantifiers (`mQuantTheory != null`),
+  because e-matching binds variables to offset-free CCTerms and would lose the
+  offset (was unsound, e.g. `quanttest001`).
+
+Running the system benchmarks with proofs/interpolants disabled (so offsets are
+exercised) leaves these failures, all in offset-heavy machinery and **none of
+them unsound** (crashes or incompleteness): `array/difftest004` (crash),
+`nia/divaxiom2` (crash), `bv/test01`, `abv/indexInRange01`, `abv/ext02`
+(unsat → unknown). They stem from the gaps below.
+
+## Remaining gaps
+
+1. **Every `CCAppTerm` consumer must treat argument `i` as `getArgument(i) +
+   getArgOffset(i)`** (the most important gap). Consumers that currently drop the
+   offset: `ArrayTheory` (select/store indices and array arguments),
+   `DataTypeTheory`, `CClosure.getCCTermRep`/`getAllFuncApps`/`checkCongruence`,
+   and the e-matching (`GetArgCode`/`EMReverseTrigger`, currently moot because
+   offsets are off under quantifiers). Already fixed: `ModelBuilder.addApp`. This
+   is behind the array crash and the BV/ABV incompleteness.
+2. **LA must propagate offset equalities (LA→CC).** Today LA only propagates an
+   equality between two shared terms when they are equal (offset 0). When LA
+   determines `value(a) − value(b) = k` for a constant `k`, it should propagate
+   `a = b + k` so CC merges them at offset `k`. This closes the BV/ABV
+   incompleteness (e.g. LA knows `k mod 256 = 1` but never tells CC).
+3. **Eager negated-equality propagation.** Increment 3 deliberately omitted (kept
+   sound-but-lazy) the propagation of `mEqlits` at a non-matching offset as
+   *false* when two classes merge at offset δ. Add it to match the eagerness of
+   the offset-0 code.
+
+## CCParameter: a value `CCTerm + Rational`
+
+To stop every consumer from re-deriving `getArgument(i) + getArgOffset(i)` /
+`mOffsetToRep` arithmetic, introduce a small abstraction for "a value up to a
+constant" (array index, congruence argument, shared-term comparison):
+
+```java
+public interface CCParameter {            // value == getCCTerm() + getOffset()
+    CCTerm   getCCTerm();
+    Rational getOffset();                 // structural offset; ZERO for a bare CCTerm
+    default CCTerm   getRepresentative() { return getCCTerm().getRepresentative(); }
+    default Rational getOffsetToRep()    { return getCCTerm().getOffsetToRep().add(getOffset()); }
+}
+```
+
+- It must be an **interface** (not a base class): `CCTerm` already
+  `extends SimpleListable`, so it `implements CCParameter` with `getCCTerm() =
+  this`, `getOffset() = ZERO` — no extra object for the common offset-0 case.
+- `OffsettedCCTerm implements CCParameter` is an immutable `(mTerm, mOffset)` with
+  `mOffset != ZERO`. Factory `CCParameter.of(t, off)` returns the bare `t` when
+  `off` is zero, so an offset-0 value is *always* a bare `CCTerm` (canonical
+  representation; no ambiguous `OffsettedCCTerm(t, 0)`).
+- `SignatureTrigger` can use `CCParameter[]` instead of the parallel
+  `CCTerm[] mTerms` + `Rational[] mArgOffsets`, with the rehash-on-rep-change it
+  already performs.
+
+**Caveat (array index keys).** A `CCParameter`'s value identity
+`(getRepresentative(), getOffsetToRep())` *changes on merge* (rep and offset both
+shift). So it cannot be a naive persistent `HashMap` key — the hash mutates.
+`ArrayTheory` currently keys indices on the representative alone, which is
+insufficient with offsets. Options (to be settled when adapting `ArrayTheory`):
+either rehash index keys on merge (the pattern `SignatureTrigger`/`CCTermPairHash`
+already use), or use a structure keyed on the representative with the offset as a
+secondary dimension (no reliance on a stable value hash). A second
+`OffsettedCCTerm`-style wrapper does **not** by itself solve this — any
+value-identity key has the same mutating-hash problem; the merge-time rehashing
+is the actual requirement.
+
+## Gap-fix order
+
+1. `CCParameter` + `OffsettedCCTerm`; wire the `CClosure` consumers
+   (`getCCTermRep`, `getAllFuncApps`, `checkCongruence`) and `DataTypeTheory`.
+2. `ArrayTheory` offset-aware index handling (gap 1, the substantial one).
+3. LA → CC offset-equality propagation (gap 2).
+4. Eager negated-equality propagation (gap 3).
+5. Proof production (increment 4) and offset-aware e-matching (re-enable offsets
+   under quantifiers) — both deferred to the quantifier-theory rework.
