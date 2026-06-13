@@ -410,17 +410,25 @@ public interface CCParameter {            // value == getCCTerm() + getOffset()
   `CCTerm[] mTerms` + `Rational[] mArgOffsets`, with the rehash-on-rep-change it
   already performs.
 
-**Caveat (array index keys).** A `CCParameter`'s value identity
+**Array index keys.** A `CCParameter`'s value identity
 `(getRepresentative(), getOffsetToRep())` *changes on merge* (rep and offset both
-shift). So it cannot be a naive persistent `HashMap` key — the hash mutates.
-`ArrayTheory` currently keys indices on the representative alone, which is
-insufficient with offsets. Options (to be settled when adapting `ArrayTheory`):
-either rehash index keys on merge (the pattern `SignatureTrigger`/`CCTermPairHash`
-already use), or use a structure keyed on the representative with the offset as a
-secondary dimension (no reliance on a stable value hash). A second
-`OffsettedCCTerm`-style wrapper does **not** by itself solve this — any
-value-identity key has the same mutating-hash problem; the merge-time rehashing
-is the actual requirement.
+shift), so it cannot be a naive persistent `HashMap` key. However, `ArrayTheory`
+does **not** keep persistent index-keyed maps across merges: it **rebuilds its
+weak-equivalence structures from scratch on every index merge** (the class shape,
+primary/secondary store edges can change completely — e.g. when a secondary-edge
+index becomes equal to the primary-edge index a different secondary edge must be
+chosen). So **no rehashing is needed**: within one rebuild the representatives and
+offsets are a fixed snapshot, making a value-identity key stable for that rebuild.
+
+The adaptation is therefore: where the array theory keys an index on
+`index.getRepresentative()` today, key it on the value identity
+`(getRepresentative(), getOffsetToRep())` instead — a small value-identity key
+wrapper built fresh during the rebuild. The index value itself is read as
+`CCParameter.of(app.getArgument(idxPos), app.getArgOffset(idxPos))`, which
+supplies those accessors uniformly (a bare `CCTerm` when the index has no
+offset). Note this composite key cannot be the bare `CCParameter`/`CCTerm`
+directly, because `CCTerm`'s `hashCode`/`equals` are object identity, not the
+value identity `(rep, offsetToRep)` the array theory needs.
 
 ## Gap-fix order
 
