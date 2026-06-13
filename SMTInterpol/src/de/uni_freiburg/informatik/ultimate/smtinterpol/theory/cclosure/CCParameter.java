@@ -61,6 +61,17 @@ public interface CCParameter {
 	}
 
 	/**
+	 * A canonical key for this value, suitable as a map key within a single snapshot (e.g. while the array theory
+	 * rebuilds its structures). It is built from the representative, so its {@code equals}/{@code hashCode} (the bare
+	 * representative for offset zero, an {@link OffsettedCCTerm} over {@code (representative, offsetToRep)} otherwise)
+	 * coincide with value identity. The key changes when the class is merged, so it must be rebuilt after merges, not
+	 * stored across them.
+	 */
+	default CCParameter getValueKey() {
+		return CCParameter.of(getRepresentative(), getOffsetToRep());
+	}
+
+	/**
 	 * Build a parameter for {@code term + offset}, returning the bare term when the offset is zero so that the common
 	 * case allocates nothing.
 	 */
