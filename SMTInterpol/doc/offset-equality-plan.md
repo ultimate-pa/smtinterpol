@@ -375,15 +375,24 @@ model — the index offset was dropped); `nia/divaxiom2` and `abv/ext02` no long
 crash (`ext02` correctly UNSAT). All `array/` benchmarks pass; no crashes in
 `abv/`,`bv/`.
 
-**Next:** the LA side of gap 2 is prototyped and understood (see "Remaining gaps"
-below) but is **blocked on increment 4**: it makes `bv/test01`/`abv/ext02` pass
-but exposes that CC's offset-conflict explanation (`computeAntiCycle` and the
-offset-blind `CongruencePath`) plus eager same-class propagation (gap 3) are
-incomplete. So the next real milestone is **increment 4 (offset-aware
-`CongruencePath` + conflict explanation) done together with gaps 2 and 3.** After
-that: offset-aware e-matching (re-enable offsets under quantifiers), and the
-still-deferred `DataTypeTheory` offset-aware argument handling (only matters for
-datatypes with numeric fields; no failing benchmark yet).
+**Done (commit `858013d5`):** gaps 2 and 3 — LA→CC offset-equality propagation,
+eager offset (dis)equality propagation at merge time, and the offset-aware
+conflict explanation (`computeAntiCycle`/`CongruencePath.computeAntiCycle`,
+`setLiteral` polarity, eager disequality explanation in `getPropagatedLiteral`,
+`checkPending`/`separate` allowances). `bv/test01` fixed; `abv/ext01` no longer
+crashes. SystemTest 5 → 4 failures, no new failures, all other unit tests green.
+
+**Next:** the two remaining SystemTest failures `abv/indexInRange01` and
+`ufbv/ufbv01` (both unsat → **sat**, masked to `unknown` by model-check): the
+LA-propagated index offset-equality merges the index CCTerms, but that merge does
+not re-trigger **array** congruence (read-over-weakeq), so the array lemma never
+fires. This is an array-theory-rerun-on-index-merge gap (the array theory should
+recheck when an index class changes). After that: the full offset-aware **proof
+object** (hyperresolution offset steps in `CongruencePath`/`CCProofGenerator` +
+proof checker) to enable offsets under proofs; offset-aware e-matching (re-enable
+offsets under quantifiers); and the deferred `DataTypeTheory` numeric-field offset
+handling (no failing benchmark yet). Pre-existing, unrelated: `model/buggy001`,
+`nia/divaxiom2`.
 
 **Remaining system-benchmark failures** (with proofs/interpolants disabled so
 offsets are exercised): `bv/test01`, `abv/indexInRange01` (both unsat → **sat**,
@@ -425,43 +434,41 @@ them unsound** (crashes or incompleteness): `array/difftest004` (crash),
    and the e-matching (`GetArgCode`/`EMReverseTrigger`, currently moot because
    offsets are off under quantifiers). Already fixed: `ModelBuilder.addApp`. This
    is behind the array crash and the BV/ABV incompleteness.
-2. **LA must propagate offset equalities (LA→CC).** Today LA only propagates an
-   equality between two shared terms when they are equal (offset 0). When LA
-   determines `value(a) − value(b) = k` for a constant `k`, it should propagate
-   `a = b + k` so CC merges them at offset `k`. This closes the BV/ABV
-   incompleteness (e.g. LA knows `k mod 256 = 1` but never tells CC).
+2. **LA → CC offset-equality propagation (DONE, commit `858013d5`).** In
+   `LinArSolve.propagateSharedEqualities`, when `createOffsetEqualities()` the
+   shared-term fingerprint is keyed on its *non-constant* part (the `null` entry
+   holds the constant from `addToFingerprint`/`fpr.add(shared.getOffset())`), and a
+   collision propagates `value(a) == value(b) + k` (`k` = constant difference) via a
+   generalized `propagateSharedEquality(lhs, rhs, offset, …)` that builds `rhs + k`
+   with `addConstantToTerm` and reuses `EqualityProxy.createCCEquality` (which
+   derives the CCEquality offset from the term constants and links the
+   `LAEquality`). A true-proxy guard skips the tautology between two distinct
+   constant terms. Off when offsets are off (constant stays in the key). Fixed
+   `bv/test01`.
+3. **Eager offset (dis)equality propagation + offset-aware conflict explanation
+   (DONE, commit `858013d5`).** `CCTerm.mergeInternal` now propagates the
+   *disequality* for eqlits whose offset differs from the merge offset (mirroring
+   the existing matching-offset *true* propagation). The conflict/explanation side
+   is offset-aware: `CClosure.computeAntiCycle` + `CongruencePath.computeAntiCycle`
+   explain an offset disequality whose two sides are in the *same* class at a
+   different offset via the path between them (`{¬eq, ¬path}`), since the offset-0
+   temporary-merge trick cannot work once the classes are merged; `setLiteral`'s
+   same-class conflict uses the same form; and — the key fix — `getPropagatedLiteral`
+   computes a propagated disequality's explanation **eagerly** (offsets only),
+   while the congruence graph still matches the trail, storing it on the atom so
+   `DPLLEngine` does not recompute it later from a state where a subsequent offset
+   merge (undone only at decision-level backtrack) has joined the two sides.
+   `checkPending`/`separate` allow the new same-class / decided-false cases. Fixed
+   `abv/ext01` (was crashing) and `abv/ext02`. **SystemTest 5 → 4 failures, no new
+   failures, all other unit tests green.**
 
-   **Prototyped and reverted — blocked on increment 4.** The LA side is small and
-   was verified to work: in `LinArSolve.propagateSharedEqualities`, key the
-   fingerprint on its *non-constant* part (the `null` entry holds the constant; it
-   is added by `addToFingerprint`/`fpr.add(shared.getOffset())`), and on a
-   collision propagate `a = b + k` with `k` the constant difference, via a
-   generalized `propagateSharedEquality(lhs, rhs, offset, …)` that builds the
-   right-hand term as `addConstantToTerm(rhs, k)` and reuses
-   `EqualityProxy.createCCEquality` (which already derives the CCEquality offset
-   from the term constants and links the `LAEquality`). Guard the true-proxy case
-   (`lhs == rhs + k` as terms ⇒ a tautology between two distinct *constant* terms,
-   nothing to merge; non-constant offset-equivalent terms already share a CCTerm
-   and hit the `lhsCC == rhsCC` early return). Gate the non-constant bucketing on
-   `createOffsetEqualities()` so behavior is unchanged when offsets are off. This
-   **fixed `bv/test01` and `abv/ext02`** with default options.
-
-   It cannot land yet because it surfaces two downstream CC gaps (below): the
-   offset-conflict explanation crashes. Concretely, with the LA propagation on,
-   `bv/test01` becomes correctly unsat but `abv/ext01` hits
-   `CClosure.computeAntiCycle`'s `assert left.mRepStar != right.mRepStar` — an
-   offset equality is now false while its two sides are in the *same* class at a
-   different offset. Adding a same-class branch to `computeAntiCycle` (explain via
-   the path between the two sides, clause `{¬eq, ¬path}`) then hits a "Not a unit
-   clause" assertion: `CongruencePath` is **offset-blind** (gap / increment 4), so
-   the reconstructed path and the propagation ordering of the same-class
-   disequality (gap 3) are not yet consistent. So **gap 2 must be implemented
-   together with increment 4 (offset-aware `CongruencePath`/conflict explanation)
-   and gap 3 (eager same-class offset (dis)equality propagation)**, not before.
-3. **Eager negated-equality propagation.** Increment 3 deliberately omitted (kept
-   sound-but-lazy) the propagation of `mEqlits` at a non-matching offset as
-   *false* when two classes merge at offset δ. Add it to match the eagerness of
-   the offset-0 code.
+   *Insight (Jochen):* the offset-differs disequality propagation is not the
+   problem — the old `mDiseqReason` anti-cycle is, because you cannot temporarily
+   insert the equal-edge when the classes are already equal at a different offset;
+   computing the explanation eagerly at propagation time sidesteps it. `CongruencePath`
+   itself needs **no** offset tracking for the clause: it only collects the path
+   edges; δ vs k lives in `CClosure`. (Net offsets are only needed for the eventual
+   *proof object*, still deferred and moot while offsets are off under proofs.)
 
 ## CCParameter: a value `CCTerm + Rational`
 
@@ -516,9 +523,9 @@ value identity `(rep, offsetToRep)` the array theory needs.
    `DataTypeTheory` still deferred (only matters for numeric datatype fields).
 2. `ArrayTheory` offset-aware index handling (gap 1, the substantial one).
    **(done — incl. `WeakCongruencePath` and `ModelBuilder.getModelValue`.)**
-3. LA → CC offset-equality propagation (gap 2). **(LA side prototyped; blocked on
-   increment 4 — must be done together with offset-aware `CongruencePath` and
-   gap 3. See "Remaining gaps".)**
+3. LA → CC offset-equality propagation (gap 2) + eager offset (dis)equality
+   propagation (gap 3) + offset-aware conflict explanation. **(done, commit
+   `858013d5`; SystemTest 5 → 4 failures.)**
 4. Eager negated-equality propagation (gap 3).
 5. Proof production (increment 4) and offset-aware e-matching (re-enable offsets
    under quantifiers) — both deferred to the quantifier-theory rework.
