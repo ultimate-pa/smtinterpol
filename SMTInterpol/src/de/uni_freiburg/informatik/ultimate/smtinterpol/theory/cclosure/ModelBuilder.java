@@ -156,6 +156,15 @@ public class ModelBuilder {
 	}
 
 	/**
+	 * The model value of a {@link CCParameter} value {@code term + offset}, i.e. the representative's value shifted by
+	 * the parameter's offset to the representative. For an offset-free parameter (a bare CCTerm) this coincides with
+	 * {@link #getModelValue(CCTerm)}.
+	 */
+	public Term getModelValue(final CCParameter param) {
+		return getModelValueWithOffset(param.getCCTerm(), param.getOffset());
+	}
+
+	/**
 	 * The model value of a (numeric) term plus a constant. The representative carries the model value of the offset-free
 	 * class; an individual member's value adds its offset to the representative, and {@code extraOffset} adds a further
 	 * constant (e.g. the structural argument offset of {@code x+5}). For non-numeric terms the offsets are zero and the

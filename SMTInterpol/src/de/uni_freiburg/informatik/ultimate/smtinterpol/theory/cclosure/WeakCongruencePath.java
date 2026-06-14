@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
@@ -57,12 +58,12 @@ public class WeakCongruencePath extends CongruencePath {
 
 	static class WeakSubPath extends SubPath {
 		private final CCTerm mIdx;
-		private final CCTerm mIdxRep;
+		private final CCParameter mIdxRep;
 
-		public WeakSubPath(final CCTerm idx, final CCTerm start, final boolean produceProofs) {
+		public WeakSubPath(final CCParameter idx, final CCTerm start, final boolean produceProofs) {
 			super(start, produceProofs);
-			mIdx = idx;
-			mIdxRep = idx.getRepresentative();
+			mIdx = idx.getCCTerm();
+			mIdxRep = idx.getValueKey();
 		}
 
 		@Override
@@ -85,11 +86,11 @@ public class WeakCongruencePath extends CongruencePath {
 
 	public Clause computeSelectOverWeakEQ(final CCAppTerm select1, final CCAppTerm select2,
 			final boolean produceProofs) {
-		final CCTerm i1 = ArrayTheory.getIndexFromSelect(select1);
-		final CCTerm i2 = ArrayTheory.getIndexFromSelect(select2);
+		final CCParameter i1 = ArrayTheory.getIndexParamFromSelect(select1);
+		final CCParameter i2 = ArrayTheory.getIndexParamFromSelect(select2);
 		final CCTerm a = ArrayTheory.getArrayFromSelect(select1);
 		final CCTerm b = ArrayTheory.getArrayFromSelect(select2);
-		computePath(i1, i2);
+		computePath(i1.getCCTerm(), i2.getCCTerm());
 		final WeakSubPath weakPath =
 				computeWeakPath(a, b, i1, produceProofs);
 		mAllPaths.addFirst(weakPath);
@@ -100,7 +101,7 @@ public class WeakCongruencePath extends CongruencePath {
 	public Clause computeSelectConstOverWeakEQ(final CCAppTerm select1, final CCAppTerm const2, final boolean produceProofs) {
 		final CCTerm value2 = ArrayTheory.getValueFromConst(const2);
 
-		final CCTerm i1 = ArrayTheory.getIndexFromSelect(select1);
+		final CCParameter i1 = ArrayTheory.getIndexParamFromSelect(select1);
 		final CCTerm a = ArrayTheory.getArrayFromSelect(select1);
 		final WeakSubPath weakPath = computeWeakPath(a, const2, i1, produceProofs);
 		mAllPaths.addFirst(weakPath);
@@ -111,7 +112,7 @@ public class WeakCongruencePath extends CongruencePath {
 		final CCTerm value1 = ArrayTheory.getValueFromConst(const1);
 		final CCTerm value2 = ArrayTheory.getValueFromConst(const2);
 
-		final HashSet<CCTerm> storeIndices = new HashSet<>();
+		final HashSet<CCParameter> storeIndices = new HashSet<>();
 		final Cursor start = new Cursor(const1, mArrayTheory.mCongRoots.get(const1.getRepresentative()));
 		final Cursor dest = new Cursor(const2, mArrayTheory.mCongRoots.get(const2.getRepresentative()));
 		final SubPath path = collectPathPrimary(start, dest, storeIndices, produceProofs);
@@ -134,11 +135,11 @@ public class WeakCongruencePath extends CongruencePath {
 	 */
 	public Clause computeWeakeqExt(final CCTerm a, final CCTerm b, final boolean produceProofs) {
 		assert a != b;
-		final LinkedHashSet<CCTerm> storeIndices = new LinkedHashSet<>();
+		final LinkedHashSet<CCParameter> storeIndices = new LinkedHashSet<>();
 		final Cursor start = new Cursor(a, mArrayTheory.mCongRoots.get(a.getRepresentative()));
 		final Cursor dest = new Cursor(b, mArrayTheory.mCongRoots.get(b.getRepresentative()));
 		final SubPath path = collectPathPrimary(start, dest, storeIndices, produceProofs);
-		for (final CCTerm idx : storeIndices) {
+		for (final CCParameter idx : storeIndices) {
 			final WeakSubPath weakpath = computeWeakCongruencePath(a, b, idx, produceProofs);
 			mAllPaths.addFirst(weakpath);
 		}
@@ -160,10 +161,10 @@ public class WeakCongruencePath extends CongruencePath {
 	 *            Proof production enabled?
 	 * @return Path information for this weak path.
 	 */
-	private WeakSubPath computeWeakPath(final CCTerm array1, final CCTerm array2, final CCTerm index, final boolean produceProofs) {
+	private WeakSubPath computeWeakPath(final CCTerm array1, final CCTerm array2, final CCParameter index, final boolean produceProofs) {
 
-		final LinkedHashSet<CCTerm> storeIndices = new LinkedHashSet<>();
-		final CCTerm indexRep = index.getRepresentative();
+		final LinkedHashSet<CCParameter> storeIndices = new LinkedHashSet<>();
+		final CCParameter indexRep = index.getValueKey();
 		final Cursor cursor1 = new Cursor(array1, mArrayTheory.mCongRoots.get(array1.getRepresentative()));
 		final Cursor cursor2 = new Cursor(array2, mArrayTheory.mCongRoots.get(array2.getRepresentative()));
 		final WeakSubPath sub1 = new WeakSubPath(index, array1, produceProofs);
@@ -186,7 +187,7 @@ public class WeakCongruencePath extends CongruencePath {
 		}
 		sub1.addSubPath(collectPathPrimary(cursor1, cursor2, storeIndices, produceProofs));
 		sub1.addSubPath(sub2);
-		for (final CCTerm storeIdx : storeIndices) {
+		for (final CCParameter storeIdx : storeIndices) {
 			computeIndexDiseq(index, storeIdx);
 		}
 		return sub1;
@@ -206,9 +207,9 @@ public class WeakCongruencePath extends CongruencePath {
 	 *            Proof production enabled?
 	 * @return Path information for this weak path. Other paths are added as side-effect to mAllPaths.
 	 */
-	private WeakSubPath computeWeakCongruencePath(final CCTerm array1, final CCTerm array2, final CCTerm index, final boolean produceProofs) {
+	private WeakSubPath computeWeakCongruencePath(final CCTerm array1, final CCTerm array2, final CCParameter index, final boolean produceProofs) {
 
-		final CCTerm indexRep = index.getRepresentative();
+		final CCParameter indexRep = index.getValueKey();
 		final ArrayNode node1 = mArrayTheory.mCongRoots.get(array1.getRepresentative());
 		final ArrayNode node2 = mArrayTheory.mCongRoots.get(array2.getRepresentative());
 		final ArrayNode rep1 = node1.getWeakIRepresentative(indexRep);
@@ -227,7 +228,7 @@ public class WeakCongruencePath extends CongruencePath {
 			// get select for left-hand-side
 			final CCAppTerm select = rep1.mSelects.get(indexRep);
 			final CCTerm selectArray = ArrayTheory.getArrayFromSelect(select);
-			computePath(index, ArrayTheory.getIndexFromSelect(select));
+			computePath(index.getCCTerm(), ArrayTheory.getIndexFromSelect(select));
 			path = computeWeakPath(array1, selectArray, index, produceProofs);
 			select1 = select;
 		}
@@ -241,7 +242,7 @@ public class WeakCongruencePath extends CongruencePath {
 			// get select for right-hand-side
 			final CCAppTerm select = rep2.mSelects.get(indexRep);
 			final CCTerm selectArray = ArrayTheory.getArrayFromSelect(select);
-			computePath(index, ArrayTheory.getIndexFromSelect(select));
+			computePath(index.getCCTerm(), ArrayTheory.getIndexFromSelect(select));
 			path.addEntry(selectArray, null);
 			path.addSubPath(computeWeakPath(selectArray, array2, index, produceProofs));
 			select2 = select;
@@ -255,7 +256,7 @@ public class WeakCongruencePath extends CongruencePath {
 		return path;
 	}
 
-	public void collectPathOnePrimary(final Cursor cursor, final SubPath path, final HashSet<CCTerm> storeIndices) {
+	public void collectPathOnePrimary(final Cursor cursor, final SubPath path, final HashSet<CCParameter> storeIndices) {
 		final ArrayNode node = cursor.mArrayNode;
 		final CCAppTerm store = node.mPrimaryStore;
 		CCTerm t1 = store;
@@ -274,7 +275,7 @@ public class WeakCongruencePath extends CongruencePath {
 		}
 		path.addEntry(t2, null);
 		cursor.update(t2, node.mPrimaryEdge);
-		storeIndices.add(ArrayTheory.getIndexFromStore(store));
+		storeIndices.add(ArrayTheory.getIndexParamFromStore(store));
 	}
 
 	/**
@@ -286,7 +287,7 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param produceProofs true, if path must be recorded.
 	 * @returns the path connecting the arrays.
 	 */
-	private SubPath collectPathPrimary(final Cursor start, final Cursor dest, final HashSet<CCTerm> storeIndices,
+	private SubPath collectPathPrimary(final Cursor start, final Cursor dest, final HashSet<CCParameter> storeIndices,
 			final boolean produceProofs) {
 		final SubPath path1 = new SubPath(start.mTerm, produceProofs);
 		final SubPath path2 = new SubPath(dest.mTerm, produceProofs);
@@ -326,7 +327,7 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param produceProofs
 	 *            true, if path must be recorded.
 	 */
-	private void collectPathOneSecondary(final Cursor cursor, final WeakSubPath path, final HashSet<CCTerm> storeIndices,
+	private void collectPathOneSecondary(final Cursor cursor, final WeakSubPath path, final HashSet<CCParameter> storeIndices,
 			final boolean produceProofs) {
 		final ArrayNode selector = cursor.mArrayNode.findSecondaryNode(path.mIdxRep);
 		final CCAppTerm store = selector.mSecondaryStore;
@@ -348,7 +349,7 @@ public class WeakCongruencePath extends CongruencePath {
 				storeIndices, produceProofs));
 		path.addEntry(t2, null);
 		cursor.update(t2, n2);
-		storeIndices.add(ArrayTheory.getIndexFromStore(store));
+		storeIndices.add(ArrayTheory.getIndexParamFromStore(store));
 	}
 
 	/**
@@ -356,8 +357,15 @@ public class WeakCongruencePath extends CongruencePath {
 	 * @param idx          The index for a weak equality path.
 	 * @param idxFromStore The index of an edge in the weakeq graph.
 	 */
-	private void computeIndexDiseq(final CCTerm idx, final CCTerm idxFromStore) {
-		final CCEquality eqlit = mArrayTheory.getCClosure().createEquality(idx, idxFromStore, false);
+	private void computeIndexDiseq(final CCParameter idx, final CCParameter idxFromStore) {
+		if (idx.getCCTerm() == idxFromStore.getCCTerm()) {
+			// the two index values share the same CCTerm but differ by a constant offset, so they can never be equal;
+			// the disequality holds unconditionally and contributes no literal to the lemma.
+			return;
+		}
+		final Rational offset = idxFromStore.getOffset().sub(idx.getOffset());
+		final CCEquality eqlit = mArrayTheory.getCClosure().createEquality(idx.getCCTerm(), idxFromStore.getCCTerm(),
+				offset, false);
 		if (eqlit != null) {
 			mAllLiterals.add(eqlit.negate());
 		}
