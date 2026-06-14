@@ -77,6 +77,15 @@ public class CCAppTerm extends CCTerm {
 		return mArgOffsets == null ? Rational.ZERO : mArgOffsets[argPosition];
 	}
 
+	/**
+	 * The argument at the given position as a {@link CCParameter}, i.e. {@link #getArgument(int)} together with its
+	 * structural {@link #getArgOffset(int)}. This is the uniform "an argument is a value up to a constant" view; a bare
+	 * {@link CCTerm} is returned when the argument has no offset.
+	 */
+	public CCParameter getArgParam(int argPosition) {
+		return CCParameter.of(mArgs[argPosition], getArgOffset(argPosition));
+	}
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();

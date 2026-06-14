@@ -1054,7 +1054,7 @@ public class ArrayTheory implements ITheory {
 	 */
 	public static CCParameter getIndexParamFromSelect(final CCAppTerm select) {
 		assert isSelectTerm(select);
-		return CCParameter.of(select.getArgument(1), select.getArgOffset(1));
+		return select.getArgParam(1);
 	}
 
 	public static CCTerm getArrayFromStore(final CCAppTerm store) {
@@ -1073,7 +1073,7 @@ public class ArrayTheory implements ITheory {
 	 */
 	public static CCParameter getIndexParamFromStore(final CCAppTerm store) {
 		assert isStoreTerm(store);
-		return CCParameter.of(store.getArgument(1), store.getArgOffset(1));
+		return store.getArgParam(1);
 	}
 
 	public static CCTerm getValueFromStore(final CCAppTerm store) {

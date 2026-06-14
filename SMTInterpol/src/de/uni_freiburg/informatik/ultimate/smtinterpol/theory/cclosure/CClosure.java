@@ -1151,19 +1151,16 @@ public class CClosure implements ITheory {
 				if (t1.getRepresentative() != t2.getRepresentative() && t2 instanceof CCAppTerm) {
 					final CCAppTerm a2 = (CCAppTerm) t2;
 					if (a1.getFunctionSymbol() == a2.getFunctionSymbol()) {
-						final CCTerm[] args1 = a1.mArgs;
-						final CCTerm[] args2 = a2.mArgs;
+						final int arity = a1.mArgs.length;
 						int i;
-						for (i = 0; i < args1.length; i++) {
+						for (i = 0; i < arity; i++) {
 							// congruent requires the arguments to have the same value, i.e. same representative AND
 							// same offset (offset-free arguments are compared as plain representatives).
-							final CCParameter p1 = CCParameter.of(args1[i], a1.getArgOffset(i));
-							final CCParameter p2 = CCParameter.of(args2[i], a2.getArgOffset(i));
-							if (!p1.sameValueAs(p2)) {
+							if (!a1.getArgParam(i).sameValueAs(a2.getArgParam(i))) {
 								break;
 							}
 						}
-						if (i == args1.length) {
+						if (i == arity) {
 							getLogger().fatal("Should be congruent: " + t1 + " and " + t2);
 							return false;
 						}
