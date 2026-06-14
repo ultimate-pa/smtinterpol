@@ -1197,17 +1197,39 @@ public class LinArSolve implements ITheory {
 
 	public Clause propagateSharedEquality(LASharedTerm lhs, LASharedTerm rhs,
 			HashSet<SymmetricPair<CCTerm>> propagated) {
+		return propagateSharedEquality(lhs, rhs, Rational.ZERO, propagated);
+	}
+
+	/**
+	 * Propagate that two shared terms have values differing by a constant, i.e. {@code value(lhs) == value(rhs) +
+	 * offset}. With a zero offset this is the classic shared-term equality; with a non-zero offset (only created when
+	 * offset equalities are enabled) it states {@code lhs == rhs + offset} as an offset CCEquality, so congruence
+	 * closure can merge the two terms at that offset.
+	 */
+	public Clause propagateSharedEquality(LASharedTerm lhs, LASharedTerm rhs, Rational offset,
+			HashSet<SymmetricPair<CCTerm>> propagated) {
 		final CCTerm lhsCC = mClausifier.getCCTerm(lhs.getTerm()).getRepresentative();
 		final CCTerm rhsCC = mClausifier.getCCTerm(rhs.getTerm()).getRepresentative();
 		if (lhsCC == rhsCC || !propagated.add(new SymmetricPair<CCTerm>(lhsCC, rhsCC))) {
 			return null;
 		}
-		final EqualityProxy eq = mClausifier.createEqualityProxy(lhs.getTerm(), rhs.getTerm(), null);
-		assert eq != EqualityProxy.getTrueProxy();
+		// Encode the offset into the right-hand term so the EqualityProxy and resulting CCEquality carry it.
+		Term rhsTerm = rhs.getTerm();
+		if (!offset.equals(Rational.ZERO)) {
+			rhsTerm = mClausifier.addConstantToTerm(rhsTerm, offset);
+		}
+		final EqualityProxy eq = mClausifier.createEqualityProxy(lhs.getTerm(), rhsTerm, null);
+		if (eq == EqualityProxy.getTrueProxy()) {
+			// lhs and rhs + offset are the same term: the offset equality is a tautology between two distinct constant
+			// terms (offset-equivalent non-constant terms already share a CCTerm and hit the lhsCC == rhsCC return
+			// above). There is nothing for congruence closure to merge.
+			return null;
+		}
 		if (eq == EqualityProxy.getFalseProxy()) {
 			// We found a conflict while trying to propagate a shared equality.
 			// This can happen if the difference between the shared terms cannot be an integer.
 			// We insert the difference as new basic in the tableau and let bound propagation do the rest.
+			// The constant offset does not affect integrality, so the difference variable is lhs - rhs.
 			final MutableAffineTerm at = new MutableAffineTerm();
 			at.addMap(Rational.ONE, lhs.getSummands());
 			at.addMap(Rational.MONE, rhs.getSummands());
@@ -1216,7 +1238,11 @@ public class LinArSolve implements ITheory {
 			assert mDirty.get(var.mMatrixpos);
 			return null;
 		}
-		final CCEquality cceq = eq.createCCEquality(lhs.getTerm(), rhs.getTerm());
+		if (!offset.equals(Rational.ZERO) && mClausifier.getCCTerm(rhsTerm) == null) {
+			// the synthesized term rhs + offset is offset-free-equivalent to rhs; map it to the same CCTerm.
+			mClausifier.shareCCTerm(rhsTerm, mClausifier.getCCTerm(rhs.getTerm()));
+		}
+		final CCEquality cceq = eq.createCCEquality(lhs.getTerm(), rhsTerm);
 		final LAEquality laeq = cceq.getLASharedData();
 		mClausifier.getLogger().debug("Propagate: %s  (laeq: %s) %s %s", cceq, laeq, cceq.getDecideStatus(),
 				laeq.getDecideStatus());
@@ -1254,17 +1280,33 @@ public class LinArSolve implements ITheory {
 		for (final LASharedTerm shared : mSharedVars) {
 			sharedVarSorts.add(shared.getTerm().getSort());
 		}
+		// When offset equalities are enabled, two shared terms whose values differ by a constant should be reported to
+		// CC as an offset equality. We therefore key the fingerprint on its non-constant part only (the null entry holds
+		// the constant) and recover the constant difference at a collision. When offsets are off, the constant stays in
+		// the key, so the behavior is exactly the classic equal-value bucketing.
+		final boolean offsets = mClausifier.getCClosure().createOffsetEqualities();
 		for (final Sort sort : sharedVarSorts) {
 			final Map<Map<LinVar, Rational>, LASharedTerm> fingerprints = new HashMap<>();
+			final Map<Map<LinVar, Rational>, Rational> constants = new HashMap<>();
 			final HashSet<SymmetricPair<CCTerm>> propagated = new HashSet<>();
 			for (final LASharedTerm shared : mSharedVars) {
 				if (shared.getTerm().getSort() == sort) {
-					final Map<LinVar,Rational> fingerprint = fingerprintSharedVar(shared);
+					final Map<LinVar, Rational> fingerprint = fingerprintSharedVar(shared);
+					Rational constant = Rational.ZERO;
+					if (offsets) {
+						final Rational c = fingerprint.remove(null);
+						if (c != null) {
+							constant = c;
+						}
+					}
 					final LASharedTerm other = fingerprints.get(fingerprint);
 					if (other == null) {
 						fingerprints.put(fingerprint, shared);
+						constants.put(fingerprint, constant);
 					} else {
-						final Clause conflict = propagateSharedEquality(other, shared, propagated);
+						// value(other) == value(shared) + (constants[fp] - constant)
+						final Rational offset = constants.get(fingerprint).sub(constant);
+						final Clause conflict = propagateSharedEquality(other, shared, offset, propagated);
 						if (conflict != null || !mDirty.isEmpty()) {
 							return conflict;
 						}

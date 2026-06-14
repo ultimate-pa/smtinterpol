@@ -332,6 +332,32 @@ public class CongruencePath {
 		return c;
 	}
 
+	/**
+	 * Build the clause {@code {¬eq, ¬path}} for an offset equality {@code eq} whose two sides are in the same congruence
+	 * class at an offset different from the one {@code eq} claims. The path between the two sides establishes their
+	 * actual (constant) offset, so {@code eq} is implied false. Used both as the conflict clause when such an
+	 * {@code eq} is asserted true and as the reason when {@code ¬eq} is propagated at merge time. The path-edge literals
+	 * are collected exactly as in {@link #computeCycle(CCEquality, boolean)}; only the polarity of {@code eq} differs
+	 * (negated here instead of positive).
+	 */
+	public Clause computeAntiCycle(final CCEquality eq, final boolean produceProofs) {
+		final CCTerm lhs = eq.getLhs();
+		final CCTerm rhs = eq.getRhs();
+		assert lhs.getRepresentative() == rhs.getRepresentative();
+		computePath(lhs, rhs);
+		final Literal[] clause = new Literal[mAllLiterals.size() + 1];
+		int i = 0;
+		clause[i++] = eq.negate();
+		for (final Literal l : mAllLiterals) {
+			clause[i++] = l.negate();
+		}
+		final Clause c = new Clause(clause);
+		if (produceProofs) {
+			c.setProof(new LeafNode(LeafNode.THEORY_CC, createAnnotation(new SymmetricPair<>(lhs, rhs))));
+		}
+		return c;
+	}
+
 	public Clause computeCycle(final CCTerm lconstant, final CCTerm rconstant, final boolean produceProofs) {
 		mClosure.getLogger().debug("computeCycle for Constants");
 		computePath(lconstant, rconstant);

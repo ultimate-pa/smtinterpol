@@ -209,6 +209,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 		return true;
 	}
 
+	@Override
 	public final CCTerm getRepresentative() {
 		return mRepStar;
 	}
@@ -494,7 +495,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 
 		src.mMergeTime = engine.getMergeDepth();
 		engine.recordMerge(lhs);
-		engine.getLogger().debug("M %s %s (offset %s)", this, lhs, delta);
+		engine.getLogger().debug("M %s %s (offset %s)", this, lhs, reasonDiff(reason, this, lhs));
 
 		if (Config.PROFILE_TIME) {
 			time = System.nanoTime();
@@ -538,9 +539,20 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 					for (final CompareTrigger trigger : info.mCompareTriggers) {
 						trigger.activate();
 					}
+				} else {
+					// These equalities claim an offset different from the merge offset, so they are now implied
+					// false. We propagate the disequality eagerly here with the merge as its reason; the explanation
+					// (CClosure.computeAntiCycle, same-class branch) reconstructs it from the path between the two
+					// terms, so no separating disequality atom is involved and mDiseqReason stays null. An equality
+					// here cannot already be true, as that would mean src and dest are already in the same class.
+					for (final CCEquality.Entry eq : info.mEqlits) {
+						final CCEquality cceq = eq.getCCEquality();
+						assert cceq.getDecideStatus() != cceq;
+						if (cceq.getDecideStatus() == null) {
+							engine.addPending(cceq.negate());
+						}
+					}
 				}
-				// else: these equalities are at a different offset and become false; the conflict (if any) is detected
-				// when such an equality is asserted (setLiteral), so we do not propagate them eagerly here.
 			} else {
 				// Re-key the info from src to dest: value(dest) - value(other) = (value(src) - value(other)) - delta.
 				final Rational destOffset = offFromSrc.sub(delta);

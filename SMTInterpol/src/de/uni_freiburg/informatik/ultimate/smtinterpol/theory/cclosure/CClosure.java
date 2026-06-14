@@ -786,6 +786,15 @@ public class CClosure implements ITheory {
 	public Literal getPropagatedLiteral() {
 		final Literal lit = mPendingLits.poll();
 		assert (lit == null || checkPending(lit));
+		if (lit != null && createOffsetEqualities() && lit.getAtom().mExplanation == null
+				&& lit.getAtom() instanceof CCEquality && !(lit instanceof CCEquality)) {
+			// This is a propagated disequality. With offset equalities its two sides may later be merged at a different
+			// offset (a merge that is only undone at decision-level backtrack), which would break the lazy anti-cycle
+			// explanation: getUnitClause would temporarily insert an equal-edge into an already-merged class, or read a
+			// path through an edge whose literal has since been backtracked. So we compute the explanation now, while
+			// the congruence graph still matches the trail, and store it so DPLLEngine uses it directly.
+			lit.getAtom().mExplanation = getUnitClause(lit);
+		}
 		return lit;
 	}
 
@@ -894,10 +903,12 @@ public class CClosure implements ITheory {
 				}
 			} else {
 				// The terms are already in the same class. Asserting the equality is a conflict if their actual offset
-				// differs from the offset claimed by the equality (e.g. asserting x == x + 1).
+				// differs from the offset claimed by the equality (e.g. asserting x == x + 1). The conflict clause is
+				// {¬eq, ¬path}: eq is true, so ¬eq is false, and the path literals are all true, so the clause is
+				// falsified. (computeCycle would put eq positively and yield a satisfied clause.)
 				final Rational existingDiff = eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep());
 				if (!existingDiff.equals(eq.getOffset())) {
-					return computeCycle(eq);
+					return new CongruencePath(this).computeAntiCycle(eq, isProofGenerationEnabled());
 				}
 			}
 		} else {
@@ -963,7 +974,10 @@ public class CClosure implements ITheory {
 		/* Propagate inequalities */
 		for (final CCEquality.Entry eqentry : info.mEqlits) {
 			final CCEquality eq = eqentry.getCCEquality();
-			assert eq.getDecideStatus() == null || eq == diseq;
+			// eq cannot be decided true here: that would merge lhs and rhs, contradicting that they are distinct
+			// representatives. With offset equalities it may already be decided false (propagated by an earlier
+			// offset merge); such an eq keeps its existing reason and is simply skipped.
+			assert eq.getDecideStatus() != eq || eq == diseq;
 			if (eq.getDecideStatus() == null) {
 				eq.mDiseqReason = diseq;
 				addPending(eq.negate());
@@ -1001,6 +1015,12 @@ public class CClosure implements ITheory {
 	public Clause computeAntiCycle(final CCEquality eq) {
 		final CCTerm left = eq.getLhs();
 		final CCTerm right = eq.getRhs();
+		if (left.mRepStar == right.mRepStar) {
+			// Offset equalities make this reachable: the two sides are in the same class at an offset different from the
+			// one eq claims, so eq is false without any separating disequality. The path between them explains it.
+			assert !left.getOffsetToRep().sub(right.getOffsetToRep()).equals(eq.getOffset());
+			return new CongruencePath(this).computeAntiCycle(eq, isProofGenerationEnabled());
+		}
 		final CCEquality diseq = eq.mDiseqReason;
 		assert left.mRepStar != right.mRepStar;
 		assert diseq.getLhs().mRepStar == left.mRepStar || diseq.getLhs().mRepStar == right.mRepStar;
@@ -1043,6 +1063,12 @@ public class CClosure implements ITheory {
 			final CCEquality eq = (CCEquality) literal.negate();
 			final CCTerm left = eq.getLhs();
 			final CCTerm right = eq.getRhs();
+			if (left.mRepStar == right.mRepStar) {
+				// Offset disequality: the two sides are in the same class at an offset different from eq's, so eq is
+				// false with no separating disequality atom (mDiseqReason stays null; the path is the reason).
+				assert !left.getOffsetToRep().sub(right.getOffsetToRep()).equals(eq.getOffset());
+				return true;
+			}
 			final CCEquality diseq = eq.mDiseqReason;
 			assert left.mRepStar != right.mRepStar;
 			assert diseq.getLhs().mRepStar == left.mRepStar || diseq.getLhs().mRepStar == right.mRepStar;
