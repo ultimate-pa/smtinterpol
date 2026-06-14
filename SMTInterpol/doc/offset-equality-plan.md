@@ -352,18 +352,40 @@ Branch `offsetequality`. Done and committed: increments 1, 2a, 2b, 3; the
 deterministic pair-hash offset; the shared-term polynomial-flattening fix
 (`test04`); the quantifier gate (`quanttest001`); the `CCParameter` /
 `OffsettedCCTerm` abstraction with `getValueKey()`; and the `checkCongruence`
-migration. The full unit suite is green; offsets are active for quantifier-free,
-non-proof problems.
+migration. **Also done (this session, gap 1, the array migration):**
+`ArrayTheory` and `WeakCongruencePath` are now offset-aware — every array index
+is read as a `CCParameter` (`getIndexParamFromSelect`/`getIndexParamFromStore`)
+and all index-keyed maps/sets (`mSelects`, `seenStores`, `nodeMapping`,
+`storeIndices`, `seenIndices`, `mArrayModels`, the weakeq-ext `inverse` map) key
+on the value identity `getValueKey()` instead of the bare representative; index
+comparisons use `sameValueAs`/`.equals(valueKey)`; index disequality literals in
+array lemmas are offset-aware (`createIndexEquality` / `computeIndexDiseq` via
+`createEquality(t1, t2, offset, …)`, dropping the always-false disjunct when the
+two indices share a CCTerm but differ by a constant); and `ModelBuilder` gained a
+`getModelValue(CCParameter)` overload so array models store at the true index
+value (rep value + offset), not the representative's value. This relies on the
+array theory rebuilding from scratch each `buildWeakEq`/`computeWeakeqExt` pass,
+so value keys are a stable snapshot. `WeakCongruencePath` navigates by value key;
+its `computePath` calls only collect reason atoms (sound clause) — the net offset
+matters only for the proof object, which is disabled while offsets are on.
+`WeakSubPath.mIdx` stays a bare CCTerm for the (offset-disabled) proof annotation.
 
-**Next:** the `ArrayTheory` migration (steps under "Array index keys" above and
-"Gap-fix order" below). Then LA→CC offset propagation (gap 2), eager negated
-equalities (gap 3), proof production (increment 4), and offset-aware e-matching
-(to re-enable offsets under quantifiers).
+Results: `array/difftest004` now SAT with a **correct** model (previously a wrong
+model — the index offset was dropped); `nia/divaxiom2` and `abv/ext02` no longer
+crash (`ext02` correctly UNSAT). All `array/` benchmarks pass; no crashes in
+`abv/`,`bv/`.
+
+**Next:** LA→CC offset propagation (gap 2), eager negated equalities (gap 3),
+proof production (increment 4), offset-aware e-matching (re-enable offsets under
+quantifiers), and the still-deferred `DataTypeTheory` offset-aware argument
+handling (only matters for datatypes with numeric fields; no failing benchmark
+yet).
 
 **Remaining system-benchmark failures** (with proofs/interpolants disabled so
-offsets are exercised), all non-soundness: `array/difftest004` (crash),
-`nia/divaxiom2` (crash), `bv/test01`, `abv/indexInRange01`, `abv/ext02`
-(unsat → unknown).
+offsets are exercised): `bv/test01`, `abv/indexInRange01` (both unsat → **sat**,
+*unsound*, but pre-existing before the array migration — they stem from gap 2,
+LA knowing e.g. `k mod 256 = 1` but never telling CC). These are the motivation
+for gap 2 and should be the next target.
 
 **Temporary working-tree change (uncommitted):**
 `SMTInterpolTest/src/system/SystemTest.java` has `:proof-check-mode`,
@@ -458,9 +480,11 @@ value identity `(rep, offsetToRep)` the array theory needs.
 ## Gap-fix order
 
 1. `CCParameter` + `OffsettedCCTerm`; wire the `CClosure` consumers
-   (`getCCTermRep`, `getAllFuncApps`, `checkCongruence`) and `DataTypeTheory`.
+   (`getCCTermRep`, `getAllFuncApps`, `checkCongruence`). **(done)** —
+   `DataTypeTheory` still deferred (only matters for numeric datatype fields).
 2. `ArrayTheory` offset-aware index handling (gap 1, the substantial one).
-3. LA → CC offset-equality propagation (gap 2).
+   **(done — incl. `WeakCongruencePath` and `ModelBuilder.getModelValue`.)**
+3. LA → CC offset-equality propagation (gap 2). **(next)**
 4. Eager negated-equality propagation (gap 3).
 5. Proof production (increment 4) and offset-aware e-matching (re-enable offsets
    under quantifiers) — both deferred to the quantifier-theory rework.
