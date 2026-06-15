@@ -1280,33 +1280,21 @@ public class LinArSolve implements ITheory {
 		for (final LASharedTerm shared : mSharedVars) {
 			sharedVarSorts.add(shared.getTerm().getSort());
 		}
-		// When offset equalities are enabled, two shared terms whose values differ by a constant should be reported to
-		// CC as an offset equality. We therefore key the fingerprint on its non-constant part only (the null entry holds
-		// the constant) and recover the constant difference at a collision. When offsets are off, the constant stays in
-		// the key, so the behavior is exactly the classic equal-value bucketing.
-		final boolean offsets = mClausifier.getCClosure().createOffsetEqualities();
+		// The fingerprint includes the term's full value (its constant offset is part of the LASharedTerm), so two
+		// shared terms collide exactly when they are provably equal. The resulting equality may be an offset equality
+		// at the CC level (the two terms share an offset-free CCTerm but differ by a constant); that offset is derived
+		// from the term constants in EqualityProxy, so nothing offset-specific is needed here.
 		for (final Sort sort : sharedVarSorts) {
 			final Map<Map<LinVar, Rational>, LASharedTerm> fingerprints = new HashMap<>();
-			final Map<Map<LinVar, Rational>, Rational> constants = new HashMap<>();
 			final HashSet<SymmetricPair<CCTerm>> propagated = new HashSet<>();
 			for (final LASharedTerm shared : mSharedVars) {
 				if (shared.getTerm().getSort() == sort) {
 					final Map<LinVar, Rational> fingerprint = fingerprintSharedVar(shared);
-					Rational constant = Rational.ZERO;
-					if (offsets) {
-						final Rational c = fingerprint.remove(null);
-						if (c != null) {
-							constant = c;
-						}
-					}
 					final LASharedTerm other = fingerprints.get(fingerprint);
 					if (other == null) {
 						fingerprints.put(fingerprint, shared);
-						constants.put(fingerprint, constant);
 					} else {
-						// value(other) == value(shared) + (constants[fp] - constant)
-						final Rational offset = constants.get(fingerprint).sub(constant);
-						final Clause conflict = propagateSharedEquality(other, shared, offset, propagated);
+						final Clause conflict = propagateSharedEquality(other, shared, propagated);
 						if (conflict != null || !mDirty.isEmpty()) {
 							return conflict;
 						}

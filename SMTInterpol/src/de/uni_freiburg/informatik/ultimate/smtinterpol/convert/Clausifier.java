@@ -261,14 +261,13 @@ public class Clausifier {
 	}
 
 	public void share(final CCTerm ccTerm, final LASharedTerm laTerm) {
-		// With offset equalities several terms (e.g. 2x+4y, 2x+4y+1, 2x+4y+5) map to the same offset-free CCTerm. That
-		// CCTerm must be shared with linear arithmetic only once; the others are bridged by their constant offset. The
-		// LASharedTerm is still registered in the term maps (by the callers) so getLATerm lookups keep working.
-		if (ccTerm.getSharedTerm() == ccTerm) {
-			return;
-		}
+		// With offset equalities several terms (e.g. 2x+4y, 2x+4y+1, 2x+4y+5) map to the same offset-free CCTerm. Each
+		// of them is a distinct value, so each full-value LASharedTerm must be registered with linear arithmetic (so
+		// mbtc sees every value); but the offset-free CCTerm is shared with congruence closure only once.
 		getLASolver().addSharedTerm(laTerm);
-		getCClosure().addSharedTerm(ccTerm);
+		if (ccTerm.getSharedTerm() != ccTerm) {
+			getCClosure().addSharedTerm(ccTerm);
+		}
 	}
 
 	public void shareLATerm(final Term term, final LASharedTerm laTerm) {
@@ -370,10 +369,11 @@ public class Clausifier {
 					final MutableAffineTerm mat = createMutableAffinTerm(new Polynomial(term), source);
 					assert mat.getConstant().mEps == 0;
 					if (!mLATerms.containsKey(term)) {
-						// With offset equalities the shared term is offset-free (the constant is carried as an offset),
-						// so the LASharedTerm has offset zero and is shared with the offset-free CCTerm.
-						final Rational offset = createOffsetEqualities() ? Rational.ZERO : mat.getConstant().mReal;
-						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), offset));
+						// The LASharedTerm carries the term's full value (including its constant). With offset equalities
+						// it is shared with the offset-free CCTerm, but it keeps the constant so that model-based theory
+						// combination (mbtc) groups shared terms by their true value; the offset-free CCTerm and the full
+						// LASharedTerm share the same LinVars, so the constant only affects the LAEquality bound.
+						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
 					}
 				}
 			}
