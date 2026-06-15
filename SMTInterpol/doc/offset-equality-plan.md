@@ -380,19 +380,37 @@ eager offset (dis)equality propagation at merge time, and the offset-aware
 conflict explanation (`computeAntiCycle`/`CongruencePath.computeAntiCycle`,
 `setLiteral` polarity, eager disequality explanation in `getPropagatedLiteral`,
 `checkPending`/`separate` allowances). `bv/test01` fixed; `abv/ext01` no longer
-crashes. SystemTest 5 → 4 failures, no new failures, all other unit tests green.
+crashes.
 
-**Next:** the two remaining SystemTest failures `abv/indexInRange01` and
-`ufbv/ufbv01` (both unsat → **sat**, masked to `unknown` by model-check): the
-LA-propagated index offset-equality merges the index CCTerms, but that merge does
-not re-trigger **array** congruence (read-over-weakeq), so the array lemma never
-fires. This is an array-theory-rerun-on-index-merge gap (the array theory should
-recheck when an index class changes). After that: the full offset-aware **proof
-object** (hyperresolution offset steps in `CongruencePath`/`CCProofGenerator` +
-proof checker) to enable offsets under proofs; offset-aware e-matching (re-enable
-offsets under quantifiers); and the deferred `DataTypeTheory` numeric-field offset
-handling (no failing benchmark yet). Pre-existing, unrelated: `model/buggy001`,
-`nia/divaxiom2`.
+**Done (commit `0c94d305`) — the CC↔LA sharing redesign:** the `LASharedTerm` now
+carries the term's **full value** (its constant), instead of being offset-free.
+The offset-free design handed LA the wrong value (`(a+255) mod 256` shared as
+`−255` not `0`), so `mbtc` (which groups shared terms by value) never matched it —
+the fingerprint bucketing was papering over this and over-collided. Sound because
+the offset-free CCTerm and full `LASharedTerm` share the same LinVars (constant
+only affects the `LAEquality` bound), and the CC-level offset equality still comes
+from `EqualityProxy`'s term constants. `share()` decoupled so each distinct
+full-value `LASharedTerm` reaches LA while the offset-free CCTerm is shared with
+CC once. The non-constant fingerprint bucketing is **removed**; `mbtc`/
+`propagateSharedEqualities` are value-based again. **Fixes `abv/indexInRange01`
+and `ufbv/ufbv01`.**
+
+**SystemTest: 6 → 1.** The lone remaining failure `model/buggy001` is a
+pre-existing array-model assertion (`assert mArrayModels != null` in
+`ArrayTheory.fillInModel`), unrelated to offsets. All other unit tests green.
+`array/difftest004`, `abv/ext01/02`, `bv/test01`, `nia/divaxiom2`,
+`abv/indexInRange01`, `ufbv/ufbv01` all fixed this round.
+
+**Next:** (1) the still-open *completeness* item from the design discussion —
+share **every** numeric `CCAppTerm` argument with LA (a plain variable used only
+as a function argument never enters LA today; create a LinVar for it), so an
+argument that becomes CC-equal to a shared term can't be missed. No current
+benchmark exercises it, but it's the textbook-complete shape. (2) `propagateShared-
+Equality`'s 4-arg offset variant is now vestigial (always called with offset 0,
+the offset comes from `EqualityProxy`) — simplify. (3) the offset-aware **proof
+object** to enable offsets under proofs; offset-aware e-matching; deferred
+`DataTypeTheory` numeric-field handling. (4) consider removing the
+`CCEquality`↔`LAEquality` linkage (bigger; has proof-generation consequences).
 
 **Remaining system-benchmark failures** (with proofs/interpolants disabled so
 offsets are exercised): `bv/test01`, `abv/indexInRange01` (both unsat → **sat**,
