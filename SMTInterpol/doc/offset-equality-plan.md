@@ -405,9 +405,22 @@ pre-existing array-model assertion (`assert mArrayModels != null` in
 share **every** numeric `CCAppTerm` argument with LA (a plain variable used only
 as a function argument never enters LA today; create a LinVar for it), so an
 argument that becomes CC-equal to a shared term can't be missed. No current
-benchmark exercises it, but it's the textbook-complete shape. (2) `propagateShared-
-Equality`'s 4-arg offset variant is now vestigial (always called with offset 0,
-the offset comes from `EqualityProxy`) — simplify. (3) the offset-aware **proof
+benchmark exercises it, but it's the textbook-complete shape. (2) **DONE — offset-less
+checkpoint propagation.** `fingerprintSharedVar` now drops the constant (the `null`
+key, holding the offset and any fixed-variable contributions) when
+`createOffsetEqualities()`, so two shared terms collide when their *non-constant*
+parts agree, i.e. they are provably equal up to a constant. `propagateSharedEqualities`
+recovers the exact offset from the (model-independent) value difference and calls the
+4-arg `propagateSharedEquality`, which now propagates implied **offset** equalities to
+CC at checkpoint (the LA→CC dual of `CCTerm.mSharedTerm`), not just zero-offset ones.
+The early-out guard is offset-aware: same affine class *and* matching offset → already
+known (skip); otherwise the `propagated` hash dedups (the same-class/different-offset
+self-pair `(rep, rep)` lets CC raise the offset conflict exactly once). The shared-var
+loops iterate a snapshot, because propagating an offset equality synthesizes and shares
+a `rhs + offset` term (appends to `mSharedVars`); it is offset-free-equivalent to an
+existing term and the guard recognizes it as known on the next call. No-op when offsets
+are disabled (full-value fingerprint, every offset 0). SystemTest unchanged at 1
+failure (`model/buggy001`, pre-existing). (3) the offset-aware **proof
 object** to enable offsets under proofs; offset-aware e-matching; deferred
 `DataTypeTheory` numeric-field handling. (4) consider removing the
 `CCEquality`↔`LAEquality` linkage (bigger; has proof-generation consequences).

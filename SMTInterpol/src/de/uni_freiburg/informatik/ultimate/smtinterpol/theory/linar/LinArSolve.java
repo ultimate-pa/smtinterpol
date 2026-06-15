@@ -1192,7 +1192,16 @@ public class LinArSolve implements ITheory {
 			}
 		}
 		fpr.add(shared.getOffset());
-		return fpr.getSummands();
+		final Map<LinVar, Rational> fingerprint = fpr.getSummands();
+		if (mClausifier.getCClosure().createOffsetEqualities()) {
+			// Ignore the constant part (accumulated under the null key from the offset and from any fixed
+			// variables): two shared terms then collide when their non-constant parts agree, i.e. they are
+			// provably equal up to a constant. That constant is an offset equality congruence closure can use; the
+			// exact offset is recovered from the value difference at the collision site in
+			// propagateSharedEqualities.
+			fingerprint.remove(null);
+		}
+		return fingerprint;
 	}
 
 	public Clause propagateSharedEquality(LASharedTerm lhs, LASharedTerm rhs,
@@ -1208,9 +1217,18 @@ public class LinArSolve implements ITheory {
 	 */
 	public Clause propagateSharedEquality(LASharedTerm lhs, LASharedTerm rhs, Rational offset,
 			HashSet<SymmetricPair<CCTerm>> propagated) {
-		final CCTerm lhsCC = mClausifier.getCCTerm(lhs.getTerm()).getRepresentative();
-		final CCTerm rhsCC = mClausifier.getCCTerm(rhs.getTerm()).getRepresentative();
-		if (lhsCC == rhsCC || !propagated.add(new SymmetricPair<CCTerm>(lhsCC, rhsCC))) {
+		final CCTerm lhsCCTerm = mClausifier.getCCTerm(lhs.getTerm());
+		final CCTerm rhsCCTerm = mClausifier.getCCTerm(rhs.getTerm());
+		final CCTerm lhsCC = lhsCCTerm.getRepresentative();
+		final CCTerm rhsCC = rhsCCTerm.getRepresentative();
+		if (lhsCC == rhsCC && lhsCCTerm.getOffsetToRep().sub(rhsCCTerm.getOffsetToRep()).equals(offset)) {
+			// lhs and rhs are already in the same affine class at exactly this offset: nothing to propagate.
+			return null;
+		}
+		if (!propagated.add(new SymmetricPair<CCTerm>(lhsCC, rhsCC))) {
+			// Already handled this (representative) pair in this round. This also deduplicates the inconsistent
+			// same-class/different-offset case (a self-pair (rep, rep)), so the offset conflict that the CCEquality
+			// propagation below triggers in congruence closure is created only once.
 			return null;
 		}
 		// Encode the offset into the right-hand term so the EqualityProxy and resulting CCEquality carry it.
@@ -1275,26 +1293,37 @@ public class LinArSolve implements ITheory {
 		mLastNumFixed = numFix;
 		mClausifier.getLogger().debug("Shared Terms: %d, Matrix Size: %d + %d, Num Fixed: %d", mSharedVars.size(),
 				mLinvars.size() - mBasics.size(), mBasics.size(), mLastNumFixed);
+		// Snapshot the shared terms: propagating an offset equality synthesizes a term (rhs + offset) and shares
+		// it, which appends to mSharedVars. The snapshot avoids a ConcurrentModificationException; the newly shared
+		// term is offset-free-equivalent to an existing one and is picked up on the next call (gated by mLastNumFixed),
+		// where the offset-aware guard in propagateSharedEquality recognizes it as already known.
+		final List<LASharedTerm> sharedSnapshot = new ArrayList<>(mSharedVars);
 		// TODO: store sharedVars already separated by sorts.
 		final Set<Sort> sharedVarSorts = new LinkedHashSet<Sort>();
-		for (final LASharedTerm shared : mSharedVars) {
+		for (final LASharedTerm shared : sharedSnapshot) {
 			sharedVarSorts.add(shared.getTerm().getSort());
 		}
-		// The fingerprint includes the term's full value (its constant offset is part of the LASharedTerm), so two
-		// shared terms collide exactly when they are provably equal. The resulting equality may be an offset equality
-		// at the CC level (the two terms share an offset-free CCTerm but differ by a constant); that offset is derived
-		// from the term constants in EqualityProxy, so nothing offset-specific is needed here.
+		// When offset equalities are enabled the fingerprint ignores the constant part (see fingerprintSharedVar),
+		// so two shared terms collide when their non-constant parts agree, i.e. they are provably equal up to a
+		// constant. That constant is the offset of the propagated (offset) CCEquality. When offset equalities are
+		// disabled the fingerprint keeps the constant, terms collide only when provably equal, and the offset is zero.
 		for (final Sort sort : sharedVarSorts) {
 			final Map<Map<LinVar, Rational>, LASharedTerm> fingerprints = new HashMap<>();
 			final HashSet<SymmetricPair<CCTerm>> propagated = new HashSet<>();
-			for (final LASharedTerm shared : mSharedVars) {
+			for (final LASharedTerm shared : sharedSnapshot) {
 				if (shared.getTerm().getSort() == sort) {
 					final Map<LinVar, Rational> fingerprint = fingerprintSharedVar(shared);
 					final LASharedTerm other = fingerprints.get(fingerprint);
 					if (other == null) {
 						fingerprints.put(fingerprint, shared);
 					} else {
-						final Clause conflict = propagateSharedEquality(other, shared, propagated);
+						// other and shared have equal non-constant parts (the fingerprints collided), so they
+						// differ by a fixed constant: value(other) == value(shared) + offset. The non-constant
+						// parts cancel, so the value difference is exact and model-independent.
+						final ExactInfinitesimalNumber diff = sharedTermValue(other).sub(sharedTermValue(shared));
+						assert diff.getEpsilon().signum() == 0;
+						final Clause conflict =
+								propagateSharedEquality(other, shared, diff.getRealValue(), propagated);
 						if (conflict != null || !mDirty.isEmpty()) {
 							return conflict;
 						}
@@ -1912,16 +1941,22 @@ public class LinArSolve implements ITheory {
 	 * @return A map from the value to the list of shared variables that have this
 	 *         value.
 	 */
+	/**
+	 * Compute the current value of a shared term: its constant offset plus the weighted values of its summands.
+	 */
+	private ExactInfinitesimalNumber sharedTermValue(final LASharedTerm shared) {
+		ExactInfinitesimalNumber value = new ExactInfinitesimalNumber(shared.getOffset());
+		for (final Entry<LinVar, Rational> entry : shared.getSummands().entrySet()) {
+			value = value.add(entry.getKey().getValue().mul(entry.getValue()));
+		}
+		return value;
+	}
+
 	Map<ExactInfinitesimalNumber, List<LASharedTerm>> getSharedCongruences() {
 		mClausifier.getLogger().debug("Shared Vars:");
 		final Map<ExactInfinitesimalNumber, List<LASharedTerm>> result = new HashMap<>();
 		for (final LASharedTerm shared : mSharedVars) {
-			ExactInfinitesimalNumber value = new ExactInfinitesimalNumber(shared.getOffset());
-			for (final Entry<LinVar, Rational> entry : shared.getSummands().entrySet()) {
-				final LinVar lv = entry.getKey();
-				final Rational factor = entry.getValue();
-				value = value.add(lv.getValue().mul(factor));
-			}
+			final ExactInfinitesimalNumber value = sharedTermValue(shared);
 			mClausifier.getLogger().debug("%s = %s", shared, value);
 			List<LASharedTerm> slot = result.get(value);
 			if (slot == null) {
