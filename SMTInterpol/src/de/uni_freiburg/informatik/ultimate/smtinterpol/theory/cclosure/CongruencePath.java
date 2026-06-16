@@ -392,7 +392,11 @@ public class CongruencePath {
 		}
 		final Clause c = new Clause(negLits);
 		if (produceProofs) {
-			final SymmetricPair<CCTerm> diseq = lemma.getMainEquality();
+			// TODO offset equalities: the proof annotation still uses the offset-free terms of the propagated
+			// equality; offset-aware datatype proofs (pairing on the CCParameter) are not done yet.
+			final SymmetricPair<CCParameter> mainEq = lemma.getMainEquality();
+			final SymmetricPair<CCTerm> diseq = mainEq == null ? null
+					: new SymmetricPair<>(mainEq.getFirst().getCCTerm(), mainEq.getSecond().getCCTerm());
 			c.setProof(new LeafNode(LeafNode.THEORY_DT, new CCAnnotation(diseq, mAllPaths, lemma)));
 		}
 		return c;

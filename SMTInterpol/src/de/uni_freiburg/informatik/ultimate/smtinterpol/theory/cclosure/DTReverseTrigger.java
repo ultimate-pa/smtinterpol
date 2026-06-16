@@ -97,7 +97,7 @@ public class DTReverseTrigger extends ReverseTrigger {
 			} else {
 				truthValue = mClausifier.getTheory().mFalse;
 			}
-			final SymmetricPair<CCTerm> mainEq = new SymmetricPair<>(appTerm, mClausifier.getCCTerm(truthValue));
+			final SymmetricPair<CCParameter> mainEq = new SymmetricPair<>(appTerm, mClausifier.getCCTerm(truthValue));
 			final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_TESTER, mainEq, reason, mArg);
 			mDTTheory.addPendingLemma(lemma);
 			if (isFresh) {
@@ -110,8 +110,10 @@ public class DTReverseTrigger extends ReverseTrigger {
 			final Constructor c = argDT.getConstructor(argAT.getFunction().getName());
 			for (int i = 0; i < c.getSelectors().length; i++) {
 				if (mFunctionSymbol.getName() == c.getSelectors()[i]) {
-					final SymmetricPair<CCTerm> mainEq = new SymmetricPair<>(appTerm,
-							mClausifier.getCCTerm(argAT.getParameters()[i]));
+					// mArg is the constructor application; read field i as a CCParameter so a numeric field keeps
+					// its offset, making the propagated equality value(sel(u)) == value(field).
+					final CCParameter mainArg = ((CCAppTerm) mArg).getArgParam(i);
+					final SymmetricPair<CCParameter> mainEq = new SymmetricPair<>(appTerm, mainArg);
 					final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_PROJECT, mainEq, reason, mArg);
 					mDTTheory.addPendingLemma(lemma);
 					if (isFresh) {
