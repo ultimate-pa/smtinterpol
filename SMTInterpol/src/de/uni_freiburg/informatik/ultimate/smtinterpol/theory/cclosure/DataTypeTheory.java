@@ -942,9 +942,13 @@ public class DataTypeTheory implements ITheory {
 
 	private class ConstrTerm {
 		FunctionSymbol mConstr;
-		CCTerm[] mArguments;
+		/**
+		 * The constructor's arguments as {@link CCParameter}s, so a numeric field's offset (e.g. the {@code +5} in
+		 * {@code cons(x+5)}) is kept and shows up in the model value. {@code null} entries are holes (no known value).
+		 */
+		CCParameter[] mArguments;
 
-		public ConstrTerm(FunctionSymbol constr, CCTerm[] args) {
+		public ConstrTerm(FunctionSymbol constr, CCParameter[] args) {
 			mConstr = constr;
 			mArguments = args;
 		}
@@ -980,14 +984,15 @@ public class DataTypeTheory implements ITheory {
 					if (sharedTerm instanceof CCAppTerm) {
 						final CCAppTerm constrAppTerm = (CCAppTerm) sharedTerm;
 						final FunctionSymbol constr = constrAppTerm.getFunctionSymbol();
-						final CCTerm[] args = new CCTerm[constrAppTerm.getArgCount()];
+						// keep each argument as a CCParameter so a numeric field's offset is preserved
+						final CCParameter[] args = new CCParameter[constrAppTerm.getArgCount()];
 						for (int i = 0; i < args.length; i++) {
-							args[i] = constrAppTerm.getArgParam(i).getCCTerm();
+							args[i] = constrAppTerm.getArgParam(i);
 						}
 						valueMap.put(ct, new ConstrTerm(constr, args));
 					} else {
 						final ApplicationTerm appTerm = (ApplicationTerm) sharedTerm.getFlatTerm();
-						valueMap.put(ct, new ConstrTerm(appTerm.getFunction(), new CCTerm[0]));
+						valueMap.put(ct, new ConstrTerm(appTerm.getFunction(), new CCParameter[0]));
 					}
 				} else {
 					final Map<FunctionSymbol, CCAppTerm> selectorsAndTester = getSelectorsAndTesters(ct);
@@ -995,7 +1000,8 @@ public class DataTypeTheory implements ITheory {
 					// we can use any constructor for which no tester exists. We use the first one.
 					final String[] selectors = constr.getSelectors();
 					final Sort[] argSorts = new Sort[selectors.length];
-					final CCTerm[] args = new CCTerm[selectors.length];
+					// a selector application's value already is the field value (no structural offset)
+					final CCParameter[] args = new CCParameter[selectors.length];
 					for (int i = 0; i < selectors.length; i++) {
 						final FunctionSymbol selector = mTheory.getFunction(selectors[i], sort);
 						argSorts[i] = selector.getReturnSort();
@@ -1033,14 +1039,17 @@ public class DataTypeTheory implements ITheory {
 				boolean undefined = false;
 				boolean hasHole = false;
 				for (int i = 0; i < argModels.length; i++) {
-					CCTerm arg = constrTerm.mArguments[i];
+					final CCParameter arg = constrTerm.mArguments[i];
 					if (arg != null) {
-						arg = arg.getRepresentative();
+						// offset-aware: a numeric field cons(.., y+5, ..) contributes value(y) + 5
 						argModels[i] = modelBuilder.getModelValue(arg);
 						if (argModels[i] == null) {
-							assert valueMap.containsKey(arg);
+							// only datatype-typed fields can be unresolved here (numeric deps come first and are
+							// offset-free w.r.t. their own representative); recurse on the field's representative
+							final CCTerm argRep = arg.getCCTerm().getRepresentative();
+							assert valueMap.containsKey(argRep);
 							path.add(ct);
-							todoStack.addLast(arg);
+							todoStack.addLast(argRep);
 							undefined = true;
 							break;
 						}
