@@ -101,7 +101,13 @@ public class CCEquality extends DPLLAtom {
 
 	@Override
 	public Term getSMTFormula(final Theory smtTheory) {
-		return smtTheory.term("=", mLhs.getFlatTerm(), mRhs.getFlatTerm());
+		final Term lhs = mLhs.getFlatTerm();
+		final Term rhs = mRhs.getFlatTerm();
+		if (mOffset.equals(Rational.ZERO)) {
+			return smtTheory.term("=", lhs, rhs);
+		}
+		// this equality states lhs == rhs + mOffset
+		return smtTheory.term("=", lhs, smtTheory.term("+", rhs, mOffset.toTerm(rhs.getSort())));
 	}
 
 	@Override
