@@ -18,93 +18,69 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
-import java.util.Arrays;
-import java.util.List;
-
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
 import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 /**
- * A signature is a tuple of an opaque identifier and a non-empty array of CCTerms. It is used as the key for the
- * global signature-to-trigger map in CClosure. Hash and equality are based on the <em>representatives</em> of the
- * terms, so when representatives change (e.g. after a merge), the same term array yields a different signature key.
+ * A signature is a tuple of an opaque identifier and a non-empty array of {@link CCParameter}s (a CCTerm together with
+ * a constant offset). It is used as the key for the global signature-to-trigger map in CClosure. Hash and equality are
+ * based on each parameter's <em>representative</em> and its <em>offset to that representative</em>, so when
+ * representatives or offsets change (e.g. after a merge), the same parameter array yields a different signature key.
  *
  * @author Jochen Hoenicke
  */
 public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 
 	private final Object mId;
-	private final CCTerm[] mTerms;
 	/**
-	 * The structural constant offsets of the signature, parallel to {@link #mTerms}: argument {@code i} of the
-	 * signature is {@code mTerms[i] + mArgOffsets[i]}. This is {@code null} when every offset is zero (the common case),
-	 * which keeps plain congruence closure free of any offset cost. The effective offset that the signature is keyed on
-	 * additionally includes the term's offset to its representative (see {@link #effectiveOffset(int)}), so two
-	 * applications are congruent only if their arguments have the same representative <em>and</em> the same effective
-	 * offset.
+	 * The arguments of the signature as {@link CCParameter}s: argument {@code i} has value
+	 * {@code mParams[i].getCCTerm() + mParams[i].getOffset()}. Offset-free arguments are bare {@link CCTerm}s, which
+	 * keeps plain congruence closure free of any offset cost. The effective offset that the signature is keyed on is
+	 * {@code mParams[i].getOffsetToRep()} (the parameter's offset relative to its representative; see
+	 * {@link #effectiveOffset(int)}), so two applications are congruent only if their arguments have the same
+	 * representative <em>and</em> the same effective offset.
 	 */
-	private final Rational[] mArgOffsets;
+	private final CCParameter[] mParams;
 	private int mLastHashCode;
 
 	private SignatureTrigger mMergedTrigger;
 	private SignatureBackRef[] mBackrefs;
 
 	/**
-	 * Create a signature with the given identifier and non-empty term array, with all structural offsets zero.
+	 * Create a signature with the given identifier and non-empty parameter array.
 	 *
 	 * @param id
 	 *            opaque identifier (e.g. function symbol for congruence, or trigger id for reverse triggers).
-	 * @param terms
-	 *            non-empty array of CCTerms.
+	 * @param params
+	 *            non-empty array of {@link CCParameter}s (bare {@link CCTerm}s for offset-free arguments).
 	 */
-	public SignatureTrigger(final Object id, final CCTerm[] terms) {
-		this(id, terms, null);
-	}
-
-	/**
-	 * Create a signature with the given identifier, term array and structural offsets.
-	 *
-	 * @param id
-	 *            opaque identifier (e.g. function symbol for congruence, or trigger id for reverse triggers).
-	 * @param terms
-	 *            non-empty array of CCTerms.
-	 * @param argOffsets
-	 *            the structural offset for each term, or {@code null} when all are zero.
-	 */
-	public SignatureTrigger(final Object id, final CCTerm[] terms, final Rational[] argOffsets) {
+	public SignatureTrigger(final Object id, final CCParameter[] params) {
 		mId = id;
-		mTerms = terms;
-		mArgOffsets = argOffsets;
+		mParams = params;
 		mLastHashCode = computeHashCode();
 	}
 
 	/**
-	 * The effective offset of argument {@code index}: the term's offset to its representative plus the structural
-	 * offset. This is what determines, together with the representative, whether two signatures are congruent.
+	 * The effective offset of argument {@code index}: the parameter's offset relative to its representative. This is
+	 * what determines, together with the representative, whether two signatures are congruent.
 	 */
 	private Rational effectiveOffset(final int index) {
-		final Rational structural = mArgOffsets == null ? Rational.ZERO : mArgOffsets[index];
-		return mTerms[index].mOffsetToRep.add(structural);
+		return mParams[index].getOffsetToRep();
 	}
 
 	public Object getId() {
 		return mId;
 	}
 
-	/** Returns the number of terms in this signature. */
+	/** Returns the number of arguments in this signature. */
 	public int getTermCount() {
-		return mTerms.length;
+		return mParams.length;
 	}
 
-	/** Returns the term at the given index. */
-	public CCTerm getTerm(final int index) {
-		return mTerms[index];
-	}
-
-	/** Returns an unmodifiable list view of the terms. */
-	public List<CCTerm> getTerms() {
-		return Arrays.asList(mTerms);
+	/** Returns the argument at the given index. */
+	public CCParameter getParam(final int index) {
+		return mParams[index];
 	}
 
 	public void rehash(CClosure engine, int argPosition, CCTerm oldRep, CCTerm newRep, Rational offsetDelta) {
@@ -153,10 +129,10 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 
 	public int computeHashCode() {
 		int h = mId.hashCode();
-		for (int i = 0; i < mTerms.length; i++) {
+		for (int i = 0; i < mParams.length; i++) {
 			// Use disjoint salts (2*i for the representative, 2*i+1 for the offset) so the two contributions do not
 			// trivially cancel against each other.
-			h ^= HashUtils.hashJenkins(2 * i, mTerms[i].getRepresentative());
+			h ^= HashUtils.hashJenkins(2 * i, mParams[i].getRepresentative());
 			h ^= HashUtils.hashJenkins(2 * i + 1, effectiveOffset(i).hashCode());
 		}
 		return h;
@@ -189,14 +165,11 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 			return false;
 		}
 		final SignatureTrigger other = (SignatureTrigger) obj;
-		if (!mId.equals(other.mId) || mTerms.length != other.mTerms.length) {
+		if (!mId.equals(other.mId) || mParams.length != other.mParams.length) {
 			return false;
 		}
-		for (int i = 0; i < mTerms.length; i++) {
-			if (mTerms[i].getRepresentative() != other.mTerms[i].getRepresentative()) {
-				return false;
-			}
-			if (!effectiveOffset(i).equals(other.effectiveOffset(i))) {
+		for (int i = 0; i < mParams.length; i++) {
+			if (!mParams[i].sameValueAs(other.mParams[i])) {
 				return false;
 			}
 		}
@@ -206,8 +179,8 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder("Sig[").append(mId);
-		for (final CCTerm t : mTerms) {
-			sb.append(',').append(t);
+		for (final CCParameter p : mParams) {
+			sb.append(',').append(p);
 		}
 		return sb.append(']').toString();
 	}
@@ -221,16 +194,16 @@ public class SignatureTrigger extends SimpleListable<SignatureTrigger> {
 	}
 
 	public void addBackrefs(CClosure cclosure) {
-		mBackrefs = new SignatureBackRef[mTerms.length];
-		for (int i = 0; i < mTerms.length; i++) {
+		mBackrefs = new SignatureBackRef[mParams.length];
+		for (int i = 0; i < mParams.length; i++) {
 			mBackrefs[i] = new SignatureBackRef(this, i);
-			cclosure.addSignatureBackRef(mTerms[i], mBackrefs[i]);
+			cclosure.addSignatureBackRef(mParams[i].getCCTerm(), mBackrefs[i]);
 		}
 	}
 
 	public void removeBackrefs(CClosure cclosure) {
-		for (int i = 0; i < mTerms.length; i++) {
-			cclosure.removeSignatureBackRef(mTerms[i], mBackrefs[i]);
+		for (int i = 0; i < mParams.length; i++) {
+			cclosure.removeSignatureBackRef(mParams[i].getCCTerm(), mBackrefs[i]);
 		}
 		mBackrefs = null;
 	}

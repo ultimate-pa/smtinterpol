@@ -28,30 +28,30 @@ import de.uni_freiburg.informatik.ultimate.util.HashUtils;
 
 public class CCAppTerm extends CCTerm {
 	final FunctionSymbol mFunc;
-	final CCTerm[] mArgs;
 	/**
-	 * The constant offset that is added to each argument: argument {@code i} of the represented application is
-	 * {@code mArgs[i] + mArgOffsets[i]}. This lets a term like {@code f(x+5)} use the offset-free CCTerm {@code x} as
-	 * its argument while remembering the {@code +5}. The array is {@code null} when every offset is zero (the common
-	 * case), so plain congruence closure pays no extra cost.
+	 * The arguments of the application as {@link CCParameter}s: argument {@code i} of the represented application has
+	 * value {@code mArgs[i]}, i.e. {@code mArgs[i].getCCTerm() + mArgs[i].getOffset()}. An offset-free argument is a
+	 * bare {@link CCTerm} (no wrapper object), so a term like {@code f(x+5)} stores the offset-free CCTerm {@code x}
+	 * wrapped in an {@link OffsettedCCTerm} remembering the {@code +5} only for that one argument; plain congruence
+	 * closure allocates nothing extra.
 	 */
-	Rational[] mArgOffsets;
+	final CCParameter[] mArgs;
 	Term mSmtTerm;
 
 	CongruenceTrigger mCongTrigger;
 	FindTriggerTrigger mFindTrigger;
 
-	public CCAppTerm(FunctionSymbol fsym, final CCTerm[] args,
+	public CCAppTerm(FunctionSymbol fsym, final CCParameter[] args,
 			final CClosure engine, final boolean isFromQuant) {
 		super(HashUtils.hashJenkins(fsym.hashCode(), (Object[]) args), isFromQuant ? CCAppTerm.computeAge(args) : 0);
 		mFunc = fsym;
 		mArgs = args;
 	}
 
-	private final static int computeAge(CCTerm[] args) {
+	private final static int computeAge(CCParameter[] args) {
 		int age = 1;
 		for (int i = 0; i < args.length; i++) {
-			age = Math.max(age, args[i].mAge + 1);
+			age = Math.max(age, args[i].getCCTerm().mAge + 1);
 		}
 		return age;
 	}
@@ -60,30 +60,26 @@ public class CCAppTerm extends CCTerm {
 		return mFunc;
 	}
 
-	public CCTerm[] getArguments() {
-		return mArgs;
-	}
-
-	public CCTerm getArgument(int argPosition) {
-		return mArgs[argPosition];
+	/** The number of arguments of this application. */
+	public int getArgCount() {
+		return mArgs.length;
 	}
 
 	/**
-	 * @return the constant offset added to the argument at the given position, i.e. the argument of the application is
-	 *         {@code getArgument(argPosition) + getArgOffset(argPosition)}. Returns {@link Rational#ZERO} when no
-	 *         offsets are stored.
+	 * @return the constant offset added to the argument at the given position, i.e. the argument value is
+	 *         {@code getArgParam(argPosition).getCCTerm() + getArgOffset(argPosition)}.
 	 */
 	public Rational getArgOffset(int argPosition) {
-		return mArgOffsets == null ? Rational.ZERO : mArgOffsets[argPosition];
+		return mArgs[argPosition].getOffset();
 	}
 
 	/**
-	 * The argument at the given position as a {@link CCParameter}, i.e. {@link #getArgument(int)} together with its
-	 * structural {@link #getArgOffset(int)}. This is the uniform "an argument is a value up to a constant" view; a bare
-	 * {@link CCTerm} is returned when the argument has no offset.
+	 * The value of the argument at the given position as a {@link CCParameter} ("a CCTerm up to a constant offset").
+	 * This is the only argument accessor: callers that genuinely want the offset-free structural CCTerm must say so
+	 * explicitly via {@code getArgParam(i).getCCTerm()}.
 	 */
 	public CCParameter getArgParam(int argPosition) {
-		return CCParameter.of(mArgs[argPosition], getArgOffset(argPosition));
+		return mArgs[argPosition];
 	}
 
 	@Override
@@ -108,7 +104,7 @@ public class CCAppTerm extends CCTerm {
 						if (!app.getArgOffset(i).equals(Rational.ZERO)) {
 							todo.add("+" + app.getArgOffset(i));
 						}
-						todo.add(app.mArgs[i]);
+						todo.add(app.mArgs[i].getCCTerm());
 						todo.add(" ");
 					}
 					todo.add(app.mFunc.getApplicationString());

@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 
@@ -36,14 +37,13 @@ public class CCTermBuilder {
 	private final SourceAnnotation mSource;
 
 	private final ArrayDeque<Operation> mOps = new ArrayDeque<>();
-	private final ArrayDeque<CCTerm> mConverted = new ArrayDeque<>();
 	/**
-	 * The constant offsets of the converted CCTerms, parallel to {@link #mConverted}: the term that produced
-	 * {@code mConverted.peek()} equals that CCTerm plus {@code mOffsets.peek()}. This carries the {@code +5} of an
-	 * offset-free term like {@code x+5} up to the enclosing application so it ends up in the app term's argument
-	 * offsets. Offsets are {@link Rational#ZERO} unless offset equalities are enabled.
+	 * The converted results as {@link CCParameter}s: the term that produced {@code mConverted.peek()} has value
+	 * {@code peek().getCCTerm() + peek().getOffset()}. The offset carries the {@code +5} of an offset-free term like
+	 * {@code x+5} up to the enclosing application, where it ends up in that argument's {@link CCParameter}. Offsets are
+	 * {@link Rational#ZERO} (i.e. a bare {@link CCTerm}) unless offset equalities are enabled.
 	 */
-	private final ArrayDeque<Rational> mOffsets = new ArrayDeque<>();
+	private final ArrayDeque<CCParameter> mConverted = new ArrayDeque<>();
 
 	public CCTermBuilder(Clausifier clausifier, final SourceAnnotation source) {
 		mClausifier = clausifier;
@@ -51,8 +51,7 @@ public class CCTermBuilder {
 	}
 
 	private void pushResult(final CCTerm ccTerm, final Rational offset) {
-		mConverted.push(ccTerm);
-		mOffsets.push(offset);
+		mConverted.push(CCParameter.of(ccTerm, offset));
 	}
 
 	public CCTerm convert(final Term t) {
@@ -60,11 +59,11 @@ public class CCTermBuilder {
 		while (!mOps.isEmpty()) {
 			mOps.pop().perform();
 		}
-		final CCTerm res = mConverted.pop();
-		mOffsets.pop();
+		// The caller asked for the CCTerm of the term; a top-level numeric constant offset (e.g. the +5 of x+5) is not
+		// part of the CCTerm and is recovered by the caller from the term itself, so it is dropped here (as before).
+		final CCParameter res = mConverted.pop();
 		assert mConverted.isEmpty();
-		assert mOffsets.isEmpty();
-		return res;
+		return res.getCCTerm();
 	}
 
 	private class BuildCCTerm implements Operation {
@@ -124,8 +123,9 @@ public class CCTermBuilder {
 
 		@Override
 		public void perform() {
-			final CCTerm offsetFreeCCTerm = mConverted.pop();
-			mOffsets.pop();
+			final CCParameter offsetFreeParam = mConverted.pop();
+			assert offsetFreeParam.getOffset().equals(Rational.ZERO) : "offset-free part must have zero offset";
+			final CCTerm offsetFreeCCTerm = offsetFreeParam.getCCTerm();
 			if (mClausifier.getCCTerm(mTerm) == null) {
 				mClausifier.shareCCTerm(mTerm, offsetFreeCCTerm);
 				mClausifier.addTermAxioms(mTerm, mSource);
@@ -148,22 +148,13 @@ public class CCTermBuilder {
 
 		@Override
 		public void perform() {
-			final CCTerm[] args = new CCTerm[mAppTerm.getParameters().length];
-			Rational[] argOffsets = null;
+			final CCParameter[] args = new CCParameter[mAppTerm.getParameters().length];
 			for (int i = args.length - 1; i >= 0; i--) {
 				args[i] = mConverted.pop();
-				final Rational offset = mOffsets.pop();
-				if (!offset.equals(Rational.ZERO)) {
-					if (argOffsets == null) {
-						argOffsets = new Rational[args.length];
-						java.util.Arrays.fill(argOffsets, Rational.ZERO);
-					}
-					argOffsets[i] = offset;
-				}
 			}
 			assert mClausifier.getCCTerm(mAppTerm) == null;
 			final CCTerm ccTerm =
-					mClausifier.getCClosure().createAppTerm(mAppTerm.getFunction(), args, argOffsets, mSource);
+					mClausifier.getCClosure().createAppTerm(mAppTerm.getFunction(), args, mSource);
 			mClausifier.getCClosure().addTerm(ccTerm, mAppTerm);
 			mClausifier.shareCCTerm(mAppTerm, ccTerm);
 			mClausifier.addTermAxioms(mAppTerm, mSource);

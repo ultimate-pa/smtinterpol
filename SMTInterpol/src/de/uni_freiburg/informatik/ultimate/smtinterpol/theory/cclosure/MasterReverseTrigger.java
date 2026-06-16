@@ -63,7 +63,7 @@ public final class MasterReverseTrigger extends ReverseTrigger {
 	}
 
 	@Override
-	public CCTerm getArgument() {
+	public CCParameter getArgument() {
 		return null;
 	}
 

@@ -721,12 +721,15 @@ public class CCProofGenerator {
 			return null;
 		}
 
-		final CCTerm[] firstArgs = firstApp.getArguments();
-		final CCTerm[] secondArgs = secondApp.getArguments();
-		assert firstArgs.length == secondArgs.length;
-		for (int i = 0; i < firstArgs.length; i++) {
-			if (firstArgs[i] != secondArgs[i]) {
-				final SymmetricPair<CCTerm> argPair = new SymmetricPair<>(firstArgs[i], secondArgs[i]);
+		// TODO offset equalities: compares the offset-free argument terms; offset-aware proof generation (pairing on
+		// the CCParameter, i.e. getArgParam(i), so equal-by-value-but-different-offset args are handled) is not done
+		// yet.
+		assert firstApp.getArgCount() == secondApp.getArgCount();
+		for (int i = 0; i < firstApp.getArgCount(); i++) {
+			final CCTerm firstArg = firstApp.getArgParam(i).getCCTerm();
+			final CCTerm secondArg = secondApp.getArgParam(i).getCCTerm();
+			if (firstArg != secondArg) {
+				final SymmetricPair<CCTerm> argPair = new SymmetricPair<>(firstArg, secondArg);
 				if (isEqualityLiteral(argPair)) {
 					proofInfo.addLiteral(mEqualityLiterals.get(argPair));
 				} else if (mPathProofMap.containsKey(argPair)) {

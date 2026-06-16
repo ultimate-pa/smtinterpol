@@ -294,21 +294,15 @@ public class CClosure implements ITheory {
 		}
 	}
 
-	public CCTerm createAppTerm(FunctionSymbol func, final CCTerm[] args, final SourceAnnotation source) {
-		return createAppTerm(func, args, null, source);
-	}
-
 	/**
-	 * Create a function application CCTerm. The optional {@code argOffsets} array carries the constant offset of each
-	 * argument, so that the actual argument is {@code args[i] + argOffsets[i]} (used for offset-free arguments like the
-	 * {@code +5} in {@code f(x+5)}). It may be {@code null} when every offset is zero.
+	 * Create a function application CCTerm. Each argument is a {@link CCParameter}, i.e. a CCTerm together with a
+	 * constant offset, so the actual argument is {@code args[i].getCCTerm() + args[i].getOffset()} (the offset carries
+	 * e.g. the {@code +5} in {@code f(x+5)}). Offset-free arguments are bare {@link CCTerm}s.
 	 */
-	public CCTerm createAppTerm(FunctionSymbol func, final CCTerm[] args, final Rational[] argOffsets,
-			final SourceAnnotation source) {
+	public CCTerm createAppTerm(FunctionSymbol func, final CCParameter[] args, final SourceAnnotation source) {
 		assert args.length > 0;
 		if (args.length > 0) {
 			final CCAppTerm term = new CCAppTerm(func, args, this, source.isFromQuantTheory());
-			term.mArgOffsets = argOffsets;
 			if (term.getAge() > 0) {
 				getLogger().debug("Create new AppTerm %s of age %d", term, term.getAge());
 			}

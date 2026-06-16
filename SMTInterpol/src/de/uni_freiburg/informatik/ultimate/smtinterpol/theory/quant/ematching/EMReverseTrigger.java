@@ -22,6 +22,7 @@ import java.util.Arrays;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 
 /**
@@ -55,7 +56,7 @@ public class EMReverseTrigger extends de.uni_freiburg.informatik.ultimate.smtint
 	}
 
 	@Override
-	public CCTerm getArgument() {
+	public CCParameter getArgument() {
 		return mArg;
 	}
 
@@ -75,7 +76,8 @@ public class EMReverseTrigger extends de.uni_freiburg.informatik.ultimate.smtint
 		updatedRegister[mOutRegIndex] = appTerm;
 
 		if (mArg != null) { // Reverse
-			final CCTerm candArg = appTerm.getArgument(mArgPos);
+			// e-matching arguments are offset-free; use the structural CCTerm for the path comparison
+			final CCTerm candArg = appTerm.getArgParam(mArgPos).getCCTerm();
 			final int termDecisionLevel = mEMatching.getQuantTheory().getCClosure()
 					.getDecideLevelForPath(mArg, candArg);
 

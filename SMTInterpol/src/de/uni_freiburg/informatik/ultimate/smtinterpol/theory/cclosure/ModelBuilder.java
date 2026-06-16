@@ -296,11 +296,11 @@ public class ModelBuilder {
 	}
 
 	private void addApp(final Model model, final CCAppTerm app, final Term value, final Theory t) {
-		CCTerm[] ccArgs = app.getArguments();
-		Term[] args = new Term[ccArgs.length];
+		Term[] args = new Term[app.getArgCount()];
 		for (int i = 0; i < args.length; i++) {
-			// the actual argument is ccArgs[i] + structural offset, evaluated at its model value
-			args[i] = getModelValueWithOffset(ccArgs[i], app.getArgOffset(i));
+			// the actual argument is the CCParameter's term + offset, evaluated at its model value
+			final CCParameter argParam = app.getArgParam(i);
+			args[i] = getModelValueWithOffset(argParam.getCCTerm(), argParam.getOffset());
 		}
 		final FunctionSymbol fs = app.getFunctionSymbol();
 		if (!fs.isIntern() || isUndefinedFor(fs, args)) {

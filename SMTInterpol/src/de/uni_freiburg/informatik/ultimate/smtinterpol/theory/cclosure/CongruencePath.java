@@ -149,10 +149,12 @@ public class CongruencePath {
 	 * @param end the other function application term.
 	 */
 	private void computeCCPath(CCAppTerm start, CCAppTerm end) {
-		CCTerm[] startArgs = start.getArguments();
-		CCTerm[] endArgs = end.getArguments();
-		for (int i = 0; i < startArgs.length; i++) {
-			mTodo.addFirst(new SymmetricPair<>(startArgs[i], endArgs[i]));
+		// TODO offset equalities: this pairs the offset-free argument terms, which is correct for clause extraction
+		// (there is at most one offset-equality edge between corresponding args, so computePathTo collects it), but
+		// loses the offset for the recorded path/annotation. To make offset proofs readable the annotation should
+		// carry the CCParameter (getArgParam(i)) rather than the bare CCTerm.
+		for (int i = 0; i < start.getArgCount(); i++) {
+			mTodo.addFirst(new SymmetricPair<>(start.getArgParam(i).getCCTerm(), end.getArgParam(i).getCCTerm()));
 		}
 	}
 

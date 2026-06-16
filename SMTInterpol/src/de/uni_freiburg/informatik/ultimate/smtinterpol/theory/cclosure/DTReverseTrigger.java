@@ -57,7 +57,7 @@ public class DTReverseTrigger extends ReverseTrigger {
 	}
 
 	@Override
-	public CCTerm getArgument() {
+	public CCParameter getArgument() {
 		return mArg;
 	}
 
@@ -77,9 +77,11 @@ public class DTReverseTrigger extends ReverseTrigger {
 		mClausifier.getLogger().debug("DTReverseTrigger: %s on %s", appTerm, mArg);
 		final ApplicationTerm argAT = (ApplicationTerm) mArg.mFlatTerm;
 		final SymmetricPair<CCTerm>[] reason;
-		if (appTerm.getArgument(0) != mArg) {
+		// data type constructor arguments are offset-free, so the structural CCTerm is the value
+		final CCTerm appArg = appTerm.getArgParam(0).getCCTerm();
+		if (appArg != mArg) {
 			reason = new SymmetricPair[] {
-				new SymmetricPair<>(appTerm.getArgument(0), mArg)
+				new SymmetricPair<>(appArg, mArg)
 			};
 		} else {
 			reason = new SymmetricPair[0];

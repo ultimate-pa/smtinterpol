@@ -451,7 +451,7 @@ public class QuantClause {
 			final BitSet pos = entry.getValue();
 			for (int i = pos.nextSetBit(0); i >= 0; i = pos.nextSetBit(i + 1)) {
 				for (CCAppTerm appTerm : mQuantTheory.getCClosure().getAllFuncApps(func)) {
-					interestingTerms.add(appTerm.getArgument(i).getFlatTerm());
+					interestingTerms.add(appTerm.getArgParam(i).getCCTerm().getFlatTerm());
 				}
 			}
 		}

@@ -1040,12 +1040,12 @@ public class ArrayTheory implements ITheory {
 
 	public static CCTerm getArrayFromSelect(final CCAppTerm select) {
 		assert isSelectTerm(select);
-		return select.getArgument(0);
+		return select.getArgParam(0).getCCTerm();
 	}
 
 	public static CCTerm getIndexFromSelect(final CCAppTerm select) {
 		assert isSelectTerm(select);
-		return select.getArgument(1);
+		return select.getArgParam(1).getCCTerm();
 	}
 
 	/**
@@ -1059,12 +1059,12 @@ public class ArrayTheory implements ITheory {
 
 	public static CCTerm getArrayFromStore(final CCAppTerm store) {
 		assert isStoreTerm(store);
-		return store.getArgument(0);
+		return store.getArgParam(0).getCCTerm();
 	}
 
 	public static CCTerm getIndexFromStore(final CCAppTerm store) {
 		assert isStoreTerm(store);
-		return store.getArgument(1);
+		return store.getArgParam(1).getCCTerm();
 	}
 
 	/**
@@ -1078,22 +1078,22 @@ public class ArrayTheory implements ITheory {
 
 	public static CCTerm getValueFromStore(final CCAppTerm store) {
 		assert isStoreTerm(store);
-		return store.getArgument(2);
+		return store.getArgParam(2).getCCTerm();
 	}
 
 	public static CCTerm getValueFromConst(final CCAppTerm constArr) {
 		assert isConstTerm(constArr);
-		return constArr.getArgument(0);
+		return constArr.getArgParam(0).getCCTerm();
 	}
 
 	public static CCTerm getLeftFromDiff(final CCAppTerm diff) {
 		assert isDiffTerm(diff);
-		return diff.getArgument(0);
+		return diff.getArgParam(0).getCCTerm();
 	}
 
 	public static CCTerm getRightFromDiff(final CCAppTerm diff) {
 		assert isDiffTerm(diff);
-		return diff.getArgument(1);
+		return diff.getArgParam(1).getCCTerm();
 	}
 
 	public static Sort getArraySortFromSelect(final CCAppTerm select) {
