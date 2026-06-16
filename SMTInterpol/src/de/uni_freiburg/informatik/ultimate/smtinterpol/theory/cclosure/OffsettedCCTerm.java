@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * A {@link CCParameter} with a non-zero constant offset, i.e. the value {@code mTerm + mOffset}. Offset-free values are
@@ -49,6 +50,12 @@ public final class OffsettedCCTerm implements CCParameter {
 	@Override
 	public Rational getOffset() {
 		return mOffset;
+	}
+
+	@Override
+	public Term getFlatTerm() {
+		final Term term = mTerm.getFlatTerm();
+		return term.getTheory().term("+", term, mOffset.toTerm(term.getSort()));
 	}
 
 	@Override

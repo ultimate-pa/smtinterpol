@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
 
 /**
  * A value of the form {@code getCCTerm() + getOffset()}: a CCTerm together with a constant offset. This is what every
@@ -44,6 +45,13 @@ public interface CCParameter {
 
 	/** The constant offset added to the CCTerm; {@link Rational#ZERO} for a bare {@link CCTerm}. */
 	Rational getOffset();
+
+	/**
+	 * The SMT-LIB term denoting this value: the underlying term when the offset is zero, otherwise {@code (+ term
+	 * offset)}. A bare {@link CCTerm} returns its own flat term unchanged, so offset-free uses are byte-identical; only
+	 * a non-zero (necessarily numeric) offset builds the sum.
+	 */
+	Term getFlatTerm();
 
 	/** The representative of the underlying CCTerm's congruence class. */
 	default CCTerm getRepresentative() {
