@@ -213,7 +213,7 @@ public class DataTypeTheory implements ITheory {
 				final ApplicationTerm at = (ApplicationTerm) t.mFlatTerm;
 				final CCAppTerm trueIsApp = (CCAppTerm) t;
 				if (at.getFunction().getName() == "is") {
-					final CCTerm argRep = trueIsApp.getArgParam(0).getCCTerm().getRepresentative();
+					final CCTerm argRep = ((CCTerm) trueIsApp.getArgParam(0)).getRepresentative();
 					if (!visited.containsKey(argRep)) {
 						visited.put(argRep, trueIsApp);
 						addConstructorLemma(trueIsApp);
@@ -228,8 +228,9 @@ public class DataTypeTheory implements ITheory {
 							final ArrayList<SymmetricPair<CCTerm>> reason = new ArrayList<>();
 							reason.add(new SymmetricPair<>(prevIsApp, trueCC));
 							reason.add(new SymmetricPair<>(trueIsApp, trueCC));
-							if (prevIsApp.getArgParam(0).getCCTerm() != trueIsApp.getArgParam(0).getCCTerm()) {
-								reason.add(new SymmetricPair<>(prevIsApp.getArgParam(0).getCCTerm(), trueIsApp.getArgParam(0).getCCTerm()));
+							if ((CCTerm) prevIsApp.getArgParam(0) != (CCTerm) trueIsApp.getArgParam(0)) {
+								reason.add(new SymmetricPair<>((CCTerm) prevIsApp.getArgParam(0),
+										(CCTerm) trueIsApp.getArgParam(0)));
 							}
 							final Term[] testers = new Term[2];
 							testers[0] = prevIsApp.mFlatTerm;
@@ -252,7 +253,7 @@ public class DataTypeTheory implements ITheory {
 			if (cct instanceof CCAppTerm) {
 				final CCAppTerm appTerm = (CCAppTerm) cct;
 				if (appTerm.getFunctionSymbol().getName().equals(SMTLIBConstants.IS)) {
-					final CCTerm arg = appTerm.getArgParam(0).getCCTerm();
+					final CCTerm arg = (CCTerm) appTerm.getArgParam(0);
 					falseIsFuns.putIfAbsent(arg.getRepresentative(), new LinkedHashSet<>());
 					falseIsFuns.get(arg.getRepresentative()).add(appTerm);
 				}
@@ -279,7 +280,7 @@ public class DataTypeTheory implements ITheory {
 					for (final Constructor consName : dt.getConstructors()) {
 						final CCAppTerm isFun = isIndices.get(consName.getName());
 						testers[i++] = isFun.mFlatTerm;
-						final CCTerm arg = isFun.getArgParam(0).getCCTerm();
+						final CCTerm arg = (CCTerm) isFun.getArgParam(0);
 						reason.add(new SymmetricPair<>(isFun, falseCC));
 						if (firstArg == null) {
 							firstArg = arg;
@@ -423,7 +424,7 @@ public class DataTypeTheory implements ITheory {
 			final CCAppTerm appTerm = (CCAppTerm) ccTerm;
 			final FunctionSymbol fs = appTerm.getFunctionSymbol();
 			if (fs.isSelector() || fs.getName().equals(SMTLIBConstants.IS)) {
-				final CCTerm argTerm = appTerm.getArgParam(0).getCCTerm();
+				final CCTerm argTerm = (CCTerm) appTerm.getArgParam(0);
 				final CCTerm consTerm = argTerm.getRepresentative().getSharedTerm();
 				if (consTerm != null) {
 					final ApplicationTerm consApp = (ApplicationTerm) consTerm.getFlatTerm();
@@ -627,7 +628,7 @@ public class DataTypeTheory implements ITheory {
 				// Get the corresponding tester or create it if it does not exists.
 				// If it exists, the corresponding tester is true.
 				final CCAppTerm selectTerm = (CCAppTerm) currentAsChild;
-				prevAsParent = selectTerm.getArgParam(0).getCCTerm();
+				prevAsParent = (CCTerm) selectTerm.getArgParam(0);
 				final FunctionSymbol selectorFunc = selectTerm.getFunctionSymbol();
 				final Constructor cons = getConstructor(selectorFunc);
 				final Term isTerm = mTheory.term(mTheory.getFunctionWithResult(SMTLIBConstants.IS, new String[] { cons.getName() },
@@ -730,7 +731,7 @@ public class DataTypeTheory implements ITheory {
 			ApplicationTerm constructor = null;
 			final CCAppTerm checkTerm = iter.next();
 			final FunctionSymbol selectorOrTester = checkTerm.getFunctionSymbol();
-			final CCTerm selectOrIsArg = checkTerm.getArgParam(0).getCCTerm();
+			final CCTerm selectOrIsArg = (CCTerm) checkTerm.getArgParam(0);
 			assert selectorOrTester.isSelector() || selectorOrTester.getName().equals(SMTLIBConstants.IS);
 			for (final CCTerm ct : selectOrIsArg.getRepresentative().mMembers) {
 				if (ct.mFlatTerm instanceof ApplicationTerm && ((ApplicationTerm) ct.mFlatTerm).getFunction().isConstructor()) {
@@ -832,7 +833,7 @@ public class DataTypeTheory implements ITheory {
 	 */
 	private void addConstructorLemma(final CCAppTerm isTerm) {
 		// check if there is already a constructor application equal to the argument
-		final CCTerm arg = isTerm.getArgParam(0).getCCTerm();
+		final CCTerm arg = (CCTerm) isTerm.getArgParam(0);
 		if (arg.getRepresentative().getSharedTerm() != null) {
 			// We don't care which constructor it is. If it's the wrong constructor
 			// there should already be a trigger that set the isTerm to false.

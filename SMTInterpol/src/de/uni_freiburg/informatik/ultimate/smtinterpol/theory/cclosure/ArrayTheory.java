@@ -1040,7 +1040,8 @@ public class ArrayTheory implements ITheory {
 
 	public static CCTerm getArrayFromSelect(final CCAppTerm select) {
 		assert isSelectTerm(select);
-		return select.getArgParam(0).getCCTerm();
+		// the array argument is never numeric; the cast asserts it carries no offset
+		return (CCTerm) select.getArgParam(0);
 	}
 
 	public static CCTerm getIndexFromSelect(final CCAppTerm select) {
@@ -1059,7 +1060,8 @@ public class ArrayTheory implements ITheory {
 
 	public static CCTerm getArrayFromStore(final CCAppTerm store) {
 		assert isStoreTerm(store);
-		return store.getArgParam(0).getCCTerm();
+		// the array argument is never numeric; the cast asserts it carries no offset
+		return (CCTerm) store.getArgParam(0);
 	}
 
 	public static CCTerm getIndexFromStore(final CCAppTerm store) {
@@ -1088,12 +1090,14 @@ public class ArrayTheory implements ITheory {
 
 	public static CCTerm getLeftFromDiff(final CCAppTerm diff) {
 		assert isDiffTerm(diff);
-		return diff.getArgParam(0).getCCTerm();
+		// diff arguments are arrays, never numeric; the cast asserts they carry no offset
+		return (CCTerm) diff.getArgParam(0);
 	}
 
 	public static CCTerm getRightFromDiff(final CCAppTerm diff) {
 		assert isDiffTerm(diff);
-		return diff.getArgParam(1).getCCTerm();
+		// diff arguments are arrays, never numeric; the cast asserts they carry no offset
+		return (CCTerm) diff.getArgParam(1);
 	}
 
 	public static Sort getArraySortFromSelect(final CCAppTerm select) {

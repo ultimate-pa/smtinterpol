@@ -77,8 +77,9 @@ public class DTReverseTrigger extends ReverseTrigger {
 		mClausifier.getLogger().debug("DTReverseTrigger: %s on %s", appTerm, mArg);
 		final ApplicationTerm argAT = (ApplicationTerm) mArg.mFlatTerm;
 		final SymmetricPair<CCTerm>[] reason;
-		// data type constructor arguments are offset-free, so the structural CCTerm is the value
-		final CCTerm appArg = appTerm.getArgParam(0).getCCTerm();
+		// this trigger fires on a selector/tester, whose argument is the datatype value (never numeric, so offset-free);
+		// the cast asserts that no-offset assumption at runtime
+		final CCTerm appArg = (CCTerm) appTerm.getArgParam(0);
 		if (appArg != mArg) {
 			reason = new SymmetricPair[] {
 				new SymmetricPair<>(appArg, mArg)
