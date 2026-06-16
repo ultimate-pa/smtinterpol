@@ -126,10 +126,20 @@ public class CongruencePath {
 		}
 	}
 
-	final HashMap<SymmetricPair<CCParameter>,SubPath> mVisited;
+	/**
+	 * Visited subpaths, keyed by the <em>offset-free</em> end terms. Two requested paths that differ only by a constant
+	 * offset (e.g. {@code x+5 = y+7} and {@code x+7 = y+9}, both for the edge {@code x = y+2}) share one key, so only a
+	 * single subpath is built; consumers (e.g. {@link CCProofGenerator}) absorb the per-use constant difference.
+	 */
+	final HashMap<SymmetricPair<CCTerm>,SubPath> mVisited;
 	final ArrayDeque<SubPath> mAllPaths;
 	final ArrayDeque<SymmetricPair<CCParameter>> mTodo;
 	final Set<Literal> mAllLiterals;
+
+	/** The offset-free end terms of a parameter pair, used as the {@link #mVisited} key. */
+	private static SymmetricPair<CCTerm> offsetFreeKey(final SymmetricPair<CCParameter> ends) {
+		return new SymmetricPair<>(ends.getFirst().getCCTerm(), ends.getSecond().getCCTerm());
+	}
 
 	public CongruencePath(final CClosure closure) {
 		mClosure = closure;
@@ -251,7 +261,7 @@ public class CongruencePath {
 			return null;
 		}
 
-		final SymmetricPair<CCParameter> key = new SymmetricPair<>(left, right);
+		final SymmetricPair<CCTerm> key = new SymmetricPair<>(leftTerm, rightTerm);
 		if (mVisited.containsKey(key)) {
 			return mVisited.get(key);
 		}
@@ -317,7 +327,7 @@ public class CongruencePath {
 	 *            the right end of the congruence chain that should be evaluated.
 	 */
 	public void computePath(final CCParameter left, final CCParameter right) {
-		final HashSet<SymmetricPair<CCParameter>> added = new HashSet<>();
+		final HashSet<SymmetricPair<CCTerm>> added = new HashSet<>();
 		mTodo.add(new SymmetricPair<>(left, right));
 		while (!mTodo.isEmpty()) {
 			final SymmetricPair<CCParameter> pathEnds = mTodo.removeFirst();
@@ -327,15 +337,15 @@ public class CongruencePath {
 				continue;
 			}
 
-			// check if we already visited this path
-			final SubPath path = mVisited.get(pathEnds);
+			// check if we already visited this path (keyed offset-free, so offset variants share one subpath)
+			final SubPath path = mVisited.get(offsetFreeKey(pathEnds));
 			if (path == null) {
 				// if we did not visit it yet, enqueue again for later and visit the path
 				mTodo.addFirst(pathEnds);
 				computePathNonRecursive(pathEnds.getFirst(), pathEnds.getSecond());
 			} else {
 				// already visited it, so we just add the path now unless we did this earlier
-				if (added.add(pathEnds)) {
+				if (added.add(offsetFreeKey(pathEnds))) {
 					mAllPaths.addFirst(path);
 				}
 			}
