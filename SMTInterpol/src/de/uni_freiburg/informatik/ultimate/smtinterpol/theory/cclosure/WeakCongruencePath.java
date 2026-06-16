@@ -95,7 +95,8 @@ public class WeakCongruencePath extends CongruencePath {
 				computeWeakPath(a, b, i1, produceProofs);
 		mAllPaths.addFirst(weakPath);
 
-		return generateClause(new SymmetricPair<CCTerm>(select1, select2), produceProofs, RuleKind.READ_OVER_WEAKEQ);
+		return generateClause(new SymmetricPair<CCParameter>(select1, select2), produceProofs,
+				RuleKind.READ_OVER_WEAKEQ);
 	}
 
 	public Clause computeSelectConstOverWeakEQ(final CCAppTerm select1, final CCAppTerm const2, final boolean produceProofs) {
@@ -371,9 +372,11 @@ public class WeakCongruencePath extends CongruencePath {
 		}
 	}
 
-	private Clause generateClause(final SymmetricPair<CCTerm> diseq, final boolean produceProofs, final RuleKind rule) {
+	private Clause generateClause(final SymmetricPair<CCParameter> diseq, final boolean produceProofs,
+			final RuleKind rule) {
 		if (diseq != null) {
-			final CCEquality eq = mArrayTheory.getCClosure().createEquality(diseq.getFirst(), diseq.getSecond(), false);
+			final CCEquality eq = mArrayTheory.getCClosure().createEquality(diseq.getFirst().getCCTerm(),
+					diseq.getSecond().getCCTerm(), false);
 			if (eq != null) {
 				// Note that it can actually happen that diseq is already in
 				// the list of all literals (because it is an index assumption).
@@ -394,7 +397,7 @@ public class WeakCongruencePath extends CongruencePath {
 		return c;
 	}
 
-	private CCAnnotation createAnnotation(final SymmetricPair<CCTerm> diseq, final RuleKind rule) {
+	private CCAnnotation createAnnotation(final SymmetricPair<CCParameter> diseq, final RuleKind rule) {
 		return new CCAnnotation(diseq, mAllPaths, rule);
 	}
 }

@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
@@ -56,20 +57,43 @@ public class CongruencePath {
 	 */
 	public static class SubPath {
 		ArrayList<CCTerm> mTermsOnPath;
+		/** The anchor (first node) of the path and its offset; the offset of every other node is derived from it. */
+		final CCTerm mStart;
+		final Rational mStartOffset;
 
-		public SubPath(final CCTerm start) {
+		public SubPath(final CCParameter start) {
 			this(start, true);
 		}
 
-		public SubPath(final CCTerm start, final boolean produceProofs) {
+		public SubPath(final CCParameter start, final boolean produceProofs) {
+			mStart = start.getCCTerm();
+			mStartOffset = start.getOffset();
 			if (produceProofs) {
 				mTermsOnPath = new ArrayList<>();
-				mTermsOnPath.add(start);
+				mTermsOnPath.add(mStart);
 			}
 		}
 
+		/** The offset-free terms on the path. */
 		public CCTerm[] getTerms() {
 			return mTermsOnPath.toArray(new CCTerm[mTermsOnPath.size()]);
+		}
+
+		/**
+		 * The path nodes as {@link CCParameter}s. All nodes are in one congruence class, and the offsets are chosen so
+		 * that every node has the same value as the anchor (the first node): {@code value(node) + offset == value(start)
+		 * + startOffset}. So if {@code x = y+4} and {@code y = z+2}, a path anchored at {@code x+2} reads
+		 * {@code x+2, y+6, z+8}. The relative offsets are intrinsic ({@code mOffsetToRep} differences), so this is stable
+		 * under {@link #addSubPath} concatenation regardless of the appended pieces' own anchors.
+		 */
+		public CCParameter[] getParams() {
+			final CCParameter[] params = new CCParameter[mTermsOnPath.size()];
+			for (int i = 0; i < params.length; i++) {
+				final CCTerm t = mTermsOnPath.get(i);
+				final Rational off = mStartOffset.add(mStart.mOffsetToRep).sub(t.mOffsetToRep);
+				params[i] = CCParameter.of(t, off);
+			}
+			return params;
 		}
 
 		public void addEntry(final CCTerm term, final CCEquality reason) {
@@ -102,9 +126,9 @@ public class CongruencePath {
 		}
 	}
 
-	final HashMap<SymmetricPair<CCTerm>,SubPath> mVisited;
+	final HashMap<SymmetricPair<CCParameter>,SubPath> mVisited;
 	final ArrayDeque<SubPath> mAllPaths;
-	final ArrayDeque<SymmetricPair<CCTerm>> mTodo;
+	final ArrayDeque<SymmetricPair<CCParameter>> mTodo;
 	final Set<Literal> mAllLiterals;
 
 	public CongruencePath(final CClosure closure) {
@@ -115,7 +139,7 @@ public class CongruencePath {
 		mAllPaths = new ArrayDeque<>();
 	}
 
-	private CCAnnotation createAnnotation(final SymmetricPair<CCTerm> diseq) {
+	private CCAnnotation createAnnotation(final SymmetricPair<CCParameter> diseq) {
 		return new CCAnnotation(diseq, mAllPaths, CCAnnotation.RuleKind.CONG);
 	}
 
@@ -149,12 +173,10 @@ public class CongruencePath {
 	 * @param end the other function application term.
 	 */
 	private void computeCCPath(CCAppTerm start, CCAppTerm end) {
-		// TODO offset equalities: this pairs the offset-free argument terms, which is correct for clause extraction
-		// (there is at most one offset-equality edge between corresponding args, so computePathTo collects it), but
-		// loses the offset for the recorded path/annotation. To make offset proofs readable the annotation should
-		// carry the CCParameter (getArgParam(i)) rather than the bare CCTerm.
+		// Pair the argument values (CCParameters), so the recorded subpath for each argument is anchored at the
+		// argument's offset, e.g. f(x+2) congruent f(z+8) yields a subpath from x+2 to z+8.
 		for (int i = 0; i < start.getArgCount(); i++) {
-			mTodo.addFirst(new SymmetricPair<>(start.getArgParam(i).getCCTerm(), end.getArgParam(i).getCCTerm()));
+			mTodo.addFirst(new SymmetricPair<>(start.getArgParam(i), end.getArgParam(i)));
 		}
 	}
 
@@ -178,9 +200,10 @@ public class CongruencePath {
 	 * @return the sub path from t to end, if proof production is enabled.
 	 *   Without proof production, this returns null.
 	 */
-	private SubPath computePathTo(CCTerm t, final CCTerm end) {
+	private SubPath computePathTo(final CCParameter startParam, final CCTerm end) {
 		final SubPath path =
-				new SubPath(t, mClosure.isProofGenerationEnabled());
+				new SubPath(startParam, mClosure.isProofGenerationEnabled());
+		CCTerm t = startParam.getCCTerm();
 		CCTerm startCongruence = t;
 		while (t != end) {
 			if (t.mOldRep.mReasonLiteral != null) {
@@ -220,21 +243,23 @@ public class CongruencePath {
 	 * @param left the left end of the congruence chain that should be evaluated.
 	 * @param right the right end of the congruence chain that should be evaluated.
 	 */
-	SubPath computePathNonRecursive(final CCTerm left, final CCTerm right) {
-		/* check for and ignore trivial paths */
-		if (left == right) {
+	SubPath computePathNonRecursive(final CCParameter left, final CCParameter right) {
+		final CCTerm leftTerm = left.getCCTerm();
+		final CCTerm rightTerm = right.getCCTerm();
+		/* check for and ignore trivial paths (the offsets coincide for a genuine congruence) */
+		if (leftTerm == rightTerm) {
 			return null;
 		}
 
-		final SymmetricPair<CCTerm> key = new SymmetricPair<>(left, right);
+		final SymmetricPair<CCParameter> key = new SymmetricPair<>(left, right);
 		if (mVisited.containsKey(key)) {
 			return mVisited.get(key);
 		}
 
-		int leftDepth = computeDepth(left);
-		int rightDepth = computeDepth(right);
-		CCTerm ll = left;
-		CCTerm rr = right;
+		int leftDepth = computeDepth(leftTerm);
+		int rightDepth = computeDepth(rightTerm);
+		CCTerm ll = leftTerm;
+		CCTerm rr = rightTerm;
 		CCTerm llWithReason = ll, rrWithReason = rr;
 		while (leftDepth > rightDepth) {
 			if (ll.mOldRep.mReasonLiteral != null) {
@@ -291,14 +316,14 @@ public class CongruencePath {
 	 * @param right
 	 *            the right end of the congruence chain that should be evaluated.
 	 */
-	public void computePath(final CCTerm left, final CCTerm right) {
-		final HashSet<SymmetricPair<CCTerm>> added = new HashSet<>();
+	public void computePath(final CCParameter left, final CCParameter right) {
+		final HashSet<SymmetricPair<CCParameter>> added = new HashSet<>();
 		mTodo.add(new SymmetricPair<>(left, right));
 		while (!mTodo.isEmpty()) {
-			final SymmetricPair<CCTerm> pathEnds = mTodo.removeFirst();
+			final SymmetricPair<CCParameter> pathEnds = mTodo.removeFirst();
 
 			// don't do anything for trivial paths
-			if (pathEnds.getFirst() == pathEnds.getSecond()) {
+			if (pathEnds.getFirst().getCCTerm() == pathEnds.getSecond().getCCTerm()) {
 				continue;
 			}
 
@@ -392,12 +417,9 @@ public class CongruencePath {
 		}
 		final Clause c = new Clause(negLits);
 		if (produceProofs) {
-			// TODO offset equalities: the proof annotation still uses the offset-free terms of the propagated
-			// equality; offset-aware datatype proofs (pairing on the CCParameter) are not done yet.
-			final SymmetricPair<CCParameter> mainEq = lemma.getMainEquality();
-			final SymmetricPair<CCTerm> diseq = mainEq == null ? null
-					: new SymmetricPair<>(mainEq.getFirst().getCCTerm(), mainEq.getSecond().getCCTerm());
-			c.setProof(new LeafNode(LeafNode.THEORY_DT, new CCAnnotation(diseq, mAllPaths, lemma)));
+			// the main equality carries the offset of a numeric constructor field; CCAnnotation keeps both the
+			// CCParameter view (with offset) and the offset-free CCTerm view used by the current proof generator.
+			c.setProof(new LeafNode(LeafNode.THEORY_DT, new CCAnnotation(lemma.getMainEquality(), mAllPaths, lemma)));
 		}
 		return c;
 	}

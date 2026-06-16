@@ -225,16 +225,27 @@ public class CCAnnotation implements IAnnotation {
 	final RuleKind mRule;
 
 	/**
-	 * The disequality of the theory lemma. This is the only positive atom in the
-	 * generated theory clause. If this is null, then the first and last element in
-	 * the main paths are distinct terms.
+	 * The disequality of the theory lemma as a pair of {@link CCParameter}s (so a numeric side keeps its offset). This
+	 * is the only positive atom in the generated theory clause. If this is null, then the first and last element in the
+	 * main paths are distinct terms.
+	 */
+	final SymmetricPair<CCParameter> mDiseqParam;
+
+	/**
+	 * The offset-free view of {@link #mDiseqParam}, kept as a stable object for the current (offset-free) proof
+	 * generator, which compares it by identity.
 	 */
 	final SymmetricPair<CCTerm> mDiseq;
 
 	/**
-	 * A sequence of paths. The main path with index 0 must always exist and explain
-	 * the diseq. The other paths must be in such an order that later paths explain
+	 * A sequence of paths, as {@link CCParameter}s with offsets (e.g. {@code x+2, y+6, z+8}). The main path with index 0
+	 * must always exist and explain the diseq. The other paths must be in such an order that later paths explain
 	 * congruences on earlier.
+	 */
+	final CCParameter[][] mParamPaths;
+
+	/**
+	 * The offset-free view of {@link #mParamPaths}, used by the current proof generator.
 	 */
 	final CCTerm[][] mPaths;
 
@@ -242,31 +253,35 @@ public class CCAnnotation implements IAnnotation {
 
 	final DataTypeLemma mDTLemma;
 
-	public CCAnnotation(final SymmetricPair<CCTerm> diseq, final Collection<SubPath> paths, final RuleKind rule) {
-		mDiseq = diseq;
+	private static SymmetricPair<CCTerm> offsetFreeDiseq(final SymmetricPair<CCParameter> diseq) {
+		return diseq == null ? null
+				: new SymmetricPair<>(diseq.getFirst().getCCTerm(), diseq.getSecond().getCCTerm());
+	}
+
+	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule) {
+		this(diseq, paths, rule, null);
+	}
+
+	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths,
+			final DataTypeLemma lemma) {
+		this(diseq, paths, lemma.getRule(), lemma);
+	}
+
+	private CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule,
+			final DataTypeLemma lemma) {
+		mDiseqParam = diseq;
+		mDiseq = offsetFreeDiseq(diseq);
+		mParamPaths = new CCParameter[paths.size()][];
 		mPaths = new CCTerm[paths.size()][];
 		mWeakIndices = new CCTerm[mPaths.length];
 		int i = 0;
 		for (final SubPath p : paths) {
+			mParamPaths[i] = p.getParams();
 			mPaths[i] = p.getTerms();
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
 			i++;
 		}
 		mRule = rule;
-		mDTLemma = null;
-	}
-
-	public CCAnnotation(final SymmetricPair<CCTerm> diseq, final Collection<SubPath> paths, final DataTypeLemma lemma) {
-		mDiseq = diseq;
-		mPaths = new CCTerm[paths.size()][];
-		mWeakIndices = new CCTerm[mPaths.length];
-		int i = 0;
-		for (final SubPath p : paths) {
-			mPaths[i] = p.getTerms();
-			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
-			i++;
-		}
-		mRule = lemma.getRule();
 		mDTLemma = lemma;
 	}
 
@@ -274,8 +289,18 @@ public class CCAnnotation implements IAnnotation {
 		return mDiseq;
 	}
 
+	/** The disequality with offsets. */
+	public SymmetricPair<CCParameter> getDiseqParam() {
+		return mDiseqParam;
+	}
+
 	public CCTerm[][] getPaths() {
 		return mPaths;
+	}
+
+	/** The paths with offsets. */
+	public CCParameter[][] getParamPaths() {
+		return mParamPaths;
 	}
 
 	public CCTerm[] getWeakIndices() {
@@ -305,8 +330,8 @@ public class CCAnnotation implements IAnnotation {
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
 		sb.append('(');
-		sb.append(mDiseq);
-		for (int i = 0; i < mPaths.length; i++) {
+		sb.append(mDiseqParam);
+		for (int i = 0; i < mParamPaths.length; i++) {
 			if (mWeakIndices[i] != null) {
 				sb.append(" :weak ").append(mWeakIndices[i]).append(' ');
 			} else {
@@ -314,8 +339,8 @@ public class CCAnnotation implements IAnnotation {
 			}
 			sb.append("(");
 			String comma = "";
-			for (final CCTerm term : mPaths[i]) {
-				sb.append(comma).append(term);
+			for (final CCParameter param : mParamPaths[i]) {
+				sb.append(comma).append(param);
 				comma = " ";
 			}
 			sb.append(")");
