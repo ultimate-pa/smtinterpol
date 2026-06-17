@@ -22,6 +22,7 @@ import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -4626,6 +4627,13 @@ public class ProofSimplifier extends TermTransformer {
 	private Term resolveNeededEqualities(Term proof, final Map<SymmetricPair<Term>, Term> allEqualities,
 			final Map<SymmetricPair<Term>, Term> allDisequalities, final Set<Term> neededEqualities,
 			final Set<Term> neededDisequalities) {
+		// Offset-aware indices, built lazily: with offset equalities a needed
+		// (dis)equality may carry a different but equivalent offset rendering than the
+		// clause literal that proves it (e.g. needed (= (+ x 5) (+ y 7)) vs. clause
+		// (= x (+ y 2))). These index the clause literals by the affine fact they
+		// express so the matching literal can be found and bridged with a Farkas step.
+		Map<OffsetEqKey, Term> eqIndex = null;
+		Map<OffsetEqKey, Term> diseqIndex = null;
 		for (final Term eq : neededEqualities) {
 			assert isApplication("=", eq);
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
@@ -4636,20 +4644,130 @@ public class ProofSimplifier extends TermTransformer {
 					proof = res(eq, mProofRules.symm(eqParam[0], eqParam[1]), proof);
 				}
 			} else {
-				final Term proofEq = mProofUtils.proveTrivialEquality(eqParam[0], eqParam[1]);
-				proof = res(eq, proofEq, proof);
+				if (eqIndex == null) {
+					eqIndex = buildOffsetIndex(allEqualities.values());
+				}
+				final Object[] match = findOffsetMatch(eqParam[0], eqParam[1], eqIndex);
+				if (match != null) {
+					// bridge: prove (= eqParam0 eqParam1) from the clause literal `atom`.
+					final Term atom = (Term) match[0];
+					final Term[] atomParam = ((ApplicationTerm) atom).getParameters();
+					final Term bridge = mProofUtils.proveEqWithMultiplier(atomParam, eqParam, (Rational) match[1]);
+					proof = res(eq, bridge, proof);
+				} else {
+					final Term proofEq = mProofUtils.proveTrivialEquality(eqParam[0], eqParam[1]);
+					proof = res(eq, proofEq, proof);
+				}
 			}
 		}
 		for (final Term eq : neededDisequalities) {
 			assert isApplication("=", eq);
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
 			final Term clauseEq = allDisequalities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
-			if (clauseEq != eq) {
-				// need symmetry
+			if (clauseEq != null) {
+				if (clauseEq != eq) {
+					// need symmetry
+					proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
+				}
+				continue;
+			}
+			if (diseqIndex == null) {
+				diseqIndex = buildOffsetIndex(allDisequalities.values());
+			}
+			final Object[] match = findOffsetMatch(eqParam[0], eqParam[1], diseqIndex);
+			if (match != null) {
+				// bridge: prove the clause literal `atom` from the proved (= eqParam0 eqParam1).
+				final Term atom = (Term) match[0];
+				final Term[] atomParam = ((ApplicationTerm) atom).getParameters();
+				final Term bridge = mProofUtils.proveEqWithMultiplier(eqParam, atomParam, (Rational) match[1]);
+				proof = res(eq, proof, bridge);
+			} else {
+				// not found offset-aware either: assume present but swapped (legacy behavior).
 				proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
 			}
 		}
 		return proof;
+	}
+
+	/**
+	 * Build an index of clause (dis)equality atoms keyed by the affine fact they
+	 * express, see {@link OffsetEqKey}. The first atom for a given fact wins; this is
+	 * only used as a fallback when no syntactically identical clause literal exists.
+	 */
+	private static Map<OffsetEqKey, Term> buildOffsetIndex(final Collection<Term> atoms) {
+		final Map<OffsetEqKey, Term> index = new HashMap<>();
+		for (final Term atom : atoms) {
+			final Term[] sides = ((ApplicationTerm) atom).getParameters();
+			index.putIfAbsent(new OffsetEqKey(sides[0], sides[1]), atom);
+		}
+		return index;
+	}
+
+	/**
+	 * Look up the clause literal that expresses the same affine fact as
+	 * {@code (= a b)}, allowing for a different offset rendering. Returns
+	 * {@code {atom, multiplier}} where {@code multiplier} is the rational
+	 * {@code (a - b) / (atomLhs - atomRhs) = ±1} relating the two, or {@code null} if
+	 * no matching literal exists.
+	 */
+	private static Object[] findOffsetMatch(final Term a, final Term b, final Map<OffsetEqKey, Term> index) {
+		Term atom = index.get(new OffsetEqKey(a, b));
+		if (atom != null) {
+			return new Object[] { atom, Rational.ONE };
+		}
+		atom = index.get(new OffsetEqKey(b, a));
+		if (atom != null) {
+			return new Object[] { atom, Rational.MONE };
+		}
+		return null;
+	}
+
+	/**
+	 * A lookup key identifying an (offset) equality by the affine fact it expresses:
+	 * the non-constant parts of its two sides together with the constant offset
+	 * {@code constant(lhs) - constant(rhs)} between them. Two equalities with the same
+	 * key denote the same fact {@code lhs = rhs}, which is what lets a needed equality
+	 * like {@code (= (+ x 5) (+ y 7))} be matched against the clause literal
+	 * {@code (= x (+ y 2))}. The two non-constant parts are kept <em>separate</em>
+	 * (rather than subtracted into one difference polynomial) so that unrelated edges
+	 * whose difference polynomials coincide up to sign — e.g. {@code x+y = z+w+2} and
+	 * {@code z-y = x-w-2} — do not collide.
+	 */
+	private static final class OffsetEqKey {
+		private final Map<Map<Term, Integer>, Rational> mLhs;
+		private final Map<Map<Term, Integer>, Rational> mRhs;
+		private final Rational mOffset;
+
+		OffsetEqKey(final Term lhs, final Term rhs) {
+			final Polynomial pLhs = new Polynomial(lhs);
+			final Polynomial pRhs = new Polynomial(rhs);
+			mOffset = pLhs.getConstant().sub(pRhs.getConstant());
+			mLhs = nonConstantPart(pLhs);
+			mRhs = nonConstantPart(pRhs);
+		}
+
+		private static Map<Map<Term, Integer>, Rational> nonConstantPart(final Polynomial poly) {
+			final Map<Map<Term, Integer>, Rational> summands = new HashMap<>(poly.getSummands());
+			summands.remove(Collections.emptyMap());
+			return summands;
+		}
+
+		@Override
+		public int hashCode() {
+			return mLhs.hashCode() * 31 * 31 + mRhs.hashCode() * 31 + mOffset.hashCode();
+		}
+
+		@Override
+		public boolean equals(final Object other) {
+			if (this == other) {
+				return true;
+			}
+			if (!(other instanceof OffsetEqKey)) {
+				return false;
+			}
+			final OffsetEqKey o = (OffsetEqKey) other;
+			return mOffset.equals(o.mOffset) && mLhs.equals(o.mLhs) && mRhs.equals(o.mRhs);
+		}
 	}
 
 	/**

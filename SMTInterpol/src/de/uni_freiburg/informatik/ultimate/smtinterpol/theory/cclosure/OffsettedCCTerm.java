@@ -55,7 +55,7 @@ public final class OffsettedCCTerm implements CCParameter {
 	@Override
 	public Term getFlatTerm() {
 		final Term term = mTerm.getFlatTerm();
-		return term.getTheory().term("+", term, mOffset.toTerm(term.getSort()));
+		return CCParameter.addConstant(term, mOffset);
 	}
 
 	@Override

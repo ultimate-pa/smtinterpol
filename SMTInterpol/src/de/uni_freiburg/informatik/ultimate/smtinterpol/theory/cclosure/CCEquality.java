@@ -106,8 +106,10 @@ public class CCEquality extends DPLLAtom {
 		if (mOffset.equals(Rational.ZERO)) {
 			return smtTheory.term("=", lhs, rhs);
 		}
-		// this equality states lhs == rhs + mOffset
-		return smtTheory.term("=", lhs, smtTheory.term("+", rhs, mOffset.toTerm(rhs.getSort())));
+		// this equality states lhs == rhs + mOffset; build the right-hand side as a
+		// flattened sum (not a nested (+ rhs offset)) so the proof checker's
+		// non-recursive Polynomial parsing relates it to the original flat term.
+		return smtTheory.term("=", lhs, CCParameter.addConstant(rhs, mOffset));
 	}
 
 	@Override

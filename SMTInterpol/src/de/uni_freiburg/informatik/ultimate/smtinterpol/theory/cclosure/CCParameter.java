@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 
@@ -85,5 +86,26 @@ public interface CCParameter {
 	 */
 	static CCParameter of(final CCTerm term, final Rational offset) {
 		return offset.equals(Rational.ZERO) ? term : new OffsettedCCTerm(term, offset);
+	}
+
+	/**
+	 * Build the SMT term {@code term + offset} as a <em>flattened</em> sum: when {@code term} is itself a {@code +}
+	 * application, its summands are spliced in rather than nested, so the result is {@code (+ z w offset)} rather than
+	 * {@code (+ (+ z w) offset)}. This matters because the proof checker parses a {@code +} term with the non-recursive
+	 * {@link de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial} (only the top level is flattened); a nested
+	 * sum would be treated as an opaque monomial and could not be related arithmetically to the original flat parameter
+	 * term that the {@link de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTermBuilder} split into this
+	 * {@code (base, offset)} pair. Flattening reconstructs that original parameter term.
+	 */
+	static Term addConstant(final Term term, final Rational offset) {
+		final Term offsetTerm = offset.toTerm(term.getSort());
+		if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().getName().equals("+")) {
+			final Term[] inner = ((ApplicationTerm) term).getParameters();
+			final Term[] args = new Term[inner.length + 1];
+			System.arraycopy(inner, 0, args, 0, inner.length);
+			args[inner.length] = offsetTerm;
+			return term.getTheory().term("+", args);
+		}
+		return term.getTheory().term("+", term, offsetTerm);
 	}
 }
