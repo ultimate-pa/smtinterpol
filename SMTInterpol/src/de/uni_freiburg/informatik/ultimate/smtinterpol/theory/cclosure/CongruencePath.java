@@ -390,7 +390,20 @@ public class CongruencePath {
 		}
 		final Clause c = new Clause(clause);
 		if (produceProofs) {
-			c.setProof(new LeafNode(LeafNode.THEORY_CC, createAnnotation(new SymmetricPair<>(lhs, rhs))));
+			// The path proves lhs = rhs + deltaPath (the actual union-find offset), but eq claims lhs = rhs + deltaEq
+			// with deltaEq != deltaPath. We cannot express this as a single congruence: both conflicting values share the
+			// CCTerm rhs (the offset was factored out), and a SubPath cannot carry the same CCTerm at two offsets. So we
+			// build the trivially-false equality (rhs + deltaEq) = (rhs + deltaPath) and prove it via the trans path
+			// [rhs+deltaEq, lhs, ..., rhs+deltaPath]: the first step rhs+deltaEq = lhs is justified by eq, the rest by the
+			// path. The explicit leading node rhs+deltaEq carries deltaEq, which the path nodes cannot. The diseq is a
+			// trivial offset disequality (constant difference deltaEq - deltaPath), discharged by an EQ lemma.
+			final Rational deltaPath = lhs.mOffsetToRep.sub(rhs.mOffsetToRep);
+			final Rational deltaEq = eq.getOffset();
+			final CCParameter rhsAtEq = CCParameter.of(rhs, deltaEq);
+			final CCParameter rhsAtPath = CCParameter.of(rhs, deltaPath);
+			final SymmetricPair<CCParameter> diseq = new SymmetricPair<>(rhsAtEq, rhsAtPath);
+			c.setProof(new LeafNode(LeafNode.THEORY_CC,
+					new CCAnnotation(diseq, mAllPaths, CCAnnotation.RuleKind.CONG, rhsAtEq)));
 		}
 		return c;
 	}

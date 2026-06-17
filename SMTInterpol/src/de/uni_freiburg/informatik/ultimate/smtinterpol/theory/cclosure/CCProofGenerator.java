@@ -74,8 +74,8 @@ public class CCProofGenerator {
 			return new SymmetricPair<>(mPath[0], mPath[mPath.length - 1]);
 		}
 
-		/** The offset-free key of the path ends, used to look the path up among shared subpaths. */
-		public SymmetricPair<CCTerm> getPathEnds() {
+		/** The offset-aware key of the path ends, used to look the path up among shared subpaths. */
+		public OffsetPair getPathEnds() {
 			return key(getPathEndParams());
 		}
 
@@ -218,7 +218,7 @@ public class CCProofGenerator {
 		 * Collect the proof info for one path.
 		 */
 		private boolean collectEquality(final SymmetricPair<CCParameter> termPair) {
-			final SymmetricPair<CCTerm> termKey = key(termPair);
+			final OffsetPair termKey = key(termPair);
 			if (isEqualityLiteral(termPair)) {
 				// equality literals are just added
 				addLiteral(mEqualityLiterals.get(termKey));
@@ -347,20 +347,80 @@ public class CCProofGenerator {
 
 	// Store the self-built auxiliary equality literals, such that the
 	// arguments of the equality are always in the same order.
-	private HashMap<SymmetricPair<CCTerm>, Term> mAuxLiterals;
-	private HashMap<SymmetricPair<CCTerm>, Literal> mEqualityLiterals;
-	private HashMap<SymmetricPair<CCTerm>, ProofInfo> mPathProofMap;
-	private LinkedHashSet<SymmetricPair<CCTerm>> mAllEqualities;
-	private LinkedHashSet<SymmetricPair<CCTerm>> mTrivialDisequalities;
+	private HashMap<OffsetPair, Term> mAuxLiterals;
+	private HashMap<OffsetPair, Literal> mEqualityLiterals;
+	private HashMap<OffsetPair, ProofInfo> mPathProofMap;
+	private LinkedHashSet<OffsetPair> mAllEqualities;
+	private LinkedHashSet<OffsetPair> mTrivialDisequalities;
 	private ProofRules mProofRules;
 
 	/**
-	 * The offset-free key of a CCParameter equality. The lookup maps are keyed on the offset-free CCTerm pair, so a
-	 * shared offset edge (e.g. x = y+2) is proven once and reused for every argument equality that follows from it
-	 * (x = y+2, x+2 = y+4, ...).
+	 * A lookup key identifying an (offset) equality fact between two CCTerms: {@code value(first) == value(second) +
+	 * offset}. The maps in this class are keyed on this triple so that two facts sharing offset-free endpoints but
+	 * differing in offset — e.g. {@code car(x) = y} (offset 0, a dt-project consequence) and {@code car(x) = y-1}
+	 * (offset -1, asserted) in an offset anti-cycle — are kept distinct, while different renderings of the <em>same</em>
+	 * fact (e.g. {@code x+5 = y+7} and {@code x+7 = y+9}, both {@code x = y+2}) still collapse to one key. The key is
+	 * canonical under swapping the two terms (which negates the offset), mirroring {@link CCTermPairHash}.
 	 */
-	static SymmetricPair<CCTerm> key(final SymmetricPair<CCParameter> pair) {
-		return new SymmetricPair<>(pair.getFirst().getCCTerm(), pair.getSecond().getCCTerm());
+	static final class OffsetPair {
+		final CCTerm mFirst;
+		final CCTerm mSecond;
+		final Rational mOffset;
+
+		OffsetPair(final CCTerm first, final CCTerm second, final Rational offset) {
+			mFirst = first;
+			mSecond = second;
+			mOffset = offset;
+		}
+
+		CCTerm getFirst() {
+			return mFirst;
+		}
+
+		CCTerm getSecond() {
+			return mSecond;
+		}
+
+		@Override
+		public int hashCode() {
+			// symmetric in (first, second); offsetHash is invariant under (first, second, off) -> (second, first, -off)
+			return (mFirst.hashCode() ^ mSecond.hashCode()) + CCTermPairHash.offsetHash(mFirst, mSecond, mOffset);
+		}
+
+		@Override
+		public boolean equals(final Object other) {
+			if (this == other) {
+				return true;
+			}
+			if (!(other instanceof OffsetPair)) {
+				return false;
+			}
+			final OffsetPair o = (OffsetPair) other;
+			if (mFirst == o.mFirst && mSecond == o.mSecond) {
+				return mOffset.equals(o.mOffset);
+			}
+			if (mFirst == o.mSecond && mSecond == o.mFirst) {
+				return mOffset.equals(o.mOffset.negate());
+			}
+			return false;
+		}
+
+		@Override
+		public String toString() {
+			return mOffset.equals(Rational.ZERO) ? "(" + mFirst + "," + mSecond + ")"
+					: "(" + mFirst + "," + mSecond + "+" + mOffset + ")";
+		}
+	}
+
+	/**
+	 * The offset-aware key of a CCParameter equality: {@code value(first) == value(second) + offset}, where
+	 * {@code offset = second.getOffset() - first.getOffset()} is the constant offset between the two underlying CCTerms.
+	 * See {@link OffsetPair}.
+	 */
+	static OffsetPair key(final SymmetricPair<CCParameter> pair) {
+		final CCParameter first = pair.getFirst();
+		final CCParameter second = pair.getSecond();
+		return new OffsetPair(first.getCCTerm(), second.getCCTerm(), second.getOffset().sub(first.getOffset()));
 	}
 
 	public CCProofGenerator(final CCAnnotation arrayAnnot) {
@@ -428,7 +488,9 @@ public class CCProofGenerator {
 		for (int i = 0; i < clause.getSize(); i++) {
 			final Literal literal = clause.getLiteral(i);
 			final CCEquality atom = (CCEquality) literal.getAtom();
-			final SymmetricPair<CCTerm> pair = new SymmetricPair<>(atom.getLhs(), atom.getRhs());
+			// key on the actual offset so two literals between the same terms but with different offsets
+			// (e.g. car(x)=y and car(x)=y-1 in an offset anti-cycle) stay distinct.
+			final OffsetPair pair = new OffsetPair(atom.getLhs(), atom.getRhs(), atom.getOffset());
 			mEqualityLiterals.put(pair, literal);
 			if (literal.getSign() < 0) {
 				/* equality in conflict (negated in clause) */
@@ -452,7 +514,7 @@ public class CCProofGenerator {
 					&& ((mRule != RuleKind.WEAKEQ_EXT && mRule != RuleKind.CONST_WEAKEQ) || i > 0)) {
 				final CCParameter[] path = indexedPath.getPath();
 				final SymmetricPair<CCParameter> pathEndParams = indexedPath.getPathEndParams();
-				final SymmetricPair<CCTerm> pathEnds = key(pathEndParams);
+				final OffsetPair pathEnds = key(pathEndParams);
 				if (mAllEqualities.add(pathEnds) && !mPathProofMap.containsKey(pathEnds)) {
 					if (path.length == 2) {
 						// A path of length 2 must be a congruence, otherwise we would not be able to explain it
@@ -582,7 +644,7 @@ public class CCProofGenerator {
 	}
 
 	private Term addAuxEquality(SymmetricPair<CCParameter> equality) {
-		final SymmetricPair<CCTerm> eqKey = key(equality);
+		final OffsetPair eqKey = key(equality);
 		if (!mAuxLiterals.containsKey(eqKey)) {
 			final Theory theory = mProofRules.getTheory();
 			Term lhs = equality.getFirst().getFlatTerm();
@@ -693,7 +755,7 @@ public class CCProofGenerator {
 			final Term lemma = buildLemma(proofRules, RuleKind.CONG, info, provedEq);
 			proof = proofRules.resolutionRule(provedEq, lemma, proof);
 		}
-		for (final SymmetricPair<CCTerm> trivialDiseq : mTrivialDisequalities) {
+		for (final OffsetPair trivialDiseq : mTrivialDisequalities) {
 			final Term provedEq = mAuxLiterals.get(trivialDiseq);
 			final ProofLiteral[] proofLits = new ProofLiteral[] { new ProofLiteral(provedEq, false) };
 			final Term diseqLemma = proofRules.oracle(proofLits, EQAnnotation.getAnnotation());
@@ -703,12 +765,12 @@ public class CCProofGenerator {
 	}
 
 	private boolean isEqualityLiteral(final SymmetricPair<CCParameter> termPair) {
-		final SymmetricPair<CCTerm> k = key(termPair);
+		final OffsetPair k = key(termPair);
 		return mEqualityLiterals.containsKey(k) && mEqualityLiterals.get(k).getSign() < 0;
 	}
 
 	private boolean isDisequalityLiteral(final SymmetricPair<CCParameter> termPair) {
-		final SymmetricPair<CCTerm> k = key(termPair);
+		final OffsetPair k = key(termPair);
 		return mEqualityLiterals.containsKey(k) && mEqualityLiterals.get(k).getSign() > 0;
 	}
 
@@ -760,7 +822,7 @@ public class CCProofGenerator {
 			// exact param pair. This path is only reachable once offsets are enabled under proofs.
 			if (firstArg.getCCTerm() != secondArg.getCCTerm()) {
 				final SymmetricPair<CCParameter> argPair = new SymmetricPair<>(firstArg, secondArg);
-				final SymmetricPair<CCTerm> argKey = key(argPair);
+				final OffsetPair argKey = key(argPair);
 				if (isEqualityLiteral(argPair)) {
 					proofInfo.addLiteral(mEqualityLiterals.get(argKey));
 				} else if (mPathProofMap.containsKey(argKey)) {
@@ -795,8 +857,8 @@ public class CCProofGenerator {
 			}
 		}
 
-		for (final SymmetricPair<CCTerm> equality : mAllEqualities) {
-			// Find some select path.
+		for (final OffsetPair equality : mAllEqualities) {
+			// Find some select path. Array select/store terms are offset-free, so the structural CCTerms are used.
 			final CCTerm start = equality.getFirst();
 			final CCTerm end = equality.getSecond();
 			if (isGoodSelectStep(start, end, termPair, weakpathindex)) {
@@ -826,7 +888,8 @@ public class CCProofGenerator {
 			return false;
 		}
 		final CCTerm index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
-		return (index == weakpathindex || mAllEqualities.contains(new SymmetricPair<>(weakpathindex, index)));
+		return (index == weakpathindex
+				|| mAllEqualities.contains(new OffsetPair(weakpathindex, index, Rational.ZERO)));
 	}
 
 	/**

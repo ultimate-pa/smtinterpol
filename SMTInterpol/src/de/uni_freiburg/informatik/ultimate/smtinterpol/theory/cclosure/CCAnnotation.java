@@ -259,16 +259,30 @@ public class CCAnnotation implements IAnnotation {
 	}
 
 	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule) {
-		this(diseq, paths, rule, null);
+		this(diseq, paths, rule, null, null);
 	}
 
 	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths,
 			final DataTypeLemma lemma) {
-		this(diseq, paths, lemma.getRule(), lemma);
+		this(diseq, paths, lemma.getRule(), lemma, null);
+	}
+
+	/**
+	 * Annotation with an extra leading edge prepended to the main path (path 0). This is used by the offset anti-cycle
+	 * (see {@link CongruencePath#computeAntiCycle}): the deviating offset of the conflicting equality cannot be carried
+	 * by a {@link SubPath} node (whose offset is derived intrinsically from {@code mOffsetToRep}), so it rides on an
+	 * explicit {@code CCParameter} prepended here, exactly as a datatype lemma carries its offset on a standalone
+	 * {@code CCParameter} main equality.
+	 *
+	 * @param pathPrefix the explicit first node of the main path (e.g. {@code rhs + offset(eq)}).
+	 */
+	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule,
+			final CCParameter pathPrefix) {
+		this(diseq, paths, rule, null, pathPrefix);
 	}
 
 	private CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule,
-			final DataTypeLemma lemma) {
+			final DataTypeLemma lemma, final CCParameter pathPrefix) {
 		mDiseqParam = diseq;
 		mDiseq = offsetFreeDiseq(diseq);
 		mParamPaths = new CCParameter[paths.size()][];
@@ -276,13 +290,34 @@ public class CCAnnotation implements IAnnotation {
 		mWeakIndices = new CCTerm[mPaths.length];
 		int i = 0;
 		for (final SubPath p : paths) {
-			mParamPaths[i] = p.getParams();
-			mPaths[i] = p.getTerms();
+			CCParameter[] params = p.getParams();
+			CCTerm[] terms = p.getTerms();
+			// Prepend the explicit leading edge to the main path (path 0); see the constructor above.
+			if (i == 0 && pathPrefix != null) {
+				params = prepend(pathPrefix, params);
+				terms = prepend(pathPrefix.getCCTerm(), terms);
+			}
+			mParamPaths[i] = params;
+			mPaths[i] = terms;
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
 			i++;
 		}
 		mRule = rule;
 		mDTLemma = lemma;
+	}
+
+	private static CCParameter[] prepend(final CCParameter head, final CCParameter[] tail) {
+		final CCParameter[] result = new CCParameter[tail.length + 1];
+		result[0] = head;
+		System.arraycopy(tail, 0, result, 1, tail.length);
+		return result;
+	}
+
+	private static CCTerm[] prepend(final CCTerm head, final CCTerm[] tail) {
+		final CCTerm[] result = new CCTerm[tail.length + 1];
+		result[0] = head;
+		System.arraycopy(tail, 0, result, 1, tail.length);
+		return result;
 	}
 
 	public SymmetricPair<CCTerm> getDiseq() {
