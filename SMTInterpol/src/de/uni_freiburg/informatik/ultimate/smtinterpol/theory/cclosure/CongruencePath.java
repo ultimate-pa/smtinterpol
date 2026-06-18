@@ -408,6 +408,78 @@ public class CongruencePath {
 		return c;
 	}
 
+	/**
+	 * Build the explanation clause {@code {diseq, ¬eq, ¬path}} for a disequality {@code ¬eq} that is propagated (or
+	 * conflicts) because {@code eq}'s two sides are in <em>different</em> congruence classes, separated by the
+	 * disequality {@code diseq}. The path runs {@code diseq.lhs … left -[eq]- right … diseq.rhs}, so it spans the two
+	 * classes joined by the {@code eq} edge.
+	 *
+	 * <p>Unlike the old approach (temporarily insert {@code eq} as an equal-edge into the graph and run
+	 * {@link #computeCycle(CCEquality, boolean)}), we do <em>not</em> mutate the graph: a path crossing the {@code eq}
+	 * edge would have its offsets read from {@code mOffsetToRep}, which is relative to each node's own representative and
+	 * meaningless across the two classes. Instead we compute the two halves as ordinary single-class paths (offset-correct
+	 * on their own) and stitch them by hand, shifting the second half by {@code eq.getOffset()} so the proof object
+	 * carries consistent offsets across the bridge.
+	 */
+	public Clause computeAntiCycleDiffClass(final CCEquality eq, final CCEquality diseq, final boolean produceProofs) {
+		final CCTerm left = eq.getLhs();
+		final CCTerm right = eq.getRhs();
+		assert left.mRepStar != right.mRepStar;
+		// Orient the separating disequality: dLeft is in left's class, dRight in right's class. dOff is the offset of the
+		// forbidden equality in that orientation, i.e. diseq forbids dLeft == dRight + dOff.
+		final CCTerm dLeft, dRight;
+		final Rational dOff;
+		if (diseq.getLhs().mRepStar == left.mRepStar) {
+			dLeft = diseq.getLhs();
+			dRight = diseq.getRhs();
+			dOff = diseq.getOffset();
+		} else {
+			dLeft = diseq.getRhs();
+			dRight = diseq.getLhs();
+			dOff = diseq.getOffset().negate();
+		}
+		assert dLeft.mRepStar == left.mRepStar && dRight.mRepStar == right.mRepStar;
+		// Two single-class paths, accumulating their reason literals into mAllLiterals and their subpaths into mAllPaths.
+		computePath(dLeft, left);
+		computePath(right, dRight);
+		final Literal[] clause = new Literal[mAllLiterals.size() + 2];
+		int i = 0;
+		clause[i++] = diseq;
+		clause[i++] = eq.negate();
+		for (final Literal l : mAllLiterals) {
+			clause[i++] = l.negate();
+		}
+		final Clause c = new Clause(clause);
+		if (produceProofs) {
+			final SubPath segA = dLeft == left ? null : mVisited.get(new SymmetricPair<>(dLeft, left));
+			final SubPath segB = right == dRight ? null : mVisited.get(new SymmetricPair<>(right, dRight));
+			// paramsA = [dLeft@0, ..., left@offLeft]; paramsB = [right@0, ..., dRight@offRight] (single-class, correct).
+			final CCParameter[] paramsA = segA != null ? segA.getParams() : new CCParameter[] { dLeft };
+			final CCParameter[] paramsB = segB != null ? segB.getParams() : new CCParameter[] { right };
+			// Shift the right half into the left half's frame: after the eq edge (left == right + eq.getOffset()), right
+			// sits at left's offset plus eq.getOffset().
+			final Rational shift = paramsA[paramsA.length - 1].getOffset().add(eq.getOffset());
+			final CCParameter[] mainPath = new CCParameter[paramsA.length + paramsB.length];
+			System.arraycopy(paramsA, 0, mainPath, 0, paramsA.length);
+			for (int j = 0; j < paramsB.length; j++) {
+				final CCParameter p = paramsB[j];
+				mainPath[paramsA.length + j] = CCParameter.of(p.getCCTerm(), p.getOffset().add(shift));
+			}
+			assert mainPath[mainPath.length - 1].getOffset().equals(dOff) : "net path offset must match the diseq offset";
+			// The remaining subpaths (congruences within either half) keep deriving their offsets the usual way.
+			final ArrayList<SubPath> otherPaths = new ArrayList<>();
+			for (final SubPath p : mAllPaths) {
+				if (p != segA && p != segB) {
+					otherPaths.add(p);
+				}
+			}
+			final SymmetricPair<CCParameter> diseqParam = new SymmetricPair<>(dLeft, CCParameter.of(dRight, dOff));
+			c.setProof(new LeafNode(LeafNode.THEORY_CC,
+					new CCAnnotation(diseqParam, mainPath, otherPaths, CCAnnotation.RuleKind.CONG)));
+		}
+		return c;
+	}
+
 	public Clause computeCycle(final CCTerm lconstant, final CCTerm rconstant, final boolean produceProofs) {
 		mClosure.getLogger().debug("computeCycle for Constants");
 		computePath(lconstant, rconstant);

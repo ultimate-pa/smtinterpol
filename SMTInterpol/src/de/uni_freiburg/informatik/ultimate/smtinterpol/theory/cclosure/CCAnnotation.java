@@ -281,6 +281,40 @@ public class CCAnnotation implements IAnnotation {
 		this(diseq, paths, rule, null, pathPrefix);
 	}
 
+	/**
+	 * Annotation with an explicit, pre-built main path. Used by the cross-class offset anti-cycle (see
+	 * {@link CongruencePath#computeAntiCycleDiffClass}): the main path spans two congruence classes joined by the
+	 * conflicting equality edge, so its node offsets cannot be derived from {@code mOffsetToRep} (which is relative to
+	 * each node's own representative). The two single-class halves are stitched by hand into {@code mainPath} with the
+	 * bridging offset, while the {@code otherPaths} (congruence sub-lemmas, each within one class) keep deriving their
+	 * offsets the usual way.
+	 */
+	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final CCParameter[] mainPath,
+			final Collection<SubPath> otherPaths, final RuleKind rule) {
+		mDiseqParam = diseq;
+		mDiseq = offsetFreeDiseq(diseq);
+		final int n = 1 + otherPaths.size();
+		mParamPaths = new CCParameter[n][];
+		mPaths = new CCTerm[n][];
+		mWeakIndices = new CCTerm[n];
+		mParamPaths[0] = mainPath;
+		final CCTerm[] mainTerms = new CCTerm[mainPath.length];
+		for (int j = 0; j < mainPath.length; j++) {
+			mainTerms[j] = mainPath[j].getCCTerm();
+		}
+		mPaths[0] = mainTerms;
+		mWeakIndices[0] = null;
+		int i = 1;
+		for (final SubPath p : otherPaths) {
+			mParamPaths[i] = p.getParams();
+			mPaths[i] = p.getTerms();
+			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
+			i++;
+		}
+		mRule = rule;
+		mDTLemma = null;
+	}
+
 	private CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule,
 			final DataTypeLemma lemma, final CCParameter pathPrefix) {
 		mDiseqParam = diseq;

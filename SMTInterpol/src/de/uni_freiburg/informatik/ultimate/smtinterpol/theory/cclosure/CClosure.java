@@ -1019,18 +1019,10 @@ public class CClosure implements ITheory {
 		assert left.mRepStar != right.mRepStar;
 		assert diseq.getLhs().mRepStar == left.mRepStar || diseq.getLhs().mRepStar == right.mRepStar;
 		assert diseq.getRhs().mRepStar == left.mRepStar || diseq.getRhs().mRepStar == right.mRepStar;
-
-		left.invertEqualEdges(this);
-		left.mEqualEdge = right;
-		left.mOldRep = left.mRepStar;
-		assert left.mOldRep.mReasonLiteral == null;
-		left.mOldRep.mReasonLiteral = eq;
-		final Clause c = computeCycle(diseq);
-		assert left.mEqualEdge == right && left.mOldRep == left.mRepStar;
-		left.mOldRep.mReasonLiteral = null;
-		left.mOldRep = null;
-		left.mEqualEdge = null;
-		return c;
+		// left and right are in different classes, separated by diseq. Build the explanation without mutating the graph:
+		// the path crosses the eq edge between the two classes, and its offsets are stitched by hand (see the method),
+		// because mOffsetToRep cannot express an offset across two representatives.
+		return new CongruencePath(this).computeAntiCycleDiffClass(eq, diseq, isProofGenerationEnabled());
 	}
 
 	/**
