@@ -57,12 +57,12 @@ public class WeakCongruencePath extends CongruencePath {
 	}
 
 	static class WeakSubPath extends SubPath {
-		private final CCTerm mIdx;
+		private final CCParameter mIdx;
 		private final CCParameter mIdxRep;
 
 		public WeakSubPath(final CCParameter idx, final CCTerm start, final boolean produceProofs) {
 			super(start, produceProofs);
-			mIdx = idx.getCCTerm();
+			mIdx = idx;
 			mIdxRep = idx.getValueKey();
 		}
 
@@ -72,7 +72,7 @@ public class WeakCongruencePath extends CongruencePath {
 				+ (mTermsOnPath == null ? "" : " " + mTermsOnPath.toString());
 		}
 
-		public CCTerm getIndex() {
+		public CCParameter getIndex() {
 			return mIdx;
 		}
 	}
@@ -86,8 +86,8 @@ public class WeakCongruencePath extends CongruencePath {
 
 	public Clause computeSelectOverWeakEQ(final CCAppTerm select1, final CCAppTerm select2,
 			final boolean produceProofs) {
-		final CCParameter i1 = ArrayTheory.getIndexParamFromSelect(select1);
-		final CCParameter i2 = ArrayTheory.getIndexParamFromSelect(select2);
+		final CCParameter i1 = ArrayTheory.getIndexFromSelect(select1);
+		final CCParameter i2 = ArrayTheory.getIndexFromSelect(select2);
 		final CCTerm a = ArrayTheory.getArrayFromSelect(select1);
 		final CCTerm b = ArrayTheory.getArrayFromSelect(select2);
 		computePath(i1.getCCTerm(), i2.getCCTerm());
@@ -100,9 +100,9 @@ public class WeakCongruencePath extends CongruencePath {
 	}
 
 	public Clause computeSelectConstOverWeakEQ(final CCAppTerm select1, final CCAppTerm const2, final boolean produceProofs) {
-		final CCTerm value2 = ArrayTheory.getValueFromConst(const2);
+		final CCParameter value2 = ArrayTheory.getValueFromConst(const2);
 
-		final CCParameter i1 = ArrayTheory.getIndexParamFromSelect(select1);
+		final CCParameter i1 = ArrayTheory.getIndexFromSelect(select1);
 		final CCTerm a = ArrayTheory.getArrayFromSelect(select1);
 		final WeakSubPath weakPath = computeWeakPath(a, const2, i1, produceProofs);
 		mAllPaths.addFirst(weakPath);
@@ -110,8 +110,8 @@ public class WeakCongruencePath extends CongruencePath {
 	}
 
 	public Clause computeConstOverWeakEQ(final CCAppTerm const1, final CCAppTerm const2, final boolean produceProofs) {
-		final CCTerm value1 = ArrayTheory.getValueFromConst(const1);
-		final CCTerm value2 = ArrayTheory.getValueFromConst(const2);
+		final CCParameter value1 = ArrayTheory.getValueFromConst(const1);
+		final CCParameter value2 = ArrayTheory.getValueFromConst(const2);
 
 		final HashSet<CCParameter> storeIndices = new HashSet<>();
 		final Cursor start = new Cursor(const1, mArrayTheory.mCongRoots.get(const1.getRepresentative()));
@@ -219,7 +219,7 @@ public class WeakCongruencePath extends CongruencePath {
 			return computeWeakPath(array1, array2, index, produceProofs);
 		}
 		WeakSubPath path;
-		CCTerm select1, select2;
+		CCParameter select1, select2;
 		// compute weak path from array1 to left-hand-side of select edge
 		if (rep1.mConstTerm != null) {
 			// const array on left-hand-side
@@ -276,7 +276,7 @@ public class WeakCongruencePath extends CongruencePath {
 		}
 		path.addEntry(t2, null);
 		cursor.update(t2, node.mPrimaryEdge);
-		storeIndices.add(ArrayTheory.getIndexParamFromStore(store));
+		storeIndices.add(ArrayTheory.getIndexFromStore(store));
 	}
 
 	/**
@@ -350,7 +350,7 @@ public class WeakCongruencePath extends CongruencePath {
 				storeIndices, produceProofs));
 		path.addEntry(t2, null);
 		cursor.update(t2, n2);
-		storeIndices.add(ArrayTheory.getIndexParamFromStore(store));
+		storeIndices.add(ArrayTheory.getIndexFromStore(store));
 	}
 
 	/**

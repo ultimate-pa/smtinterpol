@@ -52,16 +52,16 @@ public class CCProofGenerator {
 	 * This class is used to keep together paths and their indices (i.e. null for subpaths, and weakpathindex else).
 	 */
 	private static class IndexedPath {
-		private final CCTerm mIndex;
+		private final CCParameter mIndex;
 		/** The path nodes as CCParameters (with offsets); a step's offset is justified by an offset equality. */
 		private final CCParameter[] mPath;
 
-		public IndexedPath(final CCTerm index, final CCParameter[] path) {
+		public IndexedPath(final CCParameter index, final CCParameter[] path) {
 			mIndex = index;
 			mPath = path;
 		}
 
-		public CCTerm getIndex() {
+		public CCParameter getIndex() {
 			return mIndex;
 		}
 
@@ -89,10 +89,10 @@ public class CCProofGenerator {
 	 * This class is used to represent a select edge and select-const edges in weak congruences.
 	 */
 	private static class SelectEdge {
-		private final CCTerm mLeft;
-		private final CCTerm mRight;
+		private final CCParameter mLeft;
+		private final CCParameter mRight;
 
-		public SelectEdge(final CCTerm left, final CCTerm right) {
+		public SelectEdge(final CCParameter left, final CCParameter right) {
 			mLeft = left;
 			mRight = right;
 		}
@@ -101,11 +101,11 @@ public class CCProofGenerator {
 			return new SymmetricPair<>(mLeft, mRight);
 		}
 
-		public CCTerm getLeft() {
+		public CCParameter getLeft() {
 			return mLeft;
 		}
 
-		public CCTerm getRight() {
+		public CCParameter getRight() {
 			return mRight;
 		}
 
@@ -256,10 +256,10 @@ public class CCProofGenerator {
 			}
 		}
 
-		private void collectSelectIndexEquality(final CCTerm select, final CCTerm pathIndex) {
-			if (ArrayTheory.isSelectTerm(select)) {
-				final CCTerm index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
-				if (index != pathIndex) {
+		private void collectSelectIndexEquality(final CCParameter select, final CCParameter pathIndex) {
+			if (select instanceof CCTerm && ArrayTheory.isSelectTerm(select)) {
+				final CCParameter index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
+				if (!index.equals(pathIndex)) {
 					if (!collectEquality(new SymmetricPair<CCParameter>(pathIndex, index))) {
 						throw new AssertionError("Cannot find select index equality " + pathIndex + " = " + index);
 					}
@@ -272,15 +272,16 @@ public class CCProofGenerator {
 		 */
 		private void collectWeakPath(final IndexedPath indexedPath) {
 			assert (indexedPath.getIndex() != null || mRule == RuleKind.WEAKEQ_EXT || mRule == RuleKind.CONST_WEAKEQ);
-			final CCTerm pathIndex = indexedPath.getIndex();
+			final CCParameter pathIndex = indexedPath.getIndex();
 			final CCParameter[] path = indexedPath.getPath();
 			// Check cases (i) - (iv) for all term pairs. Array path nodes are offset-free, so we use the structural
 			// CCTerms for the array cases and the CCParameters only for the equality (case i).
 			for (int i = 0; i < path.length - 1; i++) {
 				final CCParameter firstParam = path[i];
 				final CCParameter secondParam = path[i + 1];
-				final CCTerm firstTerm = firstParam.getCCTerm();
-				final CCTerm secondTerm = secondParam.getCCTerm();
+				// Array terms are offset free, this cast should never fail.
+				final CCTerm firstTerm = (CCTerm) firstParam;
+				final CCTerm secondTerm = (CCTerm) secondParam;
 				final SymmetricPair<CCParameter> termPair = new SymmetricPair<>(firstParam, secondParam);
 				// Case (i)
 				if (collectEquality(termPair)) {
@@ -300,7 +301,7 @@ public class CCProofGenerator {
 					if (pathIndex == null) {
 						continue;
 					}
-					final CCTerm storeIndex = ArrayTheory.getIndexFromStore((CCAppTerm) storeTerm);
+					final CCParameter storeIndex = ArrayTheory.getIndexFromStore((CCAppTerm) storeTerm);
 					final SymmetricPair<CCParameter> indexPair = new SymmetricPair<>(pathIndex, storeIndex);
 					if (isDisequalityLiteral(indexPair)) {
 						addLiteral(mEqualityLiterals.get(key(indexPair)));
@@ -367,6 +368,14 @@ public class CCProofGenerator {
 		final CCTerm mSecond;
 		final Rational mOffset;
 
+		OffsetPair(final CCParameter first, final CCParameter second) {
+			mFirst = first.getCCTerm();
+			mSecond = second.getCCTerm();
+			// Structural offset (matching CCEquality.getOffset() used in collectClauseLiterals); the dynamic
+			// getOffsetToRep() must not be used here, as disequality endpoints are not in the same class.
+			mOffset = second.getOffset().sub(first.getOffset());
+		}
+
 		OffsetPair(final CCTerm first, final CCTerm second, final Rational offset) {
 			mFirst = first;
 			mSecond = second;
@@ -420,7 +429,7 @@ public class CCProofGenerator {
 	static OffsetPair key(final SymmetricPair<CCParameter> pair) {
 		final CCParameter first = pair.getFirst();
 		final CCParameter second = pair.getSecond();
-		return new OffsetPair(first.getCCTerm(), second.getCCTerm(), second.getOffset().sub(first.getOffset()));
+		return new OffsetPair(first, second);
 	}
 
 	public CCProofGenerator(final CCAnnotation arrayAnnot) {
@@ -547,13 +556,13 @@ public class CCProofGenerator {
 			return mPathProofMap.get(mIndexedPaths[0].getPathEnds());
 		case READ_OVER_WEAKEQ: {
 			// collect index equality and the weak path
-			final SymmetricPair<CCTerm> selectEquality = mAnnot.mDiseq;
+			final SymmetricPair<CCParameter> selectEquality = mAnnot.mDiseqParam;
 			assert ArrayTheory.isSelectTerm(selectEquality.getFirst())
 					&& ArrayTheory.isSelectTerm(selectEquality.getSecond());
 			// collect the index equality
-			final CCTerm idx1 = ArrayTheory.getIndexFromSelect((CCAppTerm) selectEquality.getFirst());
-			final CCTerm idx2 = ArrayTheory.getIndexFromSelect((CCAppTerm) selectEquality.getSecond());
-			if (idx1 != idx2) {
+			final CCParameter idx1 = ArrayTheory.getIndexFromSelect((CCAppTerm) selectEquality.getFirst());
+			final CCParameter idx2 = ArrayTheory.getIndexFromSelect((CCAppTerm) selectEquality.getSecond());
+			if (!idx1.equals(idx2)) {
 				mainProof.collectEquality(new SymmetricPair<>(idx1, idx2));
 			}
 			// Only a weak path, which must be the first path
@@ -706,7 +715,7 @@ public class CCProofGenerator {
 				subannots[k++] = annot;
 			}
 			for (final IndexedPath p : paths) {
-				final CCTerm index = p.getIndex();
+				final CCParameter index = p.getIndex();
 				final CCParameter[] path = p.getPath();
 				final Term[] subs = new Term[path.length];
 				for (int j = 0; j < path.length; ++j) {
@@ -842,16 +851,17 @@ public class CCProofGenerator {
 	 *
 	 * @return the select path and (if needed) index paths, or null if there were no suitable paths for the term pair.
 	 */
-	private SelectEdge findSelectPath(final SymmetricPair<CCTerm> termPair, final CCTerm weakpathindex) {
+	private SelectEdge findSelectPath(final SymmetricPair<CCTerm> termPair, final CCParameter weakpathindex) {
 		// first check for trivial select-const edges, i.e., (const (select a j)) and a with j = weakpathindex.
+
 		if (ArrayTheory.isConstTerm(termPair.getFirst())) {
-			final CCTerm value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getFirst());
+			final CCParameter value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getFirst());
 			if (isSelect(value, termPair.getSecond(), weakpathindex)) {
 				return new SelectEdge(value, value);
 			}
 		}
 		if (ArrayTheory.isConstTerm(termPair.getSecond())) {
-			final CCTerm value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getSecond());
+			final CCParameter value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getSecond());
 			if (isSelect(value, termPair.getFirst(), weakpathindex)) {
 				return new SelectEdge(value, value);
 			}
@@ -861,11 +871,13 @@ public class CCProofGenerator {
 			// Find some select path. Array select/store terms are offset-free, so the structural CCTerms are used.
 			final CCTerm start = equality.getFirst();
 			final CCTerm end = equality.getSecond();
-			if (isGoodSelectStep(start, end, termPair, weakpathindex)) {
-				return new SelectEdge(start, end);
+			SelectEdge result = goodSelectStep(start, end, equality.mOffset, termPair, weakpathindex);
+			if (result != null) {
+				return result;
 			}
-			if (isGoodSelectStep(end, start, termPair, weakpathindex)) {
-				return new SelectEdge(end, start);
+			result = goodSelectStep(end, start, equality.mOffset.negate(), termPair, weakpathindex);
+			if (result != null) {
+				return result;
 			}
 		}
 		return null;
@@ -874,28 +886,50 @@ public class CCProofGenerator {
 	/**
 	 * Check if the equality sel1 == sel2 explains the weak step on weakpathindex for termPair.
 	 */
-	private boolean isGoodSelectStep(final CCTerm sel1, final CCTerm sel2, final SymmetricPair<CCTerm> termPair,
-			final CCTerm weakpathindex) {
-		return (isSelect(sel1, termPair.getFirst(), weakpathindex) || isConst(termPair.getFirst(), sel1))
-				&& (isSelect(sel2, termPair.getSecond(), weakpathindex) || isConst(termPair.getSecond(), sel2));
+	private SelectEdge goodSelectStep(final CCTerm sel1, final CCTerm sel2, final Rational offset,
+			final SymmetricPair<CCTerm> termPair, final CCParameter weakpathindex) {
+		CCParameter lhs = null;
+		if (ArrayTheory.isConstTerm(termPair.getFirst())) {
+			final CCParameter constVal1 = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getFirst());
+			if (constVal1.getCCTerm() == sel1) {
+				lhs = constVal1;
+			}
+		}
+		if (lhs == null && isSelect(sel1, termPair.getFirst(), weakpathindex)) {
+			lhs = sel1;
+		}
+		CCParameter rhs = null;
+		if (ArrayTheory.isConstTerm(termPair.getSecond())) {
+			final CCParameter constVal2 = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getSecond());
+			if (constVal2.getCCTerm() == sel2) {
+				rhs = constVal2;
+			}
+		}
+		if (rhs == null && isSelect(sel2, termPair.getSecond(), weakpathindex)) {
+			rhs = sel2;
+		}
+		if (lhs != null && rhs != null && offset.equals(rhs.getOffset().sub(lhs.getOffset()))) {
+			return new SelectEdge(lhs, rhs);
+		}
+		return null;
 	}
 
 	/**
 	 * Check if select is a select on array on weakpathindex or something equal to weakpathindex.
 	 */
-	private boolean isSelect(final CCTerm select, final CCTerm array, final CCTerm weakpathindex) {
+	private boolean isSelect(final CCParameter select, final CCTerm array, final CCParameter weakpathindex) {
 		if (!ArrayTheory.isSelectTerm(select) || ArrayTheory.getArrayFromSelect((CCAppTerm) select) != array) {
 			return false;
 		}
-		final CCTerm index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
-		return (index == weakpathindex
-				|| mAllEqualities.contains(new OffsetPair(weakpathindex, index, Rational.ZERO)));
+		final CCParameter index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
+		return (index.equals(weakpathindex)
+				|| mAllEqualities.contains(new OffsetPair(weakpathindex, index)));
 	}
 
 	/**
 	 * Check if array is an application of const on value
 	 */
-	private boolean isConst(final CCTerm array, final CCTerm value) {
-		return (ArrayTheory.isConstTerm(array) && ArrayTheory.getValueFromConst((CCAppTerm) array) == value);
+	private boolean isConst(final CCParameter array, final CCParameter value) {
+		return (ArrayTheory.isConstTerm(array) && ArrayTheory.getValueFromConst((CCAppTerm) array).equals(value));
 	}
 }

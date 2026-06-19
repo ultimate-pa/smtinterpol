@@ -1070,8 +1070,11 @@ public class CClosure implements ITheory {
 		return buildCongruence();
 	}
 
-	public CCEquality createEquality(final CCTerm t1, final CCTerm t2, final boolean createLAEquality) {
-		return createEquality(t1, t2, Rational.ZERO, createLAEquality);
+	public CCEquality createEquality(final CCParameter t1, final CCParameter t2, final boolean createLAEquality) {
+		// Use the structural offset (CCParameter.getOffset()), so the created literal is keyed like the original
+		// clause literals (see CCProofGenerator.collectClauseLiterals). The dynamic getOffsetToRep() must not be used:
+		// the two parameters need not be in the same congruence class when this literal is created.
+		return createEquality(t1.getCCTerm(), t2.getCCTerm(), t2.getOffset().sub(t1.getOffset()), createLAEquality);
 	}
 
 	/**
@@ -1081,7 +1084,7 @@ public class CClosure implements ITheory {
 	 */
 	public CCEquality createEquality(final CCTerm t1, final CCTerm t2, final Rational offset,
 			final boolean createLAEquality) {
-		assert t1 != t2;
+		assert t1 != t2 || !offset.equals(Rational.ZERO);
 		final Term lhsTerm = t1.getFlatTerm();
 		Term rhsTerm = t2.getFlatTerm();
 		if (!offset.equals(Rational.ZERO)) {

@@ -232,24 +232,13 @@ public class CCAnnotation implements IAnnotation {
 	final SymmetricPair<CCParameter> mDiseqParam;
 
 	/**
-	 * The offset-free view of {@link #mDiseqParam}, kept as a stable object for the current (offset-free) proof
-	 * generator, which compares it by identity.
-	 */
-	final SymmetricPair<CCTerm> mDiseq;
-
-	/**
 	 * A sequence of paths, as {@link CCParameter}s with offsets (e.g. {@code x+2, y+6, z+8}). The main path with index 0
 	 * must always exist and explain the diseq. The other paths must be in such an order that later paths explain
 	 * congruences on earlier.
 	 */
 	final CCParameter[][] mParamPaths;
 
-	/**
-	 * The offset-free view of {@link #mParamPaths}, used by the current proof generator.
-	 */
-	final CCTerm[][] mPaths;
-
-	final CCTerm[] mWeakIndices;
+	final CCParameter[] mWeakIndices;
 
 	final DataTypeLemma mDTLemma;
 
@@ -292,22 +281,18 @@ public class CCAnnotation implements IAnnotation {
 	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final CCParameter[] mainPath,
 			final Collection<SubPath> otherPaths, final RuleKind rule) {
 		mDiseqParam = diseq;
-		mDiseq = offsetFreeDiseq(diseq);
 		final int n = 1 + otherPaths.size();
 		mParamPaths = new CCParameter[n][];
-		mPaths = new CCTerm[n][];
-		mWeakIndices = new CCTerm[n];
+		mWeakIndices = new CCParameter[n];
 		mParamPaths[0] = mainPath;
 		final CCTerm[] mainTerms = new CCTerm[mainPath.length];
 		for (int j = 0; j < mainPath.length; j++) {
 			mainTerms[j] = mainPath[j].getCCTerm();
 		}
-		mPaths[0] = mainTerms;
 		mWeakIndices[0] = null;
 		int i = 1;
 		for (final SubPath p : otherPaths) {
 			mParamPaths[i] = p.getParams();
-			mPaths[i] = p.getTerms();
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
 			i++;
 		}
@@ -318,10 +303,8 @@ public class CCAnnotation implements IAnnotation {
 	private CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule,
 			final DataTypeLemma lemma, final CCParameter pathPrefix) {
 		mDiseqParam = diseq;
-		mDiseq = offsetFreeDiseq(diseq);
 		mParamPaths = new CCParameter[paths.size()][];
-		mPaths = new CCTerm[paths.size()][];
-		mWeakIndices = new CCTerm[mPaths.length];
+		mWeakIndices = new CCParameter[mParamPaths.length];
 		int i = 0;
 		for (final SubPath p : paths) {
 			CCParameter[] params = p.getParams();
@@ -332,7 +315,6 @@ public class CCAnnotation implements IAnnotation {
 				terms = prepend(pathPrefix.getCCTerm(), terms);
 			}
 			mParamPaths[i] = params;
-			mPaths[i] = terms;
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
 			i++;
 		}
@@ -354,17 +336,9 @@ public class CCAnnotation implements IAnnotation {
 		return result;
 	}
 
-	public SymmetricPair<CCTerm> getDiseq() {
-		return mDiseq;
-	}
-
 	/** The disequality with offsets. */
 	public SymmetricPair<CCParameter> getDiseqParam() {
 		return mDiseqParam;
-	}
-
-	public CCTerm[][] getPaths() {
-		return mPaths;
 	}
 
 	/** The paths with offsets. */
@@ -372,7 +346,7 @@ public class CCAnnotation implements IAnnotation {
 		return mParamPaths;
 	}
 
-	public CCTerm[] getWeakIndices() {
+	public CCParameter[] getWeakIndices() {
 		return mWeakIndices;
 	}
 
