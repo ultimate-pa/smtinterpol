@@ -549,6 +549,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 						final CCEquality cceq = eq.getCCEquality();
 						assert cceq.getDecideStatus() != cceq;
 						if (cceq.getDecideStatus() == null) {
+							// this is caused by an offset conflict, not by a set disequality
+							cceq.mDiseqReason = null;
 							engine.addPending(cceq.negate());
 						}
 					}
@@ -568,7 +570,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 					for (final CCEquality.Entry eq : destInfo.mEqlits) {
 						assert eq.getCCEquality().getDecideStatus() != eq.getCCEquality();
 						if (eq.getCCEquality().getDecideStatus() == null) {
-							eq.getCCEquality().mDiseqReason = info.mDiseq;
+							eq.getCCEquality().setDiseqReason(info.mDiseq);
 							engine.addPending(eq.getCCEquality().negate());
 						}
 					}
@@ -576,7 +578,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 					for (final CCEquality.Entry eq : info.mEqlits) {
 						assert eq.getCCEquality().getDecideStatus() != eq.getCCEquality();
 						if (eq.getCCEquality().getDecideStatus() == null) {
-							eq.getCCEquality().mDiseqReason = destInfo.mDiseq;
+							eq.getCCEquality().setDiseqReason(destInfo.mDiseq);
 							engine.addPending(eq.getCCEquality().negate());
 						}
 					}
@@ -713,6 +715,7 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 		return mHashCode;
 	}
 
+	@Override
 	public Term getFlatTerm() {
 		return mFlatTerm;
 	}

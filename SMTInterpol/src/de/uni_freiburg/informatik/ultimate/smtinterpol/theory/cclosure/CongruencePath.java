@@ -424,12 +424,13 @@ public class CongruencePath {
 	public Clause computeAntiCycleDiffClass(final CCEquality eq, final CCEquality diseq, final boolean produceProofs) {
 		final CCTerm left = eq.getLhs();
 		final CCTerm right = eq.getRhs();
-		assert left.mRepStar != right.mRepStar;
-		// Orient the separating disequality: dLeft is in left's class, dRight in right's class. dOff is the offset of the
-		// forbidden equality in that orientation, i.e. diseq forbids dLeft == dRight + dOff.
+		// Orient the separating disequality so dLeft is on left's side and dRight on right's side; dOff is the offset of
+		// the forbidden equality in that orientation (diseq forbids dLeft == dRight + dOff). Use the orientation captured
+		// when the reason was set (eq.mDiseqOrientation), not the current representatives: by the time this runs left and
+		// right may have been merged, after which getRepresentative() can no longer tell the two sides apart.
 		final CCTerm dLeft, dRight;
 		final Rational dOff;
-		if (diseq.getLhs().mRepStar == left.mRepStar) {
+		if (eq.mDiseqOrientation) {
 			dLeft = diseq.getLhs();
 			dRight = diseq.getRhs();
 			dOff = diseq.getOffset();
@@ -438,7 +439,6 @@ public class CongruencePath {
 			dRight = diseq.getLhs();
 			dOff = diseq.getOffset().negate();
 		}
-		assert dLeft.mRepStar == left.mRepStar && dRight.mRepStar == right.mRepStar;
 		// Two single-class paths, accumulating their reason literals into mAllLiterals and their subpaths into mAllPaths.
 		computePath(dLeft, left);
 		computePath(right, dRight);

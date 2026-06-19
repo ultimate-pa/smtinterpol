@@ -750,7 +750,7 @@ public class CClosure implements ITheory {
 				if (getLogger().isDebugEnabled()) {
 					getLogger().debug("CC-Prop: " + eq.negate() + " diseq: " + diseq);
 				}
-				eq.mDiseqReason = diseq;
+				eq.setDiseqReason(diseq);
 				mPendingLits.add(eq.negate());
 				mRecheckOnBacktrackLits.add(eq.negate());
 			}
@@ -780,15 +780,8 @@ public class CClosure implements ITheory {
 	public Literal getPropagatedLiteral() {
 		final Literal lit = mPendingLits.poll();
 		assert (lit == null || checkPending(lit));
-		if (lit != null && createOffsetEqualities() && lit.getAtom().mExplanation == null
-				&& lit.getAtom() instanceof CCEquality && !(lit instanceof CCEquality)) {
-			// This is a propagated disequality. With offset equalities its two sides may later be merged at a different
-			// offset (a merge that is only undone at decision-level backtrack), which would break the lazy anti-cycle
-			// explanation: getUnitClause would temporarily insert an equal-edge into an already-merged class, or read a
-			// path through an edge whose literal has since been backtracked. So we compute the explanation now, while
-			// the congruence graph still matches the trail, and store it so DPLLEngine uses it directly.
-			lit.getAtom().mExplanation = getUnitClause(lit);
-		}
+		// Lazy explanation: the reason for a propagated disequality is computed on demand in getUnitClause /
+		// computeAntiCycle (which no longer mutates the graph and orients the diseq from eq.mDiseqOrientation).
 		return lit;
 	}
 
@@ -973,7 +966,7 @@ public class CClosure implements ITheory {
 			// offset merge); such an eq keeps its existing reason and is simply skipped.
 			assert eq.getDecideStatus() != eq || eq == diseq;
 			if (eq.getDecideStatus() == null) {
-				eq.mDiseqReason = diseq;
+				eq.setDiseqReason(diseq);
 				addPending(eq.negate());
 			}
 		}
@@ -1007,21 +1000,17 @@ public class CClosure implements ITheory {
 	}
 
 	public Clause computeAntiCycle(final CCEquality eq) {
-		final CCTerm left = eq.getLhs();
-		final CCTerm right = eq.getRhs();
-		if (left.mRepStar == right.mRepStar) {
-			// Offset equalities make this reachable: the two sides are in the same class at an offset different from the
-			// one eq claims, so eq is false without any separating disequality. The path between them explains it.
-			assert !left.getOffsetToRep().sub(right.getOffsetToRep()).equals(eq.getOffset());
+		final CCEquality diseq = eq.mDiseqReason;
+		if (diseq == null) {
+			// No separating disequality (e.g. x != x+5): the two sides are in the same class at an offset different from
+			// the one eq claims, so the path between them is the entire reason; no CCEquality is involved.
+			assert eq.getLhs().mRepStar == eq.getRhs().mRepStar;
+			assert !eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep()).equals(eq.getOffset());
 			return new CongruencePath(this).computeAntiCycle(eq, isProofGenerationEnabled());
 		}
-		final CCEquality diseq = eq.mDiseqReason;
-		assert left.mRepStar != right.mRepStar;
-		assert diseq.getLhs().mRepStar == left.mRepStar || diseq.getLhs().mRepStar == right.mRepStar;
-		assert diseq.getRhs().mRepStar == left.mRepStar || diseq.getRhs().mRepStar == right.mRepStar;
-		// left and right are in different classes, separated by diseq. Build the explanation without mutating the graph:
-		// the path crosses the eq edge between the two classes, and its offsets are stitched by hand (see the method),
-		// because mOffsetToRep cannot express an offset across two representatives.
+		// A concrete disequality separates eq's two sides. This works whether they are still in different classes or were
+		// merged later: computeAntiCycleDiffClass orients diseq from eq's stored orientation and walks the two original
+		// single-class paths plus the explicit eq edge, never mutating the graph.
 		return new CongruencePath(this).computeAntiCycleDiffClass(eq, diseq, isProofGenerationEnabled());
 	}
 
@@ -1252,7 +1241,7 @@ public class CClosure implements ITheory {
 				final CCTermPairHash.Info info = mPairHash.getInfo(lhs, rhs, repOffset(eq));
 				final CCEquality diseq = info == null ? null : info.mDiseq;
 				if (diseq != null) {
-					eq.mDiseqReason = diseq;
+					eq.setDiseqReason(diseq);
 					repropagate = true;
 				}
 			}

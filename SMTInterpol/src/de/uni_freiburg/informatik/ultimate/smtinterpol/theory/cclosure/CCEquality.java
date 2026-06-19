@@ -35,6 +35,12 @@ public class CCEquality extends DPLLAtom {
 	 */
 	private Rational mOffset = Rational.ZERO;
 	CCEquality mDiseqReason;
+	/**
+	 * Orientation of {@link #mDiseqReason} relative to this equality, captured when the reason is set (while the two
+	 * sides are still in distinct classes): {@code true} iff {@code mDiseqReason.getLhs()} is in {@code getLhs()}'s class.
+	 * Needed because once the two sides later merge, {@code getRepresentative()} can no longer tell the orientation.
+	 */
+	boolean mDiseqOrientation;
 	private LAEquality mLasd;
 	private Rational mLAFactor;
 	private final Entry mEntry;
@@ -69,6 +75,17 @@ public class CCEquality extends DPLLAtom {
 
 	public void setOffset(final Rational offset) {
 		mOffset = offset;
+	}
+
+	/**
+	 * Set the separating disequality that makes this equality false, recording its orientation relative to this equality.
+	 * Must be called while this equality's two sides are still in distinct classes (which holds at every propagation
+	 * site), so the orientation is unambiguous; it is then used even after the two sides are later merged.
+	 */
+	void setDiseqReason(final CCEquality reason) {
+		assert reason.getLhs().getRepresentative() != reason.getRhs().getRepresentative();
+		mDiseqReason = reason;
+		mDiseqOrientation = reason.getLhs().getRepresentative() == mLhs.getRepresentative();
 	}
 
 	public Entry getEntry() {
