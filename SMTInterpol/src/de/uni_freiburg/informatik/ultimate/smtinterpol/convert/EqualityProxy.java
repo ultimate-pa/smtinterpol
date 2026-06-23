@@ -180,7 +180,20 @@ public class EqualityProxy {
 
 			/* create CC equality */
 			final Rational offset = mClausifier.getTermConstant(mRhs).sub(mClausifier.getTermConstant(mLhs));
-			return mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs, offset);
+			final CCEquality cceq =
+					mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs, offset);
+			if (mClausifier.createOffsetEqualities() && mLhs.getSort().isNumericSort()) {
+				// With offset equalities, clash-slot MBTC only creates LAEqualities for shared terms that occupy a
+				// function-argument position; a numeric (dis)equality between other shared terms (e.g. two selector or
+				// div results) would otherwise have no LAEquality, so linear arithmetic would never learn the
+				// disequality and model construction could pick a model that violates it. Create the LAEquality eagerly
+				// (it forces the necessary LinVars, here both sides are numeric) and link it to the CCEquality, exactly
+				// as createCCEquality does once a term is already shared.
+				final LAEquality laeq = createLAEquality();
+				laeq.addDependentAtom(cceq);
+				cceq.setLASharedData(laeq, computeNormFactor(mLhs, mRhs));
+			}
+			return cceq;
 		}
 	}
 

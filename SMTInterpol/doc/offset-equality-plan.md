@@ -560,3 +560,231 @@ value identity `(rep, offsetToRep)` the array theory needs.
 4. Eager negated-equality propagation (gap 3).
 5. Proof production (increment 4) and offset-aware e-matching (re-enable offsets
    under quantifiers) — both deferred to the quantifier-theory rework.
+
+---
+
+# Redesign: offset-free sharing + clash-slot MBTC (planned)
+
+This redesign supersedes the full-value `LASharedTerm` approach (commit `0c94d305`,
+documented under *Resume point*). It returns to **offset-free** CC↔LA sharing —
+which is the sound Nelson-Oppen shape — and fixes the reason full-value was
+adopted in the first place by changing *what* model-based theory combination
+(MBTC) iterates over.
+
+## Why full-value sharing is the wrong lever
+
+The shared object and its CCTerm must denote the **same value** for the
+Nelson-Oppen shared-term equality to be sound. Full-value `LASharedTerm` violates
+that: the shared CCTerm is offset-free (value `2x+4y`) while the `LASharedTerm`
+carries the constant (value `2x+4y+1`). Every LA→CC step then has to un-bend the
+mismatch with `getTermConstant`, and that bridging is where bugs live (e.g. the
+"already known" guard in `LinArSolve.propagateSharedEquality` compares an
+offset-free CC offset against a full-value LA offset — mismatched units).
+
+Full-value was adopted only because MBTC groups *whole shared terms by their LA
+value* (`getSharedCongruences`), and offset-free whole terms carry the wrong
+canonical value (`(a+255) mod 256` shows up as `−255`, not `0`), so the value
+buckets never matched. The real defect is that **MBTC is asking the wrong
+question**: the equalities CC needs are not between whole numeric terms, they are
+between the argument `CCParameter`s that sit at congruence (and reverse-trigger)
+positions. Those carry their constant in the structural offset, so comparing
+*them* by value is correct even when the shared terms are offset-free.
+
+## The three sharing jobs, and where offsets land
+
+- **CC → LA (merge propagation).** Unchanged. `CCTerm.mSharedTerm` +
+  `CCTerm.propagateSharedEquality` already work entirely in offset-free space
+  (the `LAEquality` is built from offset-free flat terms and the `mOffsetToRep`
+  difference). Sound and untouched.
+- **LA → CC, entailed (checkpoint).** `propagateSharedEqualities` over
+  offset-free `LASharedTerm`s. It computes the exact value difference from the
+  model after a fingerprint collision, so it never relied on a (wrong) canonical
+  value; with offset-free shares it is correct *by construction*, and the
+  unit-mismatch guard disappears (no constant to bridge).
+- **LA → CC, model-based (MBTC).** Redesigned to iterate over **numeric clash
+  slots** (see below) instead of whole `LASharedTerm`s. Equalities only.
+
+## `LASharedTerm` becomes offset-free
+
+When offset equalities are on, the `LASharedTerm` for a numeric term shares the
+**offset-free** value (constant dropped), 1:1 with the offset-free CCTerm and
+value-consistent with it. Terms that differ only by a constant (`2x+4y+1`,
+`2x+4y+5`) collapse to the same offset-free shared entity; their distinctness
+lives only in the SMT term layer and surfaces as the structural offset of a
+`CCParameter` at the use site (a function argument). So `LASharedTerm`'s role
+narrows to the offset-free value handle that the checkpoint propagation reads.
+
+## The clash slots (enumerated on demand, not a persistent index)
+
+A *clash slot* is a key `(FunctionSymbol, argPosition)`; its members are the
+numeric `CCParameter`s occupying that argument position. Two members in the same
+slot whose values coincide but whose CC classes differ are exactly the equalities
+MBTC should propose — merging them is what fires the trigger CC cares about
+(congruence, or a reverse trigger).
+
+**No persistent `Map<ClashKey, List<CCParameter>>` is maintained.** MBTC runs
+only in `finalCheck` (`LinArSolve.finalCheck`, after bounds / integrality /
+`mutate`), which is rare, so the slots are **enumerated on demand** at that point.
+This dissolves the earlier "how/when slots are added and undone on
+merge/backtrack" question entirely — there is no lifecycle to mirror. The two
+sources:
+
+- **Congruence source (covers EUF / QF_UFLIA).** Each numeric argument position
+  `(sym, pos)` is a slot; its members are `app.getArgParam(pos)` over
+  `getAllFuncApps(sym)`, restricted to numeric argument sorts. Two arguments at
+  the same `(sym, pos)` with equal value may make their applications congruent.
+  This source is **necessary**: plain congruence runs through `CongruenceTrigger`
+  (a `SignatureTrigger`) and the per-app `FindTriggerTrigger`, never a
+  `ReverseTrigger`, so the reverse-trigger source below yields *nothing* for a
+  pure `f(a)`/`f(b)` numeric clash. The old whole-term `mbtc` handled QF_UFLIA, so
+  dropping these positions would regress completeness. Enumerated on demand from
+  `getAllFuncApps`.
+- **Reverse-trigger source (covers e-matching, and datatypes via a feed).**
+  Reverse triggers already carry `getFunctionSymbol()` and `getArgPosition()`, and
+  the `MasterReverseTrigger` / `ReverseTriggerTrigger` machinery already groups the
+  n-th argument of every application of that symbol at that key — so this source
+  is **self-maintaining and free**. The `-1` convention is the discriminator:
+  - A *find* trigger (watches the whole symbol for new apps) returns
+    `getArgPosition() == -1` — `MasterReverseTrigger.getArgPosition()` returns
+    `-1` by contract; e-matching installs these via `insertFindTrigger(func, …)`
+    with `argPos = -1`. **LA ignores these** — they are not clash positions.
+  - A *real* reverse trigger returns `getArgPosition() != -1` (e.g.
+    `EMReverseTrigger → mArgPos`, installed via `insertReverseTrigger(func, arg,
+    argPos, …)`). This **induces a clash slot** keyed `(getFunctionSymbol(),
+    getArgPosition())`. Restrict to **numeric** argument sorts on top of this.
+
+So clash slots =
+`{(sym,pos) : reverse trigger with pos != -1 and numeric arg}` ∪
+`{numeric arg positions via getAllFuncApps(sym)}`.
+
+### Datatypes: a numeric-position reverse-trigger feed
+
+The datatype "result-vs-argument" clash — `sel_i(d)` against the i-th argument of
+`cons(x)`, the speculative complement of the existing DT_PROJECT loop in
+`DataTypeTheory` that only fires once `d` is already known equal to a `cons` — does
+**not** fall out of the existing reverse triggers. `DataTypeTheory` installs its
+reverse triggers at `(selectorFunc, 0)` / `(isFunc, 0)`, i.e. on the
+**datatype-typed** argument, which the numeric-sort filter discards. The numeric
+clash is between the *selector result* `sel_i(d)` and the *constructor argument*
+`cons(x).getArgParam(i)`.
+
+`DataTypeTheory` already computes the selector↔(constructor, position `i`)
+correspondence (it walks `constructor.getSelectors()` and reads
+`consTerm.getArgParam(i)` in the DT_PROJECT path). The hookup is therefore a
+**light, dedicated feed**: register a reverse trigger at the constructor's numeric
+argument position `(cons, i)` (or equivalently inject the offset-free selector
+result into that slot). Expressed in the reverse-trigger vocabulary it becomes
+uniform — the `(cons, i)` slot then holds both the constructor arguments and the
+selector results, and the standard clash machinery proposes `sel_i(d) = x_i`. This
+is the still-deferred "numeric datatype field" handling; until it lands, datatype
+numeric fields are simply not clashed (no soundness impact). **Also decide**
+whether `ArrayTheory` needs to contribute slots for numeric `select` results /
+`store` values, or already covers those value equalities through
+weak-equivalence.
+
+## MBTC over clash slots
+
+For each slot:
+
+1. **Filter to shared reps.** Keep only members whose
+   `getRepresentative().mSharedTerm != null` — their class has an LA value. A
+   member whose class is LA-free cannot be forced to clash (model construction
+   gives it a non-clashing value), so it is ignored. This removes the
+   "force a LinVar on every numeric argument" prerequisite entirely.
+2. **Value each member.** The class's LA value is carried by `rep.mSharedTerm`,
+   which need not *be* the rep and has its own `getOffsetToRep()`. So the member
+   value is **not** simply `value(rep) + param.getOffsetToRep()`; it is
+
+   ```
+   value(param) = sharedTermValue(rep.mSharedTerm)   // LA value of the offset-free shared term
+                − rep.mSharedTerm.getOffsetToRep()     // shift back to the rep
+                + param.getOffsetToRep()               // shift out to the member
+   ```
+
+   (sign convention from `CCParameter.sameValueAs`: `value(p) = value(rep) +
+   p.getOffsetToRep()`). `rep.mSharedTerm` is a `CCTerm` and already carries
+   `getOffsetToRep()`, so **no new field is needed** — just fold the lookup in.
+3. **Propose offset equalities** for members that are equal-valued but in
+   distinct CC classes: `u = v + (c_v − c_u)`. For a reverse-trigger slot this
+   merge then activates the existing trigger (e.g. the datatype propagation).
+
+**Equalities only.** LA never sends CC a disequality literal; the other theories
+read "not provably equal" as disequal. The only residual obligation is implicit:
+at model construction, shared `CCParameter`s in *distinct* CC classes must get
+*distinct* values. The existing `sharedPoints` / `choose` / `hasSharing`
+collision-avoidance handles this, but it must become **offset-aware**: today it
+de-collides *raw* `LASharedTerm` values, whereas a clash-slot member's value is
+`repValue + offset`, so the quantity kept distinct must be the offset-shifted
+member value, not the raw shared value.
+
+## Model construction consequence
+
+LA-free numeric CC classes (those whose rep has no shared term) get no value from
+LA. This is **already supported**: `ModelBuilder.fillInTermValues` routes a numeric
+representative with `getSharedTerm() == null` into a `delayed` set and assigns it a
+fresh value via `mModel.extendFresh(...)` after all LA-derived values are placed.
+So "the bit of extra model-construction work" is mostly pre-existing. **Confirm**
+only that `extendFresh` avoids colliding with the LA-assigned values, so distinct
+classes (one LA-valued, one LA-free) stay distinct.
+
+## Net effect
+
+The value-mismatch bug class is removed by construction (shares are
+value-consistent; MBTC computes correct per-argument values), offsets become
+intrinsic to the argument positions where they matter, and the clash slots unify
+the congruence and reverse-trigger sources behind one `(sym, pos)` key — with no
+persistent structure to maintain.
+
+## Open items to settle in code
+
+1. **Datatype numeric-field feed.** Implement the constructor-numeric-position
+   reverse-trigger feed described above; confirm it produces exactly the
+   `sel_i(d)` vs `cons` i-th-argument clash. Decide array `select`/`store` value
+   contributions (or confirm weak-equivalence already covers them).
+2. **Offset-aware collision avoidance.** Make `sharedPoints` / `choose` /
+   `hasSharing` de-collide offset-shifted clash-slot member values; confirm
+   `extendFresh` for LA-free classes avoids the LA-assigned values.
+3. **Per-position completeness** is complete for SAT/UNSAT congruence; it drops
+   equalities between shared terms sharing no signature position, which are
+   irrelevant to solving.
+   - *Interpolation* is only used in the UNSAT case and is **not** affected by
+     MBTC (MBTC only feeds the SAT/model search). The single obligation is that an
+     MBTC equality which is *propagated* (not merely suggested) and lands in an
+     UNSAT core be proof-producible — that is exactly the deferred offset-aware
+     proof-object work, not a separate interpolation concern. Defer.
+4. **Flag interaction.** When offsets are off, `LASharedTerm` stays full-value and
+   MBTC stays whole-term, exactly as today.
+
+## Status: implementable slice DONE (uncommitted)
+
+Steps 1–4 below are implemented (`Clausifier`, `CClosure`, `LinArSolve`, plus an
+`EqualityProxy` fix) and validated under the temp proof-gate (SystemTest 22→21).
+One additional fix was required beyond the four steps: a numeric disequality whose
+`CCEquality` had no linked `LAEquality` never reached linear arithmetic, so model
+construction could build an invalid model (e.g. `lia/divdiv5`). Whole-term mbtc
+created that `LAEquality` as a side effect; clash-slot MBTC does not (the terms are
+not function arguments). Fix: `EqualityProxy.createAtom` eagerly creates and links
+the `LAEquality` for numeric equalities when `createOffsetEqualities()`.
+
+Two SystemTest regressions remain, both in the **deferred** offset proof/interpolation
+track and accepted as deferred:
+- `abv/ext01`: a clash-MBTC offset equality reaches, via congruence, the stub
+  `CCTerm.merge` "offset equality conflict explanation not yet implemented" (the
+  congruence-merge analogue of the `computeAntiCycle` case `setLiteral` already
+  handles).
+- `interpolation/uflratest004`: the eager `LAEquality` changes the proof so the
+  offset-unaware interpolant checker rejects the interpolant. The eager `LAEquality`
+  is kept (needed for SAT model soundness); offset interpolation is deferred.
+
+## Implementable slice (ready to start)
+
+1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the
+   full-value part of `0c94d305`; the checkpoint path is already offset-aware).
+2. On-demand clash-slot enumeration in `finalCheck`: congruence positions via
+   `getAllFuncApps` (numeric arg sorts) ∪ reverse-trigger positions
+   (`getArgPosition() != -1`, numeric arg sorts).
+3. MBTC over slots with the corrected value formula (step 2 above).
+4. Offset-aware `hasSharing` / `choose`.
+
+Datatype numeric-field feed, array contributions, proof object (and thus offsets
+under proofs/interpolation) remain deferred.

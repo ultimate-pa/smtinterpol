@@ -21,8 +21,10 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import java.security.Signature;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -218,7 +220,7 @@ public class CClosure implements ITheory {
 	private boolean mOffsetEqualities = true;
 
 	public boolean createOffsetEqualities() {
-		return mOffsetEqualities && !isProofGenerationEnabled();
+		return mOffsetEqualities;// && !isProofGenerationEnabled();
 	}
 
 	public void setOffsetEqualities(final boolean enabled) {
@@ -338,6 +340,77 @@ public class CClosure implements ITheory {
 			parents.add(appTerm.getAppTerm());
 		}
 		return parents;
+	}
+
+	/** Key of a numeric clash slot: a (function symbol, argument position) pair. */
+	private static final class ClashKey {
+		final FunctionSymbol mSym;
+		final int mPos;
+
+		ClashKey(final FunctionSymbol sym, final int pos) {
+			mSym = sym;
+			mPos = pos;
+		}
+
+		@Override
+		public int hashCode() {
+			return mSym.hashCode() * 31 + mPos;
+		}
+
+		@Override
+		public boolean equals(final Object other) {
+			if (!(other instanceof ClashKey)) {
+				return false;
+			}
+			final ClashKey key = (ClashKey) other;
+			return mSym == key.mSym && mPos == key.mPos;
+		}
+	}
+
+	/**
+	 * Enumerate the numeric clash slots for model-based theory combination, on demand. A clash slot groups the
+	 * {@link CCParameter}s occupying one (function symbol, argument position) whose argument sort is numeric. Two
+	 * members of the same slot with equal value but in distinct congruence classes are an equality that MBTC may
+	 * propose: merging them is what makes the two applications congruent at that position. Only members whose class
+	 * has a linear-arithmetic value ({@code getRepresentative().getSharedTerm() != null}) are kept &mdash; a class
+	 * without a shared term is free to receive a non-clashing value at model construction, so it cannot be forced to
+	 * clash.
+	 * <p>
+	 * MBTC runs only in {@code finalCheck}, so the slots are computed on demand here rather than maintained in a
+	 * persistent, backtracked index.
+	 * <p>
+	 * Currently only the <em>congruence</em> source is enumerated (every function-application argument position). The
+	 * <em>reverse-trigger</em> source (e-matching reverse triggers and the deferred datatype numeric-field feed) is
+	 * future work; it is inactive while offset equalities are enabled, because offsets are disabled in the presence of
+	 * quantifiers.
+	 *
+	 * @return the slots as lists of members; each list holds the numeric, LA-valued members at one (symbol, position).
+	 */
+	public Collection<List<CCParameter>> getNumericClashSlots() {
+		final Map<ClashKey, List<CCParameter>> slots = new LinkedHashMap<>();
+		for (final CCTerm term : mAllTerms) {
+			if (!(term instanceof CCAppTerm)) {
+				continue;
+			}
+			final CCAppTerm app = (CCAppTerm) term;
+			final FunctionSymbol sym = app.getFunctionSymbol();
+			for (int pos = 0; pos < app.getArgCount(); pos++) {
+				final CCParameter arg = app.getArgParam(pos);
+				if (!arg.getCCTerm().getFlatTerm().getSort().isNumericSort()) {
+					continue;
+				}
+				if (arg.getRepresentative().getSharedTerm() == null) {
+					continue;
+				}
+				List<CCParameter> members = slots.get(new ClashKey(sym, pos));
+				if (members == null) {
+					members = new ArrayList<>();
+					slots.put(new ClashKey(sym, pos), members);
+				}
+				members.add(arg);
+			}
+		}
+		return slots.values();
 	}
 
 	/**

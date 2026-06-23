@@ -369,11 +369,19 @@ public class Clausifier {
 					final MutableAffineTerm mat = createMutableAffinTerm(new Polynomial(term), source);
 					assert mat.getConstant().mEps == 0;
 					if (!mLATerms.containsKey(term)) {
-						// The LASharedTerm carries the term's full value (including its constant). With offset equalities
-						// it is shared with the offset-free CCTerm, but it keeps the constant so that model-based theory
-						// combination (mbtc) groups shared terms by their true value; the offset-free CCTerm and the full
-						// LASharedTerm share the same LinVars, so the constant only affects the LAEquality bound.
-						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
+						// The LASharedTerm shares the term's value with linear arithmetic.
+						//
+						// With offset equalities the CCTerm is offset-free (value 2x+4y for a term 2x+4y+1) and the
+						// constant is carried structurally at the use sites. The LASharedTerm must then be offset-free
+						// too, so it stays value-consistent with the offset-free CCTerm: clash-slot MBTC values a member
+						// as value(rep) + offsetToRep and must not double-count the constant. Terms differing only by a
+						// constant share one offset-free CCTerm; each still registers its own offset-free LASharedTerm
+						// (same value), which is harmless and recognized as already-known by the offset-aware guards.
+						//
+						// Without offset equalities the LASharedTerm carries the full value (its constant), as before,
+						// so whole-term mbtc groups shared terms by their true value.
+						final Rational laOffset = createOffsetEqualities() ? Rational.ZERO : mat.getConstant().mReal;
+						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), laOffset));
 					}
 				}
 			}
