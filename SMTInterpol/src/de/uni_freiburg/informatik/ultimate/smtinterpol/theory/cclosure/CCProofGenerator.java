@@ -803,12 +803,10 @@ public class CCProofGenerator {
 	 *         congruence.
 	 */
 	private ProofInfo findCongruencePaths(final CCParameter first, final CCParameter second) {
-		final ProofInfo proofInfo = new ProofInfo();
-		proofInfo.mLemmaDiseq = new SymmetricPair<>(first, second);
-		proofInfo.mProofPaths = new IndexedPath[] { new IndexedPath(null, new CCParameter[] { first, second }) };
 		final CCTerm firstTerm = first.getCCTerm();
 		final CCTerm secondTerm = second.getCCTerm();
-		if (!(firstTerm instanceof CCAppTerm) || !(secondTerm instanceof CCAppTerm)) {
+		if (!(firstTerm instanceof CCAppTerm) || !(secondTerm instanceof CCAppTerm)
+				|| !first.getOffset().equals(second.getOffset())) {
 			// This is not a congruence
 			return null;
 		}
@@ -818,6 +816,17 @@ public class CCProofGenerator {
 			// This is not a congruence
 			return null;
 		}
+
+		final ProofInfo proofInfo = new ProofInfo();
+		// A congruence is offset-free: f(a) and f(b) have equal value once their arguments are equal, so the two app
+		// terms always sit at the same offset on a path and the congruence proves the offset-free f(a) = f(b). Render
+		// the lemma and its (length-2) proof path with the offset-free app terms; the surrounding :trans/:cong checker
+		// absorbs the common constant shift. Carrying the offset (e.g. (= (+ f(a) -1) (+ f(b) -1)) :cong) is not a valid
+		// single congruence — that step is over +, not over f — and breaks the lowlevel proof. The diseq key is offset
+		// invariant (the offset cancels in the difference), so all lookups are unaffected.
+		proofInfo.mLemmaDiseq = new SymmetricPair<>(firstTerm, secondTerm);
+		proofInfo.mProofPaths =
+				new IndexedPath[] { new IndexedPath(null, new CCParameter[] { firstTerm, secondTerm }) };
 
 		assert firstApp.getArgCount() == secondApp.getArgCount();
 		for (int i = 0; i < firstApp.getArgCount(); i++) {
