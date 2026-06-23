@@ -1088,6 +1088,16 @@ public class CClosure implements ITheory {
 	}
 
 	/**
+	 * Compute the conflict clause when a congruence merge finds its two function applications already in the same
+	 * congruence class at an offset different from the zero offset that congruence implies (e.g. f(x) and f(y) are
+	 * congruent but the class already records f(x) = f(y) + k for k != 0). See
+	 * {@link CongruencePath#computeCongruenceAntiCycle}.
+	 */
+	public Clause computeCongruenceAntiCycle(final CCAppTerm first, final CCAppTerm second) {
+		return new CongruencePath(this).computeCongruenceAntiCycle(first, second, isProofGenerationEnabled());
+	}
+
+	/**
 	 * Compute the earliest decide level at which the path between lhs and rhs
 	 * exists. There must be a path, i.e.
 	 * {@code lhs.getRepresentative() == rhs.getRepresentative()}.

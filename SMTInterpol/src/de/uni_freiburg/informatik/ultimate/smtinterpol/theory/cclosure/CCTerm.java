@@ -413,9 +413,12 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 			 */
 			final Rational existingDiff = lhs.mOffsetToRep.sub(mOffsetToRep);
 			if (!existingDiff.equals(reasonDiff(reason, lhs, this))) {
-				// TODO offset-conflict explanation needs the offset-aware proof machinery; it can only be reached once
-				// non-zero offset equalities are created (later increment).
-				throw new UnsupportedOperationException("offset equality conflict explanation not yet implemented");
+				// The two terms are congruent (reason == null ⇒ implied value difference 0) but already in the same
+				// class at a non-zero offset existingDiff (e.g. f(x) and f(y) forced equal while the class already has
+				// f(x) = f(y) + k). This is an offset conflict: build the anti-cycle from the argument equalities (which
+				// justify the congruence) plus the existing path (which establishes the conflicting offset).
+				assert reason == null : "non-congruence merge of terms already in the same class";
+				return engine.computeCongruenceAntiCycle((CCAppTerm) this, (CCAppTerm) lhs);
 			}
 			return null;
 		}

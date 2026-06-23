@@ -483,6 +483,65 @@ public class CongruencePath {
 		return c;
 	}
 
+	/**
+	 * Build the conflict clause for a congruence merge whose two function applications {@code first} and {@code second}
+	 * are already in the same congruence class at an offset different from the zero offset that congruence implies. The
+	 * two terms have equal value by congruence (their arguments are pairwise equal), but the existing path between them
+	 * in their common class establishes a non-zero constant offset {@code existingDiff}; the two facts are
+	 * contradictory. The conflict clause negates the argument equalities (which justify the congruence) together with
+	 * the path literals (which establish the conflicting offset) — no positive literal is needed, the contradiction is
+	 * intrinsic to arithmetic ({@code 0 != existingDiff}).
+	 *
+	 * <p>For the proof object we mirror {@link #computeAntiCycle}: the leading congruence edge cannot be carried by a
+	 * {@link SubPath} node (a SubPath cannot hold the same CCTerm at two offsets), so we build an explicit main path
+	 * {@code [first@0, second@0, ..., first@existingDiff]} whose leading step {@code first@0 -> second@0} is recognised
+	 * as a congruence (resolved from the argument subpaths in {@code otherPaths}) and whose remaining nodes are the
+	 * existing class path. The two endpoints are the same term {@code first} at offsets {@code 0} and
+	 * {@code existingDiff}, a trivially-false offset disequality discharged by an EQ lemma.
+	 */
+	public Clause computeCongruenceAntiCycle(final CCAppTerm first, final CCAppTerm second, final boolean produceProofs) {
+		assert first.getRepresentative() == second.getRepresentative();
+		final Rational existingDiff = second.mOffsetToRep.sub(first.mOffsetToRep);
+		assert !existingDiff.equals(Rational.ZERO);
+		assert first.getFunctionSymbol() == second.getFunctionSymbol();
+		// The existing path between the two app terms (anchored at second@0 so getParams yields [second@0, ...,
+		// first@existingDiff]); it establishes the actual (non-zero) offset.
+		computePath(CCParameter.of(second, Rational.ZERO), CCParameter.of(first, Rational.ZERO));
+		// The argument equalities that justify the congruence first == second (offset 0).
+		for (int i = 0; i < first.getArgCount(); i++) {
+			computePath(first.getArgParam(i), second.getArgParam(i));
+		}
+		final Literal[] clause = new Literal[mAllLiterals.size()];
+		int i = 0;
+		for (final Literal l : mAllLiterals) {
+			clause[i++] = l.negate();
+		}
+		final Clause c = new Clause(clause);
+		if (produceProofs) {
+			final SubPath existing = mVisited.get(new SymmetricPair<>((CCTerm) second, (CCTerm) first));
+			final CCParameter[] existingParams = existing.getParams(); // [second@0, ..., first@existingDiff]
+			// main path: prepend first@0 (the congruence's other end) so the leading step first@0 -> second@0 is a
+			// congruence edge and the two ends first@0 / first@existingDiff form the trivial diseq.
+			final CCParameter[] mainPath = new CCParameter[existingParams.length + 1];
+			mainPath[0] = CCParameter.of(first, Rational.ZERO);
+			System.arraycopy(existingParams, 0, mainPath, 1, existingParams.length);
+			final CCParameter firstAtDiff = mainPath[mainPath.length - 1];
+			assert firstAtDiff.getCCTerm() == first && firstAtDiff.getOffset().equals(existingDiff);
+			// The remaining subpaths (the congruence's argument paths plus any congruences along the existing path) keep
+			// deriving their offsets the usual way; only the existing main path is inlined into mainPath.
+			final ArrayList<SubPath> otherPaths = new ArrayList<>();
+			for (final SubPath p : mAllPaths) {
+				if (p != existing) {
+					otherPaths.add(p);
+				}
+			}
+			final SymmetricPair<CCParameter> diseqParam = new SymmetricPair<>(mainPath[0], firstAtDiff);
+			c.setProof(new LeafNode(LeafNode.THEORY_CC,
+					new CCAnnotation(diseqParam, mainPath, otherPaths, CCAnnotation.RuleKind.CONG)));
+		}
+		return c;
+	}
+
 	public Clause computeCycle(final CCTerm lconstant, final CCTerm rconstant, final boolean produceProofs) {
 		mClosure.getLogger().debug("computeCycle for Constants");
 		computePath(lconstant, rconstant);

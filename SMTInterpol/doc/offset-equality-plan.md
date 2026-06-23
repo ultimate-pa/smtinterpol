@@ -766,15 +766,70 @@ created that `LAEquality` as a side effect; clash-slot MBTC does not (the terms 
 not function arguments). Fix: `EqualityProxy.createAtom` eagerly creates and links
 the `LAEquality` for numeric equalities when `createOffsetEqualities()`.
 
-Two SystemTest regressions remain, both in the **deferred** offset proof/interpolation
-track and accepted as deferred:
-- `abv/ext01`: a clash-MBTC offset equality reaches, via congruence, the stub
+Two SystemTest regressions remained, both in the offset proof/interpolation track:
+- `abv/ext01`: a clash-MBTC offset equality reached, via congruence, the stub
   `CCTerm.merge` "offset equality conflict explanation not yet implemented" (the
   congruence-merge analogue of the `computeAntiCycle` case `setLiteral` already
-  handles).
+  handles). **FIXED** — see *Congruence-merge offset conflict* below; `ext01`/`ext02`
+  now solve `unsat` and proof-check.
 - `interpolation/uflratest004`: the eager `LAEquality` changes the proof so the
   offset-unaware interpolant checker rejects the interpolant. The eager `LAEquality`
   is kept (needed for SAT model soundness); offset interpolation is deferred.
+
+## Congruence-merge offset conflict (the `CCTerm.merge` stub) — DONE (uncommitted)
+
+The stub `CCTerm.merge` threw `UnsupportedOperationException("offset equality
+conflict explanation not yet implemented")` in the `src == dest` branch (the two
+merged terms are already in one class) when the merge offset disagreed with the
+offset they already have. It is reachable **only** from `buildCongruence`
+(`lhs.merge(this, rhs, null)`, `reason == null`): two congruent `CCAppTerm`s
+`f(x)`, `f(y)` — congruence implies value difference `0` — are already in the same
+class at a non-zero offset `existingDiff` (e.g. the class already records
+`f(x) = f(y) + k`). `setLiteral` is the only other `merge` caller and it guards
+`src != dest`, so the `reason != null` case never reaches this branch (asserted).
+
+Why `computeAntiCycle` could not be reused directly: it is keyed on a real
+`CCEquality eq` — it negates `eq` in the clause and reads `eq.getOffset()` as the
+deviating offset, and in the proof its prepended leading edge is discharged by
+resolving against the `eq` literal. The congruence merge has `reason == null`:
+there is no literal to negate, the deviating "edge" is a congruence justified by
+the *argument* equalities (so the clause carries `{¬argEq…, ¬path}` with no positive
+literal, like `computeCycle(const, const)`), and the leading proof edge must be
+discharged by a congruence sub-proof, not a literal.
+
+Implementation: `CClosure.computeCongruenceAntiCycle(CCAppTerm, CCAppTerm)` →
+`CongruencePath.computeCongruenceAntiCycle`.
+- **Clause:** collect `mAllLiterals` from `computePath(second@0, first@0)` (the
+  existing class path, establishing `existingDiff`) plus `computePath` over each
+  argument pair `getArgParam(i)` (justifying the congruence); negate all. The
+  contradiction is intrinsic to arithmetic (`0 != existingDiff`), so no positive
+  literal is needed.
+- **Proof object** (mirrors `computeAntiCycle`'s leading-node trick — a `SubPath`
+  cannot carry one CCTerm at two offsets): explicit
+  `mainPath = [first@0, second@0, …, first@existingDiff]` via the
+  `CCAnnotation(diseq, mainPath, otherPaths, CONG)` constructor (the one
+  `computeAntiCycleDiffClass` uses). The leading step `first@0 → second@0` has no
+  clause literal and is not a registered subpath, so
+  `CCProofGenerator.collectEquality → findCongruencePaths` auto-resolves it from the
+  argument subpaths in `otherPaths` (= `mAllPaths` minus the inlined existing path,
+  retrieved via `mVisited.get(SymmetricPair(second, first))`). The two endpoints are
+  the same term `first` at offsets `0` and `existingDiff` — a trivially-false offset
+  disequality discharged by an EQ lemma.
+
+Validated (clean build, assertions on): `abv/ext01`, `abv/ext02` now `unsat` (were
+`unsupported`); `BitvectorTest` 89/89 with FULL proofs + `proof-check-mode` (the
+proof object verifies); `test/proof` 97/98 (only the pre-existing
+`trivialdiseqarray` array+offset blocker, identical at baseline);
+`CongruentAddTest`/`PairHashTest`/`ProofSimplifierTest`/`ProofUtilsTest`/`RPITest`
+green. The change is gated only by the structural shape of the merge, not by
+`createOffsetEqualities()` directly, but it is dead code when offsets are off (every
+offset is then `0`, so `existingDiff` is always `0`). Files: `CCTerm.java`,
+`CClosure.java`, `CongruencePath.java`.
+
+Still-deferred gate-flip blockers (confirmed pre-existing, identical at baseline):
+`ProofSimplifier.checkProof` on offset lowlevel proofs (e.g. `bv/bvand0*`) and
+`QuantClause.collectVarInfos` on quantified datatype matching (e.g.
+`datatype/quantified/match_test`).
 
 ## Implementable slice (ready to start)
 
