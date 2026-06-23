@@ -364,7 +364,10 @@ public class CongruencePath {
 		}
 		final Clause c = new Clause(cycle);
 		if (produceProofs) {
-			c.setProof(new LeafNode(LeafNode.THEORY_CC, createAnnotation(new SymmetricPair<>(lhs, rhs))));
+			// The disequality being violated is eq, which states value(lhs) == value(rhs) + eq.getOffset(); carry that
+			// offset on the main diseq so the proof matches the (offset-aware) literal eq instead of a bare lhs == rhs.
+			final SymmetricPair<CCParameter> diseq = new SymmetricPair<>(lhs, CCParameter.of(rhs, eq.getOffset()));
+			c.setProof(new LeafNode(LeafNode.THEORY_CC, createAnnotation(diseq)));
 		}
 		return c;
 	}
