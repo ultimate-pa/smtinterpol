@@ -121,17 +121,20 @@ public class EqualityProxy {
 		} else {
 			laeq = (LAEquality) eqAtom;
 		}
+		// offset such that value(ccLhs) == value(ccRhs) + offset, i.e. the difference of the two terms' constants.
+		final Rational offset = mClausifier.getTermConstant(rhs).sub(mClausifier.getTermConstant(lhs));
 		for (final CCEquality eq : laeq.getDependentEqualities()) {
 			assert (eq.getLASharedData() == laeq);
-			if (eq.getLhs() == ccLhs && eq.getRhs() == ccRhs) {
+			// The offset must match too: two CCEqualities between the same pair of CCTerms but with different offsets
+			// (e.g. x == y and x == y + 3) are distinct facts and must not be conflated, otherwise propagating one
+			// would wrongly set the other. eq states getLhs() == getRhs() + eq.getOffset().
+			if (eq.getLhs() == ccLhs && eq.getRhs() == ccRhs && eq.getOffset().equals(offset)) {
 				return eq;
 			}
-			if (eq.getRhs() == ccLhs && eq.getLhs() == ccRhs) {
+			if (eq.getLhs() == ccRhs && eq.getRhs() == ccLhs && eq.getOffset().equals(offset.negate())) {
 				return eq;
 			}
 		}
-		// offset such that value(ccLhs) == value(ccRhs) + offset, i.e. the difference of the two terms' constants.
-		final Rational offset = mClausifier.getTermConstant(rhs).sub(mClausifier.getTermConstant(lhs));
 		final CCEquality eq =
 				mClausifier.getCClosure().createCCEquality(mClausifier.getStackLevel(), ccLhs, ccRhs, offset);
 		final Rational normFactor = computeNormFactor(lhs, rhs);

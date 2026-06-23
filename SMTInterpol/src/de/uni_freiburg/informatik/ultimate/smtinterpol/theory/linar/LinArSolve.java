@@ -702,7 +702,7 @@ public class LinArSolve implements ITheory {
 			}
 		}
 		if (mSuggestions.isEmpty() && mProplist.isEmpty()) {
-			if (mClausifier.getCClosure().createOffsetEqualities()) {
+			if (mClausifier.createOffsetEqualities()) {
 				// Offset equalities: shared terms are offset-free, so whole-term mbtc (which groups by value)
 				// would wrongly merge terms that share an offset-free value but differ by a constant. MBTC instead
 				// ranges over numeric clash slots and proposes per-argument offset equalities.
@@ -1282,7 +1282,7 @@ public class LinArSolve implements ITheory {
 		}
 		fpr.add(shared.getOffset());
 		final Map<LinVar, Rational> fingerprint = fpr.getSummands();
-		if (mClausifier.getCClosure().createOffsetEqualities()) {
+		if (mClausifier.createOffsetEqualities()) {
 			// Ignore the constant part (accumulated under the null key from the offset and from any fixed
 			// variables): two shared terms then collide when their non-constant parts agree, i.e. they are
 			// provably equal up to a constant. That constant is an offset equality congruence closure can use; the
@@ -1409,7 +1409,14 @@ public class LinArSolve implements ITheory {
 						// other and shared have equal non-constant parts (the fingerprints collided), so they
 						// differ by a fixed constant: value(other) == value(shared) + offset. The non-constant
 						// parts cancel, so the value difference is exact and model-independent.
-						final ExactInfinitesimalNumber diff = sharedTermValue(other).sub(sharedTermValue(shared));
+						// The propagated offset is the difference of the terms' full SMT values. With offset
+						// equalities the LASharedTerm value is offset-free (the constant is dropped from both the value
+						// and the fingerprint), so the term constants are added back here; getTermConstant is zero when
+						// offset equalities are disabled, where sharedTermValue already carries the constant.
+						final Rational constDiff = mClausifier.getTermConstant(other.getTerm())
+								.sub(mClausifier.getTermConstant(shared.getTerm()));
+						final ExactInfinitesimalNumber diff = sharedTermValue(other).sub(sharedTermValue(shared))
+								.add(new ExactInfinitesimalNumber(constDiff));
 						assert diff.getEpsilon().signum() == 0;
 						final Clause conflict =
 								propagateSharedEquality(other, shared, diff.getRealValue(), propagated);
@@ -1973,7 +1980,7 @@ public class LinArSolve implements ITheory {
 	 */
 	private List<ModelSharedPoint> clashModelPoints() {
 		final List<ModelSharedPoint> points = new ArrayList<>();
-		if (!mClausifier.getCClosure().createOffsetEqualities()) {
+		if (!mClausifier.createOffsetEqualities()) {
 			return points;
 		}
 		for (final List<CCParameter> slot : mClausifier.getCClosure().getNumericClashSlots()) {
