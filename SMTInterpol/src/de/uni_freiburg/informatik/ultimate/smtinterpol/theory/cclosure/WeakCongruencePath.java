@@ -91,6 +91,7 @@ public class WeakCongruencePath extends CongruencePath {
 		final CCTerm a = ArrayTheory.getArrayFromSelect(select1);
 		final CCTerm b = ArrayTheory.getArrayFromSelect(select2);
 		computePath(i1.getCCTerm(), i2.getCCTerm());
+		drainTodo();
 		final WeakSubPath weakPath =
 				computeWeakPath(a, b, i1, produceProofs);
 		mAllPaths.addFirst(weakPath);
@@ -230,6 +231,7 @@ public class WeakCongruencePath extends CongruencePath {
 			final CCAppTerm select = rep1.mSelects.get(indexRep);
 			final CCTerm selectArray = ArrayTheory.getArrayFromSelect(select);
 			computePath(index.getCCTerm(), ArrayTheory.getIndexFromSelect(select));
+			drainTodo();
 			path = computeWeakPath(array1, selectArray, index, produceProofs);
 			select1 = select;
 		}
@@ -244,6 +246,7 @@ public class WeakCongruencePath extends CongruencePath {
 			final CCAppTerm select = rep2.mSelects.get(indexRep);
 			final CCTerm selectArray = ArrayTheory.getArrayFromSelect(select);
 			computePath(index.getCCTerm(), ArrayTheory.getIndexFromSelect(select));
+			drainTodo();
 			path.addEntry(selectArray, null);
 			path.addSubPath(computeWeakPath(selectArray, array2, index, produceProofs));
 			select2 = select;
@@ -253,6 +256,7 @@ public class WeakCongruencePath extends CongruencePath {
 		// check for trivial select edge (select-const).
 		if (select1 != select2) {
 			computePath(select1, select2);
+			drainTodo();
 		}
 		return path;
 	}
@@ -271,6 +275,7 @@ public class WeakCongruencePath extends CongruencePath {
 		assert t2.mRepStar == node.mPrimaryEdge.mTerm;
 		if (cursor.mTerm != t1) {
 			computePath(cursor.mTerm, t1);
+			drainTodo();
 			final SubPath subpath = mAllPaths.removeFirst();
 			path.addSubPath(subpath);
 		}
@@ -308,6 +313,7 @@ public class WeakCongruencePath extends CongruencePath {
 		}
 		if (start.mTerm != dest.mTerm) {
 			computePath(start.mTerm, dest.mTerm);
+			drainTodo();
 			final SubPath subpath = mAllPaths.removeFirst();
 			path1.addSubPath(subpath);
 		}

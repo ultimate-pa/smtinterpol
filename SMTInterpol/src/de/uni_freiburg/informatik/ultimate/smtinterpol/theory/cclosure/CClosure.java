@@ -1067,9 +1067,20 @@ public class CClosure implements ITheory {
 		return res;
 	}
 
-	public Clause computeCycle(final CCTerm lconstant, final CCTerm rconstant) {
+	public Clause computeCycle(final CCParameter lconstant, final CCParameter rconstant) {
 		final CongruencePath congPath = new CongruencePath(this);
 		return congPath.computeCycle(lconstant, rconstant, isProofGenerationEnabled());
+	}
+
+	/**
+	 * Compute the conflict clause for a shared-term clash detected during a merge (the merged values of the two classes'
+	 * shared terms are provably distinct, e.g. an integer shared term forced to a non-integer value). See
+	 * {@link CongruencePath#computeSharedConflictCycle}.
+	 */
+	public Clause computeSharedConflictCycle(final CCTerm lshared, final CCTerm rshared, final CCTerm lhs,
+			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff) {
+		return new CongruencePath(this).computeSharedConflictCycle(lshared, rshared, lhs, rhsTerm, reason, bridgeOff,
+				isProofGenerationEnabled());
 	}
 
 	public Clause computeAntiCycle(final CCEquality eq) {

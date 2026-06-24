@@ -486,7 +486,8 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 		/* Check for conflict */
 		if (sharedTermConflict || diseq != null) {
 			final Clause conflict = sharedTermConflict
-					? engine.computeCycle(src.mSharedTerm, dest.mSharedTerm)
+					? engine.computeSharedConflictCycle(src.mSharedTerm, dest.mSharedTerm, lhs, this, reason,
+							reasonDiff(reason, lhs, this))
 					: engine.computeCycle(diseq);
 			lhs.mEqualEdge = null;
 			lhs.mOldRep = null;

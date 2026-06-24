@@ -831,6 +831,87 @@ Still-deferred gate-flip blockers (confirmed pre-existing, identical at baseline
 `QuantClause.collectVarInfos` on quantified datatype matching (e.g.
 `datatype/quantified/match_test`).
 
+## Shared-term clash during a merge (the `computeCycle` constant case) — DONE (uncommitted)
+
+`uflira/uflira_001.smt2` (`to_real a = f a`, `f b = 1/2`, `a = b`) was `unsat`
+correctly but the **proof object** failed: `Cannot explain term pair
+((f b)+-1/2,(f a))`. Same root cause as `computeAntiCycleDiffClass`: an equal edge
+was added to the CC graph but the nodes were not yet really merged.
+
+Mechanism: asserting `a = b` makes `f a ≡ f b` by congruence. `CCTerm.mergeInternal`
+tries to merge `f a`'s class (shared term `to_real a`) with `f b`'s class (shared
+term `0.0`, with `f b` at offset `-1/2`). The merged shared-term equality
+`to_real a == 0.0 + (-1/2)` is integer-impossible (`a` is `Int`), so
+`createEquality` returns the false proxy → `sharedTermConflict`, and the conflict was
+built by `computeCycle(0.0, (to_real a)+(-1/2))`. But the conflict is detected
+**before** the union-find update: the equal edge `f a — f b` is set while
+`mOffsetToRep` is still relative to each node's own representative. `computePath`
+walks across the bridge fine for the *clause*, but `SubPath.getParams()` reads the
+congruence bridge step as `(f b)+(-1/2) → (f a)+0` (two reference frames) instead of
+offset-free → the proof generator cannot explain it.
+
+Fix: new `CClosure.computeSharedConflictCycle` →
+`CongruencePath.computeSharedConflictCycle(lshared, rshared, lhs, rhsTerm, reason,
+bridgeOff, …)`, a hybrid of `computeAntiCycleDiffClass` (two single-class halves
+stitched by hand) and `computeCongruenceAntiCycle` (the bridge may be a congruence,
+`reason == null`):
+- **Clause:** `computePath(lshared@0, lhs@0)` (source half) + `computePath(rhsTerm@0,
+  rshared@0)` (dest half), each single-class and offset-correct. The bridge edge
+  `lhs — rhsTerm` is justified by the merge `reason` (added as a literal) when
+  `reason != null`, or — for a congruence merge — by `computePath` over each argument
+  pair `getArgParam(i)` (which also builds the subpaths the proof needs). Negate all;
+  no positive literal (the contradiction is the trivially distinct shared values).
+- **Proof object:** build an explicit `mainPath = paramsSrc ++ paramsDest` via the
+  `CCAnnotation(diseq, mainPath, otherPaths, CONG)` constructor. The destination half
+  is computed **already shifted** into the source frame: instead of anchoring at
+  `rhsTerm@0` and shifting every node afterwards, the dest `computePath` is anchored at
+  `rhsTerm@shift` with `shift = (lshared.mOffsetToRep − lhs.mOffsetToRep) + bridgeOff`
+  (`bridgeOff = reasonDiff(reason, lhs, rhsTerm)`, `0` for a congruence). Since
+  `SubPath.getParams()` offsets every node by the anchor's `mStartOffset`, the dest
+  params come out in the source frame and `mainPath` is a plain two-`arraycopy`
+  concatenation — no post-hoc per-node shift. For a congruence bridge the step
+  `lhs → rhsTerm` (offset 0) is auto-resolved from the argument subpaths in
+  `otherPaths`, exactly like `computeCongruenceAntiCycle`'s leading edge; for a
+  real-equality bridge the step matches the `reason` literal. The diseq is taken from
+  the stitched path endpoints (`mainPath[0]`, `mainPath[last]`), so its offset is the
+  true value difference `value(lshared) − value(rshared)` (= `sharedOffset`), fixing a
+  latent bug where the old call passed `delta` instead — these coincide only when both
+  shared terms are their class reps. Discharged by an EQ/LA lemma.
+
+`reason == null` is the key complication the user flagged: there is no separating
+disequality literal to resolve the bridge on. It is handled exactly as in
+`computeCongruenceAntiCycle` (argument subpaths discharge the congruence step), so the
+hybrid covers both bridge kinds uniformly.
+
+**CongruencePath refactor (same change).** Three cleanups landed alongside the fix:
+1. `computeCCPath` renamed to **`computeCongruence`** (it pairs the arguments of two
+   congruent app terms); both cross-class builders (`computeCongruenceAntiCycle`,
+   `computeSharedConflictCycle`) now call it instead of hand-rolling the argument loop.
+2. **`computePath` no longer drains** the work list — it only enqueues. Each top-level
+   `compute*Cycle`/`computeDTLemma`/`computeDecideLevel` calls the extracted
+   `drainTodo()` **once** after all `computePath`/`computeCongruence` calls are queued,
+   so a single shared drain builds them (and dedups subpaths shared between several
+   queued ends). `WeakCongruencePath` consumes single paths synchronously
+   (`computePath(...); mAllPaths.removeFirst()`), so it drains per call — `drainTodo()`
+   is `protected` and called explicitly at each of its six `computePath` sites
+   (reproducing the old per-call drain; without this the array proofs in
+   `test/proof/auxaxioms/*` throw `NoSuchElementException`).
+3. **`computeAntiCycleDiffClass` gets the same pre-shift simplification** as
+   `computeSharedConflictCycle`: its right half is anchored at `right@shift`
+   (`shift = dLeft.mOffsetToRep − left.mOffsetToRep + eq.getOffset()`), so `getParams()`
+   returns it already in the left frame and `mainPath` is a plain concatenation. The
+   `assert mainPath[last].getOffset() == dOff` still holds.
+
+Validated (clean build, `-ea`): `uflira_001` proof now `unsat` with
+`proof-check-mode` (was `Cannot explain term pair`); `test/proof` 97/98 (only the
+pre-existing `trivialdiseqarray`, confirmed identical at baseline; `match_rewrite`
+re-checks its full cross-class anti-cycle proof);
+`test/uflira` 5/5, `test/lia` 32/32, `test/abv` 4/4 clean; `BitvectorTest` 89/89
+(FULL proof + proof-check), `ProofSimplifierTest` 14/14, `ProofUtilsTest` 4/4,
+`CongruentAddTest` 5/5, `PairHashTest` 1/1. Pre-existing deferred crashes unchanged
+(`datatype/quantified/*match*` = `QuantClause.collectVarInfos`). Files:
+`CCTerm.java`, `CClosure.java`, `CongruencePath.java`, `WeakCongruencePath.java`.
+
 ## Implementable slice (ready to start)
 
 1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the

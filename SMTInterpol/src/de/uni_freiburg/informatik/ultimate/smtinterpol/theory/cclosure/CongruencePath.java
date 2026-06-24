@@ -182,9 +182,10 @@ public class CongruencePath {
 	 * @param start one of the function application terms.
 	 * @param end the other function application term.
 	 */
-	private void computeCCPath(CCAppTerm start, CCAppTerm end) {
+	private void computeCongruence(CCAppTerm start, CCAppTerm end) {
 		// Pair the argument values (CCParameters), so the recorded subpath for each argument is anchored at the
-		// argument's offset, e.g. f(x+2) congruent f(z+8) yields a subpath from x+2 to z+8.
+		// argument's offset, e.g. f(x+2) congruent f(z+8) yields a subpath from x+2 to z+8. This only enqueues the
+		// argument pairs; the surrounding drain loop ({@link #drainTodo}, run by {@link #computePath}) builds them.
 		for (int i = 0; i < start.getArgCount(); i++) {
 			mTodo.addFirst(new SymmetricPair<>(start.getArgParam(i), end.getArgParam(i)));
 		}
@@ -222,7 +223,7 @@ public class CongruencePath {
 					 * Compute the paths for the func and arg parts and merge into the
 					 * interpolation info.
 					 */
-					computeCCPath((CCAppTerm) startCongruence, (CCAppTerm) t);
+					computeCongruence((CCAppTerm) startCongruence, (CCAppTerm) t);
 					path.addEntry(t, null);
 				}
 				/* Add the equality literal to conflict set */
@@ -298,7 +299,7 @@ public class CongruencePath {
 		assert (ll != null);
 		final SubPath path = computePathTo(left, llWithReason);
 		if (llWithReason != rrWithReason) {
-			computeCCPath((CCAppTerm)llWithReason, (CCAppTerm)rrWithReason);
+			computeCongruence((CCAppTerm)llWithReason, (CCAppTerm)rrWithReason);
 			path.addEntry(rrWithReason, null);
 		}
 		final SubPath pathBack = computePathTo(right, rrWithReason);
@@ -327,8 +328,21 @@ public class CongruencePath {
 	 *            the right end of the congruence chain that should be evaluated.
 	 */
 	public void computePath(final CCParameter left, final CCParameter right) {
-		final HashSet<SymmetricPair<CCTerm>> added = new HashSet<>();
+		// Only enqueue the path. The caller (a top-level compute*Cycle/Lemma method) calls drainTodo() once after all
+		// computePath/computeCongruence calls are queued, so a single shared drain builds them all (and dedups subpaths
+		// shared between several queued ends).
 		mTodo.add(new SymmetricPair<>(left, right));
+	}
+
+	/**
+	 * Process the work list {@link #mTodo} of (sub)paths to compute, building each one and collecting it into
+	 * {@link #mAllPaths} (and its literals into {@link #mAllLiterals}). The top-level compute*Cycle/Lemma methods seed
+	 * the work list via {@link #computePath} (a single pair) and {@link #computeCongruence} (argument pairs), then call
+	 * this once. {@link WeakCongruencePath} consumes single paths synchronously and drains after each
+	 * {@link #computePath}, hence protected.
+	 */
+	protected void drainTodo() {
+		final HashSet<SymmetricPair<CCTerm>> added = new HashSet<>();
 		while (!mTodo.isEmpty()) {
 			final SymmetricPair<CCParameter> pathEnds = mTodo.removeFirst();
 
@@ -356,6 +370,7 @@ public class CongruencePath {
 		final CCTerm lhs = eq.getLhs();
 		final CCTerm rhs = eq.getRhs();
 		computePath(eq.getLhs(), eq.getRhs());
+		drainTodo();
 		final Literal[] cycle = new Literal[mAllLiterals.size() + 1];
 		int i = 0;
 		cycle[i++] = eq;
@@ -385,6 +400,7 @@ public class CongruencePath {
 		final CCTerm rhs = eq.getRhs();
 		assert lhs.getRepresentative() == rhs.getRepresentative();
 		computePath(lhs, rhs);
+		drainTodo();
 		final Literal[] clause = new Literal[mAllLiterals.size() + 1];
 		int i = 0;
 		clause[i++] = eq.negate();
@@ -443,8 +459,13 @@ public class CongruencePath {
 			dOff = diseq.getOffset().negate();
 		}
 		// Two single-class paths, accumulating their reason literals into mAllLiterals and their subpaths into mAllPaths.
+		// The left half is anchored at dLeft@0, so its last node left sits at offLeft = dLeft.mOffsetToRep -
+		// left.mOffsetToRep. The right half is anchored directly in the left half's frame (right@shift), so after the eq
+		// edge (left == right + eq.getOffset()) its params come out already shifted across the bridge; no post-hoc shift.
+		final Rational shift = dLeft.mOffsetToRep.sub(left.mOffsetToRep).add(eq.getOffset());
 		computePath(dLeft, left);
-		computePath(right, dRight);
+		computePath(CCParameter.of(right, shift), dRight);
+		drainTodo();
 		final Literal[] clause = new Literal[mAllLiterals.size() + 2];
 		int i = 0;
 		clause[i++] = diseq;
@@ -456,18 +477,13 @@ public class CongruencePath {
 		if (produceProofs) {
 			final SubPath segA = dLeft == left ? null : mVisited.get(new SymmetricPair<>(dLeft, left));
 			final SubPath segB = right == dRight ? null : mVisited.get(new SymmetricPair<>(right, dRight));
-			// paramsA = [dLeft@0, ..., left@offLeft]; paramsB = [right@0, ..., dRight@offRight] (single-class, correct).
+			// paramsA = [dLeft@0, ..., left@offLeft]; paramsB = [right@shift, ..., dRight@...] (already shifted into the
+			// left half's frame via the anchor offset above), so the main path is a plain concatenation.
 			final CCParameter[] paramsA = segA != null ? segA.getParams() : new CCParameter[] { dLeft };
-			final CCParameter[] paramsB = segB != null ? segB.getParams() : new CCParameter[] { right };
-			// Shift the right half into the left half's frame: after the eq edge (left == right + eq.getOffset()), right
-			// sits at left's offset plus eq.getOffset().
-			final Rational shift = paramsA[paramsA.length - 1].getOffset().add(eq.getOffset());
+			final CCParameter[] paramsB = segB != null ? segB.getParams() : new CCParameter[] { CCParameter.of(right, shift) };
 			final CCParameter[] mainPath = new CCParameter[paramsA.length + paramsB.length];
 			System.arraycopy(paramsA, 0, mainPath, 0, paramsA.length);
-			for (int j = 0; j < paramsB.length; j++) {
-				final CCParameter p = paramsB[j];
-				mainPath[paramsA.length + j] = CCParameter.of(p.getCCTerm(), p.getOffset().add(shift));
-			}
+			System.arraycopy(paramsB, 0, mainPath, paramsA.length, paramsB.length);
 			assert mainPath[mainPath.length - 1].getOffset().equals(dOff) : "net path offset must match the diseq offset";
 			// The remaining subpaths (congruences within either half) keep deriving their offsets the usual way.
 			final ArrayList<SubPath> otherPaths = new ArrayList<>();
@@ -508,9 +524,8 @@ public class CongruencePath {
 		// first@existingDiff]); it establishes the actual (non-zero) offset.
 		computePath(CCParameter.of(second, Rational.ZERO), CCParameter.of(first, Rational.ZERO));
 		// The argument equalities that justify the congruence first == second (offset 0).
-		for (int i = 0; i < first.getArgCount(); i++) {
-			computePath(first.getArgParam(i), second.getArgParam(i));
-		}
+		computeCongruence(first, second);
+		drainTodo();
 		final Literal[] clause = new Literal[mAllLiterals.size()];
 		int i = 0;
 		for (final Literal l : mAllLiterals) {
@@ -518,7 +533,7 @@ public class CongruencePath {
 		}
 		final Clause c = new Clause(clause);
 		if (produceProofs) {
-			final SubPath existing = mVisited.get(new SymmetricPair<>((CCTerm) second, (CCTerm) first));
+			final SubPath existing = mVisited.get(new SymmetricPair<>(second, first));
 			final CCParameter[] existingParams = existing.getParams(); // [second@0, ..., first@existingDiff]
 			// main path: prepend first@0 (the congruence's other end) so the leading step first@0 -> second@0 is a
 			// congruence edge and the two ends first@0 / first@existingDiff form the trivial diseq.
@@ -542,9 +557,80 @@ public class CongruencePath {
 		return c;
 	}
 
-	public Clause computeCycle(final CCTerm lconstant, final CCTerm rconstant, final boolean produceProofs) {
-		mClosure.getLogger().debug("computeCycle for Constants");
+	/**
+	 * Build the conflict clause for a shared-term clash discovered <em>during</em> a merge: the two classes being merged
+	 * carry shared terms {@code lshared} (in the source class, reachable from the bridge term {@code lhs}) and
+	 * {@code rshared} (in the destination class, reachable from the bridge term {@code rhsTerm}) whose merged values are
+	 * provably distinct (e.g. an integer shared term forced to a non-integer value, {@code to_real a == 1/2}). The clash
+	 * is detected before the union-find is updated, so the two classes are joined only by the freshly added equal edge
+	 * {@code lhs — rhsTerm} while {@code mOffsetToRep} is still relative to each node's <em>own</em> representative.
+	 *
+	 * <p>As in {@link #computeAntiCycleDiffClass}, a single {@code computePath} across the bridge would read offsets from
+	 * two different reference frames and produce a garbage proof object. Instead we compute the two halves as ordinary
+	 * single-class paths ({@code lshared … lhs} and {@code rhsTerm … rshared}, each offset-correct) and stitch them by
+	 * hand, shifting the destination half by {@code bridgeOff} (= {@code value(lhs) − value(rhsTerm)} implied by the
+	 * merge reason; {@code 0} for a congruence). The bridge edge itself is justified either by the merge {@code reason}
+	 * (a real equality literal) or, for a congruence merge ({@code reason == null}), by the argument equalities — exactly
+	 * as in {@link #computeCongruenceAntiCycle}, where the bridge step {@code lhs → rhsTerm} is auto-resolved from the
+	 * argument subpaths. No positive literal is needed: the contradiction is the trivially distinct shared values,
+	 * discharged by an EQ/LA lemma (like {@link #computeCycle(CCParameter, CCParameter, boolean)}).
+	 */
+	public Clause computeSharedConflictCycle(final CCTerm lshared, final CCTerm rshared, final CCTerm lhs,
+			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff, final boolean produceProofs) {
+		// Two single-class paths. The source half is anchored at lshared@0, so its last node lhs sits at
+		// offLhs = lshared.mOffsetToRep - lhs.mOffsetToRep. The destination half is anchored directly in the source
+		// half's frame (rhsTerm@shift), so its params come out already shifted across the bridge: after the bridge edge
+		// (value(lhs) == value(rhsTerm) + bridgeOff), rhsTerm sits at offLhs + bridgeOff. No post-hoc shifting needed.
+		final Rational shift = lshared.mOffsetToRep.sub(lhs.mOffsetToRep).add(bridgeOff);
+		computePath(CCParameter.of(lshared, Rational.ZERO), CCParameter.of(lhs, Rational.ZERO));
+		computePath(CCParameter.of(rhsTerm, shift), CCParameter.of(rshared, Rational.ZERO));
+		// Justify the bridge edge lhs — rhsTerm.
+		if (reason != null) {
+			mAllLiterals.add(reason);
+		} else {
+			// Congruence bridge: the argument equalities justify lhs == rhsTerm (and build the subpaths that the proof
+			// generator uses to resolve the bridge step).
+			computeCongruence((CCAppTerm) lhs, (CCAppTerm) rhsTerm);
+		}
+		drainTodo();
+		final Literal[] clause = new Literal[mAllLiterals.size()];
+		int i = 0;
+		for (final Literal l : mAllLiterals) {
+			clause[i++] = l.negate();
+		}
+		final Clause c = new Clause(clause);
+		if (produceProofs) {
+			final SubPath segSrc = lshared == lhs ? null : mVisited.get(new SymmetricPair<>(lshared, lhs));
+			final SubPath segDest = rhsTerm == rshared ? null : mVisited.get(new SymmetricPair<>(rhsTerm, rshared));
+			// paramsSrc = [lshared@0, ..., lhs@offLhs]; paramsDest = [rhsTerm@shift, ..., rshared@...] (already shifted
+			// into the source frame via the anchor offset above), so the main path is a plain concatenation.
+			final CCParameter[] paramsSrc =
+					segSrc != null ? segSrc.getParams() : new CCParameter[] { CCParameter.of(lshared, Rational.ZERO) };
+			final CCParameter[] paramsDest =
+					segDest != null ? segDest.getParams() : new CCParameter[] { CCParameter.of(rhsTerm, shift) };
+			final CCParameter[] mainPath = new CCParameter[paramsSrc.length + paramsDest.length];
+			System.arraycopy(paramsSrc, 0, mainPath, 0, paramsSrc.length);
+			System.arraycopy(paramsDest, 0, mainPath, paramsSrc.length, paramsDest.length);
+			// The remaining subpaths (congruences within either half, plus the bridge's argument subpaths) keep deriving
+			// their offsets the usual way.
+			final ArrayList<SubPath> otherPaths = new ArrayList<>();
+			for (final SubPath p : mAllPaths) {
+				if (p != segSrc && p != segDest) {
+					otherPaths.add(p);
+				}
+			}
+			// The trivially distinct shared values, discharged by an EQ/LA lemma.
+			final SymmetricPair<CCParameter> diseq = new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1]);
+			c.setProof(new LeafNode(LeafNode.THEORY_CC,
+					new CCAnnotation(diseq, mainPath, otherPaths, CCAnnotation.RuleKind.CONG)));
+		}
+		return c;
+	}
+
+	public Clause computeCycle(final CCParameter lconstant, final CCParameter rconstant, final boolean produceProofs) {
+		mClosure.getLogger().debug("computeCycle for Constants: %s != %s", lconstant, rconstant);
 		computePath(lconstant, rconstant);
+		drainTodo();
 		final Literal[] cycle = new Literal[mAllLiterals.size()];
 		int i = 0;
 		for (final Literal l: mAllLiterals) {
@@ -563,6 +649,7 @@ public class CongruencePath {
 		for (final SymmetricPair<CCTerm> reason : lemma.getReason()) {
 			computePath(reason.getFirst(), reason.getSecond());
 		}
+		drainTodo();
 
 		final Literal[] negLits = new Literal[mAllLiterals.size() + (propagatedEq != null ? 1 : 0)];
 		int i = 0;
@@ -593,6 +680,7 @@ public class CongruencePath {
 	 */
 	public int computeDecideLevel(final CCTerm lhs, final CCTerm rhs) {
 		computePath(lhs, rhs);
+		drainTodo();
 		int depth = 0;
 		for (final Literal l : mAllLiterals) {
 			depth = Math.max(depth, l.getAtom().getDecideLevel());
