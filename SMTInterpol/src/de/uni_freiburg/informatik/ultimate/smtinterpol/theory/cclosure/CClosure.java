@@ -968,7 +968,7 @@ public class CClosure implements ITheory {
 				// falsified. (computeCycle would put eq positively and yield a satisfied clause.)
 				final Rational existingDiff = eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep());
 				if (!existingDiff.equals(eq.getOffset())) {
-					return new CongruencePath(this).computeAntiCycle(eq, isProofGenerationEnabled());
+					return computeSameClassAntiCycle(eq);
 				}
 			}
 		} else {
@@ -1091,29 +1091,50 @@ public class CClosure implements ITheory {
 				diseq, isProofGenerationEnabled());
 	}
 
+	/**
+	 * Same-class offset conflict: {@code eq}'s two sides are in one class at an offset different from the one {@code eq}
+	 * claims (e.g. asserting {@code x == x + 1}, or an offset disequality re-propagated false). This is a degenerate
+	 * {@link CongruencePath#computeMergeConflictCycle}: the "merge" bridge is {@code eq} itself and the two endpoints
+	 * coincide ({@code srcEnd == destEnd == eq.getLhs()}), so the source half is empty, the destination half is the
+	 * existing class path from {@code eq.getRhs()} back to {@code eq.getLhs()}, and the trivial diseq
+	 * {@code (lhs@0, lhs@deviation)} is discharged by an EQ lemma.
+	 */
+	private Clause computeSameClassAntiCycle(final CCEquality eq) {
+		assert eq.getLhs().mRepStar == eq.getRhs().mRepStar;
+		assert !eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep()).equals(eq.getOffset());
+		return new CongruencePath(this).computeMergeConflictCycle(eq.getLhs(), eq.getLhs(), eq.getLhs(), eq.getRhs(), eq,
+				eq.getOffset(), null, isProofGenerationEnabled());
+	}
+
 	public Clause computeAntiCycle(final CCEquality eq) {
 		final CCEquality diseq = eq.mDiseqReason;
 		if (diseq == null) {
-			// No separating disequality (e.g. x != x+5): the two sides are in the same class at an offset different from
-			// the one eq claims, so the path between them is the entire reason; no CCEquality is involved.
-			assert eq.getLhs().mRepStar == eq.getRhs().mRepStar;
-			assert !eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep()).equals(eq.getOffset());
-			return new CongruencePath(this).computeAntiCycle(eq, isProofGenerationEnabled());
+			// No separating disequality (e.g. x != x+5): the two sides are in the same class at a deviating offset.
+			return computeSameClassAntiCycle(eq);
 		}
 		// A concrete disequality separates eq's two sides. This works whether they are still in different classes or were
-		// merged later: computeAntiCycleDiffClass orients diseq from eq's stored orientation and walks the two original
-		// single-class paths plus the explicit eq edge, never mutating the graph.
-		return new CongruencePath(this).computeAntiCycleDiffClass(eq, diseq, isProofGenerationEnabled());
+		// merged later: orient diseq from eq's stored orientation (live reps can no longer tell the two sides apart after
+		// a merge), then build the two single-class halves and stitch them across the eq bridge.
+		final CCTerm srcEnd = eq.mDiseqOrientation ? diseq.getLhs() : diseq.getRhs();
+		final CCTerm destEnd = eq.mDiseqOrientation ? diseq.getRhs() : diseq.getLhs();
+		return new CongruencePath(this).computeMergeConflictCycle(srcEnd, destEnd, eq.getLhs(), eq.getRhs(), eq,
+				eq.getOffset(), diseq, isProofGenerationEnabled());
 	}
 
 	/**
 	 * Compute the conflict clause when a congruence merge finds its two function applications already in the same
 	 * congruence class at an offset different from the zero offset that congruence implies (e.g. f(x) and f(y) are
-	 * congruent but the class already records f(x) = f(y) + k for k != 0). See
-	 * {@link CongruencePath#computeCongruenceAntiCycle}.
+	 * congruent but the class already records f(x) = f(y) + k for k != 0). A degenerate
+	 * {@link CongruencePath#computeMergeConflictCycle}: the bridge is the congruence ({@code reason == null}, justified by
+	 * the argument equalities) and the endpoints coincide ({@code srcEnd == destEnd == first}), so the destination half
+	 * is the existing class path from {@code second} back to {@code first} and the trivial diseq
+	 * {@code (first@0, first@existingDiff)} is EQ-discharged.
 	 */
 	public Clause computeCongruenceAntiCycle(final CCAppTerm first, final CCAppTerm second) {
-		return new CongruencePath(this).computeCongruenceAntiCycle(first, second, isProofGenerationEnabled());
+		assert first.getRepresentative() == second.getRepresentative();
+		assert first.getFunctionSymbol() == second.getFunctionSymbol();
+		return new CongruencePath(this).computeMergeConflictCycle(first, first, first, second, null, Rational.ZERO, null,
+				isProofGenerationEnabled());
 	}
 
 	/**

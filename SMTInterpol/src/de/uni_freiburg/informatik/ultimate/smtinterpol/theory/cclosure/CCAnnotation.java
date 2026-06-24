@@ -271,12 +271,12 @@ public class CCAnnotation implements IAnnotation {
 	}
 
 	/**
-	 * Annotation with an explicit, pre-built main path. Used by the cross-class offset anti-cycle (see
-	 * {@link CongruencePath#computeAntiCycleDiffClass}): the main path spans two congruence classes joined by the
-	 * conflicting equality edge, so its node offsets cannot be derived from {@code mOffsetToRep} (which is relative to
-	 * each node's own representative). The two single-class halves are stitched by hand into {@code mainPath} with the
-	 * bridging offset, while the {@code otherPaths} (congruence sub-lemmas, each within one class) keep deriving their
-	 * offsets the usual way.
+	 * Annotation with an explicit, pre-built main path. Used by the offset conflict explainer (see
+	 * {@link CongruencePath#computeMergeConflictCycle}): the main path may span two congruence classes joined by the
+	 * conflicting equality/congruence bridge, so its node offsets cannot be derived from {@code mOffsetToRep} (which is
+	 * relative to each node's own representative). The two single-class halves are stitched by hand into {@code mainPath}
+	 * with the bridging offset, while the {@code otherPaths} (congruence sub-lemmas, each within one class) keep deriving
+	 * their offsets the usual way.
 	 */
 	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final CCParameter[] mainPath,
 			final Collection<SubPath> otherPaths, final RuleKind rule) {

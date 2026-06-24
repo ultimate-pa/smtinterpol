@@ -972,6 +972,44 @@ stale `.class` newer than the restored `.java` is not rebuilt): `test/proof` 97/
 `ProofSimplifierTest` 14/14, `ProofUtilsTest` 4/4, `CongruentAddTest` 5/5, `PairHashTest`
 1/1. Files: `CongruencePath.java`, `CCAnnotation.java`, `CClosure.java`, `CCTerm.java`.
 
+## All offset-cycle explainers consolidated into `computeMergeConflictCycle` — DONE (uncommitted)
+
+Jochen's observation: the three anti-cycle builders are all special cases of
+`computeMergeConflictCycle`. The same-class ones are the degenerate case where the two
+endpoints coincide (`srcEnd == destEnd == lhs`): the source half is empty and the
+destination half is the existing class path from `rhsTerm` back to `lhs`, so the trivial
+diseq `(lhs@0, lhs@(bridgeOff − pathOffset))` falls out of the same two-half stitch. The
+three knobs span every case:
+
+- `srcEnd == destEnd` ⇒ same-class (anti-cycle), else cross-class (merge / diff-class).
+- `reason == null` ⇒ congruence bridge (justified by argument equalities), else an equality
+  literal bridge.
+- `diseqLit == null` ⇒ trivial/shared diseq (EQ/LA discharged), else a concrete disequality
+  literal carried positively in the clause.
+
+Mapping (all now `CClosure` → `CongruencePath.computeMergeConflictCycle`):
+- `computeAntiCycle` same-class: `(eq.lhs, eq.lhs, eq.lhs, eq.rhs, eq, eq.getOffset(), null)`.
+- `computeAntiCycle` diff-class: `(dLeft, dRight, eq.lhs, eq.rhs, eq, eq.getOffset(), diseq)`
+  with `dLeft`/`dRight` oriented via `eq.mDiseqOrientation` at the call site.
+- `computeCongruenceAntiCycle`: `(first, first, first, second, null, ZERO, null)`.
+- `computeMergeDiseqCycle` / `computeSharedConflictCycle` unchanged (eager merge conflict).
+
+Deleted `CongruencePath.computeAntiCycle`, `computeAntiCycleDiffClass`,
+`computeCongruenceAntiCycle` (5 explainers → 1 + `computeCycle`, the bridgeless
+positive-eq cycle which stays separate). `CClosure.setLiteral`'s same-class assert-true
+case routes through a new `computeSameClassAntiCycle` helper (must force the same-class
+shape — `eq` can carry a stale `mDiseqReason`). Cosmetic: the unified same-class anti-cycle
+anchors its trivial diseq on `lhs` (`(lhs@0, lhs@dev)`) instead of the old `rhs` anchoring —
+both are valid EQ-discharged trivial diseqs, proof-check unaffected. `CongruencePath`
+−170 lines net.
+
+Validated (clean build, `-ea`): `test/proof` 97/98, `test/abv` 4/4, `test/bv` 35/35,
+`test/regression` 54/55, `test/uflira` 5/5, `test/lia` 32/32, `test/datatype` non-quantified
+clean — only the documented pre-existing failures (`trivialdiseqarray`, `Script_simple`,
+`datatype/quantified/*match*` = `QuantClause.collectVarInfos`). `BitvectorTest` 89/89,
+`ProofSimplifierTest` 14/14, `ProofUtilsTest` 4/4, `CongruentAddTest` 5/5, `PairHashTest`
+1/1. Files: `CongruencePath.java`, `CClosure.java`, `CCAnnotation.java`.
+
 ## Implementable slice (ready to start)
 
 1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the
