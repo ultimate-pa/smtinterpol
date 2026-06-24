@@ -923,6 +923,18 @@ at the path's first node. This also subsumes the per-element "pre-shift" in
 `computeAntiCycleDiffClass`/`computeMergeConflictCycle`: the destination half is rendered
 with `getParams(rhsTerm@shift)`, so the main path is a plain concatenation.
 
+**Direction fix (Jochen caught it).** `mVisited` keys paths by an undirected
+`SymmetricPair`, so a retrieved `SubPath`'s stored term list may run either way; the
+stitch builders assumed `[start … end]`. `getParams(anchor)` now treats the anchor as the
+intended <em>start</em> (it must be one of the two endpoints) and renders the term list in
+reverse when the anchor is the stored last node, so callers always get `[anchor … other]`.
+The three stitch sites anchor explicitly at their start endpoint
+(`segSrc.getParams(srcEnd)`, `segB.getParams(right@shift)`,
+`existing.getParams(second@0)`) rather than self-anchoring, and assert the main path runs
+`srcEnd … destEnd` (comparing `getCCTerm()`, not the offsetted parameter). Validated by
+temporarily reversing the build order of both halves: `abv/ext01` still proof-checks
+`unsat`.
+
 **The cross-class assertion (Jochen's idea).** `getParams` asserts the anchor shares the
 representative of every *numeric* node. `getOffsetToRep` is class-relative, so a path that
 spans two classes mixes reference frames and yields garbage offsets — the bug behind every

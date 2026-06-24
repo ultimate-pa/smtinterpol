@@ -76,6 +76,11 @@ public class CongruencePath {
 		 * ({@link CCTerm#getOffsetToRep} differences), so the anchor only fixes the absolute base and the result is
 		 * stable under {@link #addSubPath} concatenation. The anchor is typically one of the path's own nodes.
 		 *
+		 * <p>The {@code anchor} is treated as the <em>start</em> of the path: its term must be one of the path's two
+		 * endpoints, and the result is oriented so that the anchor's term is first (the stored term list may run either
+		 * way, since {@link #mVisited} keys paths by an undirected {@link SymmetricPair}). The anchor's term renders at
+		 * {@code anchor.getOffset()} and the other endpoint follows from the intrinsic relative offsets.
+		 *
 		 * <p>{@link CCTerm#getOffsetToRep} is relative to each node's own representative, so for two nodes in different
 		 * classes the difference mixes reference frames and yields garbage offsets — the bug behind several earlier
 		 * offset conflicts (a path built over a freshly added, not-yet-united merge bridge). For <em>numeric</em> terms
@@ -86,9 +91,15 @@ public class CongruencePath {
 		 * trivially correct (offset zero) regardless of frame.
 		 */
 		public CCParameter[] getParams(final CCParameter anchor) {
-			final CCParameter[] params = new CCParameter[mTermsOnPath.size()];
-			for (int i = 0; i < params.length; i++) {
-				final CCTerm t = mTermsOnPath.get(i);
+			final int n = mTermsOnPath.size();
+			assert mTermsOnPath.get(0) == anchor.getCCTerm() || mTermsOnPath.get(n - 1) == anchor.getCCTerm()
+					: "getParams anchor must be a path endpoint";
+			// Orient the path so the anchor's term is first. The stored term list may run either way (mVisited keys
+			// paths undirected), so if the anchor is the stored last node, render in reverse.
+			final boolean reversed = mTermsOnPath.get(0) != anchor.getCCTerm();
+			final CCParameter[] params = new CCParameter[n];
+			for (int i = 0; i < n; i++) {
+				final CCTerm t = mTermsOnPath.get(reversed ? n - 1 - i : i);
 				assert !t.getFlatTerm().getSort().isNumericSort()
 						|| anchor.getRepresentative() == t.getRepresentative()
 						: "getParams anchor must share the congruence class of every numeric node";
@@ -479,10 +490,10 @@ public class CongruencePath {
 		if (produceProofs) {
 			final SubPath segA = dLeft == left ? null : mVisited.get(new SymmetricPair<>(dLeft, left));
 			final SubPath segB = right == dRight ? null : mVisited.get(new SymmetricPair<>(right, dRight));
-			// paramsA = [dLeft@0, ..., left@offLeft] (self-anchored). Shift the right half into the left half's frame:
-			// after the eq edge (left == right + eq.getOffset()), right sits at left's offset plus eq.getOffset();
-			// rendering the right half with that anchor yields it already shifted, so the main path is a plain concat.
-			final CCParameter[] paramsA = segA != null ? segA.getParams() : new CCParameter[] { dLeft };
+			// paramsA = [dLeft@0, ..., left@offLeft] (anchored and oriented at dLeft). Shift the right half into the left
+			// half's frame: after the eq edge (left == right + eq.getOffset()), right sits at left's offset plus
+			// eq.getOffset(); rendering the right half anchored there yields it already shifted, so a plain concat.
+			final CCParameter[] paramsA = segA != null ? segA.getParams(dLeft) : new CCParameter[] { dLeft };
 			final CCParameter rightAnchor =
 					CCParameter.of(right, paramsA[paramsA.length - 1].getOffset().add(eq.getOffset()));
 			final CCParameter[] paramsB =
@@ -540,7 +551,8 @@ public class CongruencePath {
 		final Clause c = new Clause(clause);
 		if (produceProofs) {
 			final SubPath existing = mVisited.get(new SymmetricPair<>(second, first));
-			final CCParameter[] existingParams = existing.getParams(); // [second@0, ..., first@existingDiff]
+			// anchored and oriented at second@0: [second@0, ..., first@existingDiff]
+			final CCParameter[] existingParams = existing.getParams(CCParameter.of(second, Rational.ZERO));
 			// main path: prepend first@0 (the congruence's other end) so the leading step first@0 -> second@0 is a
 			// congruence edge and the two ends first@0 / first@existingDiff form the trivial diseq.
 			final CCParameter[] mainPath = new CCParameter[existingParams.length + 1];
@@ -615,11 +627,11 @@ public class CongruencePath {
 		if (produceProofs) {
 			final SubPath segSrc = srcEnd == lhs ? null : mVisited.get(new SymmetricPair<>(srcEnd, lhs));
 			final SubPath segDest = rhsTerm == destEnd ? null : mVisited.get(new SymmetricPair<>(rhsTerm, destEnd));
-			// paramsSrc = [srcEnd@0, ..., lhs@offLhs] (self-anchored). Shift the destination half into the source
-			// half's frame: after the bridge edge (value(lhs) == value(rhsTerm) + bridgeOff), rhsTerm sits at lhs's
-			// offset plus bridgeOff; rendering the dest half with that anchor yields it already shifted, so the main
+			// paramsSrc = [srcEnd@0, ..., lhs@offLhs] (anchored and oriented at srcEnd). Shift the destination half into
+			// the source half's frame: after the bridge edge (value(lhs) == value(rhsTerm) + bridgeOff), rhsTerm sits at
+			// lhs's offset plus bridgeOff; rendering the dest half anchored there yields it already shifted, so the main
 			// path is a plain concatenation.
-			final CCParameter[] paramsSrc = segSrc != null ? segSrc.getParams() : new CCParameter[] { srcEnd };
+			final CCParameter[] paramsSrc = segSrc != null ? segSrc.getParams(srcEnd) : new CCParameter[] { srcEnd };
 			final CCParameter destAnchor =
 					CCParameter.of(rhsTerm, paramsSrc[paramsSrc.length - 1].getOffset().add(bridgeOff));
 			final CCParameter[] paramsDest =
@@ -629,6 +641,8 @@ public class CongruencePath {
 			System.arraycopy(paramsDest, 0, mainPath, paramsSrc.length, paramsDest.length);
 			// The remaining subpaths (congruences within either half, plus the bridge's argument subpaths) keep deriving
 			// their offsets the usual way.
+			assert mainPath[0].getCCTerm() == srcEnd : "main path must start at srcEnd";
+			assert mainPath[mainPath.length - 1].getCCTerm() == destEnd : "main path must end at destEnd";
 			final ArrayList<SubPath> otherPaths = new ArrayList<>();
 			for (final SubPath p : mAllPaths) {
 				if (p != segSrc && p != segDest) {
