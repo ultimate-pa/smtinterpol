@@ -448,15 +448,23 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 		 */
 		final Rational delta = reasonDiff(reason, lhs, this).sub(lhs.mOffsetToRep).add(mOffsetToRep);
 
-		// Need to prevent MBTC when we get a conflict. Hence a two-way pass. A disequality conflicts with the merge only
-		// if it forbids exactly the offset delta at which the two classes are being merged.
-		CCEquality diseq = null;
+		// Detect a conflict (a disequality forbidding the merge, or a shared-term clash) before mutating anything and
+		// return it immediately. The conflict explainers build each half within its own class and never walk the merge
+		// bridge, so they do not need the equal edge — returning here (rather than merging, then undoing the edge on a
+		// conflict) keeps the union-find and MBTC from ever seeing the half-merged conflicting state. A disequality
+		// conflicts only if it forbids exactly the offset delta at which the two classes are being merged.
 		final CCTermPairHash.Info diseqInfo = engine.mPairHash.getInfo(src, dest, delta);
-		if (diseqInfo != null) {
-			diseq = diseqInfo.mDiseq;
+		if (diseqInfo != null && diseqInfo.mDiseq != null) {
+			final CCEquality diseq = diseqInfo.mDiseq;
+			// A disequality forbids this merge. Its two sides straddle the freshly added (not-yet-united) bridge, so
+			// orient them into the source/destination class and build the two halves separately (computeCycle would
+			// walk a single path across the bridge and mix offset frames). mRepStar is still the pre-merge rep here.
+			final CCTerm srcEnd = diseq.getLhs().mRepStar == src ? diseq.getLhs() : diseq.getRhs();
+			final CCTerm destEnd = diseq.getLhs().mRepStar == src ? diseq.getRhs() : diseq.getLhs();
+			return engine.computeMergeDiseqCycle(srcEnd, destEnd, lhs, this, reason,
+					reasonDiff(reason, lhs, this), diseq);
 		}
-		boolean sharedTermConflict = false;
-		if (diseq == null && src.mSharedTerm != null) {
+		if (src.mSharedTerm != null) {
 			if (dest.mSharedTerm == null) {
 				dest.mSharedTerm = src.mSharedTerm;
 			} else {
@@ -468,7 +476,10 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 				final CCEquality cceq =
 						engine.createEquality(src.mSharedTerm, dest.mSharedTerm, sharedOffset, createInLA);
 				/* If cceq cannot be created this is a conflict like merging x+1 and x */
-				sharedTermConflict = (cceq == null);
+				if (cceq == null) {
+					return engine.computeSharedConflictCycle(src.mSharedTerm, dest.mSharedTerm, lhs, this, reason,
+							reasonDiff(reason, lhs, this));
+				}
 				/*
 				 * No need to remember the created equality. It was inserted and will be found later and propagated
 				 * automatically.
@@ -482,27 +493,6 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 		lhs.mEqualEdge = this;
 		lhs.mOldRep = src;
 		src.mReasonLiteral = reason;
-
-		/* Check for conflict */
-		if (sharedTermConflict || diseq != null) {
-			final Clause conflict;
-			if (sharedTermConflict) {
-				conflict = engine.computeSharedConflictCycle(src.mSharedTerm, dest.mSharedTerm, lhs, this, reason,
-						reasonDiff(reason, lhs, this));
-			} else {
-				// A disequality forbids this merge. Its two sides straddle the freshly added (not-yet-united) bridge, so
-				// orient them into the source/destination class and build the two halves separately (computeCycle would
-				// walk a single path across the bridge and mix offset frames). mRepStar is still the pre-merge rep here.
-				final CCTerm srcEnd = diseq.getLhs().mRepStar == src ? diseq.getLhs() : diseq.getRhs();
-				final CCTerm destEnd = diseq.getLhs().mRepStar == src ? diseq.getRhs() : diseq.getLhs();
-				conflict = engine.computeMergeDiseqCycle(srcEnd, destEnd, lhs, this, reason,
-						reasonDiff(reason, lhs, this), diseq);
-			}
-			lhs.mEqualEdge = null;
-			lhs.mOldRep = null;
-			src.mReasonLiteral = null;
-			return conflict;
-		}
 
 		long time;
 

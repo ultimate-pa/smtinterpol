@@ -1010,6 +1010,21 @@ clean — only the documented pre-existing failures (`trivialdiseqarray`, `Scrip
 `ProofSimplifierTest` 14/14, `ProofUtilsTest` 4/4, `CongruentAddTest` 5/5, `PairHashTest`
 1/1. Files: `CongruencePath.java`, `CClosure.java`, `CCAnnotation.java`.
 
+## Merge conflicts reported before mutating the graph — DONE (uncommitted)
+
+Since the conflict explainers build each half within its own class and never walk the
+merge bridge, `CCTerm.mergeInternal` no longer needs the equal edge for a conflict. It now
+detects the conflict (disequality forbidding the merge, or shared-term clash) and returns it
+<em>before</em> `invertEqualEdges`/`mEqualEdge`/`mOldRep`/`mReasonLiteral` are set — dropping
+the old add-the-edge-then-undo-it dance, so the conflict path mutates nothing. The diseq
+orientation (`diseq.getLhs().mRepStar == src`) now reads a pristine union-find. **Bug fixed
+while reviewing:** the first cut treated any non-null `diseqInfo` as a disequality conflict,
+but a `CCTermPairHash.Info` also holds equality literals / compare triggers, so
+`diseqInfo.mDiseq` can be null — the guard must be `diseqInfo != null && diseqInfo.mDiseq !=
+null` (otherwise `diseq.getLhs()` NPEs on essentially every benchmark). Validated: test/proof
+97/98, abv 4/4, bv 35/35, uflira/lia/datatype-nonquant clean (only the pre-existing failures);
+unit suites green. File: `CCTerm.java`.
+
 ## Implementable slice (ready to start)
 
 1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the
