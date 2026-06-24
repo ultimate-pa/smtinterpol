@@ -57,43 +57,49 @@ public class CongruencePath {
 	 */
 	public static class SubPath {
 		ArrayList<CCTerm> mTermsOnPath;
-		/** The anchor (first node) of the path and its offset; the offset of every other node is derived from it. */
-		final CCTerm mStart;
-		final Rational mStartOffset;
 
 		public SubPath(final CCParameter start) {
 			this(start, true);
 		}
 
 		public SubPath(final CCParameter start, final boolean produceProofs) {
-			mStart = start.getCCTerm();
-			mStartOffset = start.getOffset();
 			if (produceProofs) {
 				mTermsOnPath = new ArrayList<>();
-				mTermsOnPath.add(mStart);
+				mTermsOnPath.add(start.getCCTerm());
 			}
-		}
-
-		/** The offset-free terms on the path. */
-		public CCTerm[] getTerms() {
-			return mTermsOnPath.toArray(new CCTerm[mTermsOnPath.size()]);
 		}
 
 		/**
-		 * The path nodes as {@link CCParameter}s. All nodes are in one congruence class, and the offsets are chosen so
-		 * that every node has the same value as the anchor (the first node): {@code value(node) + offset == value(start)
-		 * + startOffset}. So if {@code x = y+4} and {@code y = z+2}, a path anchored at {@code x+2} reads
-		 * {@code x+2, y+6, z+8}. The relative offsets are intrinsic ({@code mOffsetToRep} differences), so this is stable
-		 * under {@link #addSubPath} concatenation regardless of the appended pieces' own anchors.
+		 * The path nodes as {@link CCParameter}s, offset so that every node has the same value as {@code anchor}:
+		 * {@code value(node) + offset == value(anchor) + anchor.getOffset()}. So if {@code x = y+4} and {@code y = z+2},
+		 * a path rendered with anchor {@code x+2} reads {@code x+2, y+6, z+8}. The relative offsets are intrinsic
+		 * ({@link CCTerm#getOffsetToRep} differences), so the anchor only fixes the absolute base and the result is
+		 * stable under {@link #addSubPath} concatenation. The anchor is typically one of the path's own nodes.
+		 *
+		 * <p>{@link CCTerm#getOffsetToRep} is relative to each node's own representative, so for two nodes in different
+		 * classes the difference mixes reference frames and yields garbage offsets — the bug behind several earlier
+		 * offset conflicts (a path built over a freshly added, not-yet-united merge bridge). For <em>numeric</em> terms
+		 * we therefore assert the anchor shares the representative of every node; the conflict builders that legitimately
+		 * span two classes ({@link #computeMergeConflictCycle}, {@link #computeAntiCycleDiffClass}) avoid this by rendering
+		 * each single-class half separately. The only paths that genuinely cross classes are non-numeric (weak-array
+		 * paths over distinct strong classes), and a non-numeric term can never carry an offset, so the rendering is
+		 * trivially correct (offset zero) regardless of frame.
 		 */
-		public CCParameter[] getParams() {
+		public CCParameter[] getParams(final CCParameter anchor) {
 			final CCParameter[] params = new CCParameter[mTermsOnPath.size()];
 			for (int i = 0; i < params.length; i++) {
 				final CCTerm t = mTermsOnPath.get(i);
-				final Rational off = mStartOffset.add(mStart.mOffsetToRep).sub(t.mOffsetToRep);
-				params[i] = CCParameter.of(t, off);
+				assert !t.getFlatTerm().getSort().isNumericSort()
+						|| anchor.getRepresentative() == t.getRepresentative()
+						: "getParams anchor must share the congruence class of every numeric node";
+				params[i] = CCParameter.of(t, anchor.getOffsetToRep().sub(t.getOffsetToRep()));
 			}
 			return params;
+		}
+
+		/** {@link #getParams(CCParameter)} self-anchored at the path's first node (offset 0). */
+		public CCParameter[] getParams() {
+			return getParams(mTermsOnPath.get(0));
 		}
 
 		public void addEntry(final CCTerm term, final CCEquality reason) {
@@ -459,12 +465,8 @@ public class CongruencePath {
 			dOff = diseq.getOffset().negate();
 		}
 		// Two single-class paths, accumulating their reason literals into mAllLiterals and their subpaths into mAllPaths.
-		// The left half is anchored at dLeft@0, so its last node left sits at offLeft = dLeft.mOffsetToRep -
-		// left.mOffsetToRep. The right half is anchored directly in the left half's frame (right@shift), so after the eq
-		// edge (left == right + eq.getOffset()) its params come out already shifted across the bridge; no post-hoc shift.
-		final Rational shift = dLeft.mOffsetToRep.sub(left.mOffsetToRep).add(eq.getOffset());
 		computePath(dLeft, left);
-		computePath(CCParameter.of(right, shift), dRight);
+		computePath(right, dRight);
 		drainTodo();
 		final Literal[] clause = new Literal[mAllLiterals.size() + 2];
 		int i = 0;
@@ -477,10 +479,14 @@ public class CongruencePath {
 		if (produceProofs) {
 			final SubPath segA = dLeft == left ? null : mVisited.get(new SymmetricPair<>(dLeft, left));
 			final SubPath segB = right == dRight ? null : mVisited.get(new SymmetricPair<>(right, dRight));
-			// paramsA = [dLeft@0, ..., left@offLeft]; paramsB = [right@shift, ..., dRight@...] (already shifted into the
-			// left half's frame via the anchor offset above), so the main path is a plain concatenation.
+			// paramsA = [dLeft@0, ..., left@offLeft] (self-anchored). Shift the right half into the left half's frame:
+			// after the eq edge (left == right + eq.getOffset()), right sits at left's offset plus eq.getOffset();
+			// rendering the right half with that anchor yields it already shifted, so the main path is a plain concat.
 			final CCParameter[] paramsA = segA != null ? segA.getParams() : new CCParameter[] { dLeft };
-			final CCParameter[] paramsB = segB != null ? segB.getParams() : new CCParameter[] { CCParameter.of(right, shift) };
+			final CCParameter rightAnchor =
+					CCParameter.of(right, paramsA[paramsA.length - 1].getOffset().add(eq.getOffset()));
+			final CCParameter[] paramsB =
+					segB != null ? segB.getParams(rightAnchor) : new CCParameter[] { rightAnchor };
 			final CCParameter[] mainPath = new CCParameter[paramsA.length + paramsB.length];
 			System.arraycopy(paramsA, 0, mainPath, 0, paramsA.length);
 			System.arraycopy(paramsB, 0, mainPath, paramsA.length, paramsB.length);
@@ -558,32 +564,35 @@ public class CongruencePath {
 	}
 
 	/**
-	 * Build the conflict clause for a shared-term clash discovered <em>during</em> a merge: the two classes being merged
-	 * carry shared terms {@code lshared} (in the source class, reachable from the bridge term {@code lhs}) and
-	 * {@code rshared} (in the destination class, reachable from the bridge term {@code rhsTerm}) whose merged values are
-	 * provably distinct (e.g. an integer shared term forced to a non-integer value, {@code to_real a == 1/2}). The clash
-	 * is detected before the union-find is updated, so the two classes are joined only by the freshly added equal edge
-	 * {@code lhs — rhsTerm} while {@code mOffsetToRep} is still relative to each node's <em>own</em> representative.
+	 * Build the conflict clause for a clash discovered <em>during</em> a merge of two classes that are joined only by the
+	 * freshly added equal edge {@code lhs — rhsTerm} (the union-find is not yet updated, so {@code mOffsetToRep} is still
+	 * relative to each node's <em>own</em> representative). The conflicting fact lives between an endpoint {@code srcEnd}
+	 * in the source class (reachable from {@code lhs}) and an endpoint {@code destEnd} in the destination class (reachable
+	 * from {@code rhsTerm}). Two cases:
+	 * <ul>
+	 * <li><b>Shared-term clash</b> ({@code diseqLit == null}): {@code srcEnd}/{@code destEnd} are the two classes' shared
+	 * terms, whose merged values are provably distinct (e.g. an integer shared term forced to a non-integer value,
+	 * {@code to_real a == 1/2}). The contradiction is intrinsic, discharged by an EQ/LA lemma; no positive literal.</li>
+	 * <li><b>Disequality clash</b> ({@code diseqLit != null}): a registered disequality {@code diseqLit} between the two
+	 * classes forbids exactly the offset at which the merge would unite {@code srcEnd} and {@code destEnd}. The clause
+	 * carries {@code diseqLit} as its positive literal.</li>
+	 * </ul>
 	 *
 	 * <p>As in {@link #computeAntiCycleDiffClass}, a single {@code computePath} across the bridge would read offsets from
 	 * two different reference frames and produce a garbage proof object. Instead we compute the two halves as ordinary
-	 * single-class paths ({@code lshared … lhs} and {@code rhsTerm … rshared}, each offset-correct) and stitch them by
+	 * single-class paths ({@code srcEnd … lhs} and {@code rhsTerm … destEnd}, each offset-correct) and stitch them by
 	 * hand, shifting the destination half by {@code bridgeOff} (= {@code value(lhs) − value(rhsTerm)} implied by the
 	 * merge reason; {@code 0} for a congruence). The bridge edge itself is justified either by the merge {@code reason}
 	 * (a real equality literal) or, for a congruence merge ({@code reason == null}), by the argument equalities — exactly
 	 * as in {@link #computeCongruenceAntiCycle}, where the bridge step {@code lhs → rhsTerm} is auto-resolved from the
-	 * argument subpaths. No positive literal is needed: the contradiction is the trivially distinct shared values,
-	 * discharged by an EQ/LA lemma (like {@link #computeCycle(CCParameter, CCParameter, boolean)}).
+	 * argument subpaths.
 	 */
-	public Clause computeSharedConflictCycle(final CCTerm lshared, final CCTerm rshared, final CCTerm lhs,
-			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff, final boolean produceProofs) {
-		// Two single-class paths. The source half is anchored at lshared@0, so its last node lhs sits at
-		// offLhs = lshared.mOffsetToRep - lhs.mOffsetToRep. The destination half is anchored directly in the source
-		// half's frame (rhsTerm@shift), so its params come out already shifted across the bridge: after the bridge edge
-		// (value(lhs) == value(rhsTerm) + bridgeOff), rhsTerm sits at offLhs + bridgeOff. No post-hoc shifting needed.
-		final Rational shift = lshared.mOffsetToRep.sub(lhs.mOffsetToRep).add(bridgeOff);
-		computePath(CCParameter.of(lshared, Rational.ZERO), CCParameter.of(lhs, Rational.ZERO));
-		computePath(CCParameter.of(rhsTerm, shift), CCParameter.of(rshared, Rational.ZERO));
+	public Clause computeMergeConflictCycle(final CCTerm srcEnd, final CCTerm destEnd, final CCTerm lhs,
+			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff, final CCEquality diseqLit,
+			final boolean produceProofs) {
+		// Two single-class paths, each offset-correct on its own.
+		computePath(srcEnd, lhs);
+		computePath(rhsTerm, destEnd);
 		// Justify the bridge edge lhs — rhsTerm.
 		if (reason != null) {
 			mAllLiterals.add(reason);
@@ -593,21 +602,28 @@ public class CongruencePath {
 			computeCongruence((CCAppTerm) lhs, (CCAppTerm) rhsTerm);
 		}
 		drainTodo();
-		final Literal[] clause = new Literal[mAllLiterals.size()];
+		final Literal[] clause = new Literal[mAllLiterals.size() + (diseqLit != null ? 1 : 0)];
 		int i = 0;
+		// The separating disequality (if any) is the cycle's only positive literal; the merge falsifies it.
+		if (diseqLit != null) {
+			clause[i++] = diseqLit;
+		}
 		for (final Literal l : mAllLiterals) {
 			clause[i++] = l.negate();
 		}
 		final Clause c = new Clause(clause);
 		if (produceProofs) {
-			final SubPath segSrc = lshared == lhs ? null : mVisited.get(new SymmetricPair<>(lshared, lhs));
-			final SubPath segDest = rhsTerm == rshared ? null : mVisited.get(new SymmetricPair<>(rhsTerm, rshared));
-			// paramsSrc = [lshared@0, ..., lhs@offLhs]; paramsDest = [rhsTerm@shift, ..., rshared@...] (already shifted
-			// into the source frame via the anchor offset above), so the main path is a plain concatenation.
-			final CCParameter[] paramsSrc =
-					segSrc != null ? segSrc.getParams() : new CCParameter[] { CCParameter.of(lshared, Rational.ZERO) };
+			final SubPath segSrc = srcEnd == lhs ? null : mVisited.get(new SymmetricPair<>(srcEnd, lhs));
+			final SubPath segDest = rhsTerm == destEnd ? null : mVisited.get(new SymmetricPair<>(rhsTerm, destEnd));
+			// paramsSrc = [srcEnd@0, ..., lhs@offLhs] (self-anchored). Shift the destination half into the source
+			// half's frame: after the bridge edge (value(lhs) == value(rhsTerm) + bridgeOff), rhsTerm sits at lhs's
+			// offset plus bridgeOff; rendering the dest half with that anchor yields it already shifted, so the main
+			// path is a plain concatenation.
+			final CCParameter[] paramsSrc = segSrc != null ? segSrc.getParams() : new CCParameter[] { srcEnd };
+			final CCParameter destAnchor =
+					CCParameter.of(rhsTerm, paramsSrc[paramsSrc.length - 1].getOffset().add(bridgeOff));
 			final CCParameter[] paramsDest =
-					segDest != null ? segDest.getParams() : new CCParameter[] { CCParameter.of(rhsTerm, shift) };
+					segDest != null ? segDest.getParams(destAnchor) : new CCParameter[] { destAnchor };
 			final CCParameter[] mainPath = new CCParameter[paramsSrc.length + paramsDest.length];
 			System.arraycopy(paramsSrc, 0, mainPath, 0, paramsSrc.length);
 			System.arraycopy(paramsDest, 0, mainPath, paramsSrc.length, paramsDest.length);
@@ -619,27 +635,11 @@ public class CongruencePath {
 					otherPaths.add(p);
 				}
 			}
-			// The trivially distinct shared values, discharged by an EQ/LA lemma.
+			// The clashing equality: a concrete disequality discharged against diseqLit, or (shared case) the trivially
+			// distinct shared values discharged by an EQ/LA lemma.
 			final SymmetricPair<CCParameter> diseq = new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1]);
 			c.setProof(new LeafNode(LeafNode.THEORY_CC,
 					new CCAnnotation(diseq, mainPath, otherPaths, CCAnnotation.RuleKind.CONG)));
-		}
-		return c;
-	}
-
-	public Clause computeCycle(final CCParameter lconstant, final CCParameter rconstant, final boolean produceProofs) {
-		mClosure.getLogger().debug("computeCycle for Constants: %s != %s", lconstant, rconstant);
-		computePath(lconstant, rconstant);
-		drainTodo();
-		final Literal[] cycle = new Literal[mAllLiterals.size()];
-		int i = 0;
-		for (final Literal l: mAllLiterals) {
-			cycle[i++] = l.negate();
-		}
-		final Clause c = new Clause(cycle);
-		if (produceProofs) {
-			c.setProof(new LeafNode(
-					LeafNode.THEORY_CC, createAnnotation(new SymmetricPair<>(lconstant, rconstant))));
 		}
 		return c;
 	}

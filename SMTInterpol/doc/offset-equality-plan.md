@@ -912,6 +912,54 @@ re-checks its full cross-class anti-cycle proof);
 (`datatype/quantified/*match*` = `QuantClause.collectVarInfos`). Files:
 `CCTerm.java`, `CClosure.java`, `CongruencePath.java`, `WeakCongruencePath.java`.
 
+## `SubPath.getParams(anchor)` + the cross-class guard, and the merge-conflict-diseq stitch — DONE (uncommitted)
+
+A `SubPath` is a list of offset-free CCTerms; `getParams` renders them as offsetted
+`CCParameter`s. It used to store the anchor (`mStart`/`mStartOffset`) on the SubPath.
+Now `getParams(CCParameter anchor)` takes the anchor at render time (the relative
+offsets are intrinsic — `getOffsetToRep` differences — so the anchor only fixes the
+absolute base). `mStart`/`mStartOffset` are gone; the no-arg `getParams()` self-anchors
+at the path's first node. This also subsumes the per-element "pre-shift" in
+`computeAntiCycleDiffClass`/`computeMergeConflictCycle`: the destination half is rendered
+with `getParams(rhsTerm@shift)`, so the main path is a plain concatenation.
+
+**The cross-class assertion (Jochen's idea).** `getParams` asserts the anchor shares the
+representative of every *numeric* node. `getOffsetToRep` is class-relative, so a path that
+spans two classes mixes reference frames and yields garbage offsets — the bug behind every
+cross-class offset conflict. Non-numeric terms can never carry an offset, so the legitimate
+cross-class paths (weak-array paths over distinct strong classes) are exempt.
+
+**The lingering bug the assertion found.** With the strict guard, `computeCycle(diseq)`
+called from `CCTerm.mergeInternal` (the `diseq != null` branch: a disequality forbids a
+merge at exactly the merge offset) fired the assertion — it walks a single path across the
+freshly added, not-yet-united merge bridge, exactly like the shared-term clash. It is the
+eager-conflict twin of the lazy `computeAntiCycle → computeAntiCycleDiffClass` path, and was
+never converted; it was silently wrong in the proof object whenever the bridge offset is
+non-zero (the clause is always sound, so only proof-checking catches it). Fix: generalize
+`computeSharedConflictCycle` into `computeMergeConflictCycle`, which takes an optional
+concrete `diseqLit` (the shared-term clash passes `null`; the merge-conflict passes the
+disequality, which becomes the cycle's positive literal). `CClosure.computeMergeDiseqCycle`
+wraps it; `mergeInternal` orients the diseq's two sides into the source/destination class
+(via pre-merge `mRepStar`) and calls it. Now both clash kinds build the two halves
+separately — no cross-class numeric `getParams` remains.
+
+**Real trigger:** `abv/ext01.smt2` hits `computeMergeDiseqCycle` with `bridgeOff = -1` on
+`(ubv_to_int (select d (@diff d e))) == (ubv_to_int (@diff d d))` — the abv/ext case where
+this was first suspected. It now proof-checks `unsat`.
+
+Also removed dead code orphaned by the shared-term-clash change: `SubPath.getTerms()`, the
+`CCTerm[]` `prepend` overload and the unused `terms`/`mainTerms` locals in `CCAnnotation`,
+and the two-arg `computeCycle(CCParameter,CCParameter)` (CongruencePath impl + CClosure
+wrapper).
+
+Validated (clean build, `-ea`; note `ant clean` is required after a stash/`cp` restore — a
+stale `.class` newer than the restored `.java` is not rebuilt): `test/proof` 97/98,
+`test/abv` 4/4, `test/bv` 35/35, `test/regression` 53/55, `test/uflira` 5/5, `test/lia`
+32/32 — only the two documented pre-existing failures (`trivialdiseqarray` array+offset;
+`Script_simple` `CCInterpolator occur==null` offset interpolation). `BitvectorTest` 89/89,
+`ProofSimplifierTest` 14/14, `ProofUtilsTest` 4/4, `CongruentAddTest` 5/5, `PairHashTest`
+1/1. Files: `CongruencePath.java`, `CCAnnotation.java`, `CClosure.java`, `CCTerm.java`.
+
 ## Implementable slice (ready to start)
 
 1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the

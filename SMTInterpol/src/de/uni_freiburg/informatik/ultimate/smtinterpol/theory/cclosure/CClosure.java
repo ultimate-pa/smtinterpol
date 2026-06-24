@@ -1067,20 +1067,28 @@ public class CClosure implements ITheory {
 		return res;
 	}
 
-	public Clause computeCycle(final CCParameter lconstant, final CCParameter rconstant) {
-		final CongruencePath congPath = new CongruencePath(this);
-		return congPath.computeCycle(lconstant, rconstant, isProofGenerationEnabled());
-	}
-
 	/**
 	 * Compute the conflict clause for a shared-term clash detected during a merge (the merged values of the two classes'
 	 * shared terms are provably distinct, e.g. an integer shared term forced to a non-integer value). See
-	 * {@link CongruencePath#computeSharedConflictCycle}.
+	 * {@link CongruencePath#computeMergeConflictCycle}.
 	 */
 	public Clause computeSharedConflictCycle(final CCTerm lshared, final CCTerm rshared, final CCTerm lhs,
 			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff) {
-		return new CongruencePath(this).computeSharedConflictCycle(lshared, rshared, lhs, rhsTerm, reason, bridgeOff,
-				isProofGenerationEnabled());
+		return new CongruencePath(this).computeMergeConflictCycle(lshared, rshared, lhs, rhsTerm, reason, bridgeOff,
+				null, isProofGenerationEnabled());
+	}
+
+	/**
+	 * Compute the conflict clause when a merge of two classes is forbidden by a disequality {@code diseq} registered
+	 * between them at exactly the merge offset. {@code srcEnd}/{@code destEnd} are the two sides of {@code diseq},
+	 * oriented into the source class (reachable from {@code lhs}) and destination class (reachable from {@code rhsTerm});
+	 * the path crosses the freshly added (not-yet-united) merge bridge, so it is built as two single-class halves. See
+	 * {@link CongruencePath#computeMergeConflictCycle}.
+	 */
+	public Clause computeMergeDiseqCycle(final CCTerm srcEnd, final CCTerm destEnd, final CCTerm lhs,
+			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff, final CCEquality diseq) {
+		return new CongruencePath(this).computeMergeConflictCycle(srcEnd, destEnd, lhs, rhsTerm, reason, bridgeOff,
+				diseq, isProofGenerationEnabled());
 	}
 
 	public Clause computeAntiCycle(final CCEquality eq) {

@@ -285,10 +285,6 @@ public class CCAnnotation implements IAnnotation {
 		mParamPaths = new CCParameter[n][];
 		mWeakIndices = new CCParameter[n];
 		mParamPaths[0] = mainPath;
-		final CCTerm[] mainTerms = new CCTerm[mainPath.length];
-		for (int j = 0; j < mainPath.length; j++) {
-			mainTerms[j] = mainPath[j].getCCTerm();
-		}
 		mWeakIndices[0] = null;
 		int i = 1;
 		for (final SubPath p : otherPaths) {
@@ -308,11 +304,9 @@ public class CCAnnotation implements IAnnotation {
 		int i = 0;
 		for (final SubPath p : paths) {
 			CCParameter[] params = p.getParams();
-			CCTerm[] terms = p.getTerms();
 			// Prepend the explicit leading edge to the main path (path 0); see the constructor above.
 			if (i == 0 && pathPrefix != null) {
 				params = prepend(pathPrefix, params);
-				terms = prepend(pathPrefix.getCCTerm(), terms);
 			}
 			mParamPaths[i] = params;
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
@@ -324,13 +318,6 @@ public class CCAnnotation implements IAnnotation {
 
 	private static CCParameter[] prepend(final CCParameter head, final CCParameter[] tail) {
 		final CCParameter[] result = new CCParameter[tail.length + 1];
-		result[0] = head;
-		System.arraycopy(tail, 0, result, 1, tail.length);
-		return result;
-	}
-
-	private static CCTerm[] prepend(final CCTerm head, final CCTerm[] tail) {
-		final CCTerm[] result = new CCTerm[tail.length + 1];
 		result[0] = head;
 		System.arraycopy(tail, 0, result, 1, tail.length);
 		return result;

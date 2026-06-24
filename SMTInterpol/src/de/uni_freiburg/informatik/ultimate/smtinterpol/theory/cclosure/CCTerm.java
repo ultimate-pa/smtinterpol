@@ -485,10 +485,19 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 
 		/* Check for conflict */
 		if (sharedTermConflict || diseq != null) {
-			final Clause conflict = sharedTermConflict
-					? engine.computeSharedConflictCycle(src.mSharedTerm, dest.mSharedTerm, lhs, this, reason,
-							reasonDiff(reason, lhs, this))
-					: engine.computeCycle(diseq);
+			final Clause conflict;
+			if (sharedTermConflict) {
+				conflict = engine.computeSharedConflictCycle(src.mSharedTerm, dest.mSharedTerm, lhs, this, reason,
+						reasonDiff(reason, lhs, this));
+			} else {
+				// A disequality forbids this merge. Its two sides straddle the freshly added (not-yet-united) bridge, so
+				// orient them into the source/destination class and build the two halves separately (computeCycle would
+				// walk a single path across the bridge and mix offset frames). mRepStar is still the pre-merge rep here.
+				final CCTerm srcEnd = diseq.getLhs().mRepStar == src ? diseq.getLhs() : diseq.getRhs();
+				final CCTerm destEnd = diseq.getLhs().mRepStar == src ? diseq.getRhs() : diseq.getLhs();
+				conflict = engine.computeMergeDiseqCycle(srcEnd, destEnd, lhs, this, reason,
+						reasonDiff(reason, lhs, this), diseq);
+			}
 			lhs.mEqualEdge = null;
 			lhs.mOldRep = null;
 			src.mReasonLiteral = null;
