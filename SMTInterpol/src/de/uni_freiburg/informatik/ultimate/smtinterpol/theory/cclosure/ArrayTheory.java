@@ -409,7 +409,9 @@ public class ArrayTheory implements ITheory {
 						storeNode.mSelects.put(index, select);
 					} else {
 						mergeConstSelects.remove(index);
-						if (select.getRepresentative() != otherSelect.getRepresentative()) {
+						// Offset-aware: two selects in the same class but at different offsets are NOT already equal —
+						// the propagated equality is a (false) offset equality that raises the conflict.
+						if (!select.sameValueAs(otherSelect)) {
 							// add propagated equality
 							propLemmas.add(new ArrayLemma(RuleKind.READ_OVER_WEAKEQ, select, otherSelect));
 						}
@@ -427,7 +429,9 @@ public class ArrayTheory implements ITheory {
 					if (constNode.getWeakIRepresentative(index) == storeNode) {
 						// do not keep select, we will merge it with the constant value
 						storeNode.mSelects.remove(index);
-						if (select.getRepresentative() != const1.getRepresentative()) {
+						// Offset-aware: a select in the same class as the const value but at a different offset is NOT
+						// already equal — propagating the (false) offset equality raises the conflict.
+						if (!select.sameValueAs(const1)) {
 							propLemmas.add(new ArrayLemma(RuleKind.READ_CONST_WEAKEQ, select, const1));
 						}
 					}
@@ -464,7 +468,7 @@ public class ArrayTheory implements ITheory {
 				if (otherSelect == null) {
 					storeNode.mSelects.put(storeIndex, select);
 				} else {
-					if (select.getRepresentative() != otherSelect.getRepresentative()) {
+					if (!select.sameValueAs(otherSelect)) {
 						propEqualities.add(new ArrayLemma(RuleKind.READ_OVER_WEAKEQ, select, otherSelect));
 					}
 				}
@@ -478,7 +482,7 @@ public class ArrayTheory implements ITheory {
 					// do not keep select, we will merge it with the constant value
 					final CCAppTerm select = storeNode.mSelects.remove(storeIndex);
 					final CCParameter const1 = getValueFromConst(storeNode.mConstTerm);
-					if (select != null && select.getRepresentative() != const1.getRepresentative()) {
+					if (select != null && !select.sameValueAs(const1)) {
 						propEqualities.add(new ArrayLemma(RuleKind.READ_CONST_WEAKEQ, select, const1));
 					}
 				}

@@ -383,8 +383,11 @@ public class WeakCongruencePath extends CongruencePath {
 	private Clause generateClause(final SymmetricPair<CCParameter> diseq, final boolean produceProofs,
 			final RuleKind rule) {
 		if (diseq != null) {
-			final CCEquality eq = mArrayTheory.getCClosure().createEquality(diseq.getFirst().getCCTerm(),
-					diseq.getSecond().getCCTerm(), false);
+			// Pass the CCParameters (with offsets), not the bare CCTerms: a propagated array equality may be an offset
+			// equality (e.g. select(a,j) == select(a,j)+1 in trivialdiseqarray). Dropping the offset would build the
+			// degenerate select(a,j) == select(a,j) and trip the createEquality assertion; keeping it yields the false
+			// proxy (eq == null), so the lemma becomes the pure conflict clause over its premises.
+			final CCEquality eq = mArrayTheory.getCClosure().createEquality(diseq.getFirst(), diseq.getSecond(), false);
 			if (eq != null) {
 				// Note that it can actually happen that diseq is already in
 				// the list of all literals (because it is an index assumption).

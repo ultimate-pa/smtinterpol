@@ -1079,6 +1079,46 @@ offset-interpolation track); `BitvectorTest`, `ProofSimplifierTest`, `ProofUtils
 `RPITest`, `CongruentAddTest` green (117 tests); `abv`/`uflira`/`lia` sweeps clean.
 Files: `CongruencePath.java`, `WeakCongruencePath.java`.
 
+## Offset-aware array weak-eq propagation (the `trivialdiseqarray` blocker) — DONE (uncommitted)
+
+`trivialdiseqarray` (`a = (store (const ((select a j) + 1)) i 1)`, `i != j`) returned **sat**
+for an unsat problem — the lone remaining `test/proof` failure. The unsat reasoning is: with
+`i != j`, `a` and the const array agree at `j`, so `select(a, j) = const value = (select a j) +
+1`, i.e. `x = x + 1`, a (same-class, different-offset) offset conflict. Two array-side spots
+dropped the offset and suppressed it (an instance of gap 1, the `ArrayTheory` part):
+
+1. **Offset-blind propagation guards** (`ArrayTheory`, four sites: `READ_OVER_WEAKEQ` /
+   `READ_CONST_WEAKEQ` in both the primary-merge `mergeWith` path and the secondary-edge path).
+   They skipped propagation with `select.getRepresentative() != other.getRepresentative()`. Two
+   selects (or a select and a const value) in the *same* class but at *different* offsets are
+   **not** already equal — that is exactly the conflict — so the guard threw the conflicting
+   lemma away. Fixed to the offset-aware `!select.sameValueAs(other)`
+   (`(getRepresentative(), getOffsetToRep())` identity). The sibling `CONST_WEAKEQ` guard already
+   compared offsets; these four now match it. With offsets off, `sameValueAs` reduces to a
+   representative comparison, so behaviour is unchanged in the classic mode.
+2. **Offset dropped building the lemma equality** (`WeakCongruencePath.generateClause`): it called
+   `createEquality(diseq.getFirst().getCCTerm(), diseq.getSecond().getCCTerm(), …)`, stripping to
+   bare `CCTerm`s → the degenerate `select(a,j) = select(a,j)` (which trips the `createEquality`
+   `t1 != t2 || offset != 0` assertion once the guard above fires). Fixed to pass the
+   `CCParameter`s to the offset-aware overload, which builds `select(a,j) = select(a,j)+1`,
+   recognizes the false proxy (`eq == null`, already handled), and lets the lemma become the
+   conflict clause over its premises.
+
+`trivialdiseqarray` is now **unsat**, with a low-level proof that proof-checks (`read-const-weakeq`
+derives `select(a,j) = select(a,j)+1`; an `EQ`/farkas lemma refutes it).
+
+*Debug-output note:* the LA `Shared Vars` / `Assignments` dump (`LinArSolve.getSharedCongruences`)
+prints `sharedTermValue`, the **offset-free** LA value with no structural constant, so e.g.
+`(+ (select a j) 1)` printed `= 2` alongside `(select a j) = 2` (the `+1` is a CC offset, not in
+the LA value) — misleading when reading a model, but not the cause of the bug. The
+equivalence-class dump (`CClosure.dumpModel`) does print offsets (`[+k]`).
+
+Validated (clean build, `-ea`): `test/proof` **98/98** (`trivialdiseqarray` fixed, no
+regressions); array-relevant sweep (93 benchmarks under `proof-check`) has **0 status mismatches**
+and only pre-existing errors (`constarr00{4,5,11,12,14}` offset-interpolation, `Script_simple`);
+`BitvectorTest`/`ProofSimplifierTest`/`ProofUtilsTest`/`RPITest`/`CongruentAddTest` green (117
+tests). Files: `ArrayTheory.java`, `WeakCongruencePath.java`.
+
 ## Implementable slice (ready to start)
 
 1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the
