@@ -792,8 +792,7 @@ public class CClosure implements ITheory {
 			t1 = tmp;
 			offset = offset.negate();
 		}
-		eq = new CCEquality(stackLevel, t1, t2);
-		eq.setOffset(offset);
+		eq = new CCEquality(stackLevel, t1, t2, offset);
 		insertEqualityEntry(t1, t2, offset, eq.getEntry());
 		getEngine().addAtom(eq);
 

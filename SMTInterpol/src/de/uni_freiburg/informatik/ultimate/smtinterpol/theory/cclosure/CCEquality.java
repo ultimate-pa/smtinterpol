@@ -51,11 +51,12 @@ public class CCEquality extends DPLLAtom {
 		}
 	}
 
-	CCEquality(final int assertionstacklevel, final CCTerm c1, final CCTerm c2) {
+	CCEquality(final int assertionstacklevel, final CCTerm c1, final CCTerm c2, Rational offset) {
 		super(HashUtils.hashJenkins(c1.hashCode(), c2), assertionstacklevel);
 		mLhs = c1;
 		mRhs = c2;
 		mEntry = new Entry();
+		mOffset = offset;
 	}
 
 	public CCTerm getLhs() {
@@ -71,10 +72,6 @@ public class CCEquality extends DPLLAtom {
 	 */
 	public Rational getOffset() {
 		return mOffset;
-	}
-
-	public void setOffset(final Rational offset) {
-		mOffset = offset;
 	}
 
 	/**
