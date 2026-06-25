@@ -915,8 +915,8 @@ public class ArrayTheory implements ITheory {
 				// constant array or
 				// it's not weakly equivalent to one.
 				if (node.mConstTerm != null) {
-					// getModelValue(CCParameter) shifts the representative's value by the const value's offset; using
-					// getRepresentative() + getModelValue(CCTerm) would drop the offset and build a wrong model value.
+					// getModelValue shifts the representative's value by the const value's offset; using
+					// getRepresentative() would drop the offset and build a wrong model value.
 					final Term nodeValue = t.term(SMTLIBConstants.CONST, null, arraySort,
 							builder.getModelValue(getValueFromConst(node.mConstTerm)));
 					builder.setModelValue(node.mTerm, nodeValue);

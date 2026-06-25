@@ -1140,17 +1140,24 @@ serious one a soundness bug in extensionality:
 2. **`fillInModel` element values (wrong models).** The const value (`getValueFromConst(..)
    .getRepresentative()`), the per-index select values (`.getRepresentative()`), the finite-elem
    default (read back from `mArrayModels`), and the secondary-edge select (`getModelValue(ccValue)`)
-   all fed a bare representative to `getModelValue`, dropping `offsetToRep`. Note
-   `getModelValue(CCTerm)` returns only the representative's value while `getModelValue(CCParameter)`
-   shifts by the offset, and Java picks the `CCTerm` overload for a `CCAppTerm` argument — so the fix
-   passes `CCParameter`s (`getValueFromConst(..)` directly, or `getValueKey()` for selects). Verified
+   all fed a bare representative to `getModelValue`, dropping `offsetToRep`. The fix passes
+   `CCParameter`s (`getValueFromConst(..)` directly, or `getValueKey()` for selects). Verified
    with `model-check-mode`: `a = (store (const (+ y 3)) i (+ y 1))`, `i != 0` yields a consistent
    model (`y=-2`, `select(a,i)=-1`, `select(a,0)=1`).
 
+Follow-up: the error-prone `getModelValue(CCTerm)` accessor (returns the representative's value,
+silently dropping a member's offset) was **removed** in favour of the single offset-aware
+`getModelValue(CCParameter)` — a bare `CCTerm` is an offset-free parameter, so all former callers
+(array/datatype/boolean terms, all non-numeric or representatives) bind to it with identical
+behaviour, while any numeric member now necessarily goes through the offset-shifting path. Removing
+the overload is binary-incompatible, so callers in other files (e.g. `DataTypeTheory`) must be
+recompiled — a clean build is required (an incremental rebuild leaves a stale `.class` referencing
+the deleted method and throws `NoSuchMethodError`).
+
 Validated (clean build, `-ea`): `test/proof` **98/98**; the extensionality witness is `sat` (was
 `unsat` on the pre-fix build, confirming the soundness bug); array-relevant sweep (93 benchmarks,
-`proof-check`) **0 status mismatches**, only the pre-existing errors; 117 JUnit tests green. Files:
-`ArrayTheory.java`.
+`proof-check`) **0 status mismatches**, only the pre-existing errors; `datatype`/`model` dirs 30/30;
+117 JUnit tests green. Files: `ArrayTheory.java`, `ModelBuilder.java`.
 
 ## Implementable slice (ready to start)
 

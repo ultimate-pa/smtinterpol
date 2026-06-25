@@ -151,14 +151,16 @@ public class ModelBuilder {
 		return mEvaluator;
 	}
 
-	public Term getModelValue(final CCTerm term) {
-		return mModelValues.get(term.getRepresentative());
-	}
-
 	/**
-	 * The model value of a {@link CCParameter} value {@code term + offset}, i.e. the representative's value shifted by
-	 * the parameter's offset to the representative. For an offset-free parameter (a bare CCTerm) this coincides with
-	 * {@link #getModelValue(CCTerm)}.
+	 * The model value of a {@link CCParameter} value {@code term + offset}: the representative's model value shifted by
+	 * the parameter's offset to the representative. A bare {@link CCTerm} is an offset-free parameter, so this returns
+	 * its representative's value; a numeric member additionally adds its offset to the representative. Returns
+	 * {@code null} if the class has no model value yet (used as a "value computed?" check) &mdash; this only happens for
+	 * non-numeric sorts, where no offset arithmetic is attempted on the missing value.
+	 *
+	 * <p>This is the only model-value accessor: there is deliberately no {@code getModelValue(CCTerm)}, since looking up
+	 * a bare representative would silently drop a member's offset (returning the representative's value instead of the
+	 * member's) &mdash; a subtle source of wrong models for numeric terms.
 	 */
 	public Term getModelValue(final CCParameter param) {
 		return getModelValueWithOffset(param.getCCTerm(), param.getOffset());
