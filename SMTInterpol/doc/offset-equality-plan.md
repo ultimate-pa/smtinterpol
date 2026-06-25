@@ -1119,6 +1119,39 @@ and only pre-existing errors (`constarr00{4,5,11,12,14}` offset-interpolation, `
 `BitvectorTest`/`ProofSimplifierTest`/`ProofUtilsTest`/`RPITest`/`CongruentAddTest` green (117
 tests). Files: `ArrayTheory.java`, `WeakCongruencePath.java`.
 
+## Offset-aware array extensionality fingerprint + model values — DONE (uncommitted)
+
+An audit of `ArrayTheory` for offset correctness found index handling solid (everything keys on
+`CCParameter.getValueKey()` = `(representative, offsetToRep)`) and the value-propagation guards
+fixed by the previous increment, but **two value spots still dropped the offset** — the more
+serious one a soundness bug in extensionality:
+
+1. **`computeWeakeqExt` model fingerprint (soundness).** The per-array `nodeMapping` that drives
+   `weakeq-ext` stored element values as bare representatives (`getRepresentative()`), so two arrays
+   whose elements agree only **up to a constant offset** got the same fingerprint, collided in the
+   `inverse` map, and `weakeq-ext` propagated a spurious `a = b`. Minimal witness (genuinely sat):
+   `(not (= (store c i y) (store c i (+ y 1))))` was reported **unsat** (the spurious `a = b`
+   conflicts with the asserted disequality). Fixed to store value identities
+   (`getValueKey()`) and compare with `equals()` (offset value-keys are fresh `OffsettedCCTerm`
+   objects, so the old `!=` reference test would not even match equal offset values); `constRep` and
+   the `defaultValue` cache become `CCParameter`. Precision only improves — two arrays still match
+   iff they agree at every index *including* offsets, so no valid extensionality is lost. The
+   witness is now **sat**.
+2. **`fillInModel` element values (wrong models).** The const value (`getValueFromConst(..)
+   .getRepresentative()`), the per-index select values (`.getRepresentative()`), the finite-elem
+   default (read back from `mArrayModels`), and the secondary-edge select (`getModelValue(ccValue)`)
+   all fed a bare representative to `getModelValue`, dropping `offsetToRep`. Note
+   `getModelValue(CCTerm)` returns only the representative's value while `getModelValue(CCParameter)`
+   shifts by the offset, and Java picks the `CCTerm` overload for a `CCAppTerm` argument — so the fix
+   passes `CCParameter`s (`getValueFromConst(..)` directly, or `getValueKey()` for selects). Verified
+   with `model-check-mode`: `a = (store (const (+ y 3)) i (+ y 1))`, `i != 0` yields a consistent
+   model (`y=-2`, `select(a,i)=-1`, `select(a,0)=1`).
+
+Validated (clean build, `-ea`): `test/proof` **98/98**; the extensionality witness is `sat` (was
+`unsat` on the pre-fix build, confirming the soundness bug); array-relevant sweep (93 benchmarks,
+`proof-check`) **0 status mismatches**, only the pre-existing errors; 117 JUnit tests green. Files:
+`ArrayTheory.java`.
+
 ## Implementable slice (ready to start)
 
 1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the

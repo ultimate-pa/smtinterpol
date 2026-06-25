@@ -915,8 +915,10 @@ public class ArrayTheory implements ITheory {
 				// constant array or
 				// it's not weakly equivalent to one.
 				if (node.mConstTerm != null) {
-					final CCTerm value = getValueFromConst(node.mConstTerm).getRepresentative();
-					final Term nodeValue = t.term(SMTLIBConstants.CONST, null, arraySort, builder.getModelValue(value));
+					// getModelValue(CCParameter) shifts the representative's value by the const value's offset; using
+					// getRepresentative() + getModelValue(CCTerm) would drop the offset and build a wrong model value.
+					final Term nodeValue = t.term(SMTLIBConstants.CONST, null, arraySort,
+							builder.getModelValue(getValueFromConst(node.mConstTerm)));
 					builder.setModelValue(node.mTerm, nodeValue);
 				} else {
 					Term nodeValue;
@@ -924,7 +926,7 @@ public class ArrayTheory implements ITheory {
 						// the array is based on a certain const value, see computeWeakEqExt()
 						final Term valueTerm;
 						if (hasFiniteElemSort(node.mTerm.getFlatTerm().getSort())) {
-							final CCTerm value = (CCTerm) mArrayModels.get(node).get(null);
+							final CCParameter value = (CCParameter) mArrayModels.get(node).get(null);
 							valueTerm = builder.getModelValue(value);
 						} else {
 							valueTerm = model.extendFresh(valueSort);
@@ -937,7 +939,9 @@ public class ArrayTheory implements ITheory {
 					// change all indices to the right select value
 					for (final Entry<CCParameter, CCAppTerm> indexValuePairs : node.mSelects.entrySet()) {
 						final CCParameter index = indexValuePairs.getKey();
-						final CCTerm value = indexValuePairs.getValue().getRepresentative();
+						// value identity (getValueKey), so a select whose value sits at a non-zero offset from its
+						// representative renders the shifted value, not the representative's.
+						final CCParameter value = indexValuePairs.getValue().getValueKey();
 						nodeValue = t.term("store", nodeValue, builder.getModelValue(index),
 								builder.getModelValue(value));
 					}
@@ -990,7 +994,7 @@ public class ArrayTheory implements ITheory {
 				final CCAppTerm ccValue = node.mSelects.get(ccIndex);
 				final Term index = builder.getModelValue(ccIndex);
 				final Term value = secondParentTerm != null ? arraySortInterpretation.getSelect(secondParentTerm, index)
-						: ccValue == null ? model.extendFresh(valueSort) : builder.getModelValue(ccValue);
+						: ccValue == null ? model.extendFresh(valueSort) : builder.getModelValue(ccValue.getValueKey());
 				Term nodeValue = t.term("store", parentTerm, index, value);
 				nodeValue = arraySortInterpretation.normalizeStoreTerm(nodeValue);
 				builder.setModelValue(node.mTerm, nodeValue);
@@ -1467,7 +1471,7 @@ public class ArrayTheory implements ITheory {
 		 * fact mSelects is empty since we removed them).
 		 */
 		mArrayModels = new LinkedHashMap<>();
-		final HashMap<Sort, CCTerm> defaultValue = new HashMap<>();
+		final HashMap<Sort, CCParameter> defaultValue = new HashMap<>();
 		final HashMap<Sort, HashMap<Map<CCParameter, Object>, ArrayNode>> inverse = new HashMap<>();
 		final HashSet<SymmetricPair<ArrayNode>> propEqualities = new LinkedHashSet<>();
 		final ArrayDeque<ArrayNode> todoQueue = new ArrayDeque<>(mCongRoots.values());
@@ -1486,9 +1490,13 @@ public class ArrayTheory implements ITheory {
 			final HashMap<CCParameter, Object> nodeMapping = new LinkedHashMap<>();
 			final ArrayNode weakRep = node.getWeakRepresentative();
 			if (node == weakRep) {
-				CCTerm constRep = null;
+				// The element values stored in the fingerprint are value identities (getValueKey = representative +
+				// offsetToRep), not bare representatives: two arrays whose elements agree up to a constant offset must
+				// NOT get the same fingerprint, or weakeq-ext would propagate a spurious array equality (e.g.
+				// store(c,i,y) vs store(c,i,y+1)). Comparisons against constRep therefore use equals(), not ==.
+				CCParameter constRep = null;
 				if (weakRep.mConstTerm != null) {
-					constRep = getValueFromConst(weakRep.mConstTerm).getRepresentative();
+					constRep = getValueFromConst(weakRep.mConstTerm).getValueKey();
 					nodeMapping.put(null, constRep);
 				} else if (hasFiniteIndexSort(arraySort)) {
 					// For finite index sorts we cannot just assume that non weak-equivalent arrays
@@ -1511,7 +1519,7 @@ public class ArrayTheory implements ITheory {
 								cleanCaches();
 								return true;
 							}
-							constRep = weakRep.mSelects.values().iterator().next().getRepresentative();
+							constRep = weakRep.mSelects.values().iterator().next().getValueKey();
 							defaultValue.put(arraySort, constRep);
 						}
 						nodeMapping.put(null, constRep);
@@ -1528,8 +1536,8 @@ public class ArrayTheory implements ITheory {
 					nodeMapping.put(null, node);
 				}
 				for (final Entry<CCParameter, CCAppTerm> e : node.mSelects.entrySet()) {
-					final CCTerm value = e.getValue().getRepresentative();
-					if (value != constRep) {
+					final CCParameter value = e.getValue().getValueKey();
+					if (!value.equals(constRep)) {
 						nodeMapping.put(e.getKey(), value);
 					}
 				}
@@ -1539,10 +1547,11 @@ public class ArrayTheory implements ITheory {
 				final Object constRep = nodeMapping.get(null);
 				nodeMapping.remove(storeIndex);
 				final ArrayNode weakiRep = node.getWeakIRepresentative(storeIndex);
-				final CCTerm value = weakiRep.mSelects.get(storeIndex);
-				if (value != null) { // NOPMD
-					if (value.getRepresentative() != constRep) {
-						nodeMapping.put(storeIndex, value.getRepresentative());
+				final CCAppTerm valueSelect = weakiRep.mSelects.get(storeIndex);
+				if (valueSelect != null) { // NOPMD
+					final CCParameter value = valueSelect.getValueKey();
+					if (!value.equals(constRep)) {
+						nodeMapping.put(storeIndex, value);
 					}
 				} else if (weakiRep != weakRep) {
 					nodeMapping.put(storeIndex, weakiRep);
