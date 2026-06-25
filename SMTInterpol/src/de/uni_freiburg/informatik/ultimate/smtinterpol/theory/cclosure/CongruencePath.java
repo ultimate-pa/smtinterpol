@@ -409,64 +409,77 @@ public class CongruencePath {
 	}
 
 	/**
-	 * The single conflict explainer for an offset cycle: an equality "bridge" {@code lhs — rhsTerm} together with the
-	 * existing congruence-class path(s) implies {@code value(srcEnd) == value(destEnd) + k}, contradicting a disequality.
-	 * The bridge is justified by the merge {@code reason} (a real equality literal) or, for a congruence
-	 * ({@code reason == null}), by the argument equalities; {@code bridgeOff} is the bridge's offset
-	 * ({@code value(lhs) − value(rhsTerm)}, {@code 0} for a congruence). The two endpoints carry the disequality:
+	 * The single conflict explainer for an offset cycle: a bridge equality
+	 * {@code lhs = rhs + offset} together with the existing congruence-class
+	 * path(s) implies a contradiction to a known disequality
+	 * {@code lhsDiseq != rhsDiseq + k}. The bridge is justified by a real equality
+	 * literal {@code equality} or, congruence ({@code equality == null}), by the
+	 * argument equalities; {@code offset} is the bridge's offset, {@code 0} for a
+	 * congruence). The disequality can stem from two sources:
 	 * <ul>
-	 * <li><b>Disequality clash</b> ({@code diseqLit != null}): a registered disequality {@code diseqLit} forbids exactly
-	 * the offset at which the bridge would unite {@code srcEnd} and {@code destEnd}. The clause carries {@code diseqLit}
-	 * as its positive literal.</li>
-	 * <li><b>Trivial clash</b> ({@code diseqLit == null}): {@code srcEnd}/{@code destEnd} are either two class shared
-	 * terms whose merged values are provably distinct (an integer shared term forced to a non-integer value,
-	 * {@code to_real a == 1/2}), or — in the same-class case below — the same term at two offsets. The contradiction is
-	 * intrinsic, discharged by an EQ/LA lemma; no positive literal.</li>
+	 * <li><b>Disequality clash</b> ({@code diseq != null}): a registered
+	 * disequality {@code diseq} forbids exactly the offset at which the bridge
+	 * would unite. The disequality is between {@code lhsDiseq} and {@code rhsDiseq}
+	 * with exactly the right offset. The clause carries {@code diseq} as its
+	 * positive literal.</li>
+	 * <li><b>Trivial clash</b> ({@code diseqLit == null}):
+	 * {@code lhsDiseq}/{@code rhsDiseq} are provable distinct by integer reasoning
+	 * (an integer shared term forced to a non-integer value,
+	 * {@code to_real a == 1/2}), or — in the same-class case — the same term at two
+	 * offsets. The contradiction is a trivial axiom; the clause contains no
+	 * positive literal.</li>
 	 * </ul>
 	 *
-	 * <p>This covers both the cross-class and same-class shapes uniformly:
+	 * <p>
+	 * This covers both the cross-class and same-class shapes uniformly.
 	 * <ul>
-	 * <li><b>Cross-class</b> ({@code srcEnd != destEnd}): the conflict is found during a merge of two classes joined only
-	 * by the freshly added bridge {@code lhs — rhsTerm} (the union-find is not yet updated). {@code srcEnd} is in the
-	 * source class (reachable from {@code lhs}), {@code destEnd} in the destination class (reachable from
-	 * {@code rhsTerm}).</li>
-	 * <li><b>Same-class</b> ({@code srcEnd == destEnd}, both equal to {@code lhs}): the bridge {@code lhs — rhsTerm}
-	 * closes a cycle within one class against the existing path from {@code rhsTerm} back to {@code lhs}. The source half
-	 * is empty and the trivial diseq is {@code (lhs@0, lhs@(bridgeOff − pathOffset))}. This is the offset anti-cycle
-	 * ({@code x != x + 5}) and the congruence-merge offset conflict ({@code f(x) = f(y) + k}).</li>
+	 * <li><b>Cross-class</b>
+	 * ({@code lhs.getRepresentative() != rhs.getRepresentative()}): this is most
+	 * likely caused by a disequality (diseq != null), but it could also be an
+	 * integer conflict.</li>
+	 * <li><b>Same-class</b> in that case most likely lhsDiseq=rhsDiseq = lhs (or
+	 * rhs). and the equality closes a cycle within one class against the existing
+	 * path from {@code rhs} back to {@code lhs} with a mismatched offset. The
+	 * source half is empty and the trivial diseq is
+	 * {@code lhs != lhs + (bridgeOff − pathOffset)}. The diseq is null.</li>
 	 * </ul>
 	 *
-	 * <p>A single {@code computePath} across the bridge would read offsets from two different reference frames (across the
-	 * not-yet-united classes) and produce a garbage proof object. Instead we compute the two halves as ordinary
-	 * single-class paths ({@code srcEnd … lhs} and {@code rhsTerm … destEnd}, each offset-correct) and stitch them, the
-	 * destination half rendered with anchor {@code rhsTerm@(offLhs + bridgeOff)} so it is already in the source frame and
-	 * the main path is a plain concatenation. The bridge step {@code lhs → rhsTerm} is discharged by {@code reason} (or,
-	 * for a congruence, auto-resolved from the argument subpaths the proof generator finds in the other paths).
+	 * @param lhs           one side of equality.
+	 * @param rhs           one side of equality.
+	 * @param offset        offset for rhs in the equality.
+	 * @param equality      the equality that caused the conflicting merge (null for
+	 *                      congruence).
+	 * @param lhsDiseq      the side of the diseq that matches lhs (not necessarily
+	 *                      the diseq's lhs).
+	 * @param rhsDiseq      the side of the diseq that matches rhs.
+	 * @param diseq         the disequality (null if trivial arithmetic
+	 *                      disequality).
+	 * @param produceProofs true if proof production is enabled.
 	 */
-	public Clause computeMergeConflictCycle(final CCTerm srcEnd, final CCTerm destEnd, final CCTerm lhs,
-			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff, final CCEquality diseqLit,
+	public Clause computeMergeConflictCycle(final CCTerm lhs, final CCTerm rhs, final Rational offset,
+			final CCEquality equality, final CCTerm lhsDiseq, final CCTerm rhsDiseq, final CCEquality diseq,
 			final boolean produceProofs) {
-		// Two single-class paths, each offset-correct on its own. Build them directly (not via the work list) so they
-		// are NOT collected into mAllPaths: they are stitched by hand into the explicit main path below, while only their
-		// congruence dependencies (enqueued here, drained next) belong in mAllPaths as the other paths. Each is null for
-		// a trivial half (srcEnd == lhs / rhsTerm == destEnd). The literal collection into mAllLiterals happens here
-		// regardless of produceProofs, so this must run for both the clause and the proof.
-		final SubPath segSrc = computePathNonRecursive(srcEnd, lhs);
-		final SubPath segDest = computePathNonRecursive(rhsTerm, destEnd);
-		// Justify the bridge edge lhs — rhsTerm.
-		if (reason != null) {
-			mAllLiterals.add(reason);
+		assert lhs.getRepresentative() == lhsDiseq.getRepresentative();
+		assert rhs.getRepresentative() == rhsDiseq.getRepresentative();
+		// Justify the bridge edge lhs = rhs + offset.
+		if (equality != null) {
+			mAllLiterals.add(equality);
 		} else {
-			// Congruence bridge: the argument equalities justify lhs == rhsTerm (and build the subpaths that the proof
-			// generator uses to resolve the bridge step).
-			computeCongruence((CCAppTerm) lhs, (CCAppTerm) rhsTerm);
+			// Congruence bridge: the argument equalities justify lhs == rhs (and build the
+			// subpaths that the proof generator uses to resolve the bridge step).
+			assert offset.equals(Rational.ZERO);
+			computeCongruence((CCAppTerm) lhs, (CCAppTerm) rhs);
 		}
+		// Two single-class paths for lhs and rhs, each offset-correct on its own. These
+		// are merged later to a single main path.
+		final SubPath segSrc = computePathNonRecursive(lhsDiseq, lhs);
+		final SubPath segDest = computePathNonRecursive(rhs, rhsDiseq);
 		drainTodo();
-		final Literal[] clause = new Literal[mAllLiterals.size() + (diseqLit != null ? 1 : 0)];
+		final Literal[] clause = new Literal[mAllLiterals.size() + (diseq != null ? 1 : 0)];
 		int i = 0;
 		// The separating disequality (if any) is the cycle's only positive literal; the merge falsifies it.
-		if (diseqLit != null) {
-			clause[i++] = diseqLit;
+		if (diseq != null) {
+			clause[i++] = diseq;
 		}
 		for (final Literal l : mAllLiterals) {
 			clause[i++] = l.negate();
@@ -477,25 +490,26 @@ public class CongruencePath {
 			// the source half's frame: after the bridge edge (value(lhs) == value(rhsTerm) + bridgeOff), rhsTerm sits at
 			// lhs's offset plus bridgeOff; rendering the dest half anchored there yields it already shifted, so the main
 			// path is a plain concatenation.
-			final CCParameter[] paramsSrc = segSrc != null ? segSrc.getParams(srcEnd) : new CCParameter[] { srcEnd };
+			final CCParameter[] paramsSrc = segSrc != null ? segSrc.getParams(lhsDiseq) : new CCParameter[] { lhsDiseq };
 			assert paramsSrc[paramsSrc.length - 1].getCCTerm() == lhs : "src path must end at lhs + offset";
 			final CCParameter destAnchor =
-					CCParameter.of(rhsTerm, paramsSrc[paramsSrc.length - 1].getOffset().add(bridgeOff));
+					CCParameter.of(rhs, paramsSrc[paramsSrc.length - 1].getOffset().add(offset));
 			final CCParameter[] paramsDest =
 					segDest != null ? segDest.getParams(destAnchor) : new CCParameter[] { destAnchor };
 			final CCParameter[] mainPath = new CCParameter[paramsSrc.length + paramsDest.length];
 			System.arraycopy(paramsSrc, 0, mainPath, 0, paramsSrc.length);
 			System.arraycopy(paramsDest, 0, mainPath, paramsSrc.length, paramsDest.length);
-			assert mainPath[0].getCCTerm() == srcEnd : "main path must start at srcEnd";
-			assert mainPath[mainPath.length - 1].getCCTerm() == destEnd : "main path must end at destEnd";
+			assert mainPath[0].getCCTerm() == lhsDiseq : "main path must start at lhs of diseq";
+			assert mainPath[mainPath.length - 1].getCCTerm() == rhsDiseq : "main path must end at rhs of diseq";
 			// The remaining subpaths (congruences within either half, plus the bridge's argument subpaths) keep deriving
 			// their offsets the usual way. segSrc/segDest were built off the work list and never entered mAllPaths, so
 			// mAllPaths is exactly the other paths (the constructor only iterates it, so no copy is needed).
 			// The clashing equality: a concrete disequality discharged against diseqLit, or (shared case) the trivially
 			// distinct shared values discharged by an EQ/LA lemma.
-			final SymmetricPair<CCParameter> diseq = new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1]);
+			final SymmetricPair<CCParameter> diseqPair = new SymmetricPair<>(mainPath[0],
+					mainPath[mainPath.length - 1]);
 			c.setProof(new LeafNode(LeafNode.THEORY_CC,
-					new CCAnnotation(diseq, mainPath, mAllPaths, CCAnnotation.RuleKind.CONG)));
+					new CCAnnotation(diseqPair, mainPath, mAllPaths, CCAnnotation.RuleKind.CONG)));
 		}
 		return c;
 	}

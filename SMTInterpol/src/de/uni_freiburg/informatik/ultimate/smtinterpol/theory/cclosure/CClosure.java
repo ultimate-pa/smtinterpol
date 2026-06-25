@@ -875,7 +875,7 @@ public class CClosure implements ITheory {
 		} else {
 			/* ComputeAntiCycle */
 			final CCEquality eq = (CCEquality) lit.negate();
-			return computeAntiCycle(eq);
+			return computeAntiCycle(eq.mDiseqReason, eq.mDiseqOrientation, eq);
 		}
 	}
 
@@ -967,7 +967,7 @@ public class CClosure implements ITheory {
 				// falsified. (computeCycle would put eq positively and yield a satisfied clause.)
 				final Rational existingDiff = eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep());
 				if (!existingDiff.equals(eq.getOffset())) {
-					return computeSameClassAntiCycle(eq);
+					return computeAntiCycle(null, false, eq);
 				}
 			}
 		} else {
@@ -981,10 +981,7 @@ public class CClosure implements ITheory {
 				// is nothing to separate.
 				final Rational existingDiff = eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep());
 				if (existingDiff.equals(eq.getOffset())) {
-					final Clause conflict = computeCycle(eq);
-					if (conflict != null) {
-						return conflict;
-					}
+					return computeCycle(eq);
 				}
 			} else {
 				separate(left, right, eq);
@@ -1073,7 +1070,7 @@ public class CClosure implements ITheory {
 	 */
 	public Clause computeSharedConflictCycle(final CCTerm lshared, final CCTerm rshared, final CCTerm lhs,
 			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff) {
-		return new CongruencePath(this).computeMergeConflictCycle(lshared, rshared, lhs, rhsTerm, reason, bridgeOff,
+		return new CongruencePath(this).computeMergeConflictCycle(lhs, rhsTerm, bridgeOff, reason, lshared, rshared,
 				null, isProofGenerationEnabled());
 	}
 
@@ -1086,38 +1083,35 @@ public class CClosure implements ITheory {
 	 */
 	public Clause computeMergeDiseqCycle(final CCTerm srcEnd, final CCTerm destEnd, final CCTerm lhs,
 			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff, final CCEquality diseq) {
-		return new CongruencePath(this).computeMergeConflictCycle(srcEnd, destEnd, lhs, rhsTerm, reason, bridgeOff,
+		return new CongruencePath(this).computeMergeConflictCycle(lhs, rhsTerm, bridgeOff, reason, srcEnd, destEnd,
 				diseq, isProofGenerationEnabled());
 	}
 
 	/**
-	 * Same-class offset conflict: {@code eq}'s two sides are in one class at an offset different from the one {@code eq}
-	 * claims (e.g. asserting {@code x == x + 1}, or an offset disequality re-propagated false). This is a degenerate
-	 * {@link CongruencePath#computeMergeConflictCycle}: the "merge" bridge is {@code eq} itself and the two endpoints
-	 * coincide ({@code srcEnd == destEnd == eq.getLhs()}), so the source half is empty, the destination half is the
-	 * existing class path from {@code eq.getRhs()} back to {@code eq.getLhs()}, and the trivial diseq
-	 * {@code (lhs@0, lhs@deviation)} is discharged by an EQ lemma.
+	 * Compute a conflict explaining incompatibility of eq and diseq. Called when
+	 * asserting eq would create a conflict on merge with the given diseq.
 	 */
-	private Clause computeSameClassAntiCycle(final CCEquality eq) {
-		assert eq.getLhs().mRepStar == eq.getRhs().mRepStar;
-		assert !eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep()).equals(eq.getOffset());
-		return new CongruencePath(this).computeMergeConflictCycle(eq.getLhs(), eq.getLhs(), eq.getLhs(), eq.getRhs(), eq,
-				eq.getOffset(), null, isProofGenerationEnabled());
-	}
-
-	public Clause computeAntiCycle(final CCEquality eq) {
-		final CCEquality diseq = eq.mDiseqReason;
+	public Clause computeAntiCycle(final CCEquality diseq, final boolean diseqOrientation, final CCEquality eq) {
+		final CCTerm lhsDiseq;
+		final CCTerm rhsDiseq;
 		if (diseq == null) {
 			// No separating disequality (e.g. x != x+5): the two sides are in the same class at a deviating offset.
-			return computeSameClassAntiCycle(eq);
+			assert eq.getLhs().mRepStar == eq.getRhs().mRepStar;
+			assert !eq.getLhs().getOffsetToRep().sub(eq.getRhs().getOffsetToRep()).equals(eq.getOffset());
+			lhsDiseq = eq.getLhs();
+			rhsDiseq = eq.getLhs();
+		} else {
+			// A concrete disequality separates eq's two sides. This works whether they are
+			// still in different classes or were
+			// merged later: orient diseq from eq's stored orientation (live reps can no
+			// longer tell the two sides apart after
+			// a merge), then build the two single-class halves and stitch them across the
+			// eq bridge.
+			lhsDiseq = diseqOrientation ? diseq.getLhs() : diseq.getRhs();
+			rhsDiseq = diseqOrientation ? diseq.getRhs() : diseq.getLhs();
 		}
-		// A concrete disequality separates eq's two sides. This works whether they are still in different classes or were
-		// merged later: orient diseq from eq's stored orientation (live reps can no longer tell the two sides apart after
-		// a merge), then build the two single-class halves and stitch them across the eq bridge.
-		final CCTerm srcEnd = eq.mDiseqOrientation ? diseq.getLhs() : diseq.getRhs();
-		final CCTerm destEnd = eq.mDiseqOrientation ? diseq.getRhs() : diseq.getLhs();
-		return new CongruencePath(this).computeMergeConflictCycle(srcEnd, destEnd, eq.getLhs(), eq.getRhs(), eq,
-				eq.getOffset(), diseq, isProofGenerationEnabled());
+		return new CongruencePath(this).computeMergeConflictCycle(eq.getLhs(), eq.getRhs(), eq.getOffset(), eq, lhsDiseq,
+				rhsDiseq, diseq, isProofGenerationEnabled());
 	}
 
 	/**
@@ -1132,7 +1126,7 @@ public class CClosure implements ITheory {
 	public Clause computeCongruenceAntiCycle(final CCAppTerm first, final CCAppTerm second) {
 		assert first.getRepresentative() == second.getRepresentative();
 		assert first.getFunctionSymbol() == second.getFunctionSymbol();
-		return new CongruencePath(this).computeMergeConflictCycle(first, first, first, second, null, Rational.ZERO, null,
+		return new CongruencePath(this).computeMergeConflictCycle(first, second, Rational.ZERO, null, first, first, null,
 				isProofGenerationEnabled());
 	}
 
