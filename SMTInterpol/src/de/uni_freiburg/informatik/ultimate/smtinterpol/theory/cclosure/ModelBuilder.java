@@ -163,24 +163,15 @@ public class ModelBuilder {
 	 * member's) &mdash; a subtle source of wrong models for numeric terms.
 	 */
 	public Term getModelValue(final CCParameter param) {
-		return getModelValueWithOffset(param.getCCTerm(), param.getOffset());
-	}
-
-	/**
-	 * The model value of a (numeric) term plus a constant. The representative carries the model value of the offset-free
-	 * class; an individual member's value adds its offset to the representative, and {@code extraOffset} adds a further
-	 * constant (e.g. the structural argument offset of {@code x+5}). For non-numeric terms the offsets are zero and the
-	 * representative's value is returned unchanged.
-	 */
-	private Term getModelValueWithOffset(final CCTerm term, final Rational extraOffset) {
-		final Term repValue = mModelValues.get(term.getRepresentative());
-		final Sort sort = term.getFlatTerm().getSort();
+		final Term repValue = mModelValues.get(param.getRepresentative());
+		final Sort sort = param.getCCTerm().getFlatTerm().getSort();
 		if (!sort.isNumericSort()) {
-			assert term.getOffsetToRep().equals(Rational.ZERO) && extraOffset.equals(Rational.ZERO);
+			assert param.getOffsetToRep().equals(Rational.ZERO);
 			return repValue;
 		}
-		final Rational value = NumericSortInterpretation.toRational(repValue).add(term.getOffsetToRep()).add(extraOffset);
-		return value.toTerm(sort);
+		// the member's value is the representative's value shifted by the parameter's offset to the representative
+		// (which folds in both the class offset and the structural argument offset, e.g. the +5 in x+5).
+		return NumericSortInterpretation.toRational(repValue).add(param.getOffsetToRep()).toTerm(sort);
 	}
 
 	public void setModelValue(final CCTerm term, final Term value) {
@@ -254,7 +245,7 @@ public class ModelBuilder {
 
 	public void fillInFunctions(final List<CCTerm> terms, final Model model, final Theory t) {
 		for (final CCTerm term : terms) {
-			add(model, term, getModelValueWithOffset(term, Rational.ZERO), t);
+			add(model, term, getModelValue(term), t);
 		}
 	}
 
@@ -302,7 +293,7 @@ public class ModelBuilder {
 		for (int i = 0; i < args.length; i++) {
 			// the actual argument is the CCParameter's term + offset, evaluated at its model value
 			final CCParameter argParam = app.getArgParam(i);
-			args[i] = getModelValueWithOffset(argParam.getCCTerm(), argParam.getOffset());
+			args[i] = getModelValue(argParam);
 		}
 		final FunctionSymbol fs = app.getFunctionSymbol();
 		if (!fs.isIntern() || isUndefinedFor(fs, args)) {
