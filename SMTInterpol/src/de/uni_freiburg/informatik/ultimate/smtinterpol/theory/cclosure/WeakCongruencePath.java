@@ -91,9 +91,9 @@ public class WeakCongruencePath extends CongruencePath {
 		final CCTerm a = ArrayTheory.getArrayFromSelect(select1);
 		final CCTerm b = ArrayTheory.getArrayFromSelect(select2);
 		computePath(i1.getCCTerm(), i2.getCCTerm());
-		drainTodo();
 		final WeakSubPath weakPath =
 				computeWeakPath(a, b, i1, produceProofs);
+		drainTodo();
 		mAllPaths.addFirst(weakPath);
 
 		return generateClause(new SymmetricPair<CCParameter>(select1, select2), produceProofs,
@@ -106,6 +106,7 @@ public class WeakCongruencePath extends CongruencePath {
 		final CCParameter i1 = ArrayTheory.getIndexFromSelect(select1);
 		final CCTerm a = ArrayTheory.getArrayFromSelect(select1);
 		final WeakSubPath weakPath = computeWeakPath(a, const2, i1, produceProofs);
+		drainTodo();
 		mAllPaths.addFirst(weakPath);
 		return generateClause(new SymmetricPair<>(select1, value2), produceProofs, RuleKind.READ_CONST_WEAKEQ);
 	}
@@ -118,6 +119,9 @@ public class WeakCongruencePath extends CongruencePath {
 		final Cursor start = new Cursor(const1, mArrayTheory.mCongRoots.get(const1.getRepresentative()));
 		final Cursor dest = new Cursor(const2, mArrayTheory.mCongRoots.get(const2.getRepresentative()));
 		final SubPath path = collectPathPrimary(start, dest, storeIndices, produceProofs);
+		// Drain the strong-path dependencies collectPathPrimary enqueued before prepending the main path, so the main
+		// path lands ahead of them in mAllPaths (the topological order the proof generator expects).
+		drainTodo();
 		mAllPaths.addFirst(path);
 		return generateClause(new SymmetricPair<>(value1, value2), produceProofs, RuleKind.CONST_WEAKEQ);
 	}
@@ -143,8 +147,10 @@ public class WeakCongruencePath extends CongruencePath {
 		final SubPath path = collectPathPrimary(start, dest, storeIndices, produceProofs);
 		for (final CCParameter idx : storeIndices) {
 			final WeakSubPath weakpath = computeWeakCongruencePath(a, b, idx, produceProofs);
+			drainTodo();
 			mAllPaths.addFirst(weakpath);
 		}
+		drainTodo();
 		mAllPaths.addFirst(path);
 		return generateClause(new SymmetricPair<>(a, b), produceProofs, RuleKind.WEAKEQ_EXT);
 	}
@@ -230,8 +236,7 @@ public class WeakCongruencePath extends CongruencePath {
 			// get select for left-hand-side
 			final CCAppTerm select = rep1.mSelects.get(indexRep);
 			final CCTerm selectArray = ArrayTheory.getArrayFromSelect(select);
-			computePath(index.getCCTerm(), ArrayTheory.getIndexFromSelect(select));
-			drainTodo();
+			computePath(index, ArrayTheory.getIndexFromSelect(select));
 			path = computeWeakPath(array1, selectArray, index, produceProofs);
 			select1 = select;
 		}
@@ -245,8 +250,7 @@ public class WeakCongruencePath extends CongruencePath {
 			// get select for right-hand-side
 			final CCAppTerm select = rep2.mSelects.get(indexRep);
 			final CCTerm selectArray = ArrayTheory.getArrayFromSelect(select);
-			computePath(index.getCCTerm(), ArrayTheory.getIndexFromSelect(select));
-			drainTodo();
+			computePath(index, ArrayTheory.getIndexFromSelect(select));
 			path.addEntry(selectArray, null);
 			path.addSubPath(computeWeakPath(selectArray, array2, index, produceProofs));
 			select2 = select;
@@ -256,7 +260,6 @@ public class WeakCongruencePath extends CongruencePath {
 		// check for trivial select edge (select-const).
 		if (select1 != select2) {
 			computePath(select1, select2);
-			drainTodo();
 		}
 		return path;
 	}
@@ -274,10 +277,10 @@ public class WeakCongruencePath extends CongruencePath {
 		assert t1.mRepStar == node.mTerm;
 		assert t2.mRepStar == node.mPrimaryEdge.mTerm;
 		if (cursor.mTerm != t1) {
-			computePath(cursor.mTerm, t1);
-			drainTodo();
-			final SubPath subpath = mAllPaths.removeFirst();
-			path.addSubPath(subpath);
+			// Build the strong path directly and inline it into the weak path. computePathNonRecursive returns the
+			// SubPath (without adding it to mAllPaths, since it is inlined here, not a standalone subpath) and enqueues
+			// its congruence dependencies for the enclosing lemma's drainTodo to collect.
+			path.addSubPath(computePathNonRecursive(cursor.mTerm, t1));
 		}
 		path.addEntry(t2, null);
 		cursor.update(t2, node.mPrimaryEdge);
@@ -312,10 +315,9 @@ public class WeakCongruencePath extends CongruencePath {
 			collectPathOnePrimary(dest, path2, storeIndices);
 		}
 		if (start.mTerm != dest.mTerm) {
-			computePath(start.mTerm, dest.mTerm);
-			drainTodo();
-			final SubPath subpath = mAllPaths.removeFirst();
-			path1.addSubPath(subpath);
+			// Build the strong path directly and inline it (see collectPathOnePrimary): computePathNonRecursive returns
+			// the SubPath without adding it to mAllPaths and enqueues its dependencies for the enclosing drainTodo.
+			path1.addSubPath(computePathNonRecursive(start.mTerm, dest.mTerm));
 		}
 		path1.addSubPath(path2);
 		return path1;

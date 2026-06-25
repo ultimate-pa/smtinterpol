@@ -150,13 +150,15 @@ public class CongruencePath {
 	 */
 	final HashMap<SymmetricPair<CCTerm>,SubPath> mVisited;
 	final ArrayDeque<SubPath> mAllPaths;
-	final ArrayDeque<SymmetricPair<CCParameter>> mTodo;
+	final ArrayDeque<SymmetricPair<CCTerm>> mTodo;
+	/**
+	 * The subpaths already appended to {@link #mAllPaths}. Persistent across {@link #drainTodo} calls (unlike a
+	 * per-drain set) so a subpath shared between several drains is collected exactly once. {@link WeakCongruencePath}
+	 * drains once per weak/main path, and {@link #computeCongruence} re-enqueues argument pairs unconditionally, so the
+	 * same dependency can resurface in a later drain; this set keeps it from being added twice.
+	 */
+	final Set<SymmetricPair<CCTerm>> mCollected;
 	final Set<Literal> mAllLiterals;
-
-	/** The offset-free end terms of a parameter pair, used as the {@link #mVisited} key. */
-	private static SymmetricPair<CCTerm> offsetFreeKey(final SymmetricPair<CCParameter> ends) {
-		return new SymmetricPair<>(ends.getFirst().getCCTerm(), ends.getSecond().getCCTerm());
-	}
 
 	public CongruencePath(final CClosure closure) {
 		mClosure = closure;
@@ -164,6 +166,7 @@ public class CongruencePath {
 		mAllLiterals = new LinkedHashSet<>();
 		mTodo = new ArrayDeque<>();
 		mAllPaths = new ArrayDeque<>();
+		mCollected = new HashSet<>();
 	}
 
 	private CCAnnotation createAnnotation(final SymmetricPair<CCParameter> diseq) {
@@ -204,7 +207,7 @@ public class CongruencePath {
 		// argument's offset, e.g. f(x+2) congruent f(z+8) yields a subpath from x+2 to z+8. This only enqueues the
 		// argument pairs; the surrounding drain loop ({@link #drainTodo}, run by {@link #computePath}) builds them.
 		for (int i = 0; i < start.getArgCount(); i++) {
-			mTodo.addFirst(new SymmetricPair<>(start.getArgParam(i), end.getArgParam(i)));
+			mTodo.addFirst(new SymmetricPair<>(start.getArgParam(i).getCCTerm(), end.getArgParam(i).getCCTerm()));
 		}
 	}
 
@@ -348,20 +351,21 @@ public class CongruencePath {
 		// Only enqueue the path. The caller (a top-level compute*Cycle/Lemma method) calls drainTodo() once after all
 		// computePath/computeCongruence calls are queued, so a single shared drain builds them all (and dedups subpaths
 		// shared between several queued ends).
-		mTodo.add(new SymmetricPair<>(left, right));
+		mTodo.add(new SymmetricPair<>(left.getCCTerm(), right.getCCTerm()));
 	}
 
 	/**
 	 * Process the work list {@link #mTodo} of (sub)paths to compute, building each one and collecting it into
 	 * {@link #mAllPaths} (and its literals into {@link #mAllLiterals}). The top-level compute*Cycle/Lemma methods seed
 	 * the work list via {@link #computePath} (a single pair) and {@link #computeCongruence} (argument pairs), then call
-	 * this once. {@link WeakCongruencePath} consumes single paths synchronously and drains after each
-	 * {@link #computePath}, hence protected.
+	 * this once. {@link WeakCongruencePath} drains once per weak/main path (a strong path to be inlined into a weak path
+	 * is instead built directly via {@link #computePathNonRecursive}, which returns it without adding it to
+	 * {@link #mAllPaths}), hence protected. Dedup against {@link #mCollected} is persistent, so a subpath shared between
+	 * drains is appended only once.
 	 */
 	protected void drainTodo() {
-		final HashSet<SymmetricPair<CCTerm>> added = new HashSet<>();
 		while (!mTodo.isEmpty()) {
-			final SymmetricPair<CCParameter> pathEnds = mTodo.removeFirst();
+			final SymmetricPair<CCTerm> pathEnds = mTodo.removeFirst();
 
 			// don't do anything for trivial paths
 			if (pathEnds.getFirst().getCCTerm() == pathEnds.getSecond().getCCTerm()) {
@@ -369,14 +373,14 @@ public class CongruencePath {
 			}
 
 			// check if we already visited this path (keyed offset-free, so offset variants share one subpath)
-			final SubPath path = mVisited.get(offsetFreeKey(pathEnds));
+			final SubPath path = mVisited.get(pathEnds);
 			if (path == null) {
 				// if we did not visit it yet, enqueue again for later and visit the path
 				mTodo.addFirst(pathEnds);
 				computePathNonRecursive(pathEnds.getFirst(), pathEnds.getSecond());
 			} else {
 				// already visited it, so we just add the path now unless we did this earlier
-				if (added.add(offsetFreeKey(pathEnds))) {
+				if (mCollected.add(pathEnds)) {
 					mAllPaths.addFirst(path);
 				}
 			}
@@ -442,9 +446,13 @@ public class CongruencePath {
 	public Clause computeMergeConflictCycle(final CCTerm srcEnd, final CCTerm destEnd, final CCTerm lhs,
 			final CCTerm rhsTerm, final CCEquality reason, final Rational bridgeOff, final CCEquality diseqLit,
 			final boolean produceProofs) {
-		// Two single-class paths, each offset-correct on its own.
-		computePath(srcEnd, lhs);
-		computePath(rhsTerm, destEnd);
+		// Two single-class paths, each offset-correct on its own. Build them directly (not via the work list) so they
+		// are NOT collected into mAllPaths: they are stitched by hand into the explicit main path below, while only their
+		// congruence dependencies (enqueued here, drained next) belong in mAllPaths as the other paths. Each is null for
+		// a trivial half (srcEnd == lhs / rhsTerm == destEnd). The literal collection into mAllLiterals happens here
+		// regardless of produceProofs, so this must run for both the clause and the proof.
+		final SubPath segSrc = computePathNonRecursive(srcEnd, lhs);
+		final SubPath segDest = computePathNonRecursive(rhsTerm, destEnd);
 		// Justify the bridge edge lhs — rhsTerm.
 		if (reason != null) {
 			mAllLiterals.add(reason);
@@ -465,13 +473,12 @@ public class CongruencePath {
 		}
 		final Clause c = new Clause(clause);
 		if (produceProofs) {
-			final SubPath segSrc = srcEnd == lhs ? null : mVisited.get(new SymmetricPair<>(srcEnd, lhs));
-			final SubPath segDest = rhsTerm == destEnd ? null : mVisited.get(new SymmetricPair<>(rhsTerm, destEnd));
 			// paramsSrc = [srcEnd@0, ..., lhs@offLhs] (anchored and oriented at srcEnd). Shift the destination half into
 			// the source half's frame: after the bridge edge (value(lhs) == value(rhsTerm) + bridgeOff), rhsTerm sits at
 			// lhs's offset plus bridgeOff; rendering the dest half anchored there yields it already shifted, so the main
 			// path is a plain concatenation.
 			final CCParameter[] paramsSrc = segSrc != null ? segSrc.getParams(srcEnd) : new CCParameter[] { srcEnd };
+			assert paramsSrc[paramsSrc.length - 1].getCCTerm() == lhs : "src path must end at lhs + offset";
 			final CCParameter destAnchor =
 					CCParameter.of(rhsTerm, paramsSrc[paramsSrc.length - 1].getOffset().add(bridgeOff));
 			final CCParameter[] paramsDest =
@@ -479,21 +486,16 @@ public class CongruencePath {
 			final CCParameter[] mainPath = new CCParameter[paramsSrc.length + paramsDest.length];
 			System.arraycopy(paramsSrc, 0, mainPath, 0, paramsSrc.length);
 			System.arraycopy(paramsDest, 0, mainPath, paramsSrc.length, paramsDest.length);
-			// The remaining subpaths (congruences within either half, plus the bridge's argument subpaths) keep deriving
-			// their offsets the usual way.
 			assert mainPath[0].getCCTerm() == srcEnd : "main path must start at srcEnd";
 			assert mainPath[mainPath.length - 1].getCCTerm() == destEnd : "main path must end at destEnd";
-			final ArrayList<SubPath> otherPaths = new ArrayList<>();
-			for (final SubPath p : mAllPaths) {
-				if (p != segSrc && p != segDest) {
-					otherPaths.add(p);
-				}
-			}
+			// The remaining subpaths (congruences within either half, plus the bridge's argument subpaths) keep deriving
+			// their offsets the usual way. segSrc/segDest were built off the work list and never entered mAllPaths, so
+			// mAllPaths is exactly the other paths (the constructor only iterates it, so no copy is needed).
 			// The clashing equality: a concrete disequality discharged against diseqLit, or (shared case) the trivially
 			// distinct shared values discharged by an EQ/LA lemma.
 			final SymmetricPair<CCParameter> diseq = new SymmetricPair<>(mainPath[0], mainPath[mainPath.length - 1]);
 			c.setProof(new LeafNode(LeafNode.THEORY_CC,
-					new CCAnnotation(diseq, mainPath, otherPaths, CCAnnotation.RuleKind.CONG)));
+					new CCAnnotation(diseq, mainPath, mAllPaths, CCAnnotation.RuleKind.CONG)));
 		}
 		return c;
 	}
@@ -515,8 +517,7 @@ public class CongruencePath {
 		}
 		final Clause c = new Clause(negLits);
 		if (produceProofs) {
-			// the main equality carries the offset of a numeric constructor field; CCAnnotation keeps both the
-			// CCParameter view (with offset) and the offset-free CCTerm view used by the current proof generator.
+			// the main equality carries the offset of a numeric constructor field.
 			c.setProof(new LeafNode(LeafNode.THEORY_DT, new CCAnnotation(lemma.getMainEquality(), mAllPaths, lemma)));
 		}
 		return c;

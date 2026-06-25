@@ -891,11 +891,10 @@ hybrid covers both bridge kinds uniformly.
    `compute*Cycle`/`computeDTLemma`/`computeDecideLevel` calls the extracted
    `drainTodo()` **once** after all `computePath`/`computeCongruence` calls are queued,
    so a single shared drain builds them (and dedups subpaths shared between several
-   queued ends). `WeakCongruencePath` consumes single paths synchronously
-   (`computePath(...); mAllPaths.removeFirst()`), so it drains per call — `drainTodo()`
-   is `protected` and called explicitly at each of its six `computePath` sites
-   (reproducing the old per-call drain; without this the array proofs in
-   `test/proof/auxaxioms/*` throw `NoSuchElementException`).
+   queued ends). `WeakCongruencePath` drains once per weak/main path; the strong paths
+   it inlines into a weak path are built via `computePathNonRecursive` (see the
+   *drainTodo / mAllPaths cleanup* section below — the original `computePath(...);
+   mAllPaths.removeFirst()` per-call-drain idiom is superseded).
 3. **`computeAntiCycleDiffClass` gets the same pre-shift simplification** as
    `computeSharedConflictCycle`: its right half is anchored at `right@shift`
    (`shift = dLeft.mOffsetToRep − left.mOffsetToRep + eq.getOffset()`), so `getParams()`
@@ -1024,6 +1023,61 @@ but a `CCTermPairHash.Info` also holds equality literals / compare triggers, so
 null` (otherwise `diseq.getLhs()` NPEs on essentially every benchmark). Validated: test/proof
 97/98, abv 4/4, bv 35/35, uflira/lia/datatype-nonquant clean (only the pre-existing failures);
 unit suites green. File: `CCTerm.java`.
+
+## `drainTodo` / `mAllPaths` cleanup — DONE (uncommitted)
+
+`mAllPaths` was overloaded: it is the final, topologically-ordered annotation output
+(the producer must emit paths so that *later paths explain congruences on earlier* — see
+`CCAnnotation.mParamPaths` and `CCProofGenerator.collectStrongEqualities`, which walks the
+array backwards), **and** it was abused as a return channel — `WeakCongruencePath` read
+`mAllPaths.removeFirst()` to retrieve the strong path it had just asked `computePath` to build
+so it could inline it (`addSubPath`) into a weak path. That coupling caused two problems:
+
+- **Per-call dedup set.** `drainTodo`'s `added` set was local, while `mVisited` is a field. A
+  subpath built in one drain and re-enqueued in a later drain (`computeWeakeqExt` loops over
+  store indices; `computeCongruence` re-enqueues argument pairs unconditionally) was found in
+  `mVisited` but missing from the fresh `added` set → **re-appended to `mAllPaths` (duplicate)**.
+- **`removeFirst` ordering reliance.** The graft assumed `mAllPaths`'s front was exactly the
+  path for the last `computePath` — fragile, since the shared drain also drains other pending
+  pairs (the index/select equalities), and it only stayed correct *because* the broken per-call
+  dedup kept re-adding already-built paths.
+
+**Fix (three changes):**
+1. **Persistent dedup.** `drainTodo`'s local `added` set is promoted to the field `mCollected`,
+   so a subpath enters `mAllPaths` at most once across all drains of a lemma. (Per-conflict
+   instances are fresh from the constructor, so no clearing is needed.)
+2. **Inline via `computePathNonRecursive`.** The two graft sites in `WeakCongruencePath`
+   (`collectPathOnePrimary`, `collectPathPrimary`) call `computePathNonRecursive(left, right)`
+   directly and `addSubPath` the returned `SubPath`. `computePathNonRecursive` returns the path
+   (cached or freshly built), enqueues its congruence dependencies on `mTodo`, and — crucially —
+   **never adds it to `mAllPaths`** (correct: an inlined path is not a standalone annotation
+   path). The dependencies are collected by the enclosing lemma's drain. This removes both the
+   `removeFirst` call and its ordering assumption; you get the right `SubPath` by return value
+   regardless of what else is pending in `mTodo`. Strong paths that *are* standalone annotation
+   subpaths (the index/select equalities in `computeWeakCongruencePath`) keep using `computePath`.
+3. **Explicit drain in `computeConstOverWeakEQ`.** It was the one lemma method with no
+   `drainTodo()` of its own — it worked only because `collectPathPrimary` drained internally.
+   With the internal graft-drains gone, it now calls `drainTodo()` before `mAllPaths.addFirst(path)`
+   (the drain must precede the prepend so the main path lands ahead of its dependencies). The
+   other lemma methods already drain at the right spot before each manual `addFirst`.
+4. **`computeMergeConflictCycle` builds its two halves the same way.** It used to
+   `computePath(srcEnd, lhs)` / `computePath(rhsTerm, destEnd)`, drain, then re-fetch the halves via
+   `mVisited.get(SymmetricPair(...))` and filter them back out of `mAllPaths`
+   (`for (p : mAllPaths) if (p != segSrc && p != segDest)`). Now it calls
+   `computePathNonRecursive` for each half directly: the `SubPath`s come back by return value (no
+   `mVisited` lookup), they never enter `mAllPaths` (no filter), and only their congruence
+   dependencies plus the bridge's argument subpaths are drained — so `mAllPaths` *is* the
+   other-paths list and is passed straight to the `CCAnnotation` constructor (which only iterates
+   it, so no copy). The two halves must be built before the drain regardless of `produceProofs`,
+   since that is where their literals reach `mAllLiterals` for the clause.
+
+Validated (clean build, `-ea`): `test/proof` **97/98** (only the pre-existing
+`trivialdiseqarray`, identical to baseline); `array/` + interpolation `.smt2` under
+`proof-check-mode` have an **identical pass/fail set** to a reverted baseline (the
+`constarr00{4,5,11,12,14}` interpolation failures are pre-existing in the deferred
+offset-interpolation track); `BitvectorTest`, `ProofSimplifierTest`, `ProofUtilsTest`,
+`RPITest`, `CongruentAddTest` green (117 tests); `abv`/`uflira`/`lia` sweeps clean.
+Files: `CongruencePath.java`, `WeakCongruencePath.java`.
 
 ## Implementable slice (ready to start)
 
