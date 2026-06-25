@@ -35,8 +35,8 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
-import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.SortSymbol;
@@ -562,7 +562,7 @@ public class DataTypeTheory implements ITheory {
 		}
 
 		final DataType datatype = (DataType) rep.mFlatTerm.getSort().getSortSymbol();
-		final CCTerm trueRep = mClausifier.getCCTerm(mTheory.mTrue).mRepStar;
+		final CCTerm trueRep = mClausifier.getCCTerm(mTheory.mTrue).getRepresentative();
 		final Set<CCAppTerm> selectors = new LinkedHashSet<>();
 		FunctionSymbol trueTester = null;
 		final Set<FunctionSymbol> falseTesters = new LinkedHashSet<>();
@@ -875,7 +875,7 @@ public class DataTypeTheory implements ITheory {
 		// create a new constructor application like C(s1(x), s2(x), ..., sm(x))
 		final Sort consType = c.needsReturnOverload() ? dtTerm.getSort() : null;
 		final Term consTerm = mTheory.term(consName, null, consType, selectorTerms);
-		final CCTerm consCCTerm = mClausifier.createCCTerm(consTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
+		final CCTerm consCCTerm = (CCTerm) mClausifier.createCCTerm(consTerm, SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		final SymmetricPair<CCParameter> eq = new SymmetricPair<>(arg, consCCTerm);
 		@SuppressWarnings("unchecked")
 		final DataTypeLemma lemma = new DataTypeLemma(RuleKind.DT_CONSTRUCTOR, eq,

@@ -59,6 +59,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -1345,11 +1346,9 @@ public class LinArSolve implements ITheory {
 			assert mDirty.get(var.mMatrixpos);
 			return null;
 		}
-		if (!offset.equals(Rational.ZERO) && mClausifier.getCCTerm(rhsTerm) == null) {
-			// the synthesized term rhs + offset is offset-free-equivalent to rhs; map it to the same CCTerm.
-			mClausifier.shareCCTerm(rhsTerm, mClausifier.getCCTerm(rhs.getTerm()));
-		}
-		final CCEquality cceq = eq.createCCEquality(lhs.getTerm(), rhsTerm);
+		// The CCEquality is between the offset-free CCTerms of lhs and rhs at the known offset; the synthesized
+		// rhsTerm above only carries the offset for the EqualityProxy/atom identity, not the CC node lookup.
+		final CCEquality cceq = eq.createCCEquality(lhsCCTerm, rhsCCTerm, offset);
 		final LAEquality laeq = cceq.getLASharedData();
 		mClausifier.getLogger().debug("Propagate: %s  (laeq: %s) %s %s", cceq, laeq, cceq.getDecideStatus(),
 				laeq.getDecideStatus());

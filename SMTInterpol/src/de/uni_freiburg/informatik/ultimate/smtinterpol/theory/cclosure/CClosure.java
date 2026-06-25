@@ -1212,10 +1212,6 @@ public class CClosure implements ITheory {
 		if (ep == EqualityProxy.getFalseProxy()) {
 			return null;
 		}
-		if (!offset.equals(Rational.ZERO) && mClausifier.getCCTerm(rhsTerm) == null) {
-			// the offset term t2+offset is offset-free-equivalent to t2; map it to the same CCTerm.
-			mClausifier.shareCCTerm(rhsTerm, t2);
-		}
 		if (!createLAEquality) {
 			final Literal res = ep.getLiteral(null);
 			if (res instanceof CCEquality) {
@@ -1225,7 +1221,9 @@ public class CClosure implements ITheory {
 				}
 			}
 		}
-		return ep.createCCEquality(lhsTerm, rhsTerm);
+		// t1 and t2 are the offset-free CC nodes; pass them with this call's offset (which may differ from the proxy's
+		// canonical offset for a scaled equivalent) rather than round-tripping through the synthesized rhsTerm.
+		return ep.createCCEquality(t1, t2, offset);
 	}
 
 	@Override

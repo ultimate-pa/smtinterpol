@@ -100,7 +100,8 @@ public class PatternCompiler {
 		}
 		if (term.getFreeVars().length == 0) {
 			final Clausifier clausifier = mEMatching.getQuantTheory().getClausifier();
-			info.mGroundTerm = clausifier.createCCTerm(term, mQuantAtom.getClause().getSource());
+			// Offsets are disabled under quantifiers, so the built CCParameter is always offset-free (a CCTerm).
+			info.mGroundTerm = (CCTerm) clausifier.createCCTerm(term, mQuantAtom.getClause().getSource());
 		} else if (!(term instanceof TermVariable)) {
 			assert term instanceof ApplicationTerm;
 			final Term[] args = ((ApplicationTerm) term).getParameters();

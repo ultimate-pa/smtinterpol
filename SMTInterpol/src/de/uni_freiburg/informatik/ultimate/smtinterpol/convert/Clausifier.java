@@ -71,6 +71,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.Proof
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvToIntUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.DTReverseTrigger;
@@ -221,10 +222,10 @@ public class Clausifier {
 	 *            The source annotation that is used for auxiliary axioms.
 	 * @return the ccterm.
 	 */
-	public CCTerm createCCTerm(final Term term, final SourceAnnotation source) {
+	public CCParameter createCCTerm(final Term term, final SourceAnnotation source) {
 		final boolean wasRunning = mIsRunning;
 		mIsRunning = true;
-		final CCTerm ccterm = new CCTermBuilder(this, source).convert(term);
+		final CCParameter ccterm = new CCTermBuilder(this, source).convert(term);
 		mIsRunning = wasRunning;
 		if (!wasRunning) {
 			run();
@@ -289,6 +290,10 @@ public class Clausifier {
 	}
 
 	public void addTermAxioms(final Term term, final SourceAnnotation source) {
+		// Axioms are added for offset-free terms only; an offseted term (x+5) carries its constant structurally and its
+		// offset-free part (x) gets the axioms. The only callers with user terms (EqualityProxy, createEqualityProxy)
+		// normalize via getOffsetFreeTerm before calling.
+		assert getTermConstant(term).equals(Rational.ZERO) : "addTermAxioms on offseted term " + term;
 		final int termFlags = getTermFlags(term);
 		if ((termFlags & Clausifier.AUX_AXIOM_ADDED) == 0) {
 			final boolean wasRunning = mIsRunning;
@@ -298,7 +303,7 @@ public class Clausifier {
 				CCTerm ccTerm = getCCTerm(term);
 				if (ccTerm == null && (needCCTerm(term) || term.getSort().isArraySort())) {
 					final CCTermBuilder cc = new CCTermBuilder(this, source);
-					ccTerm = cc.convert(term);
+					ccTerm = (CCTerm) cc.convert(term);
 				}
 
 				final ApplicationTerm at = (ApplicationTerm) term;
@@ -334,7 +339,7 @@ public class Clausifier {
 					final String funcName = at.getFunction().getName();
 					final boolean isStore = funcName.equals("store");
 					final boolean isConst = funcName.equals(SMTLIBConstants.CONST);
-					mArrayTheory.notifyArray(getCCTerm(term), isStore, isConst);
+					mArrayTheory.notifyArray(ccTerm, isStore, isConst);
 				}
 
 				if (fs.isConstructor()) {
@@ -358,6 +363,15 @@ public class Clausifier {
 
 			}
 			if (term.getSort().isNumericSort()) {
+				// With offset equalities the CCTerm is offset-free (value 2x+4y for a term 2x+4y+1) and the
+				// constant is carried structurally at the use sites. The LASharedTerm must then be offset-free
+				// too, so it stays value-consistent with the offset-free CCTerm: clash-slot MBTC values a member
+				// as value(rep) + offsetToRep and must not double-count the constant. Terms differing only by a
+				// constant share one offset-free CCTerm; each still registers its own offset-free LASharedTerm
+				// (same value), which is harmless and recognized as already-known by the offset-aware guards.
+				//
+				// Without offset equalities the LASharedTerm carries the full value (its constant), as before,
+				// so whole-term mbtc groups shared terms by their true value.
 				boolean needsLA = term instanceof ConstantTerm;
 				if (term instanceof ApplicationTerm) {
 					final String func = ((ApplicationTerm) term).getFunction().getName();
@@ -369,19 +383,10 @@ public class Clausifier {
 					final MutableAffineTerm mat = createMutableAffinTerm(new Polynomial(term), source);
 					assert mat.getConstant().mEps == 0;
 					if (!mLATerms.containsKey(term)) {
-						// The LASharedTerm shares the term's value with linear arithmetic.
-						//
-						// With offset equalities the CCTerm is offset-free (value 2x+4y for a term 2x+4y+1) and the
-						// constant is carried structurally at the use sites. The LASharedTerm must then be offset-free
-						// too, so it stays value-consistent with the offset-free CCTerm: clash-slot MBTC values a member
-						// as value(rep) + offsetToRep and must not double-count the constant. Terms differing only by a
-						// constant share one offset-free CCTerm; each still registers its own offset-free LASharedTerm
-						// (same value), which is harmless and recognized as already-known by the offset-aware guards.
-						//
-						// Without offset equalities the LASharedTerm carries the full value (its constant), as before,
-						// so whole-term mbtc groups shared terms by their true value.
-						final Rational laOffset = createOffsetEqualities() ? Rational.ZERO : mat.getConstant().mReal;
-						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), laOffset));
+						// The LASharedTerm shares the term's value with linear arithmetic. The term is offset-free (see
+						// the precondition), so this stays consistent with getCCTerm and the endScope unshare loop, which
+						// look up CC nodes by the (offset-free) key.
+						shareLATerm(term, new LASharedTerm(term, mat.getSummands(), mat.getConstant().mReal));
 					}
 				}
 			}
@@ -587,6 +592,10 @@ public class Clausifier {
 	}
 
 	public CCTerm getCCTerm(final Term term) {
+		// mCCTerms is keyed by offset-free terms only; an offseted term has no entry of its own (its CCParameter, with
+		// the constant as offset, is produced at build time by createCCTerm). Callers must normalize via
+		// getOffsetFreeTerm first.
+		assert getTermConstant(term).equals(Rational.ZERO) : "getCCTerm on offseted term " + term;
 		return mCCTerms.get(term);
 	}
 
@@ -618,11 +627,6 @@ public class Clausifier {
 	}
 
 	/**
-	 * The offset-free part of a numeric term, i.e. the term with its constant summand removed. Two terms that differ
-	 * only by a constant (e.g. {@code 2x+4y+1} and {@code 2x+4y+5}) yield the same canonical offset-free term, so they
-	 * share a single CCTerm. Returns the term itself when it has no constant or offset equalities are disabled.
-	 */
-	/**
 	 * Build the normalized term for {@code term + constant}. The result is a single flattened polynomial term (not a
 	 * nested {@code (+ term constant)}), so that re-parsing it as a Polynomial recovers all summands.
 	 */
@@ -632,6 +636,13 @@ public class Clausifier {
 		return mCompiler.unifyPolynomial(poly, term.getSort());
 	}
 
+	/**
+	 * The offset-free part of a numeric term, i.e. the term with its constant
+	 * summand removed. Two terms that differ only by a constant (e.g.
+	 * {@code 2x+4y+1} and {@code 2x+4y+5}) yield the same canonical offset-free
+	 * term, so they share a single CCTerm. Returns the term itself when it has no
+	 * constant or offset equalities are disabled.
+	 */
 	public Term getOffsetFreeTerm(final Term term) {
 		if (!createOffsetEqualities() || !term.getSort().isNumericSort()) {
 			return term;
@@ -1364,8 +1375,13 @@ public class Clausifier {
 		if (sort.getName().equals("Int") && !diff.getConstant().isIntegral()) {
 			return EqualityProxy.getFalseProxy();
 		}
-		addTermAxioms(lhs, source);
-		addTermAxioms(rhs, source);
+		// The proxy works on the offset-free sides plus the offset (value(offLhs) == value(offRhs) + offset). The
+		// offset is the difference of the two sides' constants.
+		final Term offLhs = getOffsetFreeTerm(lhs);
+		final Term offRhs = getOffsetFreeTerm(rhs);
+		final Rational offset = getTermConstant(rhs).sub(getTermConstant(lhs));
+		addTermAxioms(offLhs, source);
+		addTermAxioms(offRhs, source);
 		// we cannot really normalize the sign of the term. Try both signs.
 		EqualityProxy eqForm = mEqualities.get(diff);
 		if (eqForm != null) {
@@ -1376,7 +1392,7 @@ public class Clausifier {
 		if (eqForm != null) {
 			return eqForm;
 		}
-		eqForm = new EqualityProxy(this, lhs, rhs);
+		eqForm = new EqualityProxy(this, offLhs, offRhs, offset);
 		mEqualities.put(diff, eqForm);
 		return eqForm;
 	}
