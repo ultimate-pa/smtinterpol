@@ -273,6 +273,15 @@ public class CongruencePath {
 	 * @param tailNr this gives the (last) formula number of the equality after right.
 	 * @param left the left end of the congruence chain that should be evaluated.
 	 * @param right the right end of the congruence chain that should be evaluated.
+	 * @return the built path, or {@code null} for a trivial path ({@code left} and {@code right} share the same term).
+	 *
+	 * <p>This is a pure builder: it does not consult or update the {@link #mVisited} cache. {@link #drainTodo} owns the
+	 * cache — it looks up {@link #mVisited} before calling and stores the result afterwards, so a path requested as a
+	 * standalone subpath is built once and collected through the re-enqueue discipline. Inline grafts (built directly,
+	 * outside the drain, to be spliced into a weak/store path) call this without caching: a later standalone request for
+	 * the same edge therefore rebuilds it through the drain rather than short-circuiting to the already-visited branch
+	 * of {@link #drainTodo} (which would collect it ahead of its still-pending congruence dependencies). The graft's
+	 * dependencies are enqueued either way, so the inlined congruences are still explained.
 	 */
 	SubPath computePathNonRecursive(final CCParameter left, final CCParameter right) {
 		final CCTerm leftTerm = left.getCCTerm();
@@ -280,11 +289,6 @@ public class CongruencePath {
 		/* check for and ignore trivial paths (the offsets coincide for a genuine congruence) */
 		if (leftTerm == rightTerm) {
 			return null;
-		}
-
-		final SymmetricPair<CCTerm> key = new SymmetricPair<>(leftTerm, rightTerm);
-		if (mVisited.containsKey(key)) {
-			return mVisited.get(key);
 		}
 
 		int leftDepth = computeDepth(leftTerm);
@@ -324,7 +328,6 @@ public class CongruencePath {
 		}
 		final SubPath pathBack = computePathTo(right, rrWithReason);
 		path.addSubPath(pathBack);
-		mVisited.put(key, path);
 		return path;
 	}
 
@@ -359,9 +362,17 @@ public class CongruencePath {
 	 * {@link #mAllPaths} (and its literals into {@link #mAllLiterals}). The top-level compute*Cycle/Lemma methods seed
 	 * the work list via {@link #computePath} (a single pair) and {@link #computeCongruence} (argument pairs), then call
 	 * this once. {@link WeakCongruencePath} drains once per weak/main path (a strong path to be inlined into a weak path
-	 * is instead built directly via {@link #computePathNonRecursive}, which returns it without adding it to
-	 * {@link #mAllPaths}), hence protected. Dedup against {@link #mCollected} is persistent, so a subpath shared between
-	 * drains is appended only once.
+	 * is instead built directly via {@link #computePathNonRecursive} with {@code store == false}, which returns it
+	 * without adding it to {@link #mVisited} or {@link #mAllPaths}), hence protected. Dedup against {@link #mCollected}
+	 * is persistent, so a subpath shared between drains is appended only once.
+	 *
+	 * <p>Ordering invariant: a path is collected (appended to {@link #mAllPaths}) only after its congruence
+	 * dependencies, so it precedes the paths explaining its congruences (as the proof generator requires). This holds
+	 * because a freshly seen path takes the {@code path == null} branch: it re-enqueues itself <em>behind</em> the
+	 * dependencies that {@link #computePathNonRecursive} pushes to the front, so those are collected first. The only way
+	 * to bypass this would be to find the path already in {@link #mVisited} on its first pop — which is exactly why
+	 * inline grafts are built with {@code store == false}: a standalone request for the same edge then rebuilds it
+	 * through this branch instead of short-circuiting to the already-collected branch ahead of its dependencies.
 	 */
 	protected void drainTodo() {
 		while (!mTodo.isEmpty()) {
@@ -375,9 +386,11 @@ public class CongruencePath {
 			// check if we already visited this path (keyed offset-free, so offset variants share one subpath)
 			final SubPath path = mVisited.get(pathEnds);
 			if (path == null) {
-				// if we did not visit it yet, enqueue again for later and visit the path
+				// if we did not visit it yet, enqueue again for later, build the path and cache it. drainTodo owns the
+				// mVisited cache; computePathNonRecursive is a pure builder. The pair is non-trivial (checked above), so
+				// the build never returns null here.
 				mTodo.addFirst(pathEnds);
-				computePathNonRecursive(pathEnds.getFirst(), pathEnds.getSecond());
+				mVisited.put(pathEnds, computePathNonRecursive(pathEnds.getFirst(), pathEnds.getSecond()));
 			} else {
 				// already visited it, so we just add the path now unless we did this earlier
 				if (mCollected.add(pathEnds)) {
@@ -470,8 +483,10 @@ public class CongruencePath {
 			assert offset.equals(Rational.ZERO);
 			computeCongruence((CCAppTerm) lhs, (CCAppTerm) rhs);
 		}
-		// Two single-class paths for lhs and rhs, each offset-correct on its own. These
-		// are merged later to a single main path.
+		// Two single-class paths for lhs and rhs, each offset-correct on its own. These are merged later by hand into a
+		// single main path, so they are not standalone subpaths: computePathNonRecursive builds them without caching in
+		// mVisited, so they neither enter mAllPaths nor short-circuit a later standalone request for the same edge
+		// (their congruence dependencies are still enqueued and collected through the drain below).
 		final SubPath segSrc = computePathNonRecursive(lhsDiseq, lhs);
 		final SubPath segDest = computePathNonRecursive(rhs, rhsDiseq);
 		drainTodo();

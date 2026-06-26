@@ -277,9 +277,11 @@ public class WeakCongruencePath extends CongruencePath {
 		assert t1.mRepStar == node.mTerm;
 		assert t2.mRepStar == node.mPrimaryEdge.mTerm;
 		if (cursor.mTerm != t1) {
-			// Build the strong path directly and inline it into the weak path. computePathNonRecursive returns the
-			// SubPath (without adding it to mAllPaths, since it is inlined here, not a standalone subpath) and enqueues
-			// its congruence dependencies for the enclosing lemma's drainTodo to collect.
+			// Build the strong path directly and inline it into the weak path. computePathNonRecursive is a pure
+			// builder: the result is not cached in mVisited (only drainTodo caches), so it is inlined here rather than
+			// becoming a standalone subpath, while its congruence dependencies are enqueued for the enclosing lemma's
+			// drainTodo to collect. Not caching it lets a later standalone request for the same edge rebuild it through
+			// the drain, so it is collected after its dependencies.
 			path.addSubPath(computePathNonRecursive(cursor.mTerm, t1));
 		}
 		path.addEntry(t2, null);
@@ -315,8 +317,9 @@ public class WeakCongruencePath extends CongruencePath {
 			collectPathOnePrimary(dest, path2, storeIndices);
 		}
 		if (start.mTerm != dest.mTerm) {
-			// Build the strong path directly and inline it (see collectPathOnePrimary): computePathNonRecursive returns
-			// the SubPath without adding it to mAllPaths and enqueues its dependencies for the enclosing drainTodo.
+			// Build the strong path directly and inline it (see collectPathOnePrimary): computePathNonRecursive is a
+			// pure builder whose result is not cached in mVisited, so it is inlined here rather than becoming a
+			// standalone subpath, while its dependencies are enqueued for the enclosing drainTodo.
 			path1.addSubPath(computePathNonRecursive(start.mTerm, dest.mTerm));
 		}
 		path1.addSubPath(path2);
