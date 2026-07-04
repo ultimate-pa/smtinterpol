@@ -96,36 +96,6 @@ public class CCProofGenerator {
 	}
 
 	/**
-	 * This class is used to represent a select edge and select-const edges in weak congruences.
-	 */
-	private static class SelectEdge {
-		private final CCParameter mLeft;
-		private final CCParameter mRight;
-
-		public SelectEdge(final CCParameter left, final CCParameter right) {
-			mLeft = left;
-			mRight = right;
-		}
-
-		public SymmetricPair<CCParameter> toSymmetricPair() {
-			return new SymmetricPair<>(mLeft, mRight);
-		}
-
-		public CCParameter getLeft() {
-			return mLeft;
-		}
-
-		public CCParameter getRight() {
-			return mRight;
-		}
-
-		@Override
-		public String toString() {
-			return mLeft + " <-> " + mRight;
-		}
-	}
-
-	/**
 	 * This class collects the information for an auxiliary lemma that proves an equality literal needed in the main
 	 * lemma.
 	 *
@@ -266,13 +236,14 @@ public class CCProofGenerator {
 			}
 		}
 
-		private void collectSelectIndexEquality(final CCParameter select, final CCParameter pathIndex) {
-			if (select instanceof CCTerm && ArrayTheory.isSelectTerm(select)) {
-				final CCParameter index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
-				if (!index.equals(pathIndex)) {
-					if (!collectEquality(new SymmetricPair<CCParameter>(pathIndex, index))) {
-						throw new AssertionError("Cannot find select index equality " + pathIndex + " = " + index);
-					}
+		private void collectSelectIndexEquality(final CCParameter select, final CCTerm array, final CCParameter pathIndex) {
+			if (!ArrayTheory.isSelectTerm(select) || ArrayTheory.getArrayFromSelect((CCAppTerm) select) != array) {
+				throw new AssertionError();
+			}
+			final CCParameter index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
+			if (!index.equals(pathIndex)) {
+				if (!collectEquality(new SymmetricPair<CCParameter>(pathIndex, index))) {
+					throw new AssertionError("Cannot find select index equality " + pathIndex + " = " + index);
 				}
 			}
 		}
@@ -325,24 +296,19 @@ public class CCProofGenerator {
 				}
 				// Case (iv) select
 				if (mRule == RuleKind.WEAKEQ_EXT && pathIndex != null) {
-					final SymmetricPair<CCTerm> arrayPair = new SymmetricPair<>(firstTerm, secondTerm);
-					// Prefer the select/const edge recorded in the annotation; only fall back to searching the clause
-					// equalities if it is absent (should not happen for a genuine select step).
-					SelectEdge selectEdge = orientSelectEdge(indexedPath.getSelectEdge(), arrayPair, pathIndex);
-					if (selectEdge == null) {
-						selectEdge = findSelectPath(arrayPair, pathIndex);
-					}
+					// Use the select/const edge recorded in the annotation.
+					final CCParameter[] selectEdge = indexedPath.getSelectEdge();
 					if (selectEdge != null) {
-						if (selectEdge.getLeft() != selectEdge.getRight()) {
-							if (!collectEquality(selectEdge.toSymmetricPair())) {
+						if (selectEdge[0] != selectEdge[1]) {
+							if (!collectEquality(new SymmetricPair<>(selectEdge[0], selectEdge[1]))) {
 								throw new AssertionError("Cannot find select edge " + selectEdge);
 							}
 						}
-						if (!isConst(firstTerm, selectEdge.getLeft())) {
-							collectSelectIndexEquality(selectEdge.getLeft(), pathIndex);
+						if (!isConst(firstTerm, selectEdge[0])) {
+							collectSelectIndexEquality(selectEdge[0], firstTerm, pathIndex);
 						}
-						if (!isConst(secondTerm, selectEdge.getRight())) {
-							collectSelectIndexEquality(selectEdge.getRight(), pathIndex);
+						if (!isConst(secondTerm, selectEdge[1])) {
+							collectSelectIndexEquality(selectEdge[1], secondTerm, pathIndex);
 						}
 						continue;
 					}
@@ -819,8 +785,6 @@ public class CCProofGenerator {
 		return smtAffine.isAllIntSummands() && !smtAffine.getConstant().div(smtAffine.getGcd()).isIntegral();
 	}
 
-
-
 	/**
 	 * Find argument paths for a congruence. These may also be literals from the original clause. Note that a function
 	 * can have several arguments, and a path is needed for each of them!
@@ -878,114 +842,6 @@ public class CCProofGenerator {
 			}
 		}
 		return proofInfo;
-	}
-
-	/**
-	 * Search for a select path between two given arrays and paths from the select indices to the weakpath index for
-	 * which one wants to prove equality of the array elements.
-	 *
-	 * @return the select path and (if needed) index paths, or null if there were no suitable paths for the term pair.
-	 */
-	private SelectEdge findSelectPath(final SymmetricPair<CCTerm> termPair, final CCParameter weakpathindex) {
-		// first check for trivial select-const edges, i.e., (const (select a j)) and a with j = weakpathindex.
-
-		if (ArrayTheory.isConstTerm(termPair.getFirst())) {
-			final CCParameter value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getFirst());
-			if (isSelect(value, termPair.getSecond(), weakpathindex)) {
-				return new SelectEdge(value, value);
-			}
-		}
-		if (ArrayTheory.isConstTerm(termPair.getSecond())) {
-			final CCParameter value = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getSecond());
-			if (isSelect(value, termPair.getFirst(), weakpathindex)) {
-				return new SelectEdge(value, value);
-			}
-		}
-
-		for (final OffsetPair equality : mAllEqualities) {
-			// Find some select path. Array select/store terms are offset-free, so the structural CCTerms are used.
-			final CCTerm start = equality.getFirst();
-			final CCTerm end = equality.getSecond();
-			SelectEdge result = goodSelectStep(start, end, equality.mOffset, termPair, weakpathindex);
-			if (result != null) {
-				return result;
-			}
-			result = goodSelectStep(end, start, equality.mOffset.negate(), termPair, weakpathindex);
-			if (result != null) {
-				return result;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Check if the equality sel1 == sel2 explains the weak step on weakpathindex for termPair.
-	 */
-	/**
-	 * Orient the select/const edge {@code edge = {a, b}} recorded in the annotation against the array step
-	 * {@code termPair}: return a {@link SelectEdge} whose left member belongs to {@code termPair.getFirst()} and right to
-	 * {@code termPair.getSecond()}. Returns {@code null} if {@code edge} is absent or does not match this step (the
-	 * caller then falls back to searching).
-	 */
-	private SelectEdge orientSelectEdge(final CCParameter[] edge, final SymmetricPair<CCTerm> termPair,
-			final CCParameter weakpathindex) {
-		if (edge == null) {
-			return null;
-		}
-		if (belongsTo(edge[0], termPair.getFirst(), weakpathindex)
-				&& belongsTo(edge[1], termPair.getSecond(), weakpathindex)) {
-			return new SelectEdge(edge[0], edge[1]);
-		}
-		if (belongsTo(edge[1], termPair.getFirst(), weakpathindex)
-				&& belongsTo(edge[0], termPair.getSecond(), weakpathindex)) {
-			return new SelectEdge(edge[1], edge[0]);
-		}
-		return null;
-	}
-
-	/** Whether {@code sel} is the select-at-weakpathindex on {@code array}, or {@code array} is {@code (const sel)}. */
-	private boolean belongsTo(final CCParameter sel, final CCTerm array, final CCParameter weakpathindex) {
-		return isConst(array, sel) || isSelect(sel, array, weakpathindex);
-	}
-
-	private SelectEdge goodSelectStep(final CCTerm sel1, final CCTerm sel2, final Rational offset,
-			final SymmetricPair<CCTerm> termPair, final CCParameter weakpathindex) {
-		CCParameter lhs = null;
-		if (ArrayTheory.isConstTerm(termPair.getFirst())) {
-			final CCParameter constVal1 = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getFirst());
-			if (constVal1.getCCTerm() == sel1) {
-				lhs = constVal1;
-			}
-		}
-		if (lhs == null && isSelect(sel1, termPair.getFirst(), weakpathindex)) {
-			lhs = sel1;
-		}
-		CCParameter rhs = null;
-		if (ArrayTheory.isConstTerm(termPair.getSecond())) {
-			final CCParameter constVal2 = ArrayTheory.getValueFromConst((CCAppTerm) termPair.getSecond());
-			if (constVal2.getCCTerm() == sel2) {
-				rhs = constVal2;
-			}
-		}
-		if (rhs == null && isSelect(sel2, termPair.getSecond(), weakpathindex)) {
-			rhs = sel2;
-		}
-		if (lhs != null && rhs != null && offset.equals(rhs.getOffset().sub(lhs.getOffset()))) {
-			return new SelectEdge(lhs, rhs);
-		}
-		return null;
-	}
-
-	/**
-	 * Check if select is a select on array on weakpathindex or something equal to weakpathindex.
-	 */
-	private boolean isSelect(final CCParameter select, final CCTerm array, final CCParameter weakpathindex) {
-		if (!ArrayTheory.isSelectTerm(select) || ArrayTheory.getArrayFromSelect((CCAppTerm) select) != array) {
-			return false;
-		}
-		final CCParameter index = ArrayTheory.getIndexFromSelect((CCAppTerm) select);
-		return (index.equals(weakpathindex)
-				|| mAllEqualities.contains(new OffsetPair(weakpathindex, index)));
 	}
 
 	/**

@@ -90,6 +90,13 @@ public class WeakCongruencePath extends CongruencePath {
 			return mIdx;
 		}
 
+		public CCParameter[] getSelectEdge() {
+			if (mSelectLeft == null) {
+				return null;
+			}
+			return new CCParameter[] { mSelectLeft, mSelectRight };
+		}
+
 		public CCParameter getSelectLeft() {
 			return mSelectLeft;
 		}
@@ -277,15 +284,15 @@ public class WeakCongruencePath extends CongruencePath {
 			path.addSubPath(computeWeakPath(selectArray, array2, index, produceProofs));
 			select2 = select;
 		}
+		// Record the select/const edge so the proof/interpolation consumers need not search for it. select1 is on the
+		// array1 (path[0]) side, select2 on the array2 (path[last]) side, matching the emitted path order.
+		path.setSelectEdge(select1, select2);
 		// compute the path between the selects or between select and constant value.
 		assert select1.getRepresentative() == select2.getRepresentative();
 		// check for trivial select edge (select-const).
 		if (select1 != select2) {
 			computePath(select1, select2);
 		}
-		// Record the select/const edge so the proof/interpolation consumers need not search for it. select1 is on the
-		// array1 (path[0]) side, select2 on the array2 (path[last]) side, matching the emitted path order.
-		path.setSelectEdge(select1, select2);
 		return path;
 	}
 

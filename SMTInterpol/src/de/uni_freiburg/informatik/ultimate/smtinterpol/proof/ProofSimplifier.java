@@ -3269,70 +3269,6 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
-	 * Prove for a step in a weak array path that
-	 * {@code (select arrayLeft weakIdx) = (select arrayRight weakIdx)}, for the
-	 * case that there is an explicit select equality (or the edge-case where this
-	 * explicit select equality would be trivial. A select equality is an equality
-	 * of the form {@code (select arrayLeft idx1) = (select arrayRight idx2)}, where
-	 * an equality between weakIdx and idx1 resp. idx2 is either trivial or in the
-	 * equalities set. In case arrayLeft is the term {@pre (const v)} the left-hand
-	 * side of the equality can be simply {@pre v}, similarly for arrayRight.
-	 *
-	 * @param arrayLeft        the left array of the step.
-	 * @param arrayRight       the right array of the step.
-	 * @param weakIdx          the weak path index.
-	 * @param equalities       the equality literals from the clause.
-	 * @param neededEqualities a set into which needed equalities are added.
-	 * @return the proof for the equality between the two selects. The proof uses
-	 *         the equality between the select index in the equality and weakIndex,
-	 *         which it adds to neededEqualities. It returns null if this is not a
-	 *         store step.
-	 */
-	private Term proveSelectPath(final Term arrayLeft, final Term arrayRight, final Term weakIdx,
-			final Map<OffsetEqKey, Term> allEqualities, final Set<Term> neededEqualities) {
-		for (final Term candidateEquality : allEqualities.values()) {
-			// Check for each candidate equality if it explains a select edge for a
-			// weakeq-ext lemma.
-			// We check if termPair.first[weakIdx]] equals one side of the equality and
-			// termPair.second[weakIdx]
-			// equals the other side.
-			final Term[] sides = ((ApplicationTerm) candidateEquality).getParameters();
-			final Term first = sides[0];
-			final Term second = sides[1];
-			Term eq1 = proveSelectConst(first, arrayLeft, weakIdx, allEqualities, neededEqualities);
-			Term eq2 = proveSelectConst(second, arrayRight, weakIdx, allEqualities, neededEqualities);
-			if (eq1 != null && eq2 != null) {
-				return proveSelectPathTrans(arrayLeft, first, second, arrayRight, weakIdx, eq1, eq2, neededEqualities);
-			}
-			eq1 = proveSelectConst(second, arrayLeft, weakIdx, allEqualities, neededEqualities);
-			eq2 = proveSelectConst(first, arrayRight, weakIdx, allEqualities, neededEqualities);
-			if (eq1 != null && eq2 != null) {
-				return proveSelectPathTrans(arrayLeft, second, first, arrayRight, weakIdx, eq1, eq2, neededEqualities);
-			}
-		}
-		// No candidate equality was found but it could also be a select-const edge
-		// where a[i] and v are
-		// syntactically equal, in which case there is no equality.
-		if (isApplication(SMTLIBConstants.CONST, arrayLeft)) {
-			final Term value = ((ApplicationTerm) arrayLeft).getParameters()[0];
-			final Term eq2 = proveSelectConst(value, arrayRight, weakIdx, allEqualities, neededEqualities);
-			if (eq2 != null) {
-				return proveSelectPathTrans(arrayLeft, value, value, arrayRight, weakIdx,
-						mProofRules.constArray(value, weakIdx), eq2, neededEqualities);
-			}
-		}
-		if (isApplication(SMTLIBConstants.CONST, arrayRight)) {
-			final Term value = ((ApplicationTerm) arrayRight).getParameters()[0];
-			final Term eq1 = proveSelectConst(value, arrayLeft, weakIdx, allEqualities, neededEqualities);
-			if (eq1 != null) {
-				return proveSelectPathTrans(arrayLeft, value, value, arrayRight, weakIdx, eq1,
-						mProofRules.constArray(value, weakIdx), neededEqualities);
-			}
-		}
-		return null;
-	}
-
-	/**
 	 * Try to prove for a step in a weak array path that
 	 * {@code (select arrayLeft weakIdx) = (select arrayRight weakIdx)}, for the
 	 * case that the left array is a store of the right array and the disequality
@@ -3416,21 +3352,10 @@ public class ProofSimplifier extends TermTransformer {
 		 * not match this step. proveSelectPathTrans may legitimately return null (a trivial step), so the match is
 		 * decided by proveSelectConst succeeding on both sides, not by the returned proof.
 		 */
-		if (selectEdge != null) {
-			Term eq1 = proveSelectConst(selectEdge[0], arrayLeft, weakIdx, equalities, neededEqualities);
-			Term eq2 = proveSelectConst(selectEdge[1], arrayRight, weakIdx, equalities, neededEqualities);
-			if (eq1 != null && eq2 != null) {
-				return proveSelectPathTrans(arrayLeft, selectEdge[0], selectEdge[1], arrayRight, weakIdx, eq1, eq2,
-						neededEqualities);
-			}
-			eq1 = proveSelectConst(selectEdge[1], arrayLeft, weakIdx, equalities, neededEqualities);
-			eq2 = proveSelectConst(selectEdge[0], arrayRight, weakIdx, equalities, neededEqualities);
-			if (eq1 != null && eq2 != null) {
-				return proveSelectPathTrans(arrayLeft, selectEdge[1], selectEdge[0], arrayRight, weakIdx, eq1, eq2,
-						neededEqualities);
-			}
-		}
-		return proveSelectPath(arrayLeft, arrayRight, weakIdx, equalities, neededEqualities);
+		final Term eq1 = proveSelectConst(selectEdge[0], arrayLeft, weakIdx, equalities, neededEqualities);
+		final Term eq2 = proveSelectConst(selectEdge[1], arrayRight, weakIdx, equalities, neededEqualities);
+		return proveSelectPathTrans(arrayLeft, selectEdge[0], selectEdge[1], arrayRight, weakIdx, eq1, eq2,
+				neededEqualities);
 	}
 
 	/**

@@ -250,13 +250,6 @@ public class CCAnnotation implements IAnnotation {
 
 	final DataTypeLemma mDTLemma;
 
-	private static CCParameter[] selectEdgeOf(final SubPath p) {
-		if (p instanceof WeakSubPath && ((WeakSubPath) p).getSelectLeft() != null) {
-			return new CCParameter[] { ((WeakSubPath) p).getSelectLeft(), ((WeakSubPath) p).getSelectRight() };
-		}
-		return null;
-	}
-
 	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule) {
 		this(diseq, paths, rule, null);
 	}
@@ -288,7 +281,7 @@ public class CCAnnotation implements IAnnotation {
 		for (final SubPath p : otherPaths) {
 			mParamPaths[i] = p.getParams();
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
-			mSelectEdges[i] = selectEdgeOf(p);
+			mSelectEdges[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getSelectEdge() : null;
 			i++;
 		}
 		mRule = rule;
@@ -305,7 +298,7 @@ public class CCAnnotation implements IAnnotation {
 		for (final SubPath p : paths) {
 			mParamPaths[i] = p.getParams();
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
-			mSelectEdges[i] = selectEdgeOf(p);
+			mSelectEdges[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getSelectEdge() : null;
 			i++;
 		}
 		mRule = rule;
