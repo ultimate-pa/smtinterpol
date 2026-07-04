@@ -4593,7 +4593,7 @@ public class ProofSimplifier extends TermTransformer {
 				} else {
 					// need shifted offset
 					final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
-					final Rational factor = (clauseEqKey.mLhs.equals(eqKey.mLhs) ? Rational.ONE : Rational.MONE);
+					final Rational factor = (clauseEqKey.mLhs == eqKey.mLhs ? Rational.ONE : Rational.MONE);
 					final Term bridge = mProofUtils.proveEqWithMultiplier(clauseEqParam, eqParam, factor);
 					proof = res(eq, bridge, proof);
 				}
@@ -4613,7 +4613,7 @@ public class ProofSimplifier extends TermTransformer {
 			} else {
 				// need shifted offset
 				final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
-				final Rational factor = (clauseEqKey.mLhs.equals(eqKey.mLhs) ? Rational.ONE : Rational.MONE);
+				final Rational factor = (clauseEqKey.mLhs == eqKey.mLhs ? Rational.ONE : Rational.MONE);
 				final Term bridge = mProofUtils.proveEqWithMultiplier(eqParam, clauseEqParam, factor);
 				proof = res(eq, proof, bridge);
 			}
@@ -4622,33 +4622,74 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * A numeric term split syntactically into its offset-free part and a constant
+	 * offset: a trailing constant summand of a {@code +} application is the offset,
+	 * and dropping it yields the offset-free part; a term that is entirely constant
+	 * splits into the base {@code 0} and its value (matching the {@code 0} CCTerm
+	 * that a plain-numeral parameter is based on). This is the exact inverse of
+	 * {@code CCParameter.addConstant} and {@code TermCompiler.unifyPolynomial}, which
+	 * both place the constant last behind the canonic offset-free term, so equal
+	 * values always split into byte-identical offset-free parts. A constant summand
+	 * in any other position (possible only when offset equalities are disabled and
+	 * constants never move between equality sides) is deliberately left inside the
+	 * offset-free part.
+	 */
+	private static class OffsetTerm {
+		final Term mTerm;
+		final Rational mOffset;
+
+		public OffsetTerm(final Term term) {
+			Term base = term;
+			Rational offset = Rational.ZERO;
+			if (base instanceof ApplicationTerm
+					&& ((ApplicationTerm) base).getFunction().getName().equals(SMTLIBConstants.PLUS)) {
+				final Term[] params = ((ApplicationTerm) base).getParameters();
+				final Rational last = Polynomial.parseConstant(params[params.length - 1]);
+				if (last != null) {
+					offset = last;
+					base = params.length == 2 ? params[0]
+							: term.getTheory().term(SMTLIBConstants.PLUS, Arrays.copyOf(params, params.length - 1));
+				}
+			}
+			// a plain constant is all offset; its offset-free part is the 0 base term
+			final Rational baseConstant = Polynomial.parseConstant(base);
+			if (baseConstant != null) {
+				offset = offset.add(baseConstant);
+				base = Rational.ZERO.toTerm(term.getSort());
+			}
+			mTerm = base;
+			mOffset = offset;
+		}
+	}
+
+	/**
 	 * A lookup key identifying an (offset) equality by the affine fact it expresses:
-	 * the non-constant parts of its two sides together with the constant offset
-	 * {@code constant(lhs) - constant(rhs)} between them. Two equalities with the same
-	 * key denote the same fact {@code lhs = rhs}, which is what lets a needed equality
-	 * like {@code (= (+ x 5) (+ y 7))} be matched against the clause literal
-	 * {@code (= x (+ y 2))}. The two non-constant parts are kept <em>separate</em>
-	 * (rather than subtracted into one difference polynomial) so that unrelated edges
-	 * whose difference polynomials coincide up to sign — e.g. {@code x+y = z+w+2} and
-	 * {@code z-y = x-w-2} — do not collide.
+	 * the offset-free parts of its two sides (see {@link OffsetTerm}) together with
+	 * the constant offset {@code constant(lhs) - constant(rhs)} between them. Two
+	 * equalities with the same key denote the same fact {@code lhs = rhs}, which is
+	 * what lets a needed equality like {@code (= (+ x 5) (+ y 7))} be matched against
+	 * the clause literal {@code (= x (+ y 2))}. The two offset-free parts are kept
+	 * <em>separate</em> (rather than subtracted into one difference polynomial) so
+	 * that unrelated edges whose difference polynomials coincide up to sign — e.g.
+	 * {@code x+y = z+w+2} and {@code z-y = x-w-2} — do not collide.
 	 */
 	private static final class OffsetEqKey {
-		private final Map<Map<Term, Integer>, Rational> mLhs;
-		private final Map<Map<Term, Integer>, Rational> mRhs;
+		private final Term mLhs;
+		private final Term mRhs;
 		private final Rational mOffset;
 		private final int mHash;
 
 		OffsetEqKey(final Term lhs, final Term rhs) {
 			if (lhs.getSort().isNumericSort()) {
-				final Polynomial pLhs = new Polynomial(lhs);
-				final Polynomial pRhs = new Polynomial(rhs);
-				mOffset = pLhs.getConstant().sub(pRhs.getConstant());
-				mLhs = nonConstantPart(pLhs);
-				mRhs = nonConstantPart(pRhs);
+				final OffsetTerm lhsSplit = new OffsetTerm(lhs);
+				final OffsetTerm rhsSplit = new OffsetTerm(rhs);
+				mLhs = lhsSplit.mTerm;
+				mRhs = rhsSplit.mTerm;
+				mOffset = lhsSplit.mOffset.sub(rhsSplit.mOffset);
 			} else {
+				mLhs = lhs;
+				mRhs = rhs;
 				mOffset = Rational.ZERO;
-				mLhs = Collections.singletonMap(Collections.singletonMap(lhs, 1), Rational.ONE);
-				mRhs = Collections.singletonMap(Collections.singletonMap(rhs, 1), Rational.ONE);
 			}
 			final int lhsHash = mLhs.hashCode();
 			final int rhsHash = mRhs.hashCode();
@@ -4659,12 +4700,6 @@ public class ProofSimplifier extends TermTransformer {
 			} else {
 				mHash = rhsHash * 37 + lhsHash * 31 + mOffset.negate().hashCode();
 			}
-		}
-
-		private static Map<Map<Term, Integer>, Rational> nonConstantPart(final Polynomial poly) {
-			final Map<Map<Term, Integer>, Rational> summands = new HashMap<>(poly.getSummands());
-			summands.remove(Collections.emptyMap());
-			return summands;
 		}
 
 		@Override
@@ -4681,8 +4716,8 @@ public class ProofSimplifier extends TermTransformer {
 				return false;
 			}
 			final OffsetEqKey o = (OffsetEqKey) other;
-			return (mOffset.equals(o.mOffset) && mLhs.equals(o.mLhs) && mRhs.equals(o.mRhs))
-					|| (mOffset.equals(o.mOffset.negate()) && mLhs.equals(o.mRhs) && mRhs.equals(o.mLhs));
+			return (mOffset.equals(o.mOffset) && mLhs == o.mLhs && mRhs == o.mRhs)
+					|| (mOffset.equals(o.mOffset.negate()) && mLhs == o.mRhs && mRhs == o.mLhs);
 		}
 	}
 

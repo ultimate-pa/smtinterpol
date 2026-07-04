@@ -631,9 +631,7 @@ public class Clausifier {
 	 * nested {@code (+ term constant)}), so that re-parsing it as a Polynomial recovers all summands.
 	 */
 	public Term addConstantToTerm(final Term term, final Rational constant) {
-		final Polynomial poly = new Polynomial(term);
-		poly.add(constant);
-		return mCompiler.unifyPolynomial(poly, term.getSort());
+		return CCParameter.addConstant(term, constant);
 	}
 
 	/**

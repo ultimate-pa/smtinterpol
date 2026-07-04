@@ -1216,6 +1216,32 @@ value carrying a non-zero offset — i.e. offsets *under proofs*. The edge is no
 delivered explicitly (bare select + full const value), so this handling no longer has
 to contend with the search ambiguity; it is the natural next step.
 
+## Syntactic `OffsetEqKey` (constant-last canonic sums) — DONE (uncommitted)
+
+`ProofSimplifier.OffsetEqKey` no longer parses its sides with `Polynomial` into
+summand hashmaps; a new `OffsetTerm` splits a side purely syntactically — a trailing
+constant summand of a `+` application is the offset, dropping it yields the
+offset-free part (a plain `Term`, compared by identity). A side that is entirely
+constant splits into the base `0` term and its value as offset, mirroring the `0`
+base CCTerm of a plain-numeral parameter; correspondingly `CCParameter.addConstant`
+folds a constant base into a plain constant (`5`, not `(+ 0 5)`), agreeing with the
+canonic term of that value (and with `Clausifier.addConstantToTerm`). Constants in
+any *other* position stay inside the offset-free part (harmless when offsets are
+off, since keys then only compare identical flat terms).
+
+This is sound because the split is now the exact inverse of term construction:
+`TermCompiler.unifyPolynomial` canonicalizes a constant-carrying polynomial as
+`CCParameter.addConstant(unifyPolynomial(constantFreePart), constant)`, so canonic
+compiler terms, `Clausifier.addConstantToTerm` results and annotation flat terms
+(`CCParameter.getFlatTerm`/`addConstant`) are all byte-identical per value, with the
+constant last. `BvToIntUtils` was the one producer bypassing the unifier (direct
+`Polynomial.toTerm`, e.g. `normalizeMod` emitted `(+ x 255 (* -256 (div …)))` with
+the constant mid-sum, which made `resolveNeededEqualities` miss the clause literal
+and emit an invalid trichotomy farkas on `abv/indexInRange01`, `ufbv/ufbv01`); all
+its polynomial-term exits now go through `mPolyUnifier`. Full unit suite matches the
+baseline (only the known pre-existing SystemTest failures). Files:
+`ProofSimplifier.java`, `TermCompiler.java`, `BvToIntUtils.java`, `CCParameter.java`.
+
 ## Implementable slice (ready to start)
 
 1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the

@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 
 /**
  * A value of the form {@code getCCTerm() + getOffset()}: a CCTerm together with a constant offset. This is what every
@@ -49,8 +50,9 @@ public interface CCParameter {
 
 	/**
 	 * The SMT-LIB term denoting this value: the underlying term when the offset is zero, otherwise {@code (+ term
-	 * offset)}. A bare {@link CCTerm} returns its own flat term unchanged, so offset-free uses are byte-identical; only
-	 * a non-zero (necessarily numeric) offset builds the sum.
+	 * offset)} (or a plain constant when the underlying term is the constant {@code 0}). A bare {@link CCTerm} returns
+	 * its own flat term unchanged, so offset-free uses are byte-identical; only a non-zero (necessarily numeric) offset
+	 * builds the sum.
 	 */
 	Term getFlatTerm();
 
@@ -96,8 +98,19 @@ public interface CCParameter {
 	 * sum would be treated as an opaque monomial and could not be related arithmetically to the original flat parameter
 	 * term that the {@link de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTermBuilder} split into this
 	 * {@code (base, offset)} pair. Flattening reconstructs that original parameter term.
+	 *
+	 * <p>A constant {@code term} (the base {@code 0} of a plain-numeral parameter) folds into a plain constant, e.g.
+	 * {@code 5} rather than {@code (+ 0 5)}, matching the canonic term of that value. A zero offset returns
+	 * {@code term} unchanged.
 	 */
 	static Term addConstant(final Term term, final Rational offset) {
+		if (offset.equals(Rational.ZERO)) {
+			return term;
+		}
+		final Rational termValue = Polynomial.parseConstant(term);
+		if (termValue != null) {
+			return termValue.add(offset).toTerm(term.getSort());
+		}
 		final Term offsetTerm = offset.toTerm(term.getSort());
 		if (term instanceof ApplicationTerm && ((ApplicationTerm) term).getFunction().getName().equals("+")) {
 			final Term[] inner = ((ApplicationTerm) term).getParameters();
