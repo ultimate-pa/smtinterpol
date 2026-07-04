@@ -22,7 +22,6 @@ import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,7 +57,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiter
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 
 /**
  * This class explains an SMTInterpol proof with oracles using the low-level
@@ -3117,20 +3115,17 @@ public class ProofSimplifier extends TermTransformer {
 	 * @param equalities    HashMap to store equalities (negated in the clause).
 	 * @param disequalities HashMap to store disequalities (positive in the clause).
 	 */
-	private void collectEqualities(final ProofLiteral[] clause, final HashMap<SymmetricPair<Term>, Term> equalities,
-			final HashMap<SymmetricPair<Term>, Term> disequalities) {
+	private void collectEqualities(final ProofLiteral[] clause, final HashMap<OffsetEqKey, Term> equalities,
+			final HashMap<OffsetEqKey, Term> disequalities) {
 		for (final ProofLiteral literal : clause) {
 			final Term atom = literal.getAtom();
 			assert isApplication("=", atom);
 			final Term[] sides = ((ApplicationTerm) atom).getParameters();
-			assert sides.length == 2;
-			if (literal.getPolarity()) {
-				// positive in clause -> disequality in conflict
-				disequalities.put(new SymmetricPair<>(sides[0], sides[1]), atom);
-			} else {
-				// negated atom in clause -> equality in conflict
-				equalities.put(new SymmetricPair<>(sides[0], sides[1]), atom);
-			}
+			final OffsetEqKey key = new OffsetEqKey(sides[0], sides[1]);
+
+			// positive in clause -> disequality in conflict -> collect into disequalities
+			// negative in clause -> equality in conflict -> collect into equalities
+			(literal.getPolarity() ? disequalities : equalities).put(key, atom);
 		}
 	}
 
@@ -3147,8 +3142,8 @@ public class ProofSimplifier extends TermTransformer {
 		final Theory theory = mainPath[0].getTheory();
 
 		/* collect literals and search for the disequality */
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 		assert allDisequalities.size() <= 1;
 
@@ -3201,7 +3196,7 @@ public class ProofSimplifier extends TermTransformer {
 	 *         neededEqualities.
 	 */
 	private Term proveSelectConst(final Term value, final Term array, final Term weakIdx,
-			final Set<SymmetricPair<Term>> allEqualities, final Set<Term> neededEqualities) {
+			final Map<OffsetEqKey, Term> allEqualities, final Set<Term> neededEqualities) {
 		final Theory theory = value.getTheory();
 		// Check if value is (select array idx2) with (weakIdx = idx2) in equalities or
 		// syntactically equal.
@@ -3211,7 +3206,7 @@ public class ProofSimplifier extends TermTransformer {
 				if (args[1] == weakIdx) {
 					return mProofRules.refl(value);
 				}
-				if (allEqualities.contains(new SymmetricPair<>(weakIdx, args[1]))) {
+				if (allEqualities.containsKey(new OffsetEqKey(weakIdx, args[1]))) {
 					neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, array, array));
 					neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, weakIdx, args[1]));
 					return mProofRules.cong(theory.term(SMTLIBConstants.SELECT, array, weakIdx), value);
@@ -3294,15 +3289,16 @@ public class ProofSimplifier extends TermTransformer {
 	 *         store step.
 	 */
 	private Term proveSelectPath(final Term arrayLeft, final Term arrayRight, final Term weakIdx,
-			final Set<SymmetricPair<Term>> allEqualities, final Set<Term> neededEqualities) {
-		for (final SymmetricPair<Term> candidateEquality : allEqualities) {
+			final Map<OffsetEqKey, Term> allEqualities, final Set<Term> neededEqualities) {
+		for (final Term candidateEquality : allEqualities.values()) {
 			// Check for each candidate equality if it explains a select edge for a
 			// weakeq-ext lemma.
 			// We check if termPair.first[weakIdx]] equals one side of the equality and
 			// termPair.second[weakIdx]
 			// equals the other side.
-			final Term first = candidateEquality.getFirst();
-			final Term second = candidateEquality.getSecond();
+			final Term[] sides = ((ApplicationTerm) candidateEquality).getParameters();
+			final Term first = sides[0];
+			final Term second = sides[1];
 			Term eq1 = proveSelectConst(first, arrayLeft, weakIdx, allEqualities, neededEqualities);
 			Term eq2 = proveSelectConst(second, arrayRight, weakIdx, allEqualities, neededEqualities);
 			if (eq1 != null && eq2 != null) {
@@ -3353,13 +3349,13 @@ public class ProofSimplifier extends TermTransformer {
 	 *         to neededDisequalities. It returns null if this is not a store step.
 	 */
 	private Term proveStoreStep(final Term arrayLeft, final Term arrayRight, final Term weakIdx,
-			final Set<SymmetricPair<Term>> disequalities, final Set<Term> neededDisequalities) {
+			final Map<OffsetEqKey, Term> disequalities, final Set<Term> neededDisequalities) {
 		if (isApplication("store", arrayLeft)) {
 			final Term[] storeArgs = ((ApplicationTerm) arrayLeft).getParameters();
 			if (storeArgs[0] == arrayRight) {
 				// this is a step from a to (store a storeIndex v). Check if storeIndex is okay.
 				final Term storeIdx = ((ApplicationTerm) arrayLeft).getParameters()[1];
-				if (disequalities.contains(new SymmetricPair<>(weakIdx, storeIdx))) {
+				if (disequalities.containsKey(new OffsetEqKey(weakIdx, storeIdx))) {
 					final Term storeVal = ((ApplicationTerm) arrayLeft).getParameters()[2];
 					final Theory theory = arrayLeft.getTheory();
 					neededDisequalities.add(theory.term(SMTLIBConstants.EQUALS, storeIdx, weakIdx));
@@ -3392,12 +3388,12 @@ public class ProofSimplifier extends TermTransformer {
 	 *         which case they are added to the needed(Dis)Equalities set.
 	 */
 	private Term proveSelectOverPathStep(final Term arrayLeft, final Term arrayRight, final Term weakIdx,
-			final Term selectLeft, final Term selectRight, final Set<SymmetricPair<Term>> equalities,
-			final Set<SymmetricPair<Term>> disequalities, final Set<Term> neededEqualities,
+			final Term selectLeft, final Term selectRight, final Map<OffsetEqKey, Term> equalities,
+			final Map<OffsetEqKey, Term> disequalities, final Set<Term> neededEqualities,
 			final Set<Term> neededDisequalities) {
 		final Theory theory = arrayLeft.getTheory();
 		/* check for strong path first */
-		if (equalities.contains(new SymmetricPair<>(arrayLeft, arrayRight))) {
+		if (equalities.containsKey(new OffsetEqKey(arrayLeft, arrayRight))) {
 			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, arrayLeft, arrayRight));
 			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, weakIdx, weakIdx));
 			return mProofRules.cong(selectLeft, selectRight);
@@ -3437,8 +3433,8 @@ public class ProofSimplifier extends TermTransformer {
 	 *         some trivial (dis)equalities or some from (dis)equalities set, in
 	 *         which case they are added to the needed(Dis)Equalities set.
 	 */
-	private Term proveSelectOverPath(final Term weakIdx, final Term[] path, final Set<SymmetricPair<Term>> equalities,
-			final Set<SymmetricPair<Term>> disequalities, final Set<Term> neededEqualities,
+	private Term proveSelectOverPath(final Term weakIdx, final Term[] path, final Map<OffsetEqKey, Term> equalities,
+			final Map<OffsetEqKey, Term> disequalities, final Set<Term> neededEqualities,
 			final Set<Term> neededDisequalities) {
 		// note that a read-const-weakeq path can have length 1
 		assert path.length >= 1;
@@ -3474,9 +3470,9 @@ public class ProofSimplifier extends TermTransformer {
 		 * weak path was proven for this pair. strongPaths contains the sets of all
 		 * proven strong paths.
 		 */
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
 		/* indexDiseqs contains all index equalities in the clause */
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -3498,8 +3494,8 @@ public class ProofSimplifier extends TermTransformer {
 		final Term mainIdx = (Term) weakItems[0];
 		final Term[] mainPath = (Term[]) weakItems[1];
 
-		Term proof = proveSelectOverPath(mainIdx, mainPath, allEqualities.keySet(), allDisequalities.keySet(),
-				neededEqualities, neededDisequalities);
+		Term proof = proveSelectOverPath(mainIdx, mainPath, allEqualities, allDisequalities, neededEqualities,
+				neededDisequalities);
 		final Term firstTerm = theory.term("select", mainPath[0], mainIdx);
 		final Term lastTerm = theory.term("select", mainPath[mainPath.length - 1], mainIdx);
 		assert isApplication("const", mainPath[mainPath.length - 1]);
@@ -3528,9 +3524,9 @@ public class ProofSimplifier extends TermTransformer {
 		 * weak path was proven for this pair. strongPaths contains the sets of all
 		 * proven strong paths.
 		 */
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
 		/* indexDiseqs contains all index equalities in the clause */
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -3552,7 +3548,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Term mainIdx = (Term) weakItems[0];
 		final Term[] mainPath = (Term[]) weakItems[1];
 
-		Term proof = proveSelectOverPath(mainIdx, mainPath, allEqualities.keySet(), allDisequalities.keySet(),
+		Term proof = proveSelectOverPath(mainIdx, mainPath, allEqualities, allDisequalities,
 				neededEqualities, neededDisequalities);
 		assert isApplication("select", goalTerms[0]) && isApplication("select", goalTerms[1]);
 		final int goalOrder = ((ApplicationTerm) goalTerms[0]).getParameters()[0] == mainPath[0] ? 0 : 1;
@@ -3594,9 +3590,9 @@ public class ProofSimplifier extends TermTransformer {
 		 * weak path was proven for this pair. strongPaths contains the sets of all
 		 * proven strong paths.
 		 */
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
 		/* indexDiseqs contains all index equalities in the clause */
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -3625,14 +3621,14 @@ public class ProofSimplifier extends TermTransformer {
 		final Term selectLeftDiff = mainSelectChain[0];
 		final Term selectRightDiff = mainSelectChain[mainPath.length - 1];
 
-		final HashSet<SymmetricPair<Term>> weakDisequalities = new HashSet<>();
+		final HashMap<OffsetEqKey, Term> weakDisequalities = new HashMap<>();
 		final HashSet<Term> neededWeakDisequalities = new HashSet<>();
 		/* Collect weak paths */
 		for (int i = 3; i < ccAnnotation.length; i += 2) {
 			assert ccAnnotation[i] == ":weakpath";
 			final Object[] weakItems = (Object[]) ccAnnotation[i + 1];
 			final Term idx = (Term) weakItems[0];
-			weakDisequalities.add(new SymmetricPair<>(idx, diffTerm));
+			weakDisequalities.put(new OffsetEqKey(idx, diffTerm), theory.term(SMTLIBConstants.EQUALS, idx, diffTerm));
 		}
 
 		/*
@@ -3641,7 +3637,7 @@ public class ProofSimplifier extends TermTransformer {
 		Term mainChainProof = mainPath.length > 2 ? mProofRules.trans(mainSelectChain) : null;
 		for (int i = 0; i < mainPath.length - 1; i++) {
 			Term proofSelectEq;
-			final SymmetricPair<Term> pair = new SymmetricPair<>(mainPath[i], mainPath[i + 1]);
+			final OffsetEqKey pair = new OffsetEqKey(mainPath[i], mainPath[i + 1]);
 			/* check for strong path first */
 			if (allEqualities.containsKey(pair)) {
 				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, mainPath[i], mainPath[i + 1]));
@@ -3676,7 +3672,7 @@ public class ProofSimplifier extends TermTransformer {
 
 			final Term selectLeftIdx = theory.term(SMTLIBConstants.SELECT, arrayLeft, idx);
 			final Term selectRightIdx = theory.term(SMTLIBConstants.SELECT, arrayRight, idx);
-			Term subproof = proveSelectOverPath(idx, weakPath, allEqualities.keySet(), allDisequalities.keySet(),
+			Term subproof = proveSelectOverPath(idx, weakPath, allEqualities, allDisequalities,
 					neededEqualities, neededDisequalities);
 			subproof = res(theory.term(SMTLIBConstants.EQUALS, selectLeftIdx, selectRightIdx), subproof,
 					mProofRules.trans(selectLeftDiff, selectLeftIdx, selectRightIdx, selectRightDiff));
@@ -3716,8 +3712,8 @@ public class ProofSimplifier extends TermTransformer {
 		assert ccAnnotation.length == 3;
 		final Theory theory = clause[0].getAtom().getTheory();
 
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -3768,8 +3764,8 @@ public class ProofSimplifier extends TermTransformer {
 	private Term convertDTTester(final ProofLiteral[] clause, final Object[] ccAnnotation) {
 		assert ccAnnotation.length == 3;
 		final Theory theory = clause[0].getAtom().getTheory();
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -3829,8 +3825,8 @@ public class ProofSimplifier extends TermTransformer {
 		assert ccAnnotation.length == 1;
 		final Theory theory = clause[0].getAtom().getTheory();
 
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -3869,8 +3865,8 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	private Term convertDTCases(final ProofLiteral[] clause, final Object[] ccAnnotation) {
 		final Theory theory = clause[0].getAtom().getTheory();
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -3914,8 +3910,8 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	private Term convertDTUnique(final ProofLiteral[] clause, final Object[] ccAnnotation) {
 		final Theory theory = clause[0].getAtom().getTheory();
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -3970,8 +3966,8 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	private Term convertDTInjective(final ProofLiteral[] clause, final Object[] ccAnnotation) {
 		final Theory theory = clause[0].getAtom().getTheory();
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -4029,8 +4025,8 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	private Term convertDTDisjoint(final ProofLiteral[] clause, final Object[] ccAnnotation) {
 		final Theory theory = clause[0].getAtom().getTheory();
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -4092,8 +4088,8 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	private Term convertDTCycle(final ProofLiteral[] clause, final Object[] ccAnnotation) {
 		final Theory theory = clause[0].getAtom().getTheory();
-		final HashMap<SymmetricPair<Term>, Term> allEqualities = new HashMap<>();
-		final HashMap<SymmetricPair<Term>, Term> allDisequalities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allEqualities = new HashMap<>();
+		final HashMap<OffsetEqKey, Term> allDisequalities = new HashMap<>();
 		collectEqualities(clause, allEqualities, allDisequalities);
 
 		final HashSet<Term> neededEqualities = new HashSet<>();
@@ -4624,102 +4620,53 @@ public class ProofSimplifier extends TermTransformer {
 	 *                            in the proved clause).
 	 * @return the modified proof.
 	 */
-	private Term resolveNeededEqualities(Term proof, final Map<SymmetricPair<Term>, Term> allEqualities,
-			final Map<SymmetricPair<Term>, Term> allDisequalities, final Set<Term> neededEqualities,
+	private Term resolveNeededEqualities(Term proof, final Map<OffsetEqKey, Term> allEqualities,
+			final Map<OffsetEqKey, Term> allDisequalities, final Set<Term> neededEqualities,
 			final Set<Term> neededDisequalities) {
-		// Offset-aware indices, built lazily: with offset equalities a needed
-		// (dis)equality may carry a different but equivalent offset rendering than the
-		// clause literal that proves it (e.g. needed (= (+ x 5) (+ y 7)) vs. clause
-		// (= x (+ y 2))). These index the clause literals by the affine fact they
-		// express so the matching literal can be found and bridged with a Farkas step.
-		Map<OffsetEqKey, Term> eqIndex = null;
-		Map<OffsetEqKey, Term> diseqIndex = null;
 		for (final Term eq : neededEqualities) {
 			assert isApplication("=", eq);
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
-			final Term clauseEq = allEqualities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
-			if (clauseEq != null) {
-				if (clauseEq != eq) {
+			final OffsetEqKey eqKey = new OffsetEqKey(eqParam[0], eqParam[1]);
+			final ApplicationTerm clauseEq = (ApplicationTerm) allEqualities.get(eqKey);
+			if (clauseEq == null) {
+				final Term proofEq = mProofUtils.proveTrivialEquality(eqParam[0], eqParam[1]);
+				proof = res(eq, proofEq, proof);
+			} else {
+				final Term[] clauseEqParam = clauseEq.getParameters();
+				if (clauseEq == eq) {
+					// nothing to do
+				} else if (clauseEqParam[1] == eqParam[0] && clauseEqParam[0] == eqParam[1]) {
 					// need symmetry
 					proof = res(eq, mProofRules.symm(eqParam[0], eqParam[1]), proof);
-				}
-			} else {
-				if (eqIndex == null) {
-					eqIndex = buildOffsetIndex(allEqualities.values());
-				}
-				final Object[] match = findOffsetMatch(eqParam[0], eqParam[1], eqIndex);
-				if (match != null) {
-					// bridge: prove (= eqParam0 eqParam1) from the clause literal `atom`.
-					final Term atom = (Term) match[0];
-					final Term[] atomParam = ((ApplicationTerm) atom).getParameters();
-					final Term bridge = mProofUtils.proveEqWithMultiplier(atomParam, eqParam, (Rational) match[1]);
-					proof = res(eq, bridge, proof);
 				} else {
-					final Term proofEq = mProofUtils.proveTrivialEquality(eqParam[0], eqParam[1]);
-					proof = res(eq, proofEq, proof);
+					// need shifted offset
+					final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
+					final Rational factor = (clauseEqKey.mLhs == eqKey.mLhs ? Rational.ONE : Rational.MONE);
+					final Term bridge = mProofUtils.proveEqWithMultiplier(clauseEqParam, eqParam, factor);
+					proof = res(eq, bridge, proof);
 				}
 			}
 		}
 		for (final Term eq : neededDisequalities) {
 			assert isApplication("=", eq);
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
-			final Term clauseEq = allDisequalities.get(new SymmetricPair<>(eqParam[0], eqParam[1]));
-			if (clauseEq != null) {
-				if (clauseEq != eq) {
-					// need symmetry
-					proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
-				}
-				continue;
-			}
-			if (diseqIndex == null) {
-				diseqIndex = buildOffsetIndex(allDisequalities.values());
-			}
-			final Object[] match = findOffsetMatch(eqParam[0], eqParam[1], diseqIndex);
-			if (match != null) {
-				// bridge: prove the clause literal `atom` from the proved (= eqParam0 eqParam1).
-				final Term atom = (Term) match[0];
-				final Term[] atomParam = ((ApplicationTerm) atom).getParameters();
-				final Term bridge = mProofUtils.proveEqWithMultiplier(eqParam, atomParam, (Rational) match[1]);
-				proof = res(eq, proof, bridge);
-			} else {
-				// not found offset-aware either: assume present but swapped (legacy behavior).
+			final OffsetEqKey eqKey = new OffsetEqKey(eqParam[0], eqParam[1]);
+			final ApplicationTerm clauseEq = (ApplicationTerm) allDisequalities.get(eqKey);
+			final Term[] clauseEqParam = clauseEq.getParameters();
+			if (clauseEq == eq) {
+				// nothing to do
+			} else if (clauseEqParam[1] == eqParam[0] && clauseEqParam[0] == eqParam[1]) {
+				// need symmetry
 				proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
+			} else {
+				// need shifted offset
+				final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
+				final Rational factor = (clauseEqKey.mLhs == eqKey.mLhs ? Rational.ONE : Rational.MONE);
+				final Term bridge = mProofUtils.proveEqWithMultiplier(eqParam, clauseEqParam, factor);
+				proof = res(eq, proof, bridge);
 			}
 		}
 		return proof;
-	}
-
-	/**
-	 * Build an index of clause (dis)equality atoms keyed by the affine fact they
-	 * express, see {@link OffsetEqKey}. The first atom for a given fact wins; this is
-	 * only used as a fallback when no syntactically identical clause literal exists.
-	 */
-	private static Map<OffsetEqKey, Term> buildOffsetIndex(final Collection<Term> atoms) {
-		final Map<OffsetEqKey, Term> index = new HashMap<>();
-		for (final Term atom : atoms) {
-			final Term[] sides = ((ApplicationTerm) atom).getParameters();
-			index.putIfAbsent(new OffsetEqKey(sides[0], sides[1]), atom);
-		}
-		return index;
-	}
-
-	/**
-	 * Look up the clause literal that expresses the same affine fact as
-	 * {@code (= a b)}, allowing for a different offset rendering. Returns
-	 * {@code {atom, multiplier}} where {@code multiplier} is the rational
-	 * {@code (a - b) / (atomLhs - atomRhs) = ±1} relating the two, or {@code null} if
-	 * no matching literal exists.
-	 */
-	private static Object[] findOffsetMatch(final Term a, final Term b, final Map<OffsetEqKey, Term> index) {
-		Term atom = index.get(new OffsetEqKey(a, b));
-		if (atom != null) {
-			return new Object[] { atom, Rational.ONE };
-		}
-		atom = index.get(new OffsetEqKey(b, a));
-		if (atom != null) {
-			return new Object[] { atom, Rational.MONE };
-		}
-		return null;
 	}
 
 	/**
@@ -4737,13 +4684,29 @@ public class ProofSimplifier extends TermTransformer {
 		private final Map<Map<Term, Integer>, Rational> mLhs;
 		private final Map<Map<Term, Integer>, Rational> mRhs;
 		private final Rational mOffset;
+		private final int mHash;
 
 		OffsetEqKey(final Term lhs, final Term rhs) {
-			final Polynomial pLhs = new Polynomial(lhs);
-			final Polynomial pRhs = new Polynomial(rhs);
-			mOffset = pLhs.getConstant().sub(pRhs.getConstant());
-			mLhs = nonConstantPart(pLhs);
-			mRhs = nonConstantPart(pRhs);
+			if (lhs.getSort().isNumericSort()) {
+				final Polynomial pLhs = new Polynomial(lhs);
+				final Polynomial pRhs = new Polynomial(rhs);
+				mOffset = pLhs.getConstant().sub(pRhs.getConstant());
+				mLhs = nonConstantPart(pLhs);
+				mRhs = nonConstantPart(pRhs);
+			} else {
+				mOffset = Rational.ZERO;
+				mLhs = Collections.singletonMap(Collections.singletonMap(lhs, 1), Rational.ONE);
+				mRhs = Collections.singletonMap(Collections.singletonMap(rhs, 1), Rational.ONE);
+			}
+			final int lhsHash = lhs.hashCode();
+			final int rhsHash = rhs.hashCode();
+			if (lhsHash == rhsHash) {
+				mHash = lhsHash * 31 + mOffset.abs().hashCode();
+			} else if (lhsHash < rhsHash) {
+				mHash = lhsHash * 37 + rhsHash * 31 + mOffset.hashCode();
+			} else {
+				mHash = rhsHash * 37 + lhsHash * 31 + mOffset.negate().hashCode();
+			}
 		}
 
 		private static Map<Map<Term, Integer>, Rational> nonConstantPart(final Polynomial poly) {
@@ -4754,7 +4717,7 @@ public class ProofSimplifier extends TermTransformer {
 
 		@Override
 		public int hashCode() {
-			return mLhs.hashCode() * 31 * 31 + mRhs.hashCode() * 31 + mOffset.hashCode();
+			return mHash;
 		}
 
 		@Override
@@ -4766,7 +4729,8 @@ public class ProofSimplifier extends TermTransformer {
 				return false;
 			}
 			final OffsetEqKey o = (OffsetEqKey) other;
-			return mOffset.equals(o.mOffset) && mLhs.equals(o.mLhs) && mRhs.equals(o.mRhs);
+			return (mOffset.equals(o.mOffset) && mLhs.equals(o.mLhs) && mRhs.equals(o.mRhs))
+					|| (mOffset.equals(o.mOffset.negate()) && mLhs.equals(o.mRhs) && mRhs.equals(o.mLhs));
 		}
 	}
 
