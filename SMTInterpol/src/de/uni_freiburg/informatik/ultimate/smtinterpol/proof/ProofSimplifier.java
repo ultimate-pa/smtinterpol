@@ -4668,7 +4668,7 @@ public class ProofSimplifier extends TermTransformer {
 				} else {
 					// need shifted offset
 					final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
-					final Rational factor = (clauseEqKey.mLhs == eqKey.mLhs ? Rational.ONE : Rational.MONE);
+					final Rational factor = (clauseEqKey.mLhs.equals(eqKey.mLhs) ? Rational.ONE : Rational.MONE);
 					final Term bridge = mProofUtils.proveEqWithMultiplier(clauseEqParam, eqParam, factor);
 					proof = res(eq, bridge, proof);
 				}
@@ -4688,7 +4688,7 @@ public class ProofSimplifier extends TermTransformer {
 			} else {
 				// need shifted offset
 				final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
-				final Rational factor = (clauseEqKey.mLhs == eqKey.mLhs ? Rational.ONE : Rational.MONE);
+				final Rational factor = (clauseEqKey.mLhs.equals(eqKey.mLhs) ? Rational.ONE : Rational.MONE);
 				final Term bridge = mProofUtils.proveEqWithMultiplier(eqParam, clauseEqParam, factor);
 				proof = res(eq, proof, bridge);
 			}
@@ -4725,8 +4725,8 @@ public class ProofSimplifier extends TermTransformer {
 				mLhs = Collections.singletonMap(Collections.singletonMap(lhs, 1), Rational.ONE);
 				mRhs = Collections.singletonMap(Collections.singletonMap(rhs, 1), Rational.ONE);
 			}
-			final int lhsHash = lhs.hashCode();
-			final int rhsHash = rhs.hashCode();
+			final int lhsHash = mLhs.hashCode();
+			final int rhsHash = mRhs.hashCode();
 			if (lhsHash == rhsHash) {
 				mHash = lhsHash * 31 + mOffset.abs().hashCode();
 			} else if (lhsHash < rhsHash) {
