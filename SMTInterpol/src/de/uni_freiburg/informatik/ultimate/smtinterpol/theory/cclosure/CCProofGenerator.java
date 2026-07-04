@@ -55,10 +55,16 @@ public class CCProofGenerator {
 		private final CCParameter mIndex;
 		/** The path nodes as CCParameters (with offsets); a step's offset is justified by an offset equality. */
 		private final CCParameter[] mPath;
+		/**
+		 * The select/const edge justifying this weak path's single weak-congruence step, or {@code null}. See
+		 * {@link CCAnnotation#mSelectEdges}: {@code mSelectEdge[0]} is on the {@code mPath[0]} side.
+		 */
+		private final CCParameter[] mSelectEdge;
 
-		public IndexedPath(final CCParameter index, final CCParameter[] path) {
+		public IndexedPath(final CCParameter index, final CCParameter[] path, final CCParameter[] selectEdge) {
 			mIndex = index;
 			mPath = path;
+			mSelectEdge = selectEdge;
 		}
 
 		public CCParameter getIndex() {
@@ -67,6 +73,10 @@ public class CCProofGenerator {
 
 		public CCParameter[] getPath() {
 			return mPath;
+		}
+
+		public CCParameter[] getSelectEdge() {
+			return mSelectEdge;
 		}
 
 		/** The two path ends as a CCParameter pair (with offsets), i.e. the equality this path proves. */
@@ -315,7 +325,13 @@ public class CCProofGenerator {
 				}
 				// Case (iv) select
 				if (mRule == RuleKind.WEAKEQ_EXT && pathIndex != null) {
-					final SelectEdge selectEdge = findSelectPath(new SymmetricPair<>(firstTerm, secondTerm), pathIndex);
+					final SymmetricPair<CCTerm> arrayPair = new SymmetricPair<>(firstTerm, secondTerm);
+					// Prefer the select/const edge recorded in the annotation; only fall back to searching the clause
+					// equalities if it is absent (should not happen for a genuine select step).
+					SelectEdge selectEdge = orientSelectEdge(indexedPath.getSelectEdge(), arrayPair, pathIndex);
+					if (selectEdge == null) {
+						selectEdge = findSelectPath(arrayPair, pathIndex);
+					}
 					if (selectEdge != null) {
 						if (selectEdge.getLeft() != selectEdge.getRight()) {
 							if (!collectEquality(selectEdge.toSymmetricPair())) {
@@ -437,7 +453,8 @@ public class CCProofGenerator {
 		mRule = arrayAnnot.mRule;
 		mIndexedPaths = new IndexedPath[arrayAnnot.getParamPaths().length];
 		for (int i = 0; i < mIndexedPaths.length; i++) {
-			mIndexedPaths[i] = new IndexedPath(arrayAnnot.getWeakIndices()[i], arrayAnnot.getParamPaths()[i]);
+			mIndexedPaths[i] = new IndexedPath(arrayAnnot.getWeakIndices()[i], arrayAnnot.getParamPaths()[i],
+					arrayAnnot.getSelectEdges()[i]);
 		}
 	}
 
@@ -726,7 +743,16 @@ public class CCProofGenerator {
 					subannots[k++] = subs;
 				} else {
 					subannots[k++] = ":weakpath";
-					subannots[k++] = new Object[] { index.getFlatTerm(), subs };
+					final CCParameter[] edge = p.getSelectEdge();
+					if (edge == null) {
+						subannots[k++] = new Object[] { index.getFlatTerm(), subs };
+					} else {
+						// Append the select/const edge {left, right} that justifies this weak path's weak-congruence
+						// step; left is on the subs[0] side. Consumers that predate this element ignore it (they read
+						// only [0] and [1]).
+						subannots[k++] = new Object[] { index.getFlatTerm(), subs,
+								new Object[] { edge[0].getFlatTerm(), edge[1].getFlatTerm() } };
+					}
 				}
 			}
 		}
@@ -826,7 +852,7 @@ public class CCProofGenerator {
 		// invariant (the offset cancels in the difference), so all lookups are unaffected.
 		proofInfo.mLemmaDiseq = new SymmetricPair<>(firstTerm, secondTerm);
 		proofInfo.mProofPaths =
-				new IndexedPath[] { new IndexedPath(null, new CCParameter[] { firstTerm, secondTerm }) };
+				new IndexedPath[] { new IndexedPath(null, new CCParameter[] { firstTerm, secondTerm }, null) };
 
 		assert firstApp.getArgCount() == secondApp.getArgCount();
 		for (int i = 0; i < firstApp.getArgCount(); i++) {
@@ -895,6 +921,33 @@ public class CCProofGenerator {
 	/**
 	 * Check if the equality sel1 == sel2 explains the weak step on weakpathindex for termPair.
 	 */
+	/**
+	 * Orient the select/const edge {@code edge = {a, b}} recorded in the annotation against the array step
+	 * {@code termPair}: return a {@link SelectEdge} whose left member belongs to {@code termPair.getFirst()} and right to
+	 * {@code termPair.getSecond()}. Returns {@code null} if {@code edge} is absent or does not match this step (the
+	 * caller then falls back to searching).
+	 */
+	private SelectEdge orientSelectEdge(final CCParameter[] edge, final SymmetricPair<CCTerm> termPair,
+			final CCParameter weakpathindex) {
+		if (edge == null) {
+			return null;
+		}
+		if (belongsTo(edge[0], termPair.getFirst(), weakpathindex)
+				&& belongsTo(edge[1], termPair.getSecond(), weakpathindex)) {
+			return new SelectEdge(edge[0], edge[1]);
+		}
+		if (belongsTo(edge[1], termPair.getFirst(), weakpathindex)
+				&& belongsTo(edge[0], termPair.getSecond(), weakpathindex)) {
+			return new SelectEdge(edge[1], edge[0]);
+		}
+		return null;
+	}
+
+	/** Whether {@code sel} is the select-at-weakpathindex on {@code array}, or {@code array} is {@code (const sel)}. */
+	private boolean belongsTo(final CCParameter sel, final CCTerm array, final CCParameter weakpathindex) {
+		return isConst(array, sel) || isSelect(sel, array, weakpathindex);
+	}
+
 	private SelectEdge goodSelectStep(final CCTerm sel1, final CCTerm sel2, final Rational offset,
 			final SymmetricPair<CCTerm> termPair, final CCParameter weakpathindex) {
 		CCParameter lhs = null;

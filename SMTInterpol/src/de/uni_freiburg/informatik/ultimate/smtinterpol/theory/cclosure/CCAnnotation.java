@@ -240,7 +240,22 @@ public class CCAnnotation implements IAnnotation {
 
 	final CCParameter[] mWeakIndices;
 
+	/**
+	 * For each path, the select/const edge justifying its single weak-congruence step, or {@code null} if it has none
+	 * (all store/equality steps, or not a weak path). When present, {@code mSelectEdges[i]} is a two-element array
+	 * {@code {selectLeft, selectRight}} with {@code selectLeft} on the {@code mParamPaths[i][0]} side. This lets the
+	 * proof and interpolation consumers use the edge directly instead of searching the clause equalities for it.
+	 */
+	final CCParameter[][] mSelectEdges;
+
 	final DataTypeLemma mDTLemma;
+
+	private static CCParameter[] selectEdgeOf(final SubPath p) {
+		if (p instanceof WeakSubPath && ((WeakSubPath) p).getSelectLeft() != null) {
+			return new CCParameter[] { ((WeakSubPath) p).getSelectLeft(), ((WeakSubPath) p).getSelectRight() };
+		}
+		return null;
+	}
 
 	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule) {
 		this(diseq, paths, rule, null);
@@ -265,12 +280,15 @@ public class CCAnnotation implements IAnnotation {
 		final int n = 1 + otherPaths.size();
 		mParamPaths = new CCParameter[n][];
 		mWeakIndices = new CCParameter[n];
+		mSelectEdges = new CCParameter[n][];
 		mParamPaths[0] = mainPath;
 		mWeakIndices[0] = null;
+		mSelectEdges[0] = null;
 		int i = 1;
 		for (final SubPath p : otherPaths) {
 			mParamPaths[i] = p.getParams();
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
+			mSelectEdges[i] = selectEdgeOf(p);
 			i++;
 		}
 		mRule = rule;
@@ -282,10 +300,12 @@ public class CCAnnotation implements IAnnotation {
 		mDiseqParam = diseq;
 		mParamPaths = new CCParameter[paths.size()][];
 		mWeakIndices = new CCParameter[mParamPaths.length];
+		mSelectEdges = new CCParameter[mParamPaths.length][];
 		int i = 0;
 		for (final SubPath p : paths) {
 			mParamPaths[i] = p.getParams();
 			mWeakIndices[i] = p instanceof WeakSubPath ? ((WeakSubPath) p).getIndex() : null;
+			mSelectEdges[i] = selectEdgeOf(p);
 			i++;
 		}
 		mRule = rule;
@@ -304,6 +324,11 @@ public class CCAnnotation implements IAnnotation {
 
 	public CCParameter[] getWeakIndices() {
 		return mWeakIndices;
+	}
+
+	/** For each path, its select/const edge {@code {left, right}} or {@code null}; see {@link #mSelectEdges}. */
+	public CCParameter[][] getSelectEdges() {
+		return mSelectEdges;
 	}
 
 	/**

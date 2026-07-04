@@ -59,6 +59,14 @@ public class WeakCongruencePath extends CongruencePath {
 	static class WeakSubPath extends SubPath {
 		private final CCParameter mIdx;
 		private final CCParameter mIdxRep;
+		/**
+		 * The select/const edge justifying the single weak-congruence step on this path, if any: {@code mSelectLeft} is
+		 * the select (or const value) on the {@code path[0]} side, {@code mSelectRight} the one on the {@code path[last]}
+		 * side. Both {@code null} for plain weak paths (store/equality steps only), which is always the case for
+		 * read-over-weakeq and read-const-weakeq.
+		 */
+		private CCParameter mSelectLeft;
+		private CCParameter mSelectRight;
 
 		public WeakSubPath(final CCParameter idx, final CCTerm start, final boolean produceProofs) {
 			super(start, produceProofs);
@@ -66,14 +74,28 @@ public class WeakCongruencePath extends CongruencePath {
 			mIdxRep = idx.getValueKey();
 		}
 
+		public void setSelectEdge(final CCParameter selectLeft, final CCParameter selectRight) {
+			mSelectLeft = selectLeft;
+			mSelectRight = selectRight;
+		}
+
 		@Override
 		public String toString() {
 			return "Weakpath " + mIdx
-				+ (mTermsOnPath == null ? "" : " " + mTermsOnPath.toString());
+				+ (mTermsOnPath == null ? "" : " " + mTermsOnPath.toString())
+				+ (mSelectLeft == null ? "" : " selectedge " + mSelectLeft + " <-> " + mSelectRight);
 		}
 
 		public CCParameter getIndex() {
 			return mIdx;
+		}
+
+		public CCParameter getSelectLeft() {
+			return mSelectLeft;
+		}
+
+		public CCParameter getSelectRight() {
+			return mSelectRight;
 		}
 	}
 
@@ -261,6 +283,9 @@ public class WeakCongruencePath extends CongruencePath {
 		if (select1 != select2) {
 			computePath(select1, select2);
 		}
+		// Record the select/const edge so the proof/interpolation consumers need not search for it. select1 is on the
+		// array1 (path[0]) side, select2 on the array2 (path[last]) side, matching the emitted path order.
+		path.setSelectEdge(select1, select2);
 		return path;
 	}
 

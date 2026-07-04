@@ -1159,6 +1159,63 @@ Validated (clean build, `-ea`): `test/proof` **98/98**; the extensionality witne
 `proof-check`) **0 status mismatches**, only the pre-existing errors; `datatype`/`model` dirs 30/30;
 117 JUnit tests green. Files: `ArrayTheory.java`, `ModelBuilder.java`.
 
+## Explicit select/const edge in weakeq-ext annotations — DONE (uncommitted)
+
+Preparation for offsets under proofs. In a `weakeq-ext` lemma, each weak-i path may
+contain one *select/const edge*: the step where two arrays are weakly-i-equivalent
+not by a store or a strong equality but because a select equality
+`select(a1,j1) = select(a2,j2)` (or `select(a1,j1) = v` for `a2 = (const v)`) holds
+with `j1, j2` equal to the path index. Until now the edge was *not* recorded — three
+consumers (`CCProofGenerator.findSelectPath`, `ProofSimplifier.proveSelectPath`, and
+`ArrayInterpolator`) each re-derived it by iterating the clause equalities. With
+offset equalities this search becomes ambiguous: the justifying equality is
+offset-rendered (`EqualityProxy.getLiteral` builds `(= mLhs (+ mRhs off))`, and the
+`CCTermPairHash` identity-hash canonicalization can move the constant onto the
+*select* side, e.g. `(= core (+ (select a1 j1) off))`), so neither atom side is the
+bare select the searcher matches on, and among several candidates only one is right.
+
+Fix: record the edge in the annotation and let the consumers read it.
+
+- **`WeakCongruencePath.WeakSubPath`** gains `mSelectLeft`/`mSelectRight`
+  (`CCParameter`, with offset), set by `computeWeakCongruencePath` — the one place
+  the edge is known (`select1`/`select2`), ordered `path[0]`-side then
+  `path[last]`-side. Plain weak paths leave it null; it is *always* null for
+  read-over-weakeq / read-const-weakeq (their weak paths have no select step).
+- **`CCAnnotation`** carries a parallel `mSelectEdges[i]` (`{left, right}` or null)
+  populated from the `WeakSubPath`, with a getter.
+- **Term format:** the `:weakpath` value stays `{index, subs}` when there is no edge
+  and becomes `{index, subs, {leftTerm, rightTerm}}` when there is one
+  (`CCProofGenerator.buildLemma`). Backward-tolerant: `ArrayInterpolator.ProofPath`
+  reads only `[0]`/`[1]` and ignores the third element.
+- **`CCProofGenerator.collectWeakPath`** uses the annotated edge (oriented against the
+  step's two arrays via `isSelect`/`isConst` in the new `orientSelectEdge`); it only
+  falls back to `findSelectPath` if no edge is present.
+- **`ProofSimplifier`** parses the edge from `:weakpath[2]` and threads it through
+  `proveSelectOverPath` → `proveSelectOverPathStep`, feeding the edge's
+  `getFlatTerm()` (a bare select, or the const's full stored value) directly to
+  `proveSelectConst`. This sidesteps the affine-extraction problem: those terms match
+  `proveSelectConst` as-is, and the offset-rendered clause equality is bridged by
+  `resolveNeededEqualities` (`OffsetEqKey` + `proveEqWithMultiplier`). Match is decided
+  by `proveSelectConst` succeeding on both sides, *not* by the returned proof —
+  `proveSelectPathTrans` legitimately returns `null` for a trivial step (the edge
+  selects coincide with the path-end selects), which must not be read as "no match".
+  `proveSelectPath` is kept only as a fallback for an absent edge.
+
+The change is validated with offsets *off* (the format machinery is exercised;
+select edges are offset-0): the array + interpolation `proof-check-mode` +
+`proof-level lowlevel` sweep is unchanged versus baseline (only the pre-existing
+deferred offset-interpolation and datatype failures remain — `CCInterpolator` throws
+on offset lemmas). Instrumentation on `constarr014` (68 select edges) confirms the
+annotated edge is used for every select step and the search fallback is never hit in
+any passing test. Files: `WeakCongruencePath.java`, `CCAnnotation.java`,
+`CCProofGenerator.java`, `ProofSimplifier.java`.
+
+**Still open (the reason this is preparation):** `proveSelectConst` does not yet
+handle a select/const edge whose select sits at an LA/offset-equal index, or a const
+value carrying a non-zero offset — i.e. offsets *under proofs*. The edge is now
+delivered explicitly (bare select + full const value), so this handling no longer has
+to contend with the search ambiguity; it is the natural next step.
+
 ## Implementable slice (ready to start)
 
 1. `LASharedTerm` becomes offset-free under `createOffsetEqualities()` (revert the

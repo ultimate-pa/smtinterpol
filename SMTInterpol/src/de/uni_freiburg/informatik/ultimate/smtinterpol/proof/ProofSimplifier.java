@@ -3390,7 +3390,7 @@ public class ProofSimplifier extends TermTransformer {
 	private Term proveSelectOverPathStep(final Term arrayLeft, final Term arrayRight, final Term weakIdx,
 			final Term selectLeft, final Term selectRight, final Map<OffsetEqKey, Term> equalities,
 			final Map<OffsetEqKey, Term> disequalities, final Set<Term> neededEqualities,
-			final Set<Term> neededDisequalities) {
+			final Set<Term> neededDisequalities, final Term[] selectEdge) {
 		final Theory theory = arrayLeft.getTheory();
 		/* check for strong path first */
 		if (equalities.containsKey(new OffsetEqKey(arrayLeft, arrayRight))) {
@@ -3409,9 +3409,27 @@ public class ProofSimplifier extends TermTransformer {
 					mProofRules.symm(selectLeft, selectRight));
 		}
 		/*
-		 * check for select path with select indices equal to weakIdx, both trivially
-		 * equal and proven equal by a strong path
+		 * This is a select/const edge. Prefer the select/const values recorded in the annotation (see
+		 * WeakCongruencePath.WeakSubPath.setSelectEdge): they are the bare select or the full const value, so
+		 * proveSelectConst matches them directly and the offset-rendered clause equality is bridged by
+		 * resolveNeededEqualities. Only fall back to searching the clause equalities if no edge is annotated or it does
+		 * not match this step. proveSelectPathTrans may legitimately return null (a trivial step), so the match is
+		 * decided by proveSelectConst succeeding on both sides, not by the returned proof.
 		 */
+		if (selectEdge != null) {
+			Term eq1 = proveSelectConst(selectEdge[0], arrayLeft, weakIdx, equalities, neededEqualities);
+			Term eq2 = proveSelectConst(selectEdge[1], arrayRight, weakIdx, equalities, neededEqualities);
+			if (eq1 != null && eq2 != null) {
+				return proveSelectPathTrans(arrayLeft, selectEdge[0], selectEdge[1], arrayRight, weakIdx, eq1, eq2,
+						neededEqualities);
+			}
+			eq1 = proveSelectConst(selectEdge[1], arrayLeft, weakIdx, equalities, neededEqualities);
+			eq2 = proveSelectConst(selectEdge[0], arrayRight, weakIdx, equalities, neededEqualities);
+			if (eq1 != null && eq2 != null) {
+				return proveSelectPathTrans(arrayLeft, selectEdge[1], selectEdge[0], arrayRight, weakIdx, eq1, eq2,
+						neededEqualities);
+			}
+		}
 		return proveSelectPath(arrayLeft, arrayRight, weakIdx, equalities, neededEqualities);
 	}
 
@@ -3435,7 +3453,7 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	private Term proveSelectOverPath(final Term weakIdx, final Term[] path, final Map<OffsetEqKey, Term> equalities,
 			final Map<OffsetEqKey, Term> disequalities, final Set<Term> neededEqualities,
-			final Set<Term> neededDisequalities) {
+			final Set<Term> neededDisequalities, final Term[] selectEdge) {
 		// note that a read-const-weakeq path can have length 1
 		assert path.length >= 1;
 		final Theory theory = path[0].getTheory();
@@ -3449,7 +3467,7 @@ public class ProofSimplifier extends TermTransformer {
 		Term proof = selectChain.length > 2 ? mProofRules.trans(selectChain) : null;
 		for (int i = 0; i < path.length - 1; i++) {
 			final Term subproof = proveSelectOverPathStep(path[i], path[i + 1], weakIdx, selectChain[i],
-					selectChain[i + 1], equalities, disequalities, neededEqualities, neededDisequalities);
+					selectChain[i + 1], equalities, disequalities, neededEqualities, neededDisequalities, selectEdge);
 			proof = res(theory.term(SMTLIBConstants.EQUALS, selectChain[i], selectChain[i + 1]), subproof, proof);
 		}
 		return proof;
@@ -3495,7 +3513,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Term[] mainPath = (Term[]) weakItems[1];
 
 		Term proof = proveSelectOverPath(mainIdx, mainPath, allEqualities, allDisequalities, neededEqualities,
-				neededDisequalities);
+				neededDisequalities, null);
 		final Term firstTerm = theory.term("select", mainPath[0], mainIdx);
 		final Term lastTerm = theory.term("select", mainPath[mainPath.length - 1], mainIdx);
 		assert isApplication("const", mainPath[mainPath.length - 1]);
@@ -3549,7 +3567,7 @@ public class ProofSimplifier extends TermTransformer {
 		final Term[] mainPath = (Term[]) weakItems[1];
 
 		Term proof = proveSelectOverPath(mainIdx, mainPath, allEqualities, allDisequalities,
-				neededEqualities, neededDisequalities);
+				neededEqualities, neededDisequalities, null);
 		assert isApplication("select", goalTerms[0]) && isApplication("select", goalTerms[1]);
 		final int goalOrder = ((ApplicationTerm) goalTerms[0]).getParameters()[0] == mainPath[0] ? 0 : 1;
 		final Term goal1 = goalTerms[goalOrder];
@@ -3663,6 +3681,15 @@ public class ProofSimplifier extends TermTransformer {
 			final Object[] weakItems = (Object[]) ccAnnotation[i + 1];
 			final Term idx = (Term) weakItems[0];
 			final Term[] weakPath = (Term[]) weakItems[1];
+			// The optional third element is the select/const edge {left, right} justifying this weak path's
+			// weak-congruence step; left is on the weakPath[0] side (see CCProofGenerator.buildLemma).
+			final Term[] selectEdge;
+			if (weakItems.length > 2) {
+				final Object[] edge = (Object[]) weakItems[2];
+				selectEdge = new Term[] { (Term) edge[0], (Term) edge[1] };
+			} else {
+				selectEdge = null;
+			}
 
 			/* check end points */
 			assert arrayLeft == weakPath[0] && arrayRight == weakPath[weakPath.length - 1];
@@ -3673,7 +3700,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term selectLeftIdx = theory.term(SMTLIBConstants.SELECT, arrayLeft, idx);
 			final Term selectRightIdx = theory.term(SMTLIBConstants.SELECT, arrayRight, idx);
 			Term subproof = proveSelectOverPath(idx, weakPath, allEqualities, allDisequalities,
-					neededEqualities, neededDisequalities);
+					neededEqualities, neededDisequalities, selectEdge);
 			subproof = res(theory.term(SMTLIBConstants.EQUALS, selectLeftIdx, selectRightIdx), subproof,
 					mProofRules.trans(selectLeftDiff, selectLeftIdx, selectRightIdx, selectRightDiff));
 			subproof = res(theory.term(SMTLIBConstants.EQUALS, selectLeftDiff, selectLeftIdx),
