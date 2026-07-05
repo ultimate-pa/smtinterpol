@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 public final class OffsetEqKey {
 	private final Term mLhs;
 	private final Term mRhs;
+	private final Rational mLhsOffset;
 	private final Rational mOffset;
 	private final int mHash;
 
@@ -44,10 +45,12 @@ public final class OffsetEqKey {
 			final OffsetTerm rhsSplit = new OffsetTerm(rhs);
 			mLhs = lhsSplit.getTerm();
 			mRhs = rhsSplit.getTerm();
+			mLhsOffset = lhsSplit.getOffset();
 			mOffset = lhsSplit.getOffset().sub(rhsSplit.getOffset());
 		} else {
 			mLhs = lhs;
 			mRhs = rhs;
+			mLhsOffset = Rational.ZERO;
 			mOffset = Rational.ZERO;
 		}
 		final int lhsHash = mLhs.hashCode();
@@ -71,6 +74,45 @@ public final class OffsetEqKey {
 
 	public Rational getOffset() {
 		return mOffset;
+	}
+
+	/**
+	 * The absolute offset of the lhs term this key was built from, i.e. {@code lhs = getLhs() + getLhsOffset()}.
+	 */
+	public Rational getLhsOffset() {
+		return mLhsOffset;
+	}
+
+	/**
+	 * The absolute offset of the rhs term this key was built from, i.e. {@code rhs = getRhs() + getRhsOffset()}.
+	 */
+	public Rational getRhsOffset() {
+		return mLhsOffset.sub(mOffset);
+	}
+
+	/**
+	 * Check whether this key matches the given equal key with swapped sides, i.e. whether the lhs this key was built
+	 * from corresponds to the rhs of {@code other}.
+	 *
+	 * @param other a key that is {@code equals} to this key.
+	 */
+	public boolean isSwapped(final OffsetEqKey other) {
+		assert equals(other);
+		return !(mLhs == other.mLhs && mOffset.equals(other.mOffset));
+	}
+
+	/**
+	 * Compute the constant shift between the equality this key was built from and the equality the given equal key
+	 * was built from. If {@code other} was built from {@code l = r}, then this key was built from an equality
+	 * {@code l + shift = r + shift} (modulo swapping of sides).
+	 *
+	 * @param other a key that is {@code equals} to this key.
+	 * @return the shift such that the sides of this key's equality are the sides of {@code other}'s equality plus
+	 *         the shift.
+	 */
+	public Rational getShift(final OffsetEqKey other) {
+		assert equals(other);
+		return mLhsOffset.sub(isSwapped(other) ? other.getRhsOffset() : other.getLhsOffset());
 	}
 
 	@Override
