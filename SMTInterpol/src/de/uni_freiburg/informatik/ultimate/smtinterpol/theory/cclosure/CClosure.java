@@ -56,6 +56,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
+import de.uni_freiburg.informatik.ultimate.util.datastructures.UnifyHash;
 
 /**
  * This class implements the theory of equality, a.k.a. congruence closure.
@@ -189,12 +190,22 @@ public class CClosure implements ITheory {
 	 * Todo list of deferred signatures.
 	 */
 	final SimpleList<SignatureTrigger> mSignatureTodo = new SimpleList<SignatureTrigger>();
+	/**
+	 * The master reverse triggers of this engine, one per (function symbol, argument position) pair, see
+	 * {@link MasterReverseTrigger#of}. This must be per engine (not a global unifier): solver instances may share the
+	 * theory and thus the function symbols, but each engine needs its own find trigger registration.
+	 */
+	private final UnifyHash<MasterReverseTrigger> mMasterReverseTriggers = new UnifyHash<>();
 
 	private long mInvertEdgeTime, mEqTime, mCcTime, mSetRepTime, mSigHashTime;
 	private long mCcCount, mMergeCount;
 
 	public CClosure(final Clausifier clausifier) {
 		mClausifier = clausifier;
+	}
+
+	UnifyHash<MasterReverseTrigger> getMasterReverseTriggers() {
+		return mMasterReverseTriggers;
 	}
 
 	public DPLLEngine getEngine() {
@@ -1519,6 +1530,14 @@ public class CClosure implements ITheory {
 			final CCAppTerm appTerm = (CCAppTerm) t;
 			removeSignature(appTerm.mCongTrigger);
 			removeSignature(appTerm.mFindTrigger);
+			if (appTerm.mReverseTriggers != null) {
+				// remove the reverse trigger signatures created for this application (all merges are already
+				// undone at pop time, so each application entry is back in its own signature).
+				for (final ReverseTriggerTrigger trigger : appTerm.mReverseTriggers) {
+					removeSignature(trigger);
+				}
+				appTerm.mReverseTriggers = null;
+			}
 		}
 	}
 

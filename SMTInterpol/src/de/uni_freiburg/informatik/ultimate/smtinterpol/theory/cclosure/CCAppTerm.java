@@ -19,6 +19,7 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -40,6 +41,13 @@ public class CCAppTerm extends CCTerm {
 
 	CongruenceTrigger mCongTrigger;
 	FindTriggerTrigger mFindTrigger;
+	/**
+	 * The reverse trigger signatures created for this application by {@link MasterReverseTrigger#activate}, one per
+	 * master trigger watching this application's function symbol. They must be removed together with this term (see
+	 * {@code CClosure.removeTerm}), otherwise a stale application entry survives a pop and later trigger merges
+	 * activate reverse triggers on the removed term.
+	 */
+	ArrayList<ReverseTriggerTrigger> mReverseTriggers;
 
 	public CCAppTerm(FunctionSymbol fsym, final CCParameter[] args,
 			final CClosure engine, final boolean isFromQuant) {
