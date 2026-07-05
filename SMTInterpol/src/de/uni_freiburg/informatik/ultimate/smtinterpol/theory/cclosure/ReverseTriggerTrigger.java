@@ -45,6 +45,10 @@ public final class ReverseTriggerTrigger extends SignatureTrigger {
 		mApplications.append(new AppTermEntry(app));
 	}
 
+	public SimpleList<ReverseTrigger> getTriggers() {
+		return mTriggers;
+	}
+
 	public SimpleList<AppTermEntry> getApplications() {
 		return mApplications;
 	}

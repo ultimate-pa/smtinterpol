@@ -452,7 +452,7 @@ public class QuantClause {
 			final BitSet pos = entry.getValue();
 			for (int i = pos.nextSetBit(0); i >= 0; i = pos.nextSetBit(i + 1)) {
 				for (final CCAppTerm appTerm : mQuantTheory.getCClosure().getAllFuncApps(func)) {
-					interestingTerms.add(appTerm.getArgParam(i).getCCTerm().getFlatTerm());
+					interestingTerms.add(appTerm.getArgParam(i).getFlatTerm());
 				}
 			}
 		}
@@ -461,7 +461,8 @@ public class QuantClause {
 			final String funcName = func.getName();
 			final Term[] args = arrayFuncTerm.getParameters();
 			final Term array = args[0];
-			final CCTerm arrayCC = mQuantTheory.getCClosure().getCCTermRep(array);
+			// arrays are not numeric, so the value is a bare CCTerm (the cast checks this)
+			final CCTerm arrayCC = (CCTerm) mQuantTheory.getCClosure().getCCParamRep(array);
 			final CCTerm weakRep = arrayCC == null ? null
 					: mQuantTheory.getClausifier().getArrayTheory().getWeakRep(arrayCC);
 			if (args[1] == var) { // The variable is an array index
@@ -508,8 +509,7 @@ public class QuantClause {
 						if (weakRep == null ? selArr.getFlatTerm().getSort() == array.getSort()
 								: weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(selArr)) {
 							final CCParameter index = ArrayTheory.getIndexFromSelect(sel);
-							// TODO: add offset
-							interestingTerms.add(index.getCCTerm().getFlatTerm());
+							interestingTerms.add(index.getFlatTerm());
 						}
 					}
 				}

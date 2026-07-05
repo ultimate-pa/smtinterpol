@@ -594,9 +594,22 @@ public class Clausifier {
 	public CCTerm getCCTerm(final Term term) {
 		// mCCTerms is keyed by offset-free terms only; an offseted term has no entry of its own (its CCParameter, with
 		// the constant as offset, is produced at build time by createCCTerm). Callers must normalize via
-		// getOffsetFreeTerm first.
+		// getOffsetFreeTerm first, or use getCCParameter for a possibly offseted term.
 		assert getTermConstant(term).equals(Rational.ZERO) : "getCCTerm on offseted term " + term;
 		return mCCTerms.get(term);
+	}
+
+	/**
+	 * Get the {@link CCParameter} denoting the value of the given term: the CCTerm of the term's offset-free part plus
+	 * the term's constant. Unlike {@link #getCCTerm} this accepts terms with a constant summand. This function does not
+	 * create new terms.
+	 *
+	 * @return the value of the term, or null if no CCTerm exists for the term's offset-free part.
+	 */
+	public CCParameter getCCParameter(final Term term) {
+		final Rational constant = getTermConstant(term);
+		final CCTerm ccTerm = getCCTerm(constant.equals(Rational.ZERO) ? term : getOffsetFreeTerm(term));
+		return ccTerm == null ? null : CCParameter.of(ccTerm, constant);
 	}
 
 	public LASharedTerm getLATerm(final Term term) {
