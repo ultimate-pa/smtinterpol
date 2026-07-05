@@ -1254,3 +1254,214 @@ baseline (only the known pre-existing SystemTest failures). Files:
 
 Datatype numeric-field feed, array contributions, proof object (and thus offsets
 under proofs/interpolation) remain deferred.
+
+---
+
+# Quantifier support (offset-aware e-matching) — planned
+
+Offsets are currently disabled whenever a `QuantifierTheory` exists
+(`Clausifier.createOffsetEqualities()` requires `mQuantTheory == null`), because
+e-matching binds variables to offset-free CCTerms and loses the constant (the
+recorded unsoundness in `quanttest001`: match `a(x)` against `a(l+1)` but
+instantiate `x := l`). This section maps every CC touch point in `theory/quant`
+and plans the migration. The EPR theory is ignored (slated for deletion).
+
+## Inventory: where the quantifier theory touches CC values
+
+**A. The e-matching register is `CCTerm[]`** — the core representation gap.
+`ICode.execute(CCTerm[], int)`, `EMatching.mTodoStack`/`mClauseCodes`/`addCode`,
+`PatternCompiler.compile()` (builds the initial register; note
+`TermInfo.mGroundTerm` is `(CCTerm) clausifier.createCCTerm(...)` — that cast
+throws for a ground pattern subterm like `(+ a 2)` once offsets are on),
+`EMReverseTrigger.mRegister`, `EMCompareTrigger.mRegister`. A register slot
+holds a *value* (candidate for a pattern subterm or a variable binding), and
+values are `CCParameter`s now. Whole-pattern candidates are always `CCAppTerm`s
+(offset 0); only argument values / variable bindings carry offsets.
+
+**B. `GetArgCode` strips the offset** (`getArgParam(pos).getCCTerm()`, with an
+explicit "offsets are off under quantifiers" comment). This is *the* unsound
+line: binding a variable from `f(a+2)`'s argument must yield the value `a+2`.
+
+**C. Compare triggers — SETTLED, almost trivial (Jochen).** The trigger is keyed
+on the base-term pair plus the *structural* offset δ = o2 − o1 (from
+value(t1)+o1 == value(t2)+o2, i.e. value(base1) = value(base2) + δ; stable, so
+`EMCompareTrigger` can store the two `CCParameter`s and recompute δ at remove
+time). Verified against the code, nearly everything is already in place:
+- **Merge-time activation is already offset-selective.**
+  `CCTerm.mergeInternal` fires `info.mCompareTriggers` only in the
+  `offFromSrc.equals(delta)` branch; the conflicting-offset branch leaves them
+  untouched — they ride along dormant in the removed Info and come back on
+  unmerge. Since there is no "definitely distinct" event in the machinery,
+  nothing needs to happen on a conflicting-offset merge, and nothing does.
+- **`insertCompareTrigger`/`removeCompareTrigger` copy the
+  `insertEqualityEntry` walk** (CClosure.java:730): negate δ on the merge-time
+  swap, re-base when stepping `t1 = t1.mRep` (`offset − t1.offsetToRep +
+  t1.mRep.offsetToRep`), and match `pentry.getOffsetToOther()` when scanning
+  `mPairInfos`. Just a few CCTerm→CCParameter/offset changes.
+- **Same rep, wrong offset at install time:** the trigger can never fire in the
+  current subtree, so per Jochen it need not be installed (drop the
+  continuation). Note the `insertEqualityEntry` walk would park it for free —
+  it has no different-reps assert; the walk terminates via `isLast = t1.mRep ==
+  t2` and leaves the entry in the merge-boundary Info, which goes live again on
+  unmerge — which matters only when the conflicting merge is *younger* than the
+  register data (data at level 0, merge at level 3: backtrack to 1 keeps the
+  trigger, a later matching merge fires it; dropping misses that instance).
+  Either way it is the same walk; pick during implementation.
+`CompareCode` itself becomes: `sameValueAs` → proceed; otherwise install (or
+drop in the same-rep case, per the previous point).
+
+**D. Reverse triggers.** `ReverseCode` reads the arg from the register (now a
+`CCParameter`) and `CClosure.insertReverseTrigger(sym, CCTerm arg, pos, trig)`
+takes a bare CCTerm. The underlying machinery is already value-keyed
+(`ReverseTrigger.getArgument()` returns `CCParameter`;
+`ReverseTriggerTrigger`/`MasterReverseTrigger`/`SignatureTrigger` key on
+`getOffsetToRep`), so this is mostly signature plumbing: make
+`EMReverseTrigger.mArg` a `CCParameter` and let `insertReverseTrigger` accept
+it. `EMReverseTrigger.activate` compares `mArg` with
+`appTerm.getArgParam(pos)`: the *decide level* path
+(`getDecideLevelForPath`) stays on the offset-free `getCCTerm()`s (the merge
+path is the same for all offsets); the value match is guaranteed by the
+signature.
+
+**E. Yield / SubstitutionInfo.** `SubstitutionInfo.mVarSubs` is
+`List<CCTerm>`, `mEquivalentCCTerms` is `Map<Term, CCTerm>`; both become
+`CCParameter`. Dawg keys come from `varSubs.get(i).getFlatTerm()` —
+`CCParameter.getFlatTerm()` already renders the flattened `(+ a 2)`, so the
+Term-keyed dawg layer is unaffected once the values are right.
+
+**F. Canonicalization drops offsets.**
+`QuantifierTheory.getRepresentativeTerm(term)` does
+`getCCTerm(term).getRepresentative().getFlatTerm()`. Two problems: (i)
+`Clausifier.getCCTerm` now *asserts* its argument is offset-free, and
+interesting terms / substitutions are value terms like `(+ a 2)`; (ii) the rep
+flat term drops the offset — the values `a` and `a+1` in one class would
+canonicalize to the same key, conflating *different* substitutions in
+`addAllInteresting` and `getRepresentativeSubsDawg` (the dedup dual of the
+`quanttest001` unsoundness). Fix: split via
+`getOffsetFreeTerm`/`getTermConstant`, then return
+`CCParameter.addConstant(rep.getFlatTerm(), k + offsetToRep)` — the canonical
+*value* term.
+
+**G. Ground-side CC lookups on possibly-offsetted terms** (all hit the
+`getCCTerm` assert or silently miss): `InstantiationManager.getTermAge`,
+`evaluateCCEquality`/`evaluateCCEqualityKnownShared` (ground lhs/rhs of a
+`QuantEquality` can carry a constant, e.g. `x = t+3`),
+`evaluateLitForPartialEMatchingSubsInfo` (`getCCTerm(clauseVarSubs.get(i))`),
+`QuantifierTheory.addGroundCCTerms` (recurses into ground subterms like
+`(+ a 1)`). Each needs the offset-free-part + constant split. The equality
+evaluation itself needs value semantics: `isEqSet` → `sameValueAs` on
+`CCParameter`s; `isDiseqSet` is already offset-aware internally but needs a
+`CCParameter` entry point. Same-rep-different-offset evaluates to **FALSE**
+(new case — today same rep means TRUE).
+
+**H. `CClosure.getCCTermRep(Term)`** (used by
+`InstantiationManager.TermFinder` to find an existing congruent term for an
+instance term) recurses with offset-free `CCTerm[]` argReps and an offset-free
+`SignatureTrigger`. It must become `CCParameter`-based: parse each argument's
+constant, build the signature on value keys, and return a `CCParameter`
+(rep + offset) so `FindSharedAppTerm`/`FindSharedAffine` record the true value
+term, not the rep's offset-free flat term.
+
+**I. `QuantClause`.** `updateInterestingTermsForFuncArgs` drops offsets:
+`appTerm.getArgParam(i).getCCTerm().getFlatTerm()` → `getArgParam(i)
+.getFlatTerm()`; same for the select-index branch (existing `TODO: add offset`
+at the `ArrayTheory.getIndexFromSelect` site). Dedup via
+`getRepresentativeTerm` is fixed by F. The `collectVarInfos:338` crash
+(`datatype/quantified/*match*`, 4 tests) turned out to be **pre-existing with
+offsets off and unrelated to this work**: the quantified equality has a
+`MatchTerm` side (`(match l1 ...)` with free variables) and the assert
+`rhs instanceof ApplicationTerm` rejects it — a missing quantified-`match`
+feature in the quantifier theory, out of scope here (earlier notes
+miscategorized it as an offset blocker because it was observed during
+gate-flip validation).
+
+**J. Unaffected (checked):** `SubstitutionHelper`, `DestructiveEqualityReasoning`,
+`QuantAuxEquality` (Term-level only); `Dawg` (Term-keyed);
+`evaluateLAEquality*`/`evaluateBoundConstraint*` (Polynomial-level);
+`checkCompleteness` (lambdas are fresh offset-free constants);
+`getDecideLevelForPath` (paths are offset-free).
+
+**K. Follow-ups enabled/required by the flip:**
+- The **reverse-trigger clash-slot source** in
+  `CClosure.getNumericClashSlots()` (documented deferred: e-matching reverse
+  triggers with `getArgPosition() != -1` and numeric arg sort) becomes *live*
+  once quantifiers run with offsets — MBTC must see e-matching positions.
+- Proofs: instantiation lemmas substitute real SMT terms, and `(+ a 2)` is one;
+  the `:inst` rule should be term-level clean, but validate with
+  `proof-check-mode` once both gates (quantifier and proof) are open.
+
+## What offsets *buy* e-matching (the extension, separate step)
+
+Today the fragment forbids arithmetic below uninterpreted functions
+(`QuantUtil.containsArithmeticOnQuantOnlyAtTopLevel`,
+`isEssentiallyUninterpreted` rejects `f(x+3)`). With offset CC, a pattern
+argument `x + k` (variable-plus-constant, and more generally `t + k`) is
+matchable for free: `GetArgCode` yields the value `v`, the binding is
+`x := v − k` (constant shift on a `CCParameter`); `CompareCode` compares
+shifted values. That extends the almost-uninterpreted fragment with constant
+offsets under function symbols (`f(x+3) = g(y)` etc.) — the actual quantifier
+payoff of the offset project. Requires: `PatternCompiler` support for affine
+arguments (constant part only), a shift field on GetArg/Compare codes, fragment
+checks widened (`isEssentiallyUninterpreted`,
+`containsArithmeticOnQuantOnlyAtTopLevel`, `containsAppTermsForEachVar`), and
+`QuantClause.addVarArgInfo`/`VarInfo` positions that record the shift so
+interesting-term collection proposes `groundArg − k`. Non-constant coefficients
+and multi-variable arguments stay out.
+
+## Increments
+
+- **Q1 — `CCParameter` register. (DONE, uncommitted.)** Mechanical
+  thread-through of A/B/E: register `CCTerm[]` → `CCParameter[]` everywhere in
+  `ematching/`, `GetArgCode` keeps the offset, `SubstitutionInfo` holds
+  `CCParameter`s, `PatternCompiler` ground slots stop casting. Type change
+  propagates into `InstantiationManager` (equivalent-CCTerm maps, var subs;
+  asserts use `sameValueAs`). `CompareCode`: `sameValueAs` → proceed; same base
+  term at different structural offsets → drop (can never become equal);
+  otherwise install. Offset-free behavior verified byte-identical
+  (`test/quantified` + `test/datatype/quantified` outputs diff-identical to
+  baseline under `-ea`; full `ant runtests` 723/723).
+- **Q2 — CClosure API. (DONE except `getCCParamRep`, uncommitted.)**
+  `insertCompareTrigger(CCParameter, CCParameter, trigger)` /
+  `removeCompareTrigger` mirror the `insertEqualityEntry` offset walk
+  (including the same-class park-at-boundary case — chosen over dropping since
+  it is the same walk anyway); merge-time activation was already
+  offset-selective; `insertReverseTrigger(CCParameter)`; `isEqSet`/`isDiseqSet`
+  on `CCParameter` (`isEqSet` = `sameValueAs`; all callers were quant-side and
+  want value semantics). `isDiseqSet` also returns true for same-rep pairs at
+  different offsets (provably distinct by a non-zero constant; Jochen) — the
+  same-rep case is now fully decided between `isEqSet`/`isDiseqSet`, and the
+  degenerate `getInfo(rep, rep, ·)` lookup is avoided. Still open:
+  `getCCTermRep` → `getCCParamRep` (needed in Q3 for `TermFinder`).
+- **Q3 — evaluation & canonicalization. (DONE, uncommitted.)** New
+  `Clausifier.getCCParameter(Term)` (offset-free split + `CCParameter.of`);
+  `getRepresentativeTerm` returns the canonical *value* term
+  (`getValueKey().getFlatTerm()`); `getTermAge`/`evaluateCCEquality
+  (KnownShared)`/partial-EM var-subs lookup use `getCCParameter`;
+  `addGroundCCTerms` normalizes via `getOffsetFreeTerm`; `getCCTermRep` →
+  `getCCParamRep` (constant split, value-keyed signature lookup, returns
+  rep+offset; `TermFinder` and the QuantClause array lookup adapted);
+  `QuantClause` interesting terms keep offsets (`getArgParam(i).getFlatTerm()`,
+  select-index TODO resolved). Same-rep-wrong-offset evaluates FALSE via the
+  `isDiseqSet` same-class case. `collectVarInfos:338` needs no fix here (see I).
+- **Q4 — flip the quantifier gate. (DONE, uncommitted.)** Dropped
+  `mQuantTheory == null` from `Clausifier.createOffsetEqualities()` — this also
+  dissolves the raw-vs-effective flag divergence (the `bitVecLearnConflict2`
+  class of bugs), since both predicates now coincide. Reverse-trigger
+  clash-slot source added to `getNumericClashSlots()` (watched values of
+  installed reverse triggers join their (symbol, position) slot;
+  `ReverseTriggerTrigger.getTriggers()` accessor). NOTE the proof gate was
+  already open at HEAD (`CClosure.createOffsetEqualities` no longer checks
+  `isProofGenerationEnabled`), so this flip enables offsets under
+  quantifiers+proofs+interpolation together. Validation: new
+  `test/quantified/offsetmatch001..003` (offset binding `x := a+3`; a/a+1
+  dedup-distinctness; spurious-unsat guard — all pass with `-ea`);
+  `quanttest001` unsat; all `test/quantified` verdicts unchanged with
+  offset-shaped proofs/checked interpolants (`ArrayInitialization02` has
+  `interpolant-check-mode true`); full `ant runtests` **726/726** incl.
+  SystemTest (lowlevel proof-check + model-check + interpolant-check on the
+  whole corpus) and BitvectorTest.
+- **Q5 — offset patterns** (the fragment extension above). Independent,
+  largest, do after Q4 is stable.
+
+Q1+Q2 are the substantial work; Q3 is broad but mechanical; the compare-trigger
+offset semantics (C) is the one genuinely new CC mechanism.
