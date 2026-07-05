@@ -2106,29 +2106,35 @@ public class ProofSimplifier extends TermTransformer {
 		switch (rewriteRule) {
 		case ":distinctBool":
 			assert args.length > 2 && args[0].getSort().getName() == "Bool" && isApplication("false", rhs);
-			final Term eq01 = theory.term("=", args[0], args[1]);
-			final Term eq02 = theory.term("=", args[0], args[2]);
-			final Term eq12 = theory.term("=", args[1], args[2]);
-			final Term proof01 = mProofRules.distinctElim(0, 1, lhs);
-			final Term proof02 = mProofRules.distinctElim(0, 2, lhs);
-			final Term proof12 = mProofRules.distinctElim(1, 2, lhs);
-			// Prove contradiction using the three equalities eq01, eq02, eq12.
-			// Do case distinction over three boolean values and show that in each case one
-			// equality needs to hold.
-			Term proof = mProofRules.resolutionRule(args[0],
-					mProofRules.resolutionRule(args[1], mProofRules.iffIntro1(eq01),
-							mProofRules.resolutionRule(args[2], mProofRules.iffIntro1(eq02),
-									mProofRules.iffIntro2(eq12))),
-					mProofRules.resolutionRule(args[1], mProofRules.resolutionRule(args[2], mProofRules.iffIntro1(eq12),
-							mProofRules.iffIntro2(eq02)), mProofRules.iffIntro2(eq01)));
-			// Now use the fact that one of the equalities is false, to prove that distinct
-			// is false.
-			proof = mProofRules.resolutionRule(eq01,
-					mProofRules.resolutionRule(eq02, mProofRules.resolutionRule(eq12, proof, proof12), proof02),
-					proof01);
-			proof = proveIffFalse(rewrite, proof);
-			return proof;
+			// check that the first three args are different. Otherwise use distinctSame
+			// proof.
+			if (args[0] != args[1] && args[0] != args[2] && args[1] != args[2]) {
+				final Term eq01 = theory.term("=", args[0], args[1]);
+				final Term eq02 = theory.term("=", args[0], args[2]);
+				final Term eq12 = theory.term("=", args[1], args[2]);
+				final Term proof01 = mProofRules.distinctElim(0, 1, lhs);
+				final Term proof02 = mProofRules.distinctElim(0, 2, lhs);
+				final Term proof12 = mProofRules.distinctElim(1, 2, lhs);
+				// Prove contradiction using the three equalities eq01, eq02, eq12.
+				// Do case distinction over three boolean values and show that in each case one
+				// equality needs to hold.
+				Term proof = mProofRules.resolutionRule(args[0],
+						mProofRules.resolutionRule(args[1], mProofRules.iffIntro1(eq01),
+								mProofRules.resolutionRule(args[2], mProofRules.iffIntro1(eq02),
+										mProofRules.iffIntro2(eq12))),
+						mProofRules.resolutionRule(args[1], mProofRules.resolutionRule(args[2],
+								mProofRules.iffIntro1(eq12), mProofRules.iffIntro2(eq02)),
+								mProofRules.iffIntro2(eq01)));
+				// Now use the fact that one of the equalities is false, to prove that distinct
+				// is false.
+				proof = mProofRules.resolutionRule(eq01,
+						mProofRules.resolutionRule(eq02, mProofRules.resolutionRule(eq12, proof, proof12), proof02),
+						proof01);
+				proof = proveIffFalse(rewrite, proof);
+				return proof;
+			}
 
+			/* fall through into distinctSame case */
 		case ":distinctSame": {
 			// (distinct ... x ... x ...) = false
 			assert isApplication("false", rhs);
@@ -4095,34 +4101,42 @@ public class ProofSimplifier extends TermTransformer {
 						final String[] selectors = c.getSelectors();
 						for (pos = 0; pos < selectors.length; pos++) {
 							if (selectors[pos].equals(appTerm.getFunction().getName())) {
+								final Term isConsTerm = theory.term(SMTLIBConstants.IS, new String[] { c.getName() },
+										null, consTerm);
 								final Term[] consArgs = new Term[selectors.length];
-								final Term[] runningArgs = new Term[selectors.length];
 								for (int argnr = 0; argnr < consArgs.length; argnr++) {
 									consArgs[argnr] = theory.term(selectors[argnr], consTerm);
-									if (argnr != pos) {
-										runningArgs[argnr] = consArgs[argnr];
-										neededEqualities.add(
-												theory.term(SMTLIBConstants.EQUALS, consArgs[argnr], consArgs[argnr]));
-									} else {
-										runningArgs[argnr] = runningTerm;
-									}
 								}
 								final Term newConsTerm = theory.term(c.getName(), null,
 										(c.needsReturnOverload() ? consTerm.getSort() : null), consArgs);
-								final Term newRunningTerm = theory.term(c.getName(), null,
-										(c.needsReturnOverload() ? consTerm.getSort() : null), runningArgs);
-								final Term isConsTerm = theory.term(SMTLIBConstants.IS, new String[] { c.getName() },
-										null, consTerm);
-								proof = res(theory.term(SMTLIBConstants.EQUALS, runningTerm, selectTerm), proof,
-										mProofRules.cong(newRunningTerm, newConsTerm));
-								proof = mProofUtils.proveTransitivity(newRunningTerm, newConsTerm, consTerm, proof,
-										mProofRules.dtCons(isConsTerm));
+								if (runningTerm == selectTerm) {
+									proof = mProofRules.dtCons(isConsTerm);
+									runningTerm = newConsTerm;
+								} else {
+									final Term[] runningArgs = new Term[selectors.length];
+									for (int argnr = 0; argnr < consArgs.length; argnr++) {
+										if (argnr != pos) {
+											runningArgs[argnr] = consArgs[argnr];
+											neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, consArgs[argnr],
+													consArgs[argnr]));
+										} else {
+											runningArgs[argnr] = runningTerm;
+										}
+									}
+									final Term newRunningTerm = theory.term(c.getName(), null,
+											(c.needsReturnOverload() ? consTerm.getSort() : null), runningArgs);
+									proof = res(theory.term(SMTLIBConstants.EQUALS, runningTerm, selectTerm), proof,
+											mProofRules.cong(newRunningTerm, newConsTerm));
+									proof = mProofUtils.proveTransitivity(newRunningTerm, newConsTerm, consTerm, proof,
+											mProofRules.dtCons(isConsTerm));
+									runningTerm = newRunningTerm;
+								}
+
 								final Term isConsEq = theory.term(SMTLIBConstants.EQUALS, isConsTerm, theory.mTrue);
 								proof = res(isConsTerm,
 										res(theory.mTrue, mProofRules.trueIntro(), mProofRules.iffElim1(isConsEq)),
 										proof);
 								neededEqualities.add(isConsEq);
-								runningTerm = newRunningTerm;
 								argSequence[i / 2] = pos;
 								break findSelector;
 							}
