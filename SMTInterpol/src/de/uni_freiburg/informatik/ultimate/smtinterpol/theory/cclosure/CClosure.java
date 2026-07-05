@@ -1219,12 +1219,13 @@ public class CClosure implements ITheory {
 			// correctly by Polynomial when t2 is itself a normalized sum (the inner sum is treated as one monomial).
 			rhsTerm = mClausifier.addConstantToTerm(rhsTerm, offset);
 		}
-		final EqualityProxy ep = mClausifier.createEqualityProxy(lhsTerm, rhsTerm, null);
+		final EqualityProxy ep = mClausifier.createEqualityProxy(lhsTerm, rhsTerm,
+				SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		if (ep == EqualityProxy.getFalseProxy()) {
 			return null;
 		}
 		if (!createLAEquality) {
-			final Literal res = ep.getLiteral(null);
+			final Literal res = ep.getLiteral(SourceAnnotation.EMPTY_SOURCE_ANNOT);
 			if (res instanceof CCEquality) {
 				final CCEquality eq = (CCEquality) res;
 				if ((eq.getLhs() == t1 && eq.getRhs() == t2) || (eq.getLhs() == t2 && eq.getRhs() == t1)) {
@@ -1234,6 +1235,9 @@ public class CClosure implements ITheory {
 		}
 		// t1 and t2 are the offset-free CC nodes; pass them with this call's offset (which may differ from the proxy's
 		// canonical offset for a scaled equivalent) rather than round-tripping through the synthesized rhsTerm.
+		// This path creates an LAEquality, so it must only be taken for numeric equalities; a non-numeric equality
+		// always matches the literal above (a mismatch would indicate a stale atom referencing removed CCTerms).
+		assert lhsTerm.getSort().isNumericSort();
 		return ep.createCCEquality(t1, t2, offset);
 	}
 

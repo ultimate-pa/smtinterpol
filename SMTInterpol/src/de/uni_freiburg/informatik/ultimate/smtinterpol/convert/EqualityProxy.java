@@ -128,7 +128,7 @@ public class EqualityProxy {
 	 */
 	public CCEquality createCCEquality(final CCTerm ccLhs, final CCTerm ccRhs, final Rational offset) {
 		assert ccLhs != null && ccRhs != null;
-		final DPLLAtom eqAtom = getLiteral(null);
+		final DPLLAtom eqAtom = getLiteral(SourceAnnotation.EMPTY_SOURCE_ANNOT);
 		LAEquality laeq;
 		if (eqAtom instanceof CCEquality) {
 			final CCEquality eq = (CCEquality) eqAtom;
