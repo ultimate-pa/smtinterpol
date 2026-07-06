@@ -22,6 +22,7 @@ import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -56,7 +57,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.NumericSortInterpre
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCEquality;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.SymmetricPair;
 import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
@@ -700,9 +703,96 @@ public class LinArSolve implements ITheory {
 			}
 		}
 		if (mSuggestions.isEmpty() && mProplist.isEmpty()) {
+			if (mClausifier.createOffsetEqualities()) {
+				// Offset equalities: shared terms are offset-free, so whole-term mbtc (which groups by value)
+				// would wrongly merge terms that share an offset-free value but differ by a constant. MBTC instead
+				// ranges over numeric clash slots and proposes per-argument offset equalities.
+				return mbtcClashSlots();
+			}
 			return mbtc(cong);
 		}
 		assert compositesSatisfied();
+		return null;
+	}
+
+	/**
+	 * The value of a numeric clash-slot member as an exact infinitesimal number. The member's congruence class carries
+	 * its linear-arithmetic value on the representative's shared term ({@code rep.getSharedTerm()}), which need not be
+	 * the representative itself, so its offset-to-rep is folded back in:
+	 *
+	 * <pre>
+	 *   value(param) = sharedTermValue(rep.mSharedTerm)   // LA value of the offset-free shared term
+	 *                - rep.mSharedTerm.getOffsetToRep()    // shift back to the representative
+	 *                + param.getOffsetToRep()              // shift out to the member
+	 * </pre>
+	 *
+	 * The caller guarantees {@code param.getRepresentative().getSharedTerm() != null} (clash slots drop LA-free
+	 * members).
+	 */
+	private ExactInfinitesimalNumber clashMemberValue(final CCParameter param) {
+		final CCTerm rep = param.getRepresentative();
+		final CCTerm sharedCC = rep.getSharedTerm();
+		final LASharedTerm laShared = mClausifier.getLATerm(sharedCC.getFlatTerm());
+		final ExactInfinitesimalNumber repValue =
+				sharedTermValue(laShared).sub(new ExactInfinitesimalNumber(sharedCC.getOffsetToRep()));
+		return repValue.add(new ExactInfinitesimalNumber(param.getOffsetToRep()));
+	}
+
+	/**
+	 * Model-based theory combination over numeric clash slots (offset-equality mode). For each slot
+	 * (see {@link CClosure#getNumericClashSlots()}) the members are grouped by value; two members with equal value but
+	 * in distinct affine classes get an offset equality proposed, encoded as an offset CCEquality between their base
+	 * CCTerms ({@code value(param) == value(other)}). The equality is propagated when already implied or suggested as a
+	 * decision otherwise, mirroring {@link #mbtc}.
+	 */
+	private Clause mbtcClashSlots() {
+		final Collection<List<CCParameter>> slots = mClausifier.getCClosure().getNumericClashSlots();
+		for (final List<CCParameter> slot : slots) {
+			if (slot.size() <= 1) {
+				continue;
+			}
+			final Map<ExactInfinitesimalNumber, CCParameter> byValue = new HashMap<>();
+			for (final CCParameter param : slot) {
+				final ExactInfinitesimalNumber value = clashMemberValue(param);
+				final CCParameter other = byValue.get(value);
+				if (other == null) {
+					byValue.put(value, param);
+				} else if (!param.sameValueAs(other)) {
+					// Equal value but distinct affine classes: propose value(param) == value(other) as an offset
+					// CCEquality between the two base CCTerms (offset = other.getOffset() - param.getOffset()).
+					final CCEquality cceq = mClausifier.getCClosure().createEquality(param, other, true);
+					if (cceq == null) {
+						// false proxy: the two terms can never be equal; cannot happen for equal-valued members.
+						continue;
+					}
+					final Clause conflict = suggestOrPropagate(cceq);
+					if (conflict != null) {
+						return conflict;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Hand a model-based equality to the engine: propagate it if its truth value is already implied (or report the
+	 * conflict if it was decided false), otherwise suggest the linked LA equality as a decision. Shared by clash-slot
+	 * MBTC and the legacy whole-term {@link #mbtc}.
+	 */
+	private Clause suggestOrPropagate(final CCEquality cceq) {
+		if (cceq.getLASharedData().getDecideStatus() != null) {
+			if (cceq.getDecideStatus() == cceq.negate()) {
+				return generateEqualityClause(cceq);
+			} else if (cceq.getDecideStatus() == null) {
+				mProplist.add(cceq);
+			} else {
+				mClausifier.getLogger().debug("already set: %s", cceq.getAtom().getDecideStatus());
+			}
+		} else {
+			mClausifier.getLogger().debug("MBTC: Suggesting literal %s", cceq);
+			mSuggestions.add(cceq.getLASharedData());
+		}
 		return null;
 	}
 
@@ -1192,22 +1282,62 @@ public class LinArSolve implements ITheory {
 			}
 		}
 		fpr.add(shared.getOffset());
-		return fpr.getSummands();
+		final Map<LinVar, Rational> fingerprint = fpr.getSummands();
+		if (mClausifier.createOffsetEqualities()) {
+			// Ignore the constant part (accumulated under the null key from the offset and from any fixed
+			// variables): two shared terms then collide when their non-constant parts agree, i.e. they are
+			// provably equal up to a constant. That constant is an offset equality congruence closure can use; the
+			// exact offset is recovered from the value difference at the collision site in
+			// propagateSharedEqualities.
+			fingerprint.remove(null);
+		}
+		return fingerprint;
 	}
 
 	public Clause propagateSharedEquality(LASharedTerm lhs, LASharedTerm rhs,
 			HashSet<SymmetricPair<CCTerm>> propagated) {
-		final CCTerm lhsCC = mClausifier.getCCTerm(lhs.getTerm()).getRepresentative();
-		final CCTerm rhsCC = mClausifier.getCCTerm(rhs.getTerm()).getRepresentative();
-		if (lhsCC == rhsCC || !propagated.add(new SymmetricPair<CCTerm>(lhsCC, rhsCC))) {
+		return propagateSharedEquality(lhs, rhs, Rational.ZERO, propagated);
+	}
+
+	/**
+	 * Propagate that two shared terms have values differing by a constant, i.e. {@code value(lhs) == value(rhs) +
+	 * offset}. With a zero offset this is the classic shared-term equality; with a non-zero offset (only created when
+	 * offset equalities are enabled) it states {@code lhs == rhs + offset} as an offset CCEquality, so congruence
+	 * closure can merge the two terms at that offset.
+	 */
+	public Clause propagateSharedEquality(LASharedTerm lhs, LASharedTerm rhs, Rational offset,
+			HashSet<SymmetricPair<CCTerm>> propagated) {
+		final CCTerm lhsCCTerm = mClausifier.getCCTerm(lhs.getTerm());
+		final CCTerm rhsCCTerm = mClausifier.getCCTerm(rhs.getTerm());
+		final CCTerm lhsCC = lhsCCTerm.getRepresentative();
+		final CCTerm rhsCC = rhsCCTerm.getRepresentative();
+		if (lhsCC == rhsCC && lhsCCTerm.getOffsetToRep().sub(rhsCCTerm.getOffsetToRep()).equals(offset)) {
+			// lhs and rhs are already in the same affine class at exactly this offset: nothing to propagate.
 			return null;
 		}
-		final EqualityProxy eq = mClausifier.createEqualityProxy(lhs.getTerm(), rhs.getTerm(), null);
-		assert eq != EqualityProxy.getTrueProxy();
+		if (!propagated.add(new SymmetricPair<CCTerm>(lhsCC, rhsCC))) {
+			// Already handled this (representative) pair in this round. This also deduplicates the inconsistent
+			// same-class/different-offset case (a self-pair (rep, rep)), so the offset conflict that the CCEquality
+			// propagation below triggers in congruence closure is created only once.
+			return null;
+		}
+		// Encode the offset into the right-hand term so the EqualityProxy and resulting CCEquality carry it.
+		Term rhsTerm = rhs.getTerm();
+		if (!offset.equals(Rational.ZERO)) {
+			rhsTerm = mClausifier.addConstantToTerm(rhsTerm, offset);
+		}
+		final EqualityProxy eq = mClausifier.createEqualityProxy(lhs.getTerm(), rhsTerm, null);
+		if (eq == EqualityProxy.getTrueProxy()) {
+			// lhs and rhs + offset are the same term: the offset equality is a tautology between two distinct constant
+			// terms (offset-equivalent non-constant terms already share a CCTerm and hit the lhsCC == rhsCC return
+			// above). There is nothing for congruence closure to merge.
+			return null;
+		}
 		if (eq == EqualityProxy.getFalseProxy()) {
 			// We found a conflict while trying to propagate a shared equality.
 			// This can happen if the difference between the shared terms cannot be an integer.
 			// We insert the difference as new basic in the tableau and let bound propagation do the rest.
+			// The constant offset does not affect integrality, so the difference variable is lhs - rhs.
 			final MutableAffineTerm at = new MutableAffineTerm();
 			at.addMap(Rational.ONE, lhs.getSummands());
 			at.addMap(Rational.MONE, rhs.getSummands());
@@ -1216,7 +1346,9 @@ public class LinArSolve implements ITheory {
 			assert mDirty.get(var.mMatrixpos);
 			return null;
 		}
-		final CCEquality cceq = eq.createCCEquality(lhs.getTerm(), rhs.getTerm());
+		// The CCEquality is between the offset-free CCTerms of lhs and rhs at the known offset; the synthesized
+		// rhsTerm above only carries the offset for the EqualityProxy/atom identity, not the CC node lookup.
+		final CCEquality cceq = eq.createCCEquality(lhsCCTerm, rhsCCTerm, offset);
 		final LAEquality laeq = cceq.getLASharedData();
 		mClausifier.getLogger().debug("Propagate: %s  (laeq: %s) %s %s", cceq, laeq, cceq.getDecideStatus(),
 				laeq.getDecideStatus());
@@ -1249,22 +1381,44 @@ public class LinArSolve implements ITheory {
 		mLastNumFixed = numFix;
 		mClausifier.getLogger().debug("Shared Terms: %d, Matrix Size: %d + %d, Num Fixed: %d", mSharedVars.size(),
 				mLinvars.size() - mBasics.size(), mBasics.size(), mLastNumFixed);
+		// Snapshot the shared terms: propagating an offset equality synthesizes a term (rhs + offset) and shares
+		// it, which appends to mSharedVars. The snapshot avoids a ConcurrentModificationException; the newly shared
+		// term is offset-free-equivalent to an existing one and is picked up on the next call (gated by mLastNumFixed),
+		// where the offset-aware guard in propagateSharedEquality recognizes it as already known.
+		final List<LASharedTerm> sharedSnapshot = new ArrayList<>(mSharedVars);
 		// TODO: store sharedVars already separated by sorts.
 		final Set<Sort> sharedVarSorts = new LinkedHashSet<Sort>();
-		for (final LASharedTerm shared : mSharedVars) {
+		for (final LASharedTerm shared : sharedSnapshot) {
 			sharedVarSorts.add(shared.getTerm().getSort());
 		}
+		// When offset equalities are enabled the fingerprint ignores the constant part (see fingerprintSharedVar),
+		// so two shared terms collide when their non-constant parts agree, i.e. they are provably equal up to a
+		// constant. That constant is the offset of the propagated (offset) CCEquality. When offset equalities are
+		// disabled the fingerprint keeps the constant, terms collide only when provably equal, and the offset is zero.
 		for (final Sort sort : sharedVarSorts) {
 			final Map<Map<LinVar, Rational>, LASharedTerm> fingerprints = new HashMap<>();
 			final HashSet<SymmetricPair<CCTerm>> propagated = new HashSet<>();
-			for (final LASharedTerm shared : mSharedVars) {
+			for (final LASharedTerm shared : sharedSnapshot) {
 				if (shared.getTerm().getSort() == sort) {
-					final Map<LinVar,Rational> fingerprint = fingerprintSharedVar(shared);
+					final Map<LinVar, Rational> fingerprint = fingerprintSharedVar(shared);
 					final LASharedTerm other = fingerprints.get(fingerprint);
 					if (other == null) {
 						fingerprints.put(fingerprint, shared);
 					} else {
-						final Clause conflict = propagateSharedEquality(other, shared, propagated);
+						// other and shared have equal non-constant parts (the fingerprints collided), so they
+						// differ by a fixed constant: value(other) == value(shared) + offset. The non-constant
+						// parts cancel, so the value difference is exact and model-independent.
+						// The propagated offset is the difference of the terms' full SMT values. With offset
+						// equalities the LASharedTerm value is offset-free (the constant is dropped from both the value
+						// and the fingerprint), so the term constants are added back here; getTermConstant is zero when
+						// offset equalities are disabled, where sharedTermValue already carries the constant.
+						final Rational constDiff = mClausifier.getTermConstant(other.getTerm())
+								.sub(mClausifier.getTermConstant(shared.getTerm()));
+						final ExactInfinitesimalNumber diff = sharedTermValue(other).sub(sharedTermValue(shared))
+								.add(new ExactInfinitesimalNumber(constDiff));
+						assert diff.getEpsilon().signum() == 0;
+						final Clause conflict =
+								propagateSharedEquality(other, shared, diff.getRealValue(), propagated);
 						if (conflict != null || !mDirty.isEmpty()) {
 							return conflict;
 						}
@@ -1362,6 +1516,21 @@ public class LinArSolve implements ITheory {
 		// Do not merge two shared variables that are not yet merged.
 		final Map<ExactInfinitesimalNumber, List<LASharedTerm>> cong = getSharedCongruences();
 		for (final ExactInfinitesimalNumber value : cong.keySet()) {
+			final Rational eps = value.getEpsilon();
+			Set<ExactInfinitesimalNumber> confl = sharedPoints.get(eps);
+			if (confl == null) {
+				confl = new TreeSet<>();
+				sharedPoints.put(eps, confl);
+			}
+			confl.add(new ExactInfinitesimalNumber(value.getRealValue()));
+		}
+		// Also keep the clash-slot members (offset-shifted use-site values) from accidentally coinciding: the
+		// offset-free shared terms above no longer carry the per-argument constant once offset equalities are on.
+		for (final ModelSharedPoint pt : clashModelPoints()) {
+			ExactInfinitesimalNumber value = new ExactInfinitesimalNumber(pt.mOffset);
+			for (final Entry<LinVar, Rational> entry : pt.mSummands.entrySet()) {
+				value = value.add(entry.getKey().getValue().mul(entry.getValue()));
+			}
 			final Rational eps = value.getEpsilon();
 			Set<ExactInfinitesimalNumber> confl = sharedPoints.get(eps);
 			if (confl == null) {
@@ -1787,6 +1956,74 @@ public class LinArSolve implements ITheory {
 	}
 
 	/**
+	 * A model "shared point": a value {@code offset + sum(summands)} whose accidental coincidence with another such
+	 * point must be avoided during model construction. Besides the registered shared terms these include the numeric
+	 * clash-slot members (function arguments): with offset equalities a function argument's use-site value carries a
+	 * structural offset that the offset-free shared term no longer holds, so the offset is reattached here.
+	 */
+	private static final class ModelSharedPoint {
+		final Map<LinVar, Rational> mSummands;
+		final Rational mOffset;
+
+		ModelSharedPoint(final Map<LinVar, Rational> summands, final Rational offset) {
+			mSummands = summands;
+			mOffset = offset;
+		}
+	}
+
+	/**
+	 * Collect the numeric clash-slot members as model shared points carrying their offset-shifted use-site value
+	 * ({@code value(member) == value(rep) + (member.offsetToRep - sharedTerm.offsetToRep) + sum(sharedTerm summands)}).
+	 * Empty unless offset equalities are enabled: without offsets the shared terms already carry their full use-site
+	 * value, so whole-term collision avoidance suffices.
+	 */
+	private List<ModelSharedPoint> clashModelPoints() {
+		final List<ModelSharedPoint> points = new ArrayList<>();
+		if (!mClausifier.createOffsetEqualities()) {
+			return points;
+		}
+		for (final List<CCParameter> slot : mClausifier.getCClosure().getNumericClashSlots()) {
+			for (final CCParameter param : slot) {
+				final CCTerm rep = param.getRepresentative();
+				final CCTerm sharedCC = rep.getSharedTerm();
+				final LASharedTerm laShared = mClausifier.getLATerm(sharedCC.getFlatTerm());
+				if (laShared == null) {
+					continue;
+				}
+				// laShared is offset-free, so its own value is sum(summands); the structural part of value(member)
+				// relative to it is (member.offsetToRep - sharedTerm.offsetToRep). laShared.getOffset() is zero here.
+				final Rational offset = param.getOffsetToRep().sub(sharedCC.getOffsetToRep()).add(laShared.getOffset());
+				points.add(new ModelSharedPoint(laShared.getSummands(), offset));
+			}
+		}
+		return points;
+	}
+
+	/**
+	 * Add one model shared point (its current value and its sensitivity to the mutating variable) to the slope-keyed
+	 * {@code sharedPoints} map used by {@link #choose}.
+	 */
+	private void addModelSharedPoint(final Map<LinVar, Rational> summands, final Rational offset,
+			final Map<LinVar, Rational> basicFactors, final Map<Rational, Set<ExactInfinitesimalNumber>> sharedPoints) {
+		Rational sharedCoeff = Rational.ZERO;
+		ExactInfinitesimalNumber sharedCurVal = new ExactInfinitesimalNumber(offset, Rational.ZERO);
+		for (final Entry<LinVar, Rational> entry : summands.entrySet()) {
+			final LinVar lv = entry.getKey();
+			final Rational factor = entry.getValue();
+			if (basicFactors.containsKey(lv)) {
+				sharedCoeff = sharedCoeff.addmul(basicFactors.get(lv), factor);
+			}
+			sharedCurVal = sharedCurVal.add(lv.getValue().mul(factor));
+		}
+		Set<ExactInfinitesimalNumber> set = sharedPoints.get(sharedCoeff);
+		if (set == null) {
+			set = new TreeSet<>();
+			sharedPoints.put(sharedCoeff, set);
+		}
+		set.add(sharedCurVal);
+	}
+
+	/**
 	 * Mutate a model such that less variables have the same value.
 	 *
 	 * TODO This method is still very inefficient. Even if all variables have
@@ -1795,6 +2032,7 @@ public class LinArSolve implements ITheory {
 	private void mutate() {
 		final Map<Rational, Set<ExactInfinitesimalNumber>> sharedPoints = new TreeMap<>();
 		final Set<ExactInfinitesimalNumber> prohib = new TreeSet<>();
+		final List<ModelSharedPoint> clashPoints = clashModelPoints();
 		for (final LinVar mutatingLV : mLinvars) {
 			if (mutatingLV.mBasic || mutatingLV.getTightUpperBound().equals(mutatingLV.getTightLowerBound())) {
 				// variable is basic or is fixed by its own constraints
@@ -1844,25 +2082,14 @@ public class LinArSolve implements ITheory {
 				}
 			}
 
-			// Do not merge two shared variables
+			// Do not merge two shared variables (offset-free) or two clash-slot members (offset-shifted use-site
+			// values). The clash points restore the per-argument distinctness that whole-term sharing provided
+			// before offset equalities; without them a function would be modelled inconsistently.
 			for (final LASharedTerm sharedVar : mSharedVars) {
-				Rational sharedCoeff = Rational.ZERO;
-				ExactInfinitesimalNumber sharedCurVal = new ExactInfinitesimalNumber(sharedVar.getOffset(),
-						Rational.ZERO);
-				for (final Entry<LinVar, Rational> entry : sharedVar.getSummands().entrySet()) {
-					final LinVar lv = entry.getKey();
-					final Rational factor = entry.getValue();
-					if (basicFactors.containsKey(lv)) {
-						sharedCoeff = sharedCoeff.addmul(basicFactors.get(lv), factor);
-					}
-					sharedCurVal = sharedCurVal.add(lv.getValue().mul(factor));
-				}
-				Set<ExactInfinitesimalNumber> set = sharedPoints.get(sharedCoeff);
-				if (set == null) {
-					set = new TreeSet<>();
-					sharedPoints.put(sharedCoeff, set);
-				}
-				set.add(sharedCurVal);
+				addModelSharedPoint(sharedVar.getSummands(), sharedVar.getOffset(), basicFactors, sharedPoints);
+			}
+			for (final ModelSharedPoint pt : clashPoints) {
+				addModelSharedPoint(pt.mSummands, pt.mOffset, basicFactors, sharedPoints);
 			}
 			// If there is no integer constraint for the non-basic manipulate
 			// it by eps, otherwise incrementing by a multiple of gcd.inverse()
@@ -1877,6 +2104,17 @@ public class LinArSolve implements ITheory {
 	}
 
 	/**
+	 * Compute the current value of a shared term: its constant offset plus the weighted values of its summands.
+	 */
+	private ExactInfinitesimalNumber sharedTermValue(final LASharedTerm shared) {
+		ExactInfinitesimalNumber value = new ExactInfinitesimalNumber(shared.getOffset());
+		for (final Entry<LinVar, Rational> entry : shared.getSummands().entrySet()) {
+			value = value.add(entry.getKey().getValue().mul(entry.getValue()));
+		}
+		return value;
+	}
+
+	/**
 	 * Compute the value of each shared variable as exact infinite number.
 	 *
 	 * @return A map from the value to the list of shared variables that have this
@@ -1886,12 +2124,7 @@ public class LinArSolve implements ITheory {
 		mClausifier.getLogger().debug("Shared Vars:");
 		final Map<ExactInfinitesimalNumber, List<LASharedTerm>> result = new HashMap<>();
 		for (final LASharedTerm shared : mSharedVars) {
-			ExactInfinitesimalNumber value = new ExactInfinitesimalNumber(shared.getOffset());
-			for (final Entry<LinVar, Rational> entry : shared.getSummands().entrySet()) {
-				final LinVar lv = entry.getKey();
-				final Rational factor = entry.getValue();
-				value = value.add(lv.getValue().mul(factor));
-			}
+			final ExactInfinitesimalNumber value = sharedTermValue(shared);
 			mClausifier.getLogger().debug("%s = %s", shared, value);
 			List<LASharedTerm> slot = result.get(value);
 			if (slot == null) {
@@ -2094,17 +2327,9 @@ public class LinArSolve implements ITheory {
 				assert eq != EqualityProxy.getTrueProxy();
 				assert eq != EqualityProxy.getFalseProxy();
 				cceq = eq.createCCEquality(lhs, rhs);
-				if (cceq.getLASharedData().getDecideStatus() != null) { // NOPMD
-					if (cceq.getDecideStatus() == cceq.negate()) {
-						return generateEqualityClause(cceq);
-					} else if (cceq.getDecideStatus() == null) {
-						mProplist.add(cceq);
-					} else {
-						mClausifier.getLogger().debug("already set: %s", cceq.getAtom().getDecideStatus());
-					}
-				} else {
-					mClausifier.getLogger().debug("MBTC: Suggesting literal %s", cceq);
-					mSuggestions.add(cceq.getLASharedData());
+				final Clause conflict = suggestOrPropagate(cceq);
+				if (conflict != null) {
+					return conflict;
 				}
 			}
 		}
