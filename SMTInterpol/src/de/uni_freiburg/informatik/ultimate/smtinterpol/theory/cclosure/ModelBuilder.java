@@ -55,6 +55,14 @@ public class ModelBuilder {
 	SharedTermEvaluator mEvaluator;
 	Map<CCTerm, Term> mModelValues = new HashMap<>();
 	Theory mTheory;
+	/**
+	 * For each representative of a numeric congruence class, the minimal/maximal offset at which any use site (a class
+	 * member or a function application argument) references the class. The value at such a use site is the
+	 * representative's value plus the offset, so a freshly chosen class value must keep the whole range
+	 * {@code [value+min, value+max]} clear of other model values, not just the value itself.
+	 */
+	Map<CCTerm, Rational> mMinOffset = new HashMap<>();
+	Map<CCTerm, Rational> mMaxOffset = new HashMap<>();
 
 	public ModelBuilder(final CClosure closure, final List<CCTerm> terms, final Model model,
 			final Theory t, final SharedTermEvaluator ste,
@@ -63,6 +71,25 @@ public class ModelBuilder {
 		mModel = model;
 		mEvaluator = ste;
 		mTheory = t;
+
+		// collect the offset range at which each numeric class is used: every member and every function application
+		// argument is a use site whose model value is the representative's value plus its offset to the representative.
+		for (final CCTerm term : terms) {
+			final Term flatTerm = term.getFlatTerm();
+			if (flatTerm != null && flatTerm.getSort().isNumericSort()) {
+				updateOffsetRange(term.getRepresentative(), term.getOffsetToRep());
+			}
+			if (term instanceof CCAppTerm) {
+				final CCAppTerm app = (CCAppTerm) term;
+				for (int i = 0; i < app.getArgCount(); i++) {
+					final CCParameter arg = app.getArgParam(i);
+					final Term argTerm = arg.getCCTerm().getFlatTerm();
+					if (argTerm != null && argTerm.getSort().isNumericSort()) {
+						updateOffsetRange(arg.getRepresentative(), arg.getOffsetToRep());
+					}
+				}
+			}
+		}
 
 		// create a map from sorts to representatives of that sort.
 		final LinkedHashMap<Sort, List<CCTerm>> repsBySort = new LinkedHashMap<>();
@@ -174,10 +201,29 @@ public class ModelBuilder {
 		return NumericSortInterpretation.toRational(repValue).add(param.getOffsetToRep()).toTerm(sort);
 	}
 
+	private void updateOffsetRange(final CCTerm rep, final Rational offset) {
+		final Rational min = mMinOffset.get(rep);
+		if (min == null || offset.compareTo(min) < 0) {
+			mMinOffset.put(rep, offset);
+		}
+		final Rational max = mMaxOffset.get(rep);
+		if (max == null || offset.compareTo(max) > 0) {
+			mMaxOffset.put(rep, offset);
+		}
+	}
+
 	public void setModelValue(final CCTerm term, final Term value) {
 		assert term == term.getRepresentative();
 		final Term old = mModelValues.put(term, value);
 		mModel.provideSortInterpretation(value.getSort()).register(value);
+		if (value.getSort().isNumericSort()) {
+			// mark the largest use-site value of the class as used, so fresh values avoid the whole class range.
+			final Rational maxOffset = mMaxOffset.get(term);
+			if (maxOffset != null && maxOffset.signum() > 0) {
+				mModel.provideSortInterpretation(value.getSort())
+						.register(NumericSortInterpretation.toRational(value).add(maxOffset).toTerm(value.getSort()));
+			}
+		}
 		assert old == null || old == value;
 	}
 
@@ -238,8 +284,15 @@ public class ModelBuilder {
 		// Handle all delayed elements
 		// note that extendFresh must be called after all values in the model have been extended to the numeric sort.
 		for (final CCTerm ccterm : delayed) {
-			final Term value = mModel.extendFresh(ccterm.getFlatTerm().getSort());
-			setModelValue(ccterm, value);
+			final Sort sort = ccterm.getFlatTerm().getSort();
+			Rational value = NumericSortInterpretation.toRational(mModel.extendFresh(sort));
+			// shift by the class's smallest use-site offset, so even the smallest use-site value (value + minOffset)
+			// is the fresh one; setModelValue then marks the largest one (value + maxOffset) as used.
+			final Rational minOffset = mMinOffset.get(ccterm);
+			if (minOffset != null && minOffset.signum() < 0) {
+				value = value.sub(minOffset);
+			}
+			setModelValue(ccterm, value.toTerm(sort));
 		}
 	}
 
