@@ -1321,19 +1321,27 @@ public class LinArSolve implements ITheory {
 			// propagation below triggers in congruence closure is created only once.
 			return null;
 		}
-		// Encode the offset into the right-hand term so the EqualityProxy and resulting CCEquality carry it.
-		Term rhsTerm = rhs.getTerm();
-		if (!offset.equals(Rational.ZERO)) {
-			rhsTerm = mClausifier.addConstantToTerm(rhsTerm, offset);
+		// An Int-sorted lhs can only ever be offset-equal to rhs at an integral offset; a fractional offset means
+		// the equality is refuted, exactly like the eq == getFalseProxy() case below - except we cannot even build
+		// rhs + offset to ask EqualityProxy (Theory.constant rejects a non-integral constant of Int sort), so treat
+		// it as refuted directly without attempting the term construction.
+		final boolean refutedByIntegrality = !offset.isIntegral() && lhs.getTerm().getSort().getName().equals("Int");
+		EqualityProxy eq = null;
+		if (!refutedByIntegrality) {
+			// Encode the offset into the right-hand term so the EqualityProxy and resulting CCEquality carry it.
+			Term rhsTerm = rhs.getTerm();
+			if (!offset.equals(Rational.ZERO)) {
+				rhsTerm = mClausifier.addConstantToTerm(rhsTerm, offset);
+			}
+			eq = mClausifier.createEqualityProxy(lhs.getTerm(), rhsTerm, null);
+			if (eq == EqualityProxy.getTrueProxy()) {
+				// lhs and rhs + offset are the same term: the offset equality is a tautology between two distinct
+				// constant terms (offset-equivalent non-constant terms already share a CCTerm and hit the
+				// lhsCC == rhsCC return above). There is nothing for congruence closure to merge.
+				return null;
+			}
 		}
-		final EqualityProxy eq = mClausifier.createEqualityProxy(lhs.getTerm(), rhsTerm, null);
-		if (eq == EqualityProxy.getTrueProxy()) {
-			// lhs and rhs + offset are the same term: the offset equality is a tautology between two distinct constant
-			// terms (offset-equivalent non-constant terms already share a CCTerm and hit the lhsCC == rhsCC return
-			// above). There is nothing for congruence closure to merge.
-			return null;
-		}
-		if (eq == EqualityProxy.getFalseProxy()) {
+		if (refutedByIntegrality || eq == EqualityProxy.getFalseProxy()) {
 			// We found a conflict while trying to propagate a shared equality.
 			// This can happen if the difference between the shared terms cannot be an integer.
 			// We insert the difference as new basic in the tableau and let bound propagation do the rest.
