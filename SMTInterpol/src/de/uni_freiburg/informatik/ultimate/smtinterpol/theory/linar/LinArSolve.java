@@ -157,6 +157,13 @@ public class LinArSolve implements ITheory {
 	 * The variables for which we need to recompute the composite bounds.
 	 */
 	private final BitSet mDirty;
+	/**
+	 * Basic variables that just became fixed (isFixed() turned true while mBasic), populated by setBound() and
+	 * drained by pivotEqualities(). Since isFixed() can only turn false again via backtrack (which invalidates
+	 * whatever this set held anyway), a row that pivotEqualities() finds has no non-fixed column to pivot with
+	 * (a redundant equality - a combination of already-fixed variables) is only ever visited once.
+	 */
+	private final BitSet mDirtyEqualities;
 	private LinVar mConflictVar;
 	private Rational mEps;
 
@@ -182,6 +189,7 @@ public class LinArSolve implements ITheory {
 		mDependentRows = new ArrayList<>();
 		mIntVars = new LinkedHashSet<>();
 		mDirty = new BitSet();
+		mDirtyEqualities = new BitSet();
 		mProplist = new ArrayDeque<>();
 		mSuggestions = new ArrayDeque<>();
 		mBasics = new ScopedHashMap<>();
@@ -1015,10 +1023,12 @@ public class LinArSolve implements ITheory {
 				mDirty.or(dependencies);
 			}
 		}
+		boolean tightened = false;
 		if (reason.isUpper()) {
 			// check if bound is stronger
 			final InfinitesimalNumber oldBound = var.getTightUpperBound();
 			if (reason.getExactBound().less(var.getExactUpperBound())) {
+				tightened = true;
 				reason.setOldReason(var.mUpper);
 				var.mUpper = reason;
 
@@ -1058,6 +1068,7 @@ public class LinArSolve implements ITheory {
 			// check if bound is stronger
 			final InfinitesimalNumber oldBound = var.getTightLowerBound();
 			if (var.getExactLowerBound().less(reason.getExactBound())) {
+				tightened = true;
 				reason.setOldReason(var.mLower);
 				var.mLower = reason;
 
@@ -1095,6 +1106,11 @@ public class LinArSolve implements ITheory {
 		final InfinitesimalNumber ubound = var.getTightUpperBound();
 		final InfinitesimalNumber lbound = var.getTightLowerBound();
 		if (lbound.equals(ubound)) {
+			if (tightened && var.mBasic) {
+				// var just became fixed (this bound just tightened onto the other, already-set one) while basic:
+				// a candidate for pivotEqualities() to pivot to nonbasic.
+				mDirtyEqualities.set(var.mMatrixpos);
+			}
 			LAEquality lasd = var.mEqualities.get(lbound);
 			if (lasd == null) {
 				final MutableAffineTerm at = new MutableAffineTerm();
@@ -1210,23 +1226,29 @@ public class LinArSolve implements ITheory {
 	}
 
 	public void pivotEqualities() {
-//		for (int rowIndex = 0; rowIndex < mLinvars.size(); rowIndex++) {
-//			final LinVar rowVar = mLinvars.get(rowIndex);
-//			if (rowVar.mBasic && rowVar.isFixed()) {
-//				// this is a basic variable that is an equality. Check if we can pivot it with
-//				// one of the columns.
-//				final TableauxRow row = mTableaux.get(rowIndex);
-//				assert rowIndex == row.getRawIndex(0);
-//				for (int j = 1; j < row.size(); j++) {
-//					final int colIndex = row.getRawIndex(j);
-//					if (!mLinvars.get(colIndex).isFixed()) {
-//						pivot(rowIndex, colIndex);
-//						updateVariableValue(rowVar, new ExactInfinitesimalNumber(rowVar.getTightUpperBound()));
-//						break;
-//					}
-//				}
-//			}
-//		}
+		for (int rowIndex = mDirtyEqualities.nextSetBit(0); rowIndex >= 0; rowIndex =
+				mDirtyEqualities.nextSetBit(rowIndex + 1)) {
+			final LinVar rowVar = mLinvars.get(rowIndex);
+			if (rowVar.mBasic && rowVar.isFixed()) {
+				// this is a basic variable that is an equality. Check if we can pivot it with
+				// one of the columns.
+				final TableauxRow row = mTableaux.get(rowIndex);
+				assert rowIndex == row.getRawIndex(0);
+				for (int j = 1; j < row.size(); j++) {
+					final int colIndex = row.getRawIndex(j);
+					if (!mLinvars.get(colIndex).isFixed()) {
+						pivot(rowIndex, colIndex);
+						updateVariableValue(rowVar, new ExactInfinitesimalNumber(rowVar.getTightUpperBound()));
+						break;
+					}
+				}
+				// If every column is itself already fixed, rowVar is a redundant equality (a combination of
+				// already-fixed variables) that cannot be pivoted to nonbasic. It stays basic and, since it will
+				// not be re-added here unless it becomes newly fixed again (impossible without an intervening
+				// backtrack), is not retried.
+			}
+		}
+		mDirtyEqualities.clear();
 	}
 
 	public void addToFingerprint(FingerPrint fpr, Rational coeff, LinVar lv) {
@@ -2498,6 +2520,7 @@ public class LinArSolve implements ITheory {
 			}
 			removeLinVar(var);
 			mDirty.clear(i);
+			mDirtyEqualities.clear(i);
 			mOob.remove(var);
 			/// Mark variable as dead
 			var.mAssertionstacklevel = -1;
