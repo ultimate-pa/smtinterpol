@@ -4572,8 +4572,28 @@ public class ProofSimplifier extends TermTransformer {
 	}
 
 	/**
+	 * Compute the multiplier that relates two equalities expressing the same affine
+	 * fact, i.e. two equalities with {@code equals} keys. It is {@code 1} if the two
+	 * equalities have their sides in the same order and {@code -1} if the sides are
+	 * swapped. Note that for degenerate keys, where both sides have the same
+	 * offset-free part (e.g. {@code (= 1 2)} and {@code (= 0 1)}, or {@code (= x (+ x
+	 * 1))} and {@code (= (+ x 1) x)}), the order cannot be determined by comparing
+	 * the offset-free parts, so the sign of the offset decides.
+	 *
+	 * @param eqKey       the key of the equality that is needed.
+	 * @param clauseEqKey the key of the equality as it appears in the clause.
+	 * @return the factor by which the clause equality must be multiplied to obtain
+	 *         the needed equality (and vice versa, as it is its own inverse).
+	 */
+	private Rational offsetFactor(final OffsetEqKey eqKey, final OffsetEqKey clauseEqKey) {
+		return eqKey.isSwapped(clauseEqKey) ? Rational.MONE : Rational.ONE;
+	}
+
+	/**
 	 * Prove the needed equalities and disequalities in the right form. It handles
-	 * symmetric cases and trivial equalities/disequalities.
+	 * symmetric cases, equalities that are shifted by a constant offset, and trivial
+	 * equalities. Trivial disequalities are always part of the clause, so they are
+	 * looked up like the other disequalities.
 	 *
 	 * @param proof               the proof that is modified to remove the
 	 *                            equalities/disequalities
@@ -4608,7 +4628,7 @@ public class ProofSimplifier extends TermTransformer {
 				} else {
 					// need shifted offset
 					final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
-					final Rational factor = (clauseEqKey.getLhs() == eqKey.getLhs() ? Rational.ONE : Rational.MONE);
+					final Rational factor = offsetFactor(eqKey, clauseEqKey);
 					final Term bridge = mProofUtils.proveEqWithMultiplier(clauseEqParam, eqParam, factor);
 					proof = res(eq, bridge, proof);
 				}
@@ -4619,6 +4639,8 @@ public class ProofSimplifier extends TermTransformer {
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
 			final OffsetEqKey eqKey = new OffsetEqKey(eqParam[0], eqParam[1]);
 			final ApplicationTerm clauseEq = (ApplicationTerm) allDisequalities.get(eqKey);
+			// trivial disequalities like x != x + 1 are always added to the clause by the proof generation
+			assert clauseEq != null : "Missing disequality " + eq + " in clause";
 			final Term[] clauseEqParam = clauseEq.getParameters();
 			if (clauseEq == eq) {
 				// nothing to do
@@ -4628,7 +4650,7 @@ public class ProofSimplifier extends TermTransformer {
 			} else {
 				// need shifted offset
 				final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
-				final Rational factor = (clauseEqKey.getLhs() == eqKey.getLhs() ? Rational.ONE : Rational.MONE);
+				final Rational factor = offsetFactor(eqKey, clauseEqKey);
 				final Term bridge = mProofUtils.proveEqWithMultiplier(eqParam, clauseEqParam, factor);
 				proof = res(eq, proof, bridge);
 			}

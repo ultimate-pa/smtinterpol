@@ -289,7 +289,7 @@ public class CCProofGenerator {
 						continue;
 					}
 					if (isTrivialDisequality(indexPair)) {
-						mTrivialDisequalities.add(key(indexPair));
+						mTrivialDisequalities.add(addAuxEquality(indexPair));
 						addAuxLiteral(indexPair, true);
 						continue;
 					}
@@ -334,7 +334,8 @@ public class CCProofGenerator {
 	private HashMap<OffsetPair, Literal> mEqualityLiterals;
 	private HashMap<OffsetPair, ProofInfo> mPathProofMap;
 	private LinkedHashSet<OffsetPair> mAllEqualities;
-	private LinkedHashSet<OffsetPair> mTrivialDisequalities;
+	/** The normalized literals of the trivial disequalities; each of them is proved by its own EQ lemma. */
+	private LinkedHashSet<Term> mTrivialDisequalities;
 	private ProofRules mProofRules;
 
 	/**
@@ -452,8 +453,7 @@ public class CCProofGenerator {
 			final SymmetricPair<CCParameter> mainDiseq = mAnnot.mDiseqParam;
 			if (!isDisequalityLiteral(mainDiseq)) {
 				assert isTrivialDisequality(mainDiseq);
-				mTrivialDisequalities.add(key(mainDiseq));
-				addAuxEquality(mainDiseq);
+				mTrivialDisequalities.add(addAuxEquality(mainDiseq));
 			}
 			mainInfo.mLemmaDiseq = mainDiseq;
 			mPathProofMap.put(key(mainDiseq), mainInfo);
@@ -639,17 +639,33 @@ public class CCProofGenerator {
 		final OffsetPair eqKey = key(equality);
 		if (!mAuxLiterals.containsKey(eqKey)) {
 			final Theory theory = mProofRules.getTheory();
-			Term lhs = equality.getFirst().getFlatTerm();
-			Term rhs = equality.getSecond().getFlatTerm();
-			// to make cc equalities different from la equalities, ensure that rhs is not a
-			// constant.
-			if (rhs.getSort().isNumericSort() && rhs instanceof ConstantTerm
-					&& ((ConstantTerm) rhs).getValue().equals(Rational.ZERO)) {
-				final Term constantTerm = rhs;
-				rhs = lhs;
-				lhs = constantTerm;
+			/*
+			 * Normalize the equality the same way CCEquality.getSMTFormula() renders an offset equality, i.e. as
+			 * (= offset-free-lhs (+ offset-free-rhs offset)), so that all equalities stating the same affine fact
+			 * produce the same term. For a degenerate key, where both sides have the same offset-free term, the sign
+			 * of the offset is not determined by the order of the sides, so it is normalized to be positive; this way
+			 * two trivial disequalities like 1 != 0 and 1 != 2 share the same clause literal (= 0 1).
+			 */
+			Term lhs = eqKey.getFirst().getFlatTerm();
+			Term rhs = eqKey.getSecond().getFlatTerm();
+			Rational offset = eqKey.mOffset;
+			final boolean needsSwap;
+			if (lhs == rhs) {
+				// the order of the sides carries no information; normalize the offset to be positive
+				needsSwap = offset.signum() < 0;
+			} else {
+				// to make cc equalities different from la equalities, ensure that rhs is not a constant.
+				needsSwap = rhs.getSort().isNumericSort() && rhs instanceof ConstantTerm
+						&& ((ConstantTerm) rhs).getValue().equals(Rational.ZERO);
 			}
-			mAuxLiterals.put(eqKey, theory.term("=", lhs, rhs));
+			if (needsSwap) {
+				// (= lhs (+ rhs offset)) states the same fact as (= rhs (+ lhs -offset))
+				final Term swapped = lhs;
+				lhs = rhs;
+				rhs = swapped;
+				offset = offset.negate();
+			}
+			mAuxLiterals.put(eqKey, theory.term("=", lhs, CCParameter.addConstant(rhs, offset)));
 		}
 		return mAuxLiterals.get(eqKey);
 	}
@@ -756,8 +772,7 @@ public class CCProofGenerator {
 			final Term lemma = buildLemma(proofRules, RuleKind.CONG, info, provedEq);
 			proof = proofRules.resolutionRule(provedEq, lemma, proof);
 		}
-		for (final OffsetPair trivialDiseq : mTrivialDisequalities) {
-			final Term provedEq = mAuxLiterals.get(trivialDiseq);
+		for (final Term provedEq : mTrivialDisequalities) {
 			final ProofLiteral[] proofLits = new ProofLiteral[] { new ProofLiteral(provedEq, false) };
 			final Term diseqLemma = proofRules.oracle(proofLits, EQAnnotation.getAnnotation());
 			proof = proofRules.resolutionRule(provedEq, proof, diseqLemma);
