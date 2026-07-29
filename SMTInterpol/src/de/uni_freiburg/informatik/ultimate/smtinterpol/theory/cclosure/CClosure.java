@@ -32,6 +32,8 @@ import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
@@ -353,12 +355,19 @@ public class CClosure implements ITheory {
 		return parents;
 	}
 
-	/** Key of a numeric clash slot: a (function symbol, argument position) pair. */
+	/** Pseudo argument position of the array element-value group, see {@link #getNumericClashSlots}. */
+	private static final int POS_ARRAY_ELEMENT = -1;
+
+	/**
+	 * Key of a numeric clash slot: a (function symbol, argument position) pair, or, for the array element-value group,
+	 * the array sort together with {@link #POS_ARRAY_ELEMENT}. Both function symbols and sorts are unified by the
+	 * theory, so the key compares them by identity.
+	 */
 	private static final class ClashKey {
-		final FunctionSymbol mSym;
+		final Object mSym;
 		final int mPos;
 
-		ClashKey(final FunctionSymbol sym, final int pos) {
+		ClashKey(final Object sym, final int pos) {
 			mSym = sym;
 			mPos = pos;
 		}
@@ -391,13 +400,23 @@ public class CClosure implements ITheory {
 	 * persistent, backtracked index; the signature todo queue is drained at every checkpoint, so all installed
 	 * reverse triggers are in the signature map by then.
 	 * <p>
-	 * Two sources are enumerated: the <em>congruence</em> source (every function-application argument position) and the
+	 * Three sources are enumerated: the <em>congruence</em> source (every function-application argument position), the
 	 * <em>reverse-trigger</em> source &mdash; an installed reverse trigger (e.g. from e-matching) watches a (symbol,
 	 * position) for applications whose argument has the watched value, so that value is a slot member, too: an MBTC
-	 * merge that moves an argument onto it activates the trigger. The deferred datatype numeric-field feed is still
-	 * future work.
+	 * merge that moves an argument onto it activates the trigger &mdash; and the <em>array element-value</em> source
+	 * described below. The deferred datatype numeric-field feed is still future work.
+	 * <p>
+	 * The array element-value group exists because {@link ArrayTheory} reads distinct congruence classes as distinct
+	 * values: its weakeq-ext fingerprints (and the weakeq propagations) tell two arrays apart by comparing the classes
+	 * of their element values, so if two such classes end up with the same value in the model, an array disequality
+	 * silently becomes false there. The element values it compares are the select applications of its {@code mSelects}
+	 * maps and the values of {@code const} arrays, so both are collected into one group per array sort &mdash; one
+	 * group, since a const value must also be comparable to a select value (read-const-weakeq), which per-(symbol,
+	 * position) slots can never do. Store values need no entry of their own: {@code addStoreAxiom} always asserts
+	 * {@code (= (select (store a i v) i) v)}, so the class of {@code v} contains a select application.
 	 *
-	 * @return the slots as lists of members; each list holds the numeric, LA-valued members at one (symbol, position).
+	 * @return the slots as lists of members; each list holds the numeric, LA-valued members at one (symbol, position)
+	 *         or the numeric element values of one array sort.
 	 */
 	public Collection<List<CCParameter>> getNumericClashSlots() {
 		final Map<ClashKey, List<CCParameter>> slots = new LinkedHashMap<>();
@@ -408,8 +427,9 @@ public class CClosure implements ITheory {
 			final CCAppTerm app = (CCAppTerm) term;
 			final FunctionSymbol sym = app.getFunctionSymbol();
 			for (int pos = 0; pos < app.getArgCount(); pos++) {
-				addClashMember(slots, sym, pos, app.getArgParam(pos));
+				addClashMember(slots, new ClashKey(sym, pos), app.getArgParam(pos));
 			}
+			addArrayElementValue(slots, app);
 		}
 		for (final SignatureTrigger sigTrigger : mSignatureTriggers.values()) {
 			if (!(sigTrigger instanceof ReverseTriggerTrigger)) {
@@ -418,7 +438,7 @@ public class CClosure implements ITheory {
 			for (final ReverseTrigger trigger : ((ReverseTriggerTrigger) sigTrigger).getTriggers()) {
 				final CCParameter arg = trigger.getArgument();
 				if (arg != null && trigger.getArgPosition() >= 0) {
-					addClashMember(slots, trigger.getFunctionSymbol(), trigger.getArgPosition(), arg);
+					addClashMember(slots, new ClashKey(trigger.getFunctionSymbol(), trigger.getArgPosition()), arg);
 				}
 			}
 		}
@@ -426,20 +446,40 @@ public class CClosure implements ITheory {
 	}
 
 	/**
+	 * Feed the array element-value group of one application: a select application contributes its own value, a
+	 * {@code const} application the value it is filled with. See {@link #getNumericClashSlots}.
+	 */
+	private static void addArrayElementValue(final Map<ClashKey, List<CCParameter>> slots, final CCAppTerm app) {
+		final String name = app.getFunctionSymbol().getName();
+		final Sort arraySort;
+		final CCParameter value;
+		if (name.equals(SMTLIBConstants.SELECT)) {
+			arraySort = app.getArgParam(0).getCCTerm().getFlatTerm().getSort();
+			value = app;
+		} else if (name.equals(SMTLIBConstants.CONST)) {
+			arraySort = app.getFlatTerm().getSort();
+			value = app.getArgParam(0);
+		} else {
+			return;
+		}
+		addClashMember(slots, new ClashKey(arraySort, POS_ARRAY_ELEMENT), value);
+	}
+
+	/**
 	 * Add one member to its clash slot, filtering to numeric, LA-valued members (see {@link #getNumericClashSlots}).
 	 */
-	private static void addClashMember(final Map<ClashKey, List<CCParameter>> slots, final FunctionSymbol sym,
-			final int pos, final CCParameter arg) {
+	private static void addClashMember(final Map<ClashKey, List<CCParameter>> slots, final ClashKey key,
+			final CCParameter arg) {
 		if (!arg.getCCTerm().getFlatTerm().getSort().isNumericSort()) {
 			return;
 		}
 		if (arg.getRepresentative().getSharedTerm() == null) {
 			return;
 		}
-		List<CCParameter> members = slots.get(new ClashKey(sym, pos));
+		List<CCParameter> members = slots.get(key);
 		if (members == null) {
 			members = new ArrayList<>();
-			slots.put(new ClashKey(sym, pos), members);
+			slots.put(key, members);
 		}
 		members.add(arg);
 	}
@@ -1086,7 +1126,18 @@ public class CClosure implements ITheory {
 			}
 		}
 		final CCTermPairHash.Info info = mPairHash.getInfo(lhs, rhs, repOffset(diseq));
-		assert info.mDiseq == null;
+		if (info.mDiseq != null) {
+			/*
+			 * The two classes are already separated at this offset by another asserted disequality, e.g. by an atom
+			 * between other members of the two classes; this happens when a merge brings the two atoms onto the same
+			 * representative pair and the second one is then set false by the arithmetic solver (so it has no diseq
+			 * reason to short-circuit on above). This literal adds no information: keep the recorded disequality and
+			 * skip the propagation, which it has already done. Overwriting it would be wrong, since undoSep() would
+			 * then drop the separation on backtracking while the other literal is still asserted. The recorded
+			 * disequality outlives this one, as it was asserted earlier.
+			 */
+			return;
+		}
 
 		mUndoStack.push(new SepUndoInfo(diseq));
 		info.mDiseq = diseq;
