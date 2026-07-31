@@ -31,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType;
@@ -213,6 +214,34 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Clause checkpoint() {
+		return runToCompletion(this::checkpointOnce);
+	}
+
+	/**
+	 * Run one pass of a rule application method and repeat it as long as it installed a master reverse trigger whose
+	 * applications CClosure has not collected yet, letting CClosure catch up in between. Without this, a pass that
+	 * asks a freshly installed trigger for the applications of a selector always sees none and can miss a rule
+	 * instance, e.g. rule 5 would not create the testers for a term whose selector applications all exist already.
+	 * The same pattern is used by QuantifierTheory for E-matching and by ArrayTheory for the weak equivalence graph.
+	 */
+	private Clause runToCompletion(final Supplier<Clause> onePass) {
+		while (true) {
+			mNewTrigger = false;
+			Clause conflict = onePass.get();
+			if (conflict != null) {
+				return conflict;
+			}
+			if (!mNewTrigger) {
+				return null;
+			}
+			conflict = mCClosure.checkpoint();
+			if (conflict != null) {
+				return conflict;
+			}
+		}
+	}
+
+	private Clause checkpointOnce() {
 		final Clause conflict = processPendingLemmas();
 		if (conflict != null) {
 			return conflict;
@@ -377,6 +406,10 @@ public class DataTypeTheory implements ITheory {
 
 	@Override
 	public Clause finalCheck() {
+		return runToCompletion(this::finalCheckOnce);
+	}
+
+	private Clause finalCheckOnce() {
 
 		// Get list of all data types. This prevents a concurrent modification error.
 		final List<CCTerm> dataTypeTerms = new ArrayList<>();
@@ -503,7 +536,7 @@ public class DataTypeTheory implements ITheory {
 		for (final Constructor constructor : dataType.getConstructors()) {
 			for (final String selector : constructor.getSelectors()) {
 				final FunctionSymbol selectorFunc = mTheory.getFunction(selector, dataTypeSort);
-				final MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, selectorFunc, 0);
+				final MasterReverseTrigger master = masterTrigger(selectorFunc);
 				final ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccTerm }));
 				if (revTriggerTrigger != null) {
 					for (final AppTermEntry appTerm : revTriggerTrigger.getApplications()) {
@@ -513,7 +546,7 @@ public class DataTypeTheory implements ITheory {
 				}
 			}
 			final FunctionSymbol isFunc = mTheory.getFunctionWithResult(SMTLIBConstants.IS, new String[] { constructor.getName() }, null, dataTypeSort);
-			final MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, isFunc, 0);
+			final MasterReverseTrigger master = masterTrigger(isFunc);
 			final ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccTerm }));
 			if (revTriggerTrigger != null) {
 				for (final AppTermEntry appTerm : revTriggerTrigger.getApplications()) {
@@ -830,6 +863,9 @@ public class DataTypeTheory implements ITheory {
 	public void pop() {
 		mPendingLemmas.clear();
 		mPendingEqualities.clear();
+		// The triggers are removed together with the terms they were installed for, so they may have to be
+		// installed (and collected by CClosure) again.
+		mInstalledTriggers.clear();
 		mRecheckOnBacktrack.endScope();
 		recheckTrigger();
 	}
@@ -884,13 +920,38 @@ public class DataTypeTheory implements ITheory {
 		addPendingLemma(lemma);
 	}
 
+	/**
+	 * The function symbols for which we already installed a master reverse trigger. Used by
+	 * {@link #masterTrigger(FunctionSymbol)} to detect a fresh installation, which the completion loops in
+	 * {@link #checkpoint()} and {@link #finalCheck()} have to let CClosure process before they can trust the trigger.
+	 */
+	private final HashSet<FunctionSymbol> mInstalledTriggers = new HashSet<>();
+	/** Set by {@link #masterTrigger(FunctionSymbol)} when it installed a trigger that CClosure has not processed. */
+	private boolean mNewTrigger;
+
+	/**
+	 * Get the master reverse trigger that collects the applications of the given function symbol at argument position
+	 * 0, installing it on first use.
+	 *
+	 * A freshly installed trigger only <em>queues</em> its activation on the applications that already exist (the
+	 * find trigger goes to CClosure's signature queue), so its application list is still empty when this returns. A
+	 * caller that concludes something from an empty list must therefore let CClosure process the queue and repeat;
+	 * that is what the loops in {@link #checkpoint()} and {@link #finalCheck()} use {@link #mNewTrigger} for.
+	 */
+	private MasterReverseTrigger masterTrigger(final FunctionSymbol funcSymbol) {
+		if (mInstalledTriggers.add(funcSymbol)) {
+			mNewTrigger = true;
+		}
+		return MasterReverseTrigger.of(mCClosure, funcSymbol, 0);
+	}
+
 	private boolean checkMissingInfiniteSelector(final CCTerm ccterm, Constructor constr) {
 		// check if only selectors with finite return sort are missing and build them
 		final Sort dataTypeSort = ccterm.mFlatTerm.getSort();
 		for (int i = 0; i < constr.getArgumentSorts().length; i++) {
 			if (mClausifier.isStablyInfinite(constr.getArgumentSorts()[i].mapSort(dataTypeSort.getArguments()))) {
 				final FunctionSymbol selector = mTheory.getFunction(constr.getSelectors()[i], dataTypeSort);
-				final MasterReverseTrigger master = MasterReverseTrigger.of(mCClosure, selector, 0);
+				final MasterReverseTrigger master = masterTrigger(selector);
 				final ReverseTriggerTrigger revTriggerTrigger = (ReverseTriggerTrigger) mCClosure.mSignatureTriggers.get(new SignatureTrigger(master, new CCTerm[] { ccterm }));
 				if (revTriggerTrigger == null || revTriggerTrigger.getApplications().isEmpty()) {
 					return true;
