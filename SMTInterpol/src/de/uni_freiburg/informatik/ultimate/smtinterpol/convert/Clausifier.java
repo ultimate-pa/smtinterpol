@@ -591,11 +591,16 @@ public class Clausifier {
 		return res;
 	}
 
+	/**
+	 * Get the CCTerm for the given term, or null if there is none. A null term has no CCTerm either; callers like the
+	 * E-matching instantiation look up substitutions that may be unconstrained (a null entry in a dawg key is its
+	 * default case) and treat null as "no CCTerm".
+	 */
 	public CCTerm getCCTerm(final Term term) {
 		// mCCTerms is keyed by offset-free terms only; an offseted term has no entry of its own (its CCParameter, with
 		// the constant as offset, is produced at build time by createCCTerm). Callers must normalize via
 		// getOffsetFreeTerm first, or use getCCParameter for a possibly offseted term.
-		assert getTermConstant(term).equals(Rational.ZERO) : "getCCTerm on offseted term " + term;
+		assert term == null || getTermConstant(term).equals(Rational.ZERO) : "getCCTerm on offseted term " + term;
 		return mCCTerms.get(term);
 	}
 
@@ -604,9 +609,13 @@ public class Clausifier {
 	 * the term's constant. Unlike {@link #getCCTerm} this accepts terms with a constant summand. This function does not
 	 * create new terms.
 	 *
-	 * @return the value of the term, or null if no CCTerm exists for the term's offset-free part.
+	 * @return the value of the term, or null if the term is null (see {@link #getCCTerm}) or no CCTerm exists for the
+	 *         term's offset-free part.
 	 */
 	public CCParameter getCCParameter(final Term term) {
+		if (term == null) {
+			return null;
+		}
 		final Rational constant = getTermConstant(term);
 		final CCTerm ccTerm = getCCTerm(constant.equals(Rational.ZERO) ? term : getOffsetFreeTerm(term));
 		return ccTerm == null ? null : CCParameter.of(ccTerm, constant);
