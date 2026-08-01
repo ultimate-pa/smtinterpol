@@ -842,6 +842,35 @@ public class Clausifier {
 		}
 	}
 
+	/**
+	 * Rewrite a clause literal into a form for which {@link CollectLiteral} can create a literal. Equalities need this:
+	 * an equality between Boolean terms is not a literal, so it is rewritten to {@code (not (xor lhs rhs))}, and an
+	 * equality between store terms is rewritten to an equality on the simpler sort (see
+	 * {@link LogicSimplifier#convertBinaryEq}). A negated literal is rewritten recursively.
+	 *
+	 * This is called for every literal the clausifier collects, so axioms that are built from terms instead of from
+	 * converted input (like {@link #addDiffAxiom} or {@link #addMatchAxiom}) work for Boolean sorts, too, without
+	 * having to convert their literals themselves.
+	 *
+	 * @param literal the literal to rewrite, possibly negated.
+	 * @return the rewrite proof from the literal to the collectable form. When nothing has to be rewritten this is a
+	 *         reflexivity proof, which the proof tracker removes again, so proofs are unchanged in that case.
+	 */
+	public Term rewriteLiteral(final Term literal) {
+		if (literal instanceof ApplicationTerm) {
+			final ApplicationTerm appTerm = (ApplicationTerm) literal;
+			final Term[] params = appTerm.getParameters();
+			if (appTerm.getFunction() == mTheory.mNot) {
+				return mUtils.convertNot(
+						mTracker.congruence(mTracker.reflexivity(literal), new Term[] { rewriteLiteral(params[0]) }));
+			}
+			if (appTerm.getFunction().getName() == SMTLIBConstants.EQUALS && params.length == 2) {
+				return mUtils.convertBinaryEq(mTracker.reflexivity(literal));
+			}
+		}
+		return mTracker.reflexivity(literal);
+	}
+
 	public void buildTautology(final Theory theory, final Term[] clause, final Annotation rule,
 			final SourceAnnotation source) {
 		final BuildClause bc = new BuildClause(this, mTracker.tautology(theory.term("or", clause), rule), source);
@@ -1165,9 +1194,7 @@ public class Clausifier {
 		final Term v = store.getParameters()[2];
 		final Term axiom = theory.term("=", theory.term("select", store, i), v);
 
-		final Term provedAxiom = mTracker.modusPonens(mTracker.tautology(axiom, ProofConstants.TAUT_ARRAY_STORE),
-				mUtils.convertBinaryEq(mTracker.reflexivity(axiom)));
-		buildClause(provedAxiom, source);
+		buildClause(mTracker.tautology(axiom, ProofConstants.TAUT_ARRAY_STORE), source);
 		if (Config.ARRAY_ALWAYS_ADD_READ
 				|| !isStablyInfinite(v.getSort())) {
 			final Term a = store.getParameters()[0];
