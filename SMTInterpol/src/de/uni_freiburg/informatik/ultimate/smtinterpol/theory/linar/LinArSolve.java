@@ -724,34 +724,44 @@ public class LinArSolve implements ITheory {
 	}
 
 	/**
-	 * The value of a numeric clash-slot member as an exact infinitesimal number. The member's congruence class carries
-	 * its linear-arithmetic value on the representative's shared term ({@code rep.getSharedTerm()}), which need not be
-	 * the representative itself, so its offset-to-rep is folded back in:
+	 * The shared term of a numeric clash-slot member's congruence class, offsetted so that it denotes the same value as
+	 * the member itself. The class carries its linear-arithmetic value on {@code rep.getSharedTerm()}, which need not
+	 * be the representative, so the member's value is that shared term shifted by
+	 * {@code member.getOffsetToRep() - sharedTerm.getOffsetToRep()}.
 	 *
-	 * <pre>
-	 *   value(param) = sharedTermValue(rep.mSharedTerm)   // LA value of the offset-free shared term
-	 *                - rep.mSharedTerm.getOffsetToRep()    // shift back to the representative
-	 *                + param.getOffsetToRep()              // shift out to the member
-	 * </pre>
+	 * Model-based theory combination works on these offsetted shared terms rather than on the members themselves. They
+	 * denote the same values, but they are already shared with linear arithmetic, so the equality proposed for a clash
+	 * relates exactly the terms whose values clashed. Relating the member terms instead would share them with linear
+	 * arithmetic as a side effect of building the equality atom (through its term axioms), which creates a fresh
+	 * unconstrained LinVar and, when the new term wins {@link CCTerm#share}'s merge-time comparison, makes that LinVar
+	 * the class's shared term; every member of that class would then read the value of an unconstrained variable until
+	 * the equality linking it to the class's previous shared term is propagated, which cannot happen before the running
+	 * check ends.
 	 *
-	 * The caller guarantees {@code param.getRepresentative().getSharedTerm() != null} (clash slots drop LA-free
+	 * The caller guarantees {@code member.getRepresentative().getSharedTerm() != null} (clash slots drop LA-free
 	 * members).
 	 */
-	private ExactInfinitesimalNumber clashMemberValue(final CCParameter param) {
-		final CCTerm rep = param.getRepresentative();
-		final CCTerm sharedCC = rep.getSharedTerm();
-		final LASharedTerm laShared = mClausifier.getLATerm(sharedCC.getFlatTerm());
-		final ExactInfinitesimalNumber repValue =
-				sharedTermValue(laShared).sub(new ExactInfinitesimalNumber(sharedCC.getOffsetToRep()));
-		return repValue.add(new ExactInfinitesimalNumber(param.getOffsetToRep()));
+	private static CCParameter clashSharedTerm(final CCParameter member) {
+		final CCTerm sharedCC = member.getRepresentative().getSharedTerm();
+		return CCParameter.of(sharedCC, member.getOffsetToRep().sub(sharedCC.getOffsetToRep()));
+	}
+
+	/**
+	 * The value of an offsetted shared term (see {@link #clashSharedTerm}) as an exact infinitesimal number: the
+	 * linear-arithmetic value of the shared term plus the offset.
+	 */
+	private ExactInfinitesimalNumber clashSharedValue(final CCParameter shared) {
+		final LASharedTerm laShared = mClausifier.getLATerm(shared.getCCTerm().getFlatTerm());
+		return sharedTermValue(laShared).add(new ExactInfinitesimalNumber(shared.getOffset()));
 	}
 
 	/**
 	 * Model-based theory combination over numeric clash slots (offset-equality mode). For each slot
-	 * (see {@link CClosure#getNumericClashSlots()}) the members are grouped by value; two members with equal value but
-	 * in distinct affine classes get an offset equality proposed, encoded as an offset CCEquality between their base
-	 * CCTerms ({@code value(param) == value(other)}). The equality is propagated when already implied or suggested as a
-	 * decision otherwise, mirroring {@link #mbtc}.
+	 * (see {@link CClosure#getNumericClashSlots()}) the members are replaced by their classes' offsetted shared terms
+	 * (see {@link #clashSharedTerm}) and grouped by value; two of them with equal value but in distinct affine classes
+	 * get the offset equality between them proposed, which merges the classes at the offset that makes the two members
+	 * equal and hence the applications they occur in congruent. The equality is propagated when already implied or
+	 * suggested as a decision otherwise, mirroring {@link #mbtc}.
 	 */
 	private Clause mbtcClashSlots() {
 		final Collection<List<CCParameter>> slots = mClausifier.getCClosure().getNumericClashSlots();
@@ -760,17 +770,21 @@ public class LinArSolve implements ITheory {
 				continue;
 			}
 			final Map<ExactInfinitesimalNumber, CCParameter> byValue = new HashMap<>();
-			for (final CCParameter param : slot) {
-				final ExactInfinitesimalNumber value = clashMemberValue(param);
+			for (final CCParameter member : slot) {
+				final CCParameter shared = clashSharedTerm(member);
+				final ExactInfinitesimalNumber value = clashSharedValue(shared);
 				final CCParameter other = byValue.get(value);
 				if (other == null) {
-					byValue.put(value, param);
-				} else if (!param.sameValueAs(other)) {
-					// Equal value but distinct affine classes: propose value(param) == value(other) as an offset
-					// CCEquality between the two base CCTerms (offset = other.getOffset() - param.getOffset()).
-					final CCEquality cceq = mClausifier.getCClosure().createEquality(param, other, true);
+					byValue.put(value, shared);
+				} else if (!shared.sameValueAs(other)) {
+					// Equal value in distinct affine classes, so the two shared terms are distinct and the equality
+					// between them is exactly the one that relates the two values that clashed.
+					assert shared.getCCTerm() != other.getCCTerm();
+					final CCEquality cceq = mClausifier.getCClosure().createEquality(shared, other, true);
 					if (cceq == null) {
-						// false proxy: the two terms can never be equal; cannot happen for equal-valued members.
+						// A false proxy, i.e. the two can never be equal at this offset - impossible, as they are equal
+						// at it in the current model. Skip rather than dereference null.
+						assert false : "MBTC clash equality is trivially false: " + shared + " == " + other;
 						continue;
 					}
 					final Clause conflict = suggestOrPropagate(cceq);
@@ -789,7 +803,8 @@ public class LinArSolve implements ITheory {
 	 * MBTC and the legacy whole-term {@link #mbtc}.
 	 */
 	private Clause suggestOrPropagate(final CCEquality cceq) {
-		if (cceq.getLASharedData().getDecideStatus() != null) {
+		final LAEquality laeq = cceq.getLASharedData();
+		if (laeq.getDecideStatus() == laeq) {
 			if (cceq.getDecideStatus() == cceq.negate()) {
 				return generateEqualityClause(cceq);
 			} else if (cceq.getDecideStatus() == null) {
@@ -797,9 +812,19 @@ public class LinArSolve implements ITheory {
 			} else {
 				mClausifier.getLogger().debug("already set: %s", cceq.getAtom().getDecideStatus());
 			}
-		} else {
+		} else if (laeq.getDecideStatus() == null) {
 			mClausifier.getLogger().debug("MBTC: Suggesting literal %s", cceq);
-			mSuggestions.add(cceq.getLASharedData());
+			mSuggestions.add(laeq);
+		} else {
+			/*
+			 * Unreachable: a proposed equality relates two terms of equal value (see mbtcClashSlots), so it holds in
+			 * the current model, and finalCheck runs model-based theory combination only once every asserted
+			 * disequality is satisfied by that model, so a decided LA equality can only be decided true here. Should it
+			 * happen anyway, drop the proposal rather than build {cceq, !laeq} from it: that clause is satisfied by
+			 * !laeq, so returning it as a conflict makes the engine resolve a non-conflict.
+			 */
+			assert false : "MBTC proposed an equality that linear arithmetic has refuted: " + laeq;
+			mClausifier.getLogger().debug("MBTC equality already refuted: %s", laeq.negate());
 		}
 		return null;
 	}
@@ -2013,17 +2038,16 @@ public class LinArSolve implements ITheory {
 			return points;
 		}
 		for (final List<CCParameter> slot : mClausifier.getCClosure().getNumericClashSlots()) {
-			for (final CCParameter param : slot) {
-				final CCTerm rep = param.getRepresentative();
-				final CCTerm sharedCC = rep.getSharedTerm();
-				final LASharedTerm laShared = mClausifier.getLATerm(sharedCC.getFlatTerm());
+			for (final CCParameter member : slot) {
+				final CCParameter shared = clashSharedTerm(member);
+				final LASharedTerm laShared = mClausifier.getLATerm(shared.getCCTerm().getFlatTerm());
 				if (laShared == null) {
 					continue;
 				}
-				// laShared is offset-free, so its own value is sum(summands); the structural part of value(member)
-				// relative to it is (member.offsetToRep - sharedTerm.offsetToRep). laShared.getOffset() is zero here.
-				final Rational offset = param.getOffsetToRep().sub(sharedCC.getOffsetToRep()).add(laShared.getOffset());
-				points.add(new ModelSharedPoint(laShared.getSummands(), offset));
+				// laShared is offset-free, so its own value is sum(summands) and the structural part of value(member)
+				// relative to it is the shared term's offset. laShared.getOffset() is zero here.
+				points.add(new ModelSharedPoint(laShared.getSummands(),
+						shared.getOffset().add(laShared.getOffset())));
 			}
 		}
 		return points;
