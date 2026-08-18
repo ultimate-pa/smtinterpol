@@ -782,10 +782,14 @@ public class LinArSolve implements ITheory {
 					assert shared.getCCTerm() != other.getCCTerm();
 					final CCEquality cceq = mClausifier.getCClosure().createEquality(shared, other, true);
 					if (cceq == null) {
-						// A false proxy, i.e. the two can never be equal at this offset - impossible, as they are equal
-						// at it in the current model. Skip rather than dereference null.
-						assert false : "MBTC clash equality is trivially false: " + shared + " == " + other;
-						continue;
+						/*
+						 * Unreachable: a false proxy means the two values can never be equal at this offset, e.g.
+						 * because their difference is a non-integral constant of Int sort, but they are equal at it in
+						 * the current model. Fail loudly instead of skipping the clash, which would let finalCheck
+						 * report sat although the two theories disagree on it.
+						 */
+						throw new AssertionError(
+								"MBTC clash equality is trivially false: " + shared + " == " + other);
 					}
 					final Clause conflict = suggestOrPropagate(cceq);
 					if (conflict != null) {
