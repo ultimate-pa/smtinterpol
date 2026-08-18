@@ -1148,14 +1148,19 @@ public class ArrayInterpolator {
 				return false;
 			}
 			final ArrayLit selectLit = lookupEquality(edgeLeft, edgeRight);
-			assert selectLit != null : "select edge without matching literal";
-			final Term selectEq = selectLit.mAtom;
-			final LitInfo stepInfo = selectLit.mInfo.getLitInfo();
+			// A trivial select/const edge, e.g. the step from (const (select b j)) to b: the const value *is* the
+			// select on the other array, so the two edge ends are the same term and the lemma contains no equality
+			// literal for the edge (see WeakCongruencePath.computeWeakCongruencePath, which only builds a path for
+			// select1 != select2). The step is justified by the const axiom alone, so it is available wherever the
+			// select term itself is, and there is no mixed variable.
+			assert selectLit != null || edgeLeft == edgeRight : "select edge without matching literal";
+			final Occurrence stepOcc =
+					selectLit != null ? selectLit.mInfo.getLitInfo() : mInterpolator.getOccurrence(edgeLeft);
 
 			Term boundaryTerm = left;
-			mTail.closeAPath(mHead, boundaryTerm, stepInfo);
-			mTail.openAPath(mHead, boundaryTerm, stepInfo);
-			final TermVariable mixedVar = stepInfo.getMixedVar();
+			mTail.closeAPath(mHead, boundaryTerm, stepOcc);
+			mTail.openAPath(mHead, boundaryTerm, stepOcc);
+			final TermVariable mixedVar = selectLit == null ? null : selectLit.mInfo.getLitInfo().getMixedVar();
 			if (mixedVar != null) {
 				final Occurrence leftOcc = mInterpolator.getOccurrence(edgeLeft);
 				// The left select can be A-local although we were on a B-path (and vice versa)
@@ -1175,7 +1180,7 @@ public class ArrayInterpolator {
 					// (a select is always offset-free, so a select/select edge has no shift).
 					boundaryTerm = buildConst(selectLit.mInfo.getMixedBoundary(), left.getSort());
 				} else {
-					boundaryTerm = selectEq;
+					boundaryTerm = selectLit.mAtom;
 				}
 				mTail.closeAPath(mHead, boundaryTerm, rightOcc);
 				mTail.openAPath(mHead, boundaryTerm, rightOcc);
