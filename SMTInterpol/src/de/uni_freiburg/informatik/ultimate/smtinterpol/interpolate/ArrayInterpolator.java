@@ -1157,9 +1157,6 @@ public class ArrayInterpolator {
 			mTail.openAPath(mHead, boundaryTerm, stepInfo);
 			final TermVariable mixedVar = stepInfo.getMixedVar();
 			if (mixedVar != null) {
-				// The mixed variable denotes the literal-level select value; a constant shift between the literal
-				// and the path-level edge is not yet supported here (the marker mechanism cannot carry it).
-				assert selectLit.mInfo.getShift().equals(Rational.ZERO) : "mixed select edge with offset";
 				final Occurrence leftOcc = mInterpolator.getOccurrence(edgeLeft);
 				// The left select can be A-local although we were on a B-path (and vice versa)
 				mTail.closeAPath(mHead, boundaryTerm, leftOcc);
@@ -1172,8 +1169,11 @@ public class ArrayInterpolator {
 			if (mixedVar != null) {
 				final Occurrence rightOcc = mInterpolator.getOccurrence(edgeRight);
 				if (isConstLeft || isConstRight) {
-					// It is a const select equality - we close the path with const(mixedVar)
-					boundaryTerm = buildConst(mixedVar, left.getSort());
+					// It is a const select equality - we close the path with const of the element value. The mixed
+					// variable denotes the value at literal level; the path-level element value is that shifted by
+					// the literal-to-edge shift, which is non-zero exactly when the const value carries an offset
+					// (a select is always offset-free, so a select/select edge has no shift).
+					boundaryTerm = buildConst(selectLit.mInfo.getMixedBoundary(), left.getSort());
 				} else {
 					boundaryTerm = selectEq;
 				}
