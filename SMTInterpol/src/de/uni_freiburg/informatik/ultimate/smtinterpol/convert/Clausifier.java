@@ -132,6 +132,11 @@ public class Clausifier {
 
 	// TODO: make map or use option map
 	boolean mIsEprEnabled;
+	/**
+	 * Whether offset equalities may be created, see {@link CClosure#createOffsetEqualities}. Set from the
+	 * {@code :offset-equalities} option before the theories are created.
+	 */
+	private boolean mOffsetEqualities = true;
 	private InstantiationMethod mInstantiationMethod;
 	private boolean mIsUnknownTermDawgsEnabled;
 	private boolean mPropagateUnknownTerms;
@@ -627,10 +632,12 @@ public class Clausifier {
 
 	/**
 	 * Whether offset equalities are enabled in the congruence closure. When enabled, numeric terms are represented by
-	 * offset-free CCTerms with the constant carried as an offset.
+	 * offset-free CCTerms with the constant carried as an offset. This is the one place where the option is stored;
+	 * {@link CClosure#createOffsetEqualities} asks here. Without a congruence closure there is no CCTerm that could
+	 * carry an offset, so a numeric term keeps its constant.
 	 */
 	public boolean createOffsetEqualities() {
-		return getCClosure() != null && getCClosure().createOffsetEqualities();
+		return mOffsetEqualities && getCClosure() != null;
 	}
 
 	/**
@@ -1620,6 +1627,14 @@ public class Clausifier {
 		mIsUnknownTermDawgsEnabled = enableUnknownTermDawgs;
 		mPropagateUnknownTerms = propagateUnknownTerm;
 		mPropagateUnknownAux = propagateUnknownAux;
+	}
+
+	/**
+	 * Enable or disable offset equalities. This must be called before the logic is set, as it decides how numeric terms
+	 * are represented in the congruence closure.
+	 */
+	public void setOffsetEqualities(final boolean enabled) {
+		mOffsetEqualities = enabled;
 	}
 
 	private boolean isBasicStablyInfinite(final Sort sort) {

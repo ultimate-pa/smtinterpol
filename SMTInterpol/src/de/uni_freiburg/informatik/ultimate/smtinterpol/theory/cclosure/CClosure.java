@@ -224,20 +224,14 @@ public class CClosure implements ITheory {
 
 	/**
 	 * Whether offset equalities are created. When enabled, arithmetic terms are turned into offset-free CCTerms (with
-	 * the constant carried as an offset) and equalities between numeric terms become offset equalities. When disabled,
-	 * the classic offset-free-less behaviour is used (every offset is zero).
+	 * the constant carried as an offset) and equalities between numeric terms become offset equalities, so that a
+	 * congruence class is an affine class: every member has a known constant offset to the representative. When
+	 * disabled, every offset is zero and the structure degenerates to plain congruence closure.
 	 *
-	 * This is currently forced off while proof generation is enabled, until the proof machinery understands offset
-	 * equalities (a later increment).
+	 * The flag itself lives in the clausifier, which builds the terms, so that the two cannot disagree.
 	 */
-	private boolean mOffsetEqualities = true;
-
 	public boolean createOffsetEqualities() {
-		return mOffsetEqualities;// && !isProofGenerationEnabled();
-	}
-
-	public void setOffsetEqualities(final boolean enabled) {
-		mOffsetEqualities = enabled;
+		return mClausifier.createOffsetEqualities();
 	}
 
 	public CCTerm createAnonTerm(final Term term) {

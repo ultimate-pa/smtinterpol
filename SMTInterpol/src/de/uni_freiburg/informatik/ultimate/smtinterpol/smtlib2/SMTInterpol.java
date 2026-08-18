@@ -633,6 +633,7 @@ public class SMTInterpol extends NoopScript {
 					mSolverOptions.getInstantiationMethod(), getBooleanOption(SMTInterpolConstants.UNKNOWN_TERM_DAWGS),
 					getBooleanOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_TERMS),
 					getBooleanOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_AUX));
+			mClausifier.setOffsetEqualities(getBooleanOption(SMTInterpolConstants.OFFSET_EQUALITIES));
 			mClausifier.setLogic(logic);
 			final boolean produceAssignments = getBooleanOption(SMTLIBConstants.PRODUCE_ASSIGNMENTS);
 			mClausifier.setAssignmentProduction(produceAssignments);
