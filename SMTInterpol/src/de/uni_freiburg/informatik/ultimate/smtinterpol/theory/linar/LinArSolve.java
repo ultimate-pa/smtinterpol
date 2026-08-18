@@ -818,13 +818,12 @@ public class LinArSolve implements ITheory {
 		} else {
 			/*
 			 * Unreachable: a proposed equality relates two terms of equal value (see mbtcClashSlots), so it holds in
-			 * the current model, and finalCheck runs model-based theory combination only once every asserted
-			 * disequality is satisfied by that model, so a decided LA equality can only be decided true here. Should it
-			 * happen anyway, drop the proposal rather than build {cceq, !laeq} from it: that clause is satisfied by
-			 * !laeq, so returning it as a conflict makes the engine resolve a non-conflict.
+			 * the current model, and a linear arithmetic equality that holds in the current model cannot be decided
+			 * false. Fail loudly instead of dropping the proposal, which would let finalCheck report sat although the
+			 * two theories disagree on the clash. Building {cceq, !laeq} from it is no alternative: that clause is
+			 * satisfied by !laeq, so returning it as a conflict makes the engine resolve a non-conflict.
 			 */
-			assert false : "MBTC proposed an equality that linear arithmetic has refuted: " + laeq;
-			mClausifier.getLogger().debug("MBTC equality already refuted: %s", laeq.negate());
+			throw new AssertionError("MBTC proposed an equality that linear arithmetic has refuted: " + laeq);
 		}
 		return null;
 	}
