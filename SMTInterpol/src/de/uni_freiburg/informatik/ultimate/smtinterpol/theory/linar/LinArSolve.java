@@ -2043,10 +2043,9 @@ public class LinArSolve implements ITheory {
 		for (final List<CCParameter> slot : mClausifier.getCClosure().getNumericClashSlots()) {
 			for (final CCParameter member : slot) {
 				final CCParameter shared = clashSharedTerm(member);
+				// The term is the flat term of the class's mSharedTerm, which is only set when the term is shared
+				// with linear arithmetic, so it has an LASharedTerm (as in clashSharedValue).
 				final LASharedTerm laShared = mClausifier.getLATerm(shared.getCCTerm().getFlatTerm());
-				if (laShared == null) {
-					continue;
-				}
 				// laShared is offset-free, so its own value is sum(summands) and the structural part of value(member)
 				// relative to it is the shared term's offset. laShared.getOffset() is zero here.
 				points.add(new ModelSharedPoint(laShared.getSummands(),
