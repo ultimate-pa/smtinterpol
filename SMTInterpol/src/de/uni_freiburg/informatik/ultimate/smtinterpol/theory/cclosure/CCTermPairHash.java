@@ -32,9 +32,9 @@ public class CCTermPairHash extends CuckooHashSet<CCTermPairHash.Info> {
 		 * {@code B = mLhsEntry.mOther} by {@code value(A) == value(B) + mOffset}. Several infos with the same endpoints
 		 * but different offsets may coexist (e.g. for the equalities {@code a == b} and {@code a == b + 5}); they are
 		 * distinguished by this offset both in the pair hash key and in the targeted lookups. For plain (offset-free)
-		 * congruence closure this is always {@link Rational#ZERO}.
+		 * congruence closure this is always {@link Rational#ZERO}. Final, as it is part of the hash key.
 		 */
-		Rational mOffset;
+		final Rational mOffset;
 		final SimpleList<CCEquality.Entry>  mEqlits;
 		final Entry mLhsEntry, mRhsEntry;
 		final SimpleList<CompareTrigger> mCompareTriggers; // E-Matching

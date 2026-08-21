@@ -388,13 +388,16 @@ public class CCProofGenerator {
 				return false;
 			}
 			final OffsetPair o = (OffsetPair) other;
-			if (mFirst == o.mFirst && mSecond == o.mSecond) {
-				return mOffset.equals(o.mOffset);
+			// Both orientations must be tried, not just the first one that matches the two terms: for a degenerate
+			// key, where both sides are the same CCTerm, the terms match in either orientation while only one of them
+			// matches the offset. Such a key states that a term differs from itself by a constant, e.g. the main
+			// disequality of a same-class offset conflict, and (t, t, off) and (t, t, -off) are the same fact - as
+			// hashCode (via the offset.abs() fallback in offsetHash) and addAuxEquality (which normalizes the sign of
+			// the offset) already treat them.
+			if (mFirst == o.mFirst && mSecond == o.mSecond && mOffset.equals(o.mOffset)) {
+				return true;
 			}
-			if (mFirst == o.mSecond && mSecond == o.mFirst) {
-				return mOffset.equals(o.mOffset.negate());
-			}
-			return false;
+			return mFirst == o.mSecond && mSecond == o.mFirst && mOffset.equals(o.mOffset.negate());
 		}
 
 		@Override
@@ -839,10 +842,10 @@ public class CCProofGenerator {
 			final CCParameter secondArg = secondApp.getArgParam(i);
 			// Resolve on the exact CCParameter equality of the arguments. Offset-free this is a direct literal or
 			// subpath lookup; the lookup maps are keyed offset-free so a shared offset edge is reused.
-			// TODO offset equalities: when the available proof establishes a shifted version of this argument equality
-			// (same offset-free edge, different offset, e.g. f(x,x+2)=f(y+2,y+4) where the (x,y) path proves x=y+2 but
-			// arg 1 needs x+2=y+4), bridge it with a one-step (offset) transitivity lemma instead of looking up the
-			// exact param pair. This path is only reachable once offsets are enabled under proofs.
+			// A shifted version of the same argument equality needs no bridging lemma: the key holds the offset
+			// between the two CCTerms, i.e. the fact itself, not the offsets it happens to be rendered with. For
+			// f(x,x+2) = f(y+2,y+4) both arguments key on (x, y, 2), and the (x, y) subpath, whose ends are rendered
+			// so that they denote the same value, keys on 2 as well.
 			if (firstArg.getCCTerm() != secondArg.getCCTerm()) {
 				final SymmetricPair<CCParameter> argPair = new SymmetricPair<>(firstArg, secondArg);
 				final OffsetPair argKey = key(argPair);
