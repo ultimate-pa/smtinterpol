@@ -115,8 +115,8 @@ public class DatatypeInterpolator {
 	 */
 	private OffsetLitInfo getAnnotationLitInfo(final SymmetricPair<Term> atomPair, final LitInfo info,
 			final Term left, final Term right) {
-		final OffsetEqKey litKey = new OffsetEqKey(atomPair.getFirst(), atomPair.getSecond());
-		return new OffsetLitInfo(mTheory, info, litKey).reorient(new OffsetEqKey(left, right));
+		final OffsetEqKey litKey = mInterpolator.key(atomPair.getFirst(), atomPair.getSecond());
+		return new OffsetLitInfo(mTheory, info, litKey).reorient(mInterpolator.key(left, right));
 	}
 
 	/**

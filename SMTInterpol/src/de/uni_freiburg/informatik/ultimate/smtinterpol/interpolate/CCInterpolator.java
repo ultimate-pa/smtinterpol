@@ -247,7 +247,7 @@ public class CCInterpolator {
 		final OffsetLitInfo[] paramInfos = new OffsetLitInfo[leftParams.length];
 		assert left.getFunction() == right.getFunction() && leftParams.length == rightParams.length;
 
-		final OffsetLitInfo diseqInfo = mDiseqInfo.reorient(new OffsetEqKey(left, right));
+		final OffsetLitInfo diseqInfo = mDiseqInfo.reorient(mInterpolator.key(left, right));
 		for (int i = 0; i < leftParams.length; i++) {
 			if (leftParams[i] == rightParams[i]) {
 				paramInfos[i] = null;
@@ -356,7 +356,7 @@ public class CCInterpolator {
 		}
 		// add the disequality if present
 		if (mDiseqInfo != null) {
-			final OffsetLitInfo diseqInfo = mDiseqInfo.reorient(new OffsetEqKey(headTerm, tailTerm));
+			final OffsetLitInfo diseqInfo = mDiseqInfo.reorient(mInterpolator.key(headTerm, tailTerm));
 			mTail.closeAPath(mHead, tailTerm, diseqInfo.getLitInfo());
 			mTail.openAPath(mHead, tailTerm, diseqInfo.getLitInfo());
 			mHead.closeAPath(mTail, headTerm, diseqInfo.getLitInfo());
@@ -532,7 +532,7 @@ public class CCInterpolator {
 	 * @return the reoriented literal info, or null if the clause contains no matching equality.
 	 */
 	private OffsetLitInfo getEqualityInfo(final Term left, final Term right) {
-		final OffsetEqKey key = new OffsetEqKey(left, right);
+		final OffsetEqKey key = mInterpolator.key(left, right);
 		final OffsetLitInfo info = mEqualityOccurrences.get(key);
 		return info == null ? null : info.reorient(key);
 	}
@@ -546,7 +546,7 @@ public class CCInterpolator {
 			final LitInfo occInfo = mInterpolator.getAtomOccurenceInfo(atom);
 			assert atomTermInfo.isCCEquality();
 			final ApplicationTerm eq = atomTermInfo.getEquality();
-			final OffsetEqKey key = new OffsetEqKey(eq.getParameters()[0], eq.getParameters()[1]);
+			final OffsetEqKey key = mInterpolator.key(eq.getParameters()[0], eq.getParameters()[1]);
 			final OffsetLitInfo info = new OffsetLitInfo(mTheory, occInfo, key);
 			if (atom != literal) {
 				// negated equality in clause, i.e., positive in conflict.

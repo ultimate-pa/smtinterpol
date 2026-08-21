@@ -181,7 +181,7 @@ public class ArrayInterpolator {
 		ArrayLit(final Term atom, final OffsetEqKey queryKey) {
 			mAtom = atom;
 			final ApplicationTerm eq = mInterpolator.getAtomTermInfo(atom).getEquality();
-			final OffsetEqKey litKey = new OffsetEqKey(eq.getParameters()[0], eq.getParameters()[1]);
+			final OffsetEqKey litKey = mInterpolator.key(eq.getParameters()[0], eq.getParameters()[1]);
 			mInfo = new OffsetLitInfo(mTheory, mInterpolator.getAtomOccurenceInfo(atom), litKey).reorient(queryKey);
 		}
 	}
@@ -190,7 +190,7 @@ public class ArrayInterpolator {
 	 * Find the clause equality denoting the fact {@code left = right} (modulo constant shift), or null.
 	 */
 	private ArrayLit lookupEquality(final Term left, final Term right) {
-		final OffsetEqKey key = new OffsetEqKey(left, right);
+		final OffsetEqKey key = mInterpolator.key(left, right);
 		final Term atom = mEqualities.get(key);
 		return atom == null ? null : new ArrayLit(atom, key);
 	}
@@ -199,7 +199,7 @@ public class ArrayInterpolator {
 	 * Find the clause disequality denoting the fact {@code left != right} (modulo constant shift), or null.
 	 */
 	private ArrayLit lookupDisequality(final Term left, final Term right) {
-		final OffsetEqKey key = new OffsetEqKey(left, right);
+		final OffsetEqKey key = mInterpolator.key(left, right);
 		final Term atom = mDisequalities.get(key);
 		return atom == null ? null : new ArrayLit(atom, key);
 	}
@@ -209,8 +209,9 @@ public class ArrayInterpolator {
 	 * constants (like {@code x} and {@code x + 1}, or two distinct numerals).
 	 */
 	private static boolean isTriviallyDistinct(final Term left, final Term right) {
-		final OffsetEqKey key = new OffsetEqKey(left, right);
-		return key.getLhs() == key.getRhs() && !key.getOffset().equals(Rational.ZERO);
+		final Polynomial diff = new Polynomial(left);
+		diff.add(Rational.MONE, right);
+		return diff.isConstant() && !diff.getConstant().equals(Rational.ZERO);
 	}
 
 	/**
@@ -260,12 +261,12 @@ public class ArrayInterpolator {
 			final ApplicationTerm equality = atomTermInfo.getEquality();
 			// negated in clause means positive in conflict
 			final Map<OffsetEqKey, Term> map = (atom != literal ? mEqualities : mDisequalities);
-			map.put(new OffsetEqKey(equality.getParameters()[0], equality.getParameters()[1]),
+			map.put(mInterpolator.key(equality.getParameters()[0], equality.getParameters()[1]),
 					atom);
 		}
 		final ApplicationTerm equality = getDiseq(mLemmaInfo);
 		final Term[] eqParams = equality.getParameters();
-		mDiseq = mDisequalities.get(new OffsetEqKey(eqParams[0], eqParams[1]));
+		mDiseq = mDisequalities.get(mInterpolator.key(eqParams[0], eqParams[1]));
 		mDiseqInfo = mInterpolator.getAtomOccurenceInfo(mDiseq);
 
 		Term[] interpolants = new Term[mNumInterpolants];
@@ -1050,7 +1051,7 @@ public class ArrayInterpolator {
 			for (int i = 0; i < mPath.length - 1; i++) {
 				final Term left = mPath[i];
 				final Term right = mPath[i + 1];
-				final Term lit = mEqualities.get(new OffsetEqKey(left, right));
+				final Term lit = mEqualities.get(mInterpolator.key(left, right));
 				Term boundaryTerm = left;
 
 				// Each step in a weak path can be either an equality literal or a store step of form "a (store a k v)",
@@ -1217,7 +1218,7 @@ public class ArrayInterpolator {
 			for (int i = 0; i < mPath.length - 1; i++) {
 				final Term left = mPath[i];
 				final Term right = mPath[i + 1];
-				final Term lit = mEqualities.get(new OffsetEqKey(left, right));
+				final Term lit = mEqualities.get(mInterpolator.key(left, right));
 				Term boundaryTerm;
 				boundaryTerm = left;
 

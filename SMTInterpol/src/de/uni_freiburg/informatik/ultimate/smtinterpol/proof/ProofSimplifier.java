@@ -80,6 +80,13 @@ public class ProofSimplifier extends TermTransformer {
 	 * The logger where errors are reported.
 	 */
 	private final MinimalProofChecker mChecker;
+	/**
+	 * Whether the terms in the proof were built with offset equalities, see
+	 * {@link de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier#createOffsetEqualities}. The keys of
+	 * the (dis)equality maps must split a numeric term exactly if the clausifier did, or they would relate facts that
+	 * the proof generator keeps apart.
+	 */
+	private final boolean mOffsetEqualities;
 
 	private HashMap<FunctionSymbol, Term> mAuxDefs;
 
@@ -94,6 +101,7 @@ public class ProofSimplifier extends TermTransformer {
 	 */
 	public ProofSimplifier(final SMTInterpol script) {
 		mSkript = script;
+		mOffsetEqualities = script.getClausifier().createOffsetEqualities();
 		mProofRules = new ProofRules(script.getTheory());
 		mProofUtils = new ProofUtils(mProofRules);
 		mChecker = new MinimalProofChecker(mSkript, script.getLogger());
@@ -3128,7 +3136,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Term atom = literal.getAtom();
 			assert isApplication("=", atom);
 			final Term[] sides = ((ApplicationTerm) atom).getParameters();
-			final OffsetEqKey key = new OffsetEqKey(sides[0], sides[1]);
+			final OffsetEqKey key = key(sides[0], sides[1]);
 
 			// positive in clause -> disequality in conflict -> collect into disequalities
 			// negative in clause -> equality in conflict -> collect into equalities
@@ -3213,7 +3221,7 @@ public class ProofSimplifier extends TermTransformer {
 				if (args[1] == weakIdx) {
 					return mProofRules.refl(value);
 				}
-				if (allEqualities.containsKey(new OffsetEqKey(weakIdx, args[1]))) {
+				if (allEqualities.containsKey(key(weakIdx, args[1]))) {
 					neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, array, array));
 					neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, weakIdx, args[1]));
 					return mProofRules.cong(theory.term(SMTLIBConstants.SELECT, array, weakIdx), value);
@@ -3298,7 +3306,7 @@ public class ProofSimplifier extends TermTransformer {
 			if (storeArgs[0] == arrayRight) {
 				// this is a step from a to (store a storeIndex v). Check if storeIndex is okay.
 				final Term storeIdx = ((ApplicationTerm) arrayLeft).getParameters()[1];
-				if (disequalities.containsKey(new OffsetEqKey(weakIdx, storeIdx))) {
+				if (disequalities.containsKey(key(weakIdx, storeIdx))) {
 					final Term storeVal = ((ApplicationTerm) arrayLeft).getParameters()[2];
 					final Theory theory = arrayLeft.getTheory();
 					neededDisequalities.add(theory.term(SMTLIBConstants.EQUALS, storeIdx, weakIdx));
@@ -3336,7 +3344,7 @@ public class ProofSimplifier extends TermTransformer {
 			final Set<Term> neededDisequalities, final Term[] selectEdge) {
 		final Theory theory = arrayLeft.getTheory();
 		/* check for strong path first */
-		if (equalities.containsKey(new OffsetEqKey(arrayLeft, arrayRight))) {
+		if (equalities.containsKey(key(arrayLeft, arrayRight))) {
 			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, arrayLeft, arrayRight));
 			neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, weakIdx, weakIdx));
 			return mProofRules.cong(selectLeft, selectRight);
@@ -3578,7 +3586,7 @@ public class ProofSimplifier extends TermTransformer {
 			assert ccAnnotation[i] == ":weakpath";
 			final Object[] weakItems = (Object[]) ccAnnotation[i + 1];
 			final Term idx = (Term) weakItems[0];
-			weakDisequalities.put(new OffsetEqKey(idx, diffTerm), theory.term(SMTLIBConstants.EQUALS, idx, diffTerm));
+			weakDisequalities.put(key(idx, diffTerm), theory.term(SMTLIBConstants.EQUALS, idx, diffTerm));
 		}
 
 		/*
@@ -3587,7 +3595,7 @@ public class ProofSimplifier extends TermTransformer {
 		Term mainChainProof = mainPath.length > 2 ? mProofRules.trans(mainSelectChain) : null;
 		for (int i = 0; i < mainPath.length - 1; i++) {
 			Term proofSelectEq;
-			final OffsetEqKey pair = new OffsetEqKey(mainPath[i], mainPath[i + 1]);
+			final OffsetEqKey pair = key(mainPath[i], mainPath[i + 1]);
 			/* check for strong path first */
 			if (allEqualities.containsKey(pair)) {
 				neededEqualities.add(theory.term(SMTLIBConstants.EQUALS, mainPath[i], mainPath[i + 1]));
@@ -4613,7 +4621,7 @@ public class ProofSimplifier extends TermTransformer {
 		for (final Term eq : neededEqualities) {
 			assert isApplication("=", eq);
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
-			final OffsetEqKey eqKey = new OffsetEqKey(eqParam[0], eqParam[1]);
+			final OffsetEqKey eqKey = key(eqParam[0], eqParam[1]);
 			final ApplicationTerm clauseEq = (ApplicationTerm) allEqualities.get(eqKey);
 			if (clauseEq == null) {
 				final Term proofEq = mProofUtils.proveTrivialEquality(eqParam[0], eqParam[1]);
@@ -4627,7 +4635,7 @@ public class ProofSimplifier extends TermTransformer {
 					proof = res(eq, mProofRules.symm(eqParam[0], eqParam[1]), proof);
 				} else {
 					// need shifted offset
-					final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
+					final OffsetEqKey clauseEqKey = key(clauseEqParam[0], clauseEqParam[1]);
 					final Rational factor = offsetFactor(eqKey, clauseEqKey);
 					final Term bridge = mProofUtils.proveEqWithMultiplier(clauseEqParam, eqParam, factor);
 					proof = res(eq, bridge, proof);
@@ -4637,7 +4645,7 @@ public class ProofSimplifier extends TermTransformer {
 		for (final Term eq : neededDisequalities) {
 			assert isApplication("=", eq);
 			final Term[] eqParam = ((ApplicationTerm) eq).getParameters();
-			final OffsetEqKey eqKey = new OffsetEqKey(eqParam[0], eqParam[1]);
+			final OffsetEqKey eqKey = key(eqParam[0], eqParam[1]);
 			final ApplicationTerm clauseEq = (ApplicationTerm) allDisequalities.get(eqKey);
 			// trivial disequalities like x != x + 1 are always added to the clause by the proof generation
 			assert clauseEq != null : "Missing disequality " + eq + " in clause";
@@ -4649,7 +4657,7 @@ public class ProofSimplifier extends TermTransformer {
 				proof = res(eq, proof, mProofRules.symm(eqParam[1], eqParam[0]));
 			} else {
 				// need shifted offset
-				final OffsetEqKey clauseEqKey = new OffsetEqKey(clauseEqParam[0], clauseEqParam[1]);
+				final OffsetEqKey clauseEqKey = key(clauseEqParam[0], clauseEqParam[1]);
 				final Rational factor = offsetFactor(eqKey, clauseEqKey);
 				final Term bridge = mProofUtils.proveEqWithMultiplier(eqParam, clauseEqParam, factor);
 				proof = res(eq, proof, bridge);
@@ -4767,6 +4775,11 @@ public class ProofSimplifier extends TermTransformer {
 
 		return res(auxTerm, res(falseTerm, mProofRules.iffIntro1(auxEqAtom), mProofRules.falseElim()),
 				res(expandEq, mProofRules.expand(auxTerm), mProofRules.iffElim2(expandEq)));
+	}
+
+	/** The lookup key for the (dis)equality {@code lhs = rhs}, see {@link #mOffsetEqualities}. */
+	private OffsetEqKey key(final Term lhs, final Term rhs) {
+		return new OffsetEqKey(lhs, rhs, mOffsetEqualities);
 	}
 
 	private Term res(final Term pivot, final Term proofPos, final Term proofNeg) {

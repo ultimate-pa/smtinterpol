@@ -31,6 +31,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
  * <em>separate</em> (rather than subtracted into one difference polynomial) so
  * that unrelated edges whose difference polynomials coincide up to sign — e.g.
  * {@code x+y = z+w+2} and {@code z-y = x-w-2} — do not collide.
+ *
+ * <p>Splitting only happens when offset equalities are enabled, mirroring the clausifier, which then represents a
+ * numeric term as an offset-free term plus a constant. Without them a constant stays part of the term, so
+ * {@code 0 = 1} and {@code 1 = 2} are two facts, as the terms and the proof generator see them, and every key has
+ * offset zero.
  */
 public final class OffsetEqKey {
 	private final Term mLhs;
@@ -39,8 +44,14 @@ public final class OffsetEqKey {
 	private final Rational mOffset;
 	private final int mHash;
 
-	public OffsetEqKey(final Term lhs, final Term rhs) {
-		if (lhs.getSort().isNumericSort()) {
+	/**
+	 * Build the key for the equality {@code lhs = rhs}.
+	 *
+	 * @param splitOffsets whether offset equalities are enabled, i.e. whether a numeric term is split into an
+	 *                     offset-free part and a constant.
+	 */
+	public OffsetEqKey(final Term lhs, final Term rhs, final boolean splitOffsets) {
+		if (splitOffsets && lhs.getSort().isNumericSort()) {
 			final OffsetTerm lhsSplit = new OffsetTerm(lhs);
 			final OffsetTerm rhsSplit = new OffsetTerm(rhs);
 			mLhs = lhsSplit.getTerm();
