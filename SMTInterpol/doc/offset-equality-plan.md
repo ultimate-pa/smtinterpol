@@ -490,15 +490,17 @@ under *LA → CC, entailed*.
 ## Tests
 
 - `array/{extmbtc001,extmbtc002}` — extensionality against the array element-value
-  clash group; `array/trivdiseq001` — the offset conflict through a const array, whose
-  lemma needs two trivial index disequalities that share one clause literal.
+  clash group; `array/trivdiseq001` — a read-over-weakeq lemma whose two trivial index
+  disequalities are one fact and share a clause literal, so the proof of the other one
+  multiplies it by −1; `array/trivdiseq002` — the same problem with
+  `:offset-equalities false`, where they are *two* facts, which is what pins the proof
+  and interpolant keys to the way the terms were built.
 - `datatype/offset_lemmas` — dt-project and dt-injective over a numeric field.
 - `interpolation/arrayoffset001..011`, `interpolation/trivdiseq004`,
   `interpolation/constarr015`, `interpolation/datatype/dt_{project,injective}_offset001`
   — offset interpolation, including the offsetted const select edge (010/011, both
   literal orientations) and the trivial const/select edge (constarr015).
-- `lia/offset-equality-parity-conflict`, `lia/offset-equalities-disabled` — the
-  LA→CC offset conflict, and the same problems with the option off.
+- `lia/offset-equality-parity-conflict` — the LA→CC offset conflict.
 - `model/{offset_lia,offset_datatype,offset_fresh001..003}` — model construction,
   fresh values against offsetted use sites.
 - `quantified/offsetmatch001..003` — offset binding, `a`/`a+1` dedup distinctness,
