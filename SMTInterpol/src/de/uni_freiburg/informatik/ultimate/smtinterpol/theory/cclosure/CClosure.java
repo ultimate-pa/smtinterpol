@@ -18,7 +18,6 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
-import java.security.Signature;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,7 +50,6 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.LeafNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.FindTriggerTrigger.AppTermEntry;
-// import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCAppTerm.Parent;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.EQAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LAEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
@@ -180,11 +178,11 @@ public class CClosure implements ITheory {
 	/**
 	 * Global map from signature to trigger. Used for congruence finder and reverse
 	 * triggers. Signatures are rehashed at checkpoint when the todo is processed.
-	 * When moving a signature to its new hash (after representative change), we
-	 * remove the old entry by key reference (see
-	 * {@link #removeSignatureByRef(Signature)}) and then put the same key again
-	 * (its hashCode/equals use representatives, so it now maps to the new bucket).
-	 * We do not keep the old key in the map, since that would leave the map
+	 * When a representative changes, the affected signature is taken out of this
+	 * map ({@link #moveToSignatureTodo}) and appended to {@link #mSignatureTodo};
+	 * the next checkpoint puts the same key back ({@link #addSignatureHash}), where
+	 * it now maps to a new bucket since its hashCode/equals use representatives and
+	 * offsets. We do not keep the old key in the map, since that would leave the map
 	 * inconsistent.
 	 */
 	final Map<SignatureTrigger, SignatureTrigger> mSignatureTriggers = new HashMap<>();
@@ -1504,8 +1502,6 @@ public class CClosure implements ITheory {
 	}
 
 	void addPendingCongruence(final CCAppTerm first, final CCAppTerm second) {
-		// assert (first.mLeftParInfo.inList() && second.mLeftParInfo.inList());
-		// assert (first.mRightParInfo.inList() && second.mRightParInfo.inList());
 		getLogger().debug("addPendingCongruence: %s %s", first, second);
 		mPendingCongruences.add(new SymmetricPair<>(first, second));
 	}
@@ -1716,33 +1712,11 @@ public class CClosure implements ITheory {
 	}
 
 	/**
-	 * Entry for the signature todo stack: old representative and its back-ref list
-	 * to process at checkpoint.
-	 */
-	static final class SignatureTodoEntry {
-		final CCTerm mOldRep;
-		final SimpleList<SignatureBackRef> mBackRefs;
-
-		final SignatureTrigger mSingleTrigger;
-
-		SignatureTodoEntry(final CCTerm oldRep, final SimpleList<SignatureBackRef> backRefs) {
-			mOldRep = oldRep;
-			mBackRefs = backRefs;
-			mSingleTrigger = null;
-		}
-
-		SignatureTodoEntry(final SignatureTrigger singleTrigger) {
-			mOldRep = null;
-			mBackRefs = null;
-			mSingleTrigger = singleTrigger;
-		}
-	}
-
-	/**
-	 * Record for undoing a trigger merge: remove the merged trigger from the map by
-	 * reference (see {@link #removeSignatureByRef(Signature)}) and put
-	 * (mMergedTrigger, mPreviousTrigger). The same key object then hashes back to
-	 * the old bucket after merge undo.
+	 * Record for undoing a trigger merge: undo the merge on mMergedTrigger and put
+	 * mPreviousTrigger back on {@link #mSignatureTodo}, so the next checkpoint
+	 * re-inserts it into {@link #mSignatureTriggers}. The same key object then
+	 * hashes back to its old bucket, since the merge undo also restored the
+	 * representatives and offsets its hash is computed from.
 	 */
 	static final class TriggerMergeUndoEntry extends UndoInfo {
 		final SignatureTrigger mMergedTrigger;

@@ -37,9 +37,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.SimpleListable;
  * gets a new equalEdge to the other tree.
  *
  * There is another field rep pointing to the representative of the congruence class. It may be different to the root of
- * the equalEdge tree. The representative keeps track of the members of the class (member), the equality atoms starting
- * from this class (eqlits), the classes that are guaranteed to be disjoint (diseq), and the function application terms
- * whose parameter is in this class (ccpar1/ccpar2).
+ * the equalEdge tree. The representative keeps track of the members of the class (members), the pair infos with the
+ * equality atoms starting from this class and the disequality that separates it from another class (pairInfos), and the
+ * signature back-refs of all terms in the class, i.e. the signatures in which a class member occurs as an argument
+ * (signatureBackRefs).
  *
  * Each equalEdge corresponds to a merging event of two equivalence classes. We need to remember the representative of
  * the source equivalence class to allow undoing the merge operation. This is stored in the oldRep field of the object
@@ -95,7 +96,6 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 	 * its representative rep took place.
 	 */
 	int mMergeTime = Integer.MAX_VALUE;
-	// CCParentInfo mCCPars;
 	SimpleList<CCTerm> mMembers;
 	int mNumMembers;
 	SimpleList<CCTermPairHash.Info.Entry> mPairInfos;
@@ -191,11 +191,6 @@ public abstract class CCTerm extends SimpleListable<CCTerm> implements CCParamet
 				}
 			}
 			if (this == mRepStar) {
-				// assert (mCCPars != null);
-				// for (CCParentInfo parInfo = mCCPars.mNext; parInfo != null; parInfo = parInfo.mNext) {
-				// 	assert parInfo.mCCParents.wellformed();
-				// 	assert parInfo.mNext == null || parInfo.mFuncSymbNr < parInfo.mNext.mFuncSymbNr;
-				// }
 				assert mOffsetToRep.equals(Rational.ZERO) : "representative must have zero offset";
 				for (final CCTerm m : mMembers) {
 					assert m.mRepStar == this;
