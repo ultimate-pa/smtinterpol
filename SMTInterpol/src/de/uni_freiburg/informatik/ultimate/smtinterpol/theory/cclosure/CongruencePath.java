@@ -210,9 +210,9 @@ public class CongruencePath {
 
 	/**
 	 * Compute the path from start to end, where end must be on the path from start
-	 * to the representative, i.e. end is reachable from t by repeatedly following
-	 * the equalEdge field. The last equalEdge must be induced by a equality literal
-	 * not a congruence edge.
+	 * to the representative, i.e. end is reachable from start by repeatedly
+	 * following the equalEdge field. The last equalEdge must be induced by a
+	 * equality literal not a congruence edge.
 	 *
 	 * @param start the first term in the path.
 	 * @param end   the last term in the path.
@@ -221,7 +221,7 @@ public class CongruencePath {
 	private SubPath computePathTo(final CCTerm start, final CCTerm end) {
 		final SubPath path =
 				new SubPath(start, mClosure.isProofGenerationEnabled());
-		CCTerm t = start.getCCTerm();
+		CCTerm t = start;
 		CCTerm startCongruence = t;
 		while (t != end) {
 			if (t.mOldRep.mReasonLiteral != null) {
@@ -267,7 +267,7 @@ public class CongruencePath {
 	 *         {@code right} share the same term).
 	 */
 	SubPath computePath(final CCTerm left, final CCTerm right) {
-		/* check for and ignore trivial paths (the offsets coincide for a genuine congruence) */
+		/* check for and ignore trivial paths */
 		if (left == right) {
 			return null;
 		}
@@ -336,7 +336,7 @@ public class CongruencePath {
 	 * directly via {@link #computePath} and they will also enqueue subpaths using
 	 * {@link #enqueueCongruence}. They must call this function before the
 	 * concatenated path is added to ensure all dependent subpaths are computed
-	 * before. The function uses a persistent {@link #mCollected} map so that every
+	 * before. The function uses a persistent {@link #mCollected} set so that every
 	 * path is only added once.
 	 *
 	 * <p>
