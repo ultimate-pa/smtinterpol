@@ -119,7 +119,7 @@ public class WeakCongruencePath extends CongruencePath {
 		final CCParameter i2 = ArrayTheory.getIndexFromSelect(select2);
 		final CCTerm a = ArrayTheory.getArrayFromSelect(select1);
 		final CCTerm b = ArrayTheory.getArrayFromSelect(select2);
-		computePath(i1.getCCTerm(), i2.getCCTerm());
+		enqueuePath(i1.getCCTerm(), i2.getCCTerm());
 		final WeakSubPath weakPath =
 				computeWeakPath(a, b, i1, produceProofs);
 		drainTodo();
@@ -265,7 +265,7 @@ public class WeakCongruencePath extends CongruencePath {
 			// get select for left-hand-side
 			final CCAppTerm select = rep1.mSelects.get(indexRep);
 			final CCTerm selectArray = ArrayTheory.getArrayFromSelect(select);
-			computePath(index, ArrayTheory.getIndexFromSelect(select));
+			enqueuePath(index, ArrayTheory.getIndexFromSelect(select));
 			path = computeWeakPath(array1, selectArray, index, produceProofs);
 			select1 = select;
 		}
@@ -279,7 +279,7 @@ public class WeakCongruencePath extends CongruencePath {
 			// get select for right-hand-side
 			final CCAppTerm select = rep2.mSelects.get(indexRep);
 			final CCTerm selectArray = ArrayTheory.getArrayFromSelect(select);
-			computePath(index, ArrayTheory.getIndexFromSelect(select));
+			enqueuePath(index, ArrayTheory.getIndexFromSelect(select));
 			path.addEntry(selectArray, null);
 			path.addSubPath(computeWeakPath(selectArray, array2, index, produceProofs));
 			select2 = select;
@@ -291,7 +291,7 @@ public class WeakCongruencePath extends CongruencePath {
 		assert select1.getRepresentative() == select2.getRepresentative();
 		// check for trivial select edge (select-const).
 		if (select1 != select2) {
-			computePath(select1, select2);
+			enqueuePath(select1, select2);
 		}
 		return path;
 	}
@@ -309,12 +309,14 @@ public class WeakCongruencePath extends CongruencePath {
 		assert t1.mRepStar == node.mTerm;
 		assert t2.mRepStar == node.mPrimaryEdge.mTerm;
 		if (cursor.mTerm != t1) {
-			// Build the strong path directly and inline it into the weak path. computePathNonRecursive is a pure
-			// builder: the result is not cached in mVisited (only drainTodo caches), so it is inlined here rather than
-			// becoming a standalone subpath, while its congruence dependencies are enqueued for the enclosing lemma's
-			// drainTodo to collect. Not caching it lets a later standalone request for the same edge rebuild it through
-			// the drain, so it is collected after its dependencies.
-			path.addSubPath(computePathNonRecursive(cursor.mTerm, t1));
+			// Build the strong path directly and inline it into the weak path. computePath
+			// is a pure builder: the result is not cached in mVisited (only drainTodo
+			// caches), so it is inlined here rather than becoming a standalone subpath,
+			// while its congruence dependencies are enqueued for the enclosing lemma's
+			// drainTodo to collect. Not caching forces dependencies to be recomputed if the
+			// sub path makes it into the drain loop as a standalone path and thus ensures
+			// that the dependencies are collected in the right order.
+			path.addSubPath(computePath(cursor.mTerm, t1));
 		}
 		path.addEntry(t2, null);
 		cursor.update(t2, node.mPrimaryEdge);
@@ -349,10 +351,11 @@ public class WeakCongruencePath extends CongruencePath {
 			collectPathOnePrimary(dest, path2, storeIndices);
 		}
 		if (start.mTerm != dest.mTerm) {
-			// Build the strong path directly and inline it (see collectPathOnePrimary): computePathNonRecursive is a
+			// Build the strong path directly and inline it (see collectPathOnePrimary):
+			// computePath is a
 			// pure builder whose result is not cached in mVisited, so it is inlined here rather than becoming a
 			// standalone subpath, while its dependencies are enqueued for the enclosing drainTodo.
-			path1.addSubPath(computePathNonRecursive(start.mTerm, dest.mTerm));
+			path1.addSubPath(computePath(start.mTerm, dest.mTerm));
 		}
 		path1.addSubPath(path2);
 		return path1;
@@ -417,17 +420,12 @@ public class WeakCongruencePath extends CongruencePath {
 
 	private Clause generateClause(final SymmetricPair<CCParameter> diseq, final boolean produceProofs,
 			final RuleKind rule) {
-		if (diseq != null) {
-			// Pass the CCParameters (with offsets), not the bare CCTerms: a propagated array equality may be an offset
-			// equality (e.g. select(a,j) == select(a,j)+1 in trivialdiseqarray). Dropping the offset would build the
-			// degenerate select(a,j) == select(a,j) and trip the createEquality assertion; keeping it yields the false
-			// proxy (eq == null), so the lemma becomes the pure conflict clause over its premises.
-			final CCEquality eq = mArrayTheory.getCClosure().createEquality(diseq.getFirst(), diseq.getSecond(), false);
-			if (eq != null) {
-				// Note that it can actually happen that diseq is already in
-				// the list of all literals (because it is an index assumption).
-				mAllLiterals.add(eq.negate());
-			}
+		final CCEquality eq = mArrayTheory.getCClosure().createEquality(diseq.getFirst(), diseq.getSecond(), false);
+		// A trivial disequality can happen for select-const and const-const-over-weakeq lemmas.
+		if (eq != null) {
+			// Note that it can actually happen that diseq is already in
+			// the list of all literals (because it is an index assumption).
+			mAllLiterals.add(eq.negate());
 		}
 
 		final Literal[] lemma = new Literal[mAllLiterals.size()];

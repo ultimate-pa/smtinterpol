@@ -149,13 +149,23 @@ public class CongruencePath {
 	 * single subpath is built; consumers (e.g. {@link CCProofGenerator}) absorb the per-use constant difference.
 	 */
 	final HashMap<SymmetricPair<CCTerm>,SubPath> mVisited;
+	/**
+	 * The already built subpath. These are added in dependency order, i.e. subpaths
+	 * depending on other subpaths are added in front of them.
+	 */
 	final ArrayDeque<SubPath> mAllPaths;
+	/**
+	 * The Todo deque. This contains all the subpaths that still must be built (can
+	 * also contain already built paths as well).
+	 */
 	final ArrayDeque<SymmetricPair<CCTerm>> mTodo;
 	/**
-	 * The subpaths already appended to {@link #mAllPaths}. Persistent across {@link #drainTodo} calls (unlike a
-	 * per-drain set) so a subpath shared between several drains is collected exactly once. {@link WeakCongruencePath}
-	 * drains once per weak/main path, and {@link #computeCongruence} re-enqueues argument pairs unconditionally, so the
-	 * same dependency can resurface in a later drain; this set keeps it from being added twice.
+	 * The subpaths already appended to {@link #mAllPaths}. Persistent across
+	 * {@link #drainTodo} calls (unlike a per-drain set) so a subpath shared between
+	 * several drains is collected exactly once. {@link WeakCongruencePath} drains
+	 * once per weak/main path, and {@link #enqueueCongruence} re-enqueues argument
+	 * pairs unconditionally, so the same dependency can resurface in a later drain;
+	 * this set keeps it from being added twice.
 	 */
 	final Set<SymmetricPair<CCTerm>> mCollected;
 	final Set<Literal> mAllLiterals;
@@ -187,54 +197,36 @@ public class CongruencePath {
 	 * congruence path from start to end.  The terms must be congruent AppTerms,
 	 * i.e. their func and arg values are congruent.
 	 *
-	 * The interpolation info should contain the path preceding the congruence,
-	 * its tailNr should correspond to the last formula number of the equality edge
-	 * pointing to start in the circle.  The parameter tailNr should correspond to
-	 * the equality edge pointing to end in the circle.
-	 *
-	 * @param mVisited a set of equality pairs that were already visited.  This is
-	 * used to prevent double work.
-	 * @param set  the set of literals in the conflict clause.
-	 * @param info the interpolation info containing head/tail interfaces, and collecting
-	 * the equality chains.
-	 * @param tailNr the last formula number of equality edge connecting end in the
-	 *  congruence graph circle.
 	 * @param start one of the function application terms.
 	 * @param end the other function application term.
 	 */
-	private void computeCongruence(CCAppTerm start, CCAppTerm end) {
+	private void enqueueCongruence(CCAppTerm start, CCAppTerm end) {
 		// Pair the argument values (CCParameters), so the recorded subpath for each argument is anchored at the
 		// argument's offset, e.g. f(x+2) congruent f(z+8) yields a subpath from x+2 to z+8. This only enqueues the
-		// argument pairs; the surrounding drain loop ({@link #drainTodo}, run by {@link #computePath}) builds them.
+		// argument pairs; the surrounding drain loop ({@link #drainTodo} builds them.
 		for (int i = 0; i < start.getArgCount(); i++) {
 			mTodo.addFirst(new SymmetricPair<>(start.getArgParam(i).getCCTerm(), end.getArgParam(i).getCCTerm()));
 		}
 	}
 
 	/**
-	 * Compute the conflict set and interpolation information for the
-	 * congruence path from term t to end.  The terms must be directly connected by the
+	 * Compute the conflict set and interpolation information for the congruence
+	 * path from term t to end. The terms must be directly connected by the
 	 * equalEdge graph, i.e. end is reachable from t by repeatedly following the
-	 * equalEdge field.  The last equalEdge must be induced by a equality literal not a
-	 * congruence edge.
+	 * equalEdge field. The last equalEdge must be induced by a equality literal not
+	 * a congruence edge.
 	 *
 	 * The interpolation info should be empty, its head/max/lastNr should correspond
 	 * to the last formula number of the edge preceding t in the circle.
 	 *
-	 * @param mVisited a set of equality pairs that were already visited.  This is
-	 * used to prevent double work.
-	 * @param set  the set of literals in the conflict clause.
-	 * @param info the interpolation info containing head/tail interfaces, and collecting
-	 * the equality chains.
-	 * @param t the first term in the path.
-	 * @param end the last term in the path.
-	 * @return the sub path from t to end, if proof production is enabled.
-	 *   Without proof production, this returns null.
+	 * @param start the first term in the path. Includes an offset.
+	 * @param end   the last term in the path. The offset is implicit.
+	 * @return the sub path from start to end.
 	 */
-	private SubPath computePathTo(final CCParameter startParam, final CCTerm end) {
+	private SubPath computePathTo(final CCParameter start, final CCTerm end) {
 		final SubPath path =
-				new SubPath(startParam, mClosure.isProofGenerationEnabled());
-		CCTerm t = startParam.getCCTerm();
+				new SubPath(start, mClosure.isProofGenerationEnabled());
+		CCTerm t = start.getCCTerm();
 		CCTerm startCongruence = t;
 		while (t != end) {
 			if (t.mOldRep.mReasonLiteral != null) {
@@ -243,7 +235,7 @@ public class CongruencePath {
 					 * Compute the paths for the func and arg parts and merge into the
 					 * interpolation info.
 					 */
-					computeCongruence((CCAppTerm) startCongruence, (CCAppTerm) t);
+					enqueueCongruence((CCAppTerm) startCongruence, (CCAppTerm) t);
 					path.addEntry(t, null);
 				}
 				/* Add the equality literal to conflict set */
@@ -258,32 +250,32 @@ public class CongruencePath {
 	}
 
 	/**
-	 * Compute the conflict set and interpolation information for the
-	 * congruence path from term left to right.  The interpolation info should be
-	 * empty and its head/max/tailNr should be equal to the (last) formula number of
-	 * the equality that precedes left in the conflict circle.  The parameter tailNr
-	 * should give the (last) formula number of the next equality after right.
-	 * On return info.tailNr is equal to tailNr.
+	 * Compute the conflict set and interpolation information for the congruence
+	 * path from term left to right. The interpolation info should be empty and its
+	 * head/max/tailNr should be equal to the (last) formula number of the equality
+	 * that precedes left in the conflict circle. The parameter tailNr should give
+	 * the (last) formula number of the next equality after right. On return
+	 * info.tailNr is equal to tailNr.
 	 *
-	 * @param mVisited a set of equality pairs that were already visited.  This is
-	 * used to prevent double work.
-	 * @param set  the set of literals in the conflict clause.
-	 * @param info the interpolation info containing head/tail interfaces, and collecting
-	 * the equality chains.
-	 * @param tailNr this gives the (last) formula number of the equality after right.
-	 * @param left the left end of the congruence chain that should be evaluated.
+	 * <p>
+	 * This is a pure builder: it does not consult or update the {@link #mVisited}
+	 * cache. {@link #drainTodo} owns the cache — it looks up {@link #mVisited}
+	 * before calling and stores the result afterwards, so a path requested as a
+	 * standalone subpath is built once and collected through the re-enqueue
+	 * discipline. Inline grafts (built directly, outside the drain, to be spliced
+	 * into a weak/store path) call this without caching: a later standalone request
+	 * for the same edge therefore rebuilds it through the drain rather than
+	 * short-circuiting to the already-visited branch of {@link #drainTodo} (which
+	 * would collect it ahead of its still-pending congruence dependencies). The
+	 * graft's dependencies are enqueued either way, so the inlined congruences are
+	 * still explained.
+	 *
+	 * @param left  the left end of the congruence chain that should be evaluated.
 	 * @param right the right end of the congruence chain that should be evaluated.
-	 * @return the built path, or {@code null} for a trivial path ({@code left} and {@code right} share the same term).
-	 *
-	 * <p>This is a pure builder: it does not consult or update the {@link #mVisited} cache. {@link #drainTodo} owns the
-	 * cache — it looks up {@link #mVisited} before calling and stores the result afterwards, so a path requested as a
-	 * standalone subpath is built once and collected through the re-enqueue discipline. Inline grafts (built directly,
-	 * outside the drain, to be spliced into a weak/store path) call this without caching: a later standalone request for
-	 * the same edge therefore rebuilds it through the drain rather than short-circuiting to the already-visited branch
-	 * of {@link #drainTodo} (which would collect it ahead of its still-pending congruence dependencies). The graft's
-	 * dependencies are enqueued either way, so the inlined congruences are still explained.
+	 * @return the built path, or {@code null} for a trivial path ({@code left} and
+	 *         {@code right} share the same term).
 	 */
-	SubPath computePathNonRecursive(final CCParameter left, final CCParameter right) {
+	SubPath computePath(final CCParameter left, final CCParameter right) {
 		final CCTerm leftTerm = left.getCCTerm();
 		final CCTerm rightTerm = right.getCCTerm();
 		/* check for and ignore trivial paths (the offsets coincide for a genuine congruence) */
@@ -323,7 +315,7 @@ public class CongruencePath {
 		assert (ll != null);
 		final SubPath path = computePathTo(left, llWithReason);
 		if (llWithReason != rrWithReason) {
-			computeCongruence((CCAppTerm)llWithReason, (CCAppTerm)rrWithReason);
+			enqueueCongruence((CCAppTerm)llWithReason, (CCAppTerm)rrWithReason);
 			path.addEntry(rrWithReason, null);
 		}
 		final SubPath pathBack = computePathTo(right, rrWithReason);
@@ -332,47 +324,41 @@ public class CongruencePath {
 	}
 
 	/**
-	 * Compute the conflict set and interpolation information for the congruence path from term left to right. The
-	 * interpolation info should be empty and its head/max/tailNr should be equal to the (last) formula number of the
-	 * equality that precedes left in the conflict circle. The parameter tailNr should give the (last) formula number of
-	 * the next equality after right. On return info.tailNr is equal to tailNr.
+	 * Enqueue the congruence path from left to right as a depending sub path. The
+	 * path will be computed only when drainTodo() is called. The caller needs to
+	 * call drainTodo() to add the path and its dependencies to the list
+	 * {@link #mAllPaths}.
 	 *
-	 * @param mVisited
-	 *            a set of equality pairs that were already visited. This is used to prevent double work.
-	 * @param set
-	 *            the set of literals in the conflict clause.
-	 * @param info
-	 *            the interpolation info containing head/tail interfaces, and collecting the equality chains.
-	 * @param tailNr
-	 *            this gives the (last) formula number of the equality after right.
-	 * @param left
-	 *            the left end of the congruence chain that should be evaluated.
-	 * @param right
-	 *            the right end of the congruence chain that should be evaluated.
+	 * @param left  the left end of the congruence chain that should be evaluated.
+	 * @param right the right end of the congruence chain that should be evaluated.
 	 */
-	public void computePath(final CCParameter left, final CCParameter right) {
-		// Only enqueue the path. The caller (a top-level compute*Cycle/Lemma method) calls drainTodo() once after all
-		// computePath/computeCongruence calls are queued, so a single shared drain builds them all (and dedups subpaths
-		// shared between several queued ends).
+	public void enqueuePath(final CCParameter left, final CCParameter right) {
 		mTodo.add(new SymmetricPair<>(left.getCCTerm(), right.getCCTerm()));
 	}
 
 	/**
-	 * Process the work list {@link #mTodo} of (sub)paths to compute, building each one and collecting it into
-	 * {@link #mAllPaths} (and its literals into {@link #mAllLiterals}). The top-level compute*Cycle/Lemma methods seed
-	 * the work list via {@link #computePath} (a single pair) and {@link #computeCongruence} (argument pairs), then call
-	 * this once. {@link WeakCongruencePath} drains once per weak/main path (a strong path to be inlined into a weak path
-	 * is instead built directly via {@link #computePathNonRecursive} with {@code store == false}, which returns it
-	 * without adding it to {@link #mVisited} or {@link #mAllPaths}), hence protected. Dedup against {@link #mCollected}
-	 * is persistent, so a subpath shared between drains is appended only once.
+	 * Process the work list {@link #mTodo} of (sub)paths to compute, building each
+	 * one and collecting it into {@link #mAllPaths} (and its literals into
+	 * {@link #mAllLiterals}). The top-level compute*Cycle/Lemma methods seed the
+	 * work list via {@link #enqueuePath} (a single pair) and
+	 * {@link #enqueueCongruence} (argument pairs), then call this once. Partial
+	 * subpaths (like the paths concatenated in {@link #computeMergeConflictCycle}
+	 * or the strong subpaths of {@link WeakCongruencePath} are instead built
+	 * directly via {@link #computePath} and they will also enqueue subpaths using
+	 * {@link #enqueueCongruence}. They must call this function before the
+	 * concatenated path is added to ensure all dependent subpaths are computed
+	 * before. The function uses a persistent {@link #mVisited} map so that every
+	 * path is only added once.
 	 *
-	 * <p>Ordering invariant: a path is collected (appended to {@link #mAllPaths}) only after its congruence
-	 * dependencies, so it precedes the paths explaining its congruences (as the proof generator requires). This holds
-	 * because a freshly seen path takes the {@code path == null} branch: it re-enqueues itself <em>behind</em> the
-	 * dependencies that {@link #computePathNonRecursive} pushes to the front, so those are collected first. The only way
-	 * to bypass this would be to find the path already in {@link #mVisited} on its first pop — which is exactly why
-	 * inline grafts are built with {@code store == false}: a standalone request for the same edge then rebuilds it
-	 * through this branch instead of short-circuiting to the already-collected branch ahead of its dependencies.
+	 * <p>
+	 * Ordering invariant: a path is collected (appended to {@link #mAllPaths}) only
+	 * after its congruence dependencies, so it precedes the paths explaining its
+	 * congruences (as the proof generator requires). This holds because a freshly
+	 * seen path takes the {@code path == null} branch: it re-enqueues itself
+	 * <em>behind</em> the dependencies that {@link #computePathNonRecursive} pushes
+	 * to the front, so those are collected first. Since there cannot be cyclic
+	 * dependencies between congruences, it is guaranteed that the next time the
+	 * path is collected, the dependencies were already added.
 	 */
 	protected void drainTodo() {
 		while (!mTodo.isEmpty()) {
@@ -390,7 +376,7 @@ public class CongruencePath {
 				// mVisited cache; computePathNonRecursive is a pure builder. The pair is non-trivial (checked above), so
 				// the build never returns null here.
 				mTodo.addFirst(pathEnds);
-				mVisited.put(pathEnds, computePathNonRecursive(pathEnds.getFirst(), pathEnds.getSecond()));
+				mVisited.put(pathEnds, computePath(pathEnds.getFirst(), pathEnds.getSecond()));
 			} else {
 				// already visited it, so we just add the path now unless we did this earlier
 				if (mCollected.add(pathEnds)) {
@@ -403,7 +389,7 @@ public class CongruencePath {
 	public Clause computeCycle(final CCEquality eq, final boolean produceProofs) {
 		final CCTerm lhs = eq.getLhs();
 		final CCTerm rhs = eq.getRhs();
-		computePath(eq.getLhs(), eq.getRhs());
+		enqueuePath(eq.getLhs(), eq.getRhs());
 		drainTodo();
 		final Literal[] cycle = new Literal[mAllLiterals.size() + 1];
 		int i = 0;
@@ -481,14 +467,14 @@ public class CongruencePath {
 			// Congruence bridge: the argument equalities justify lhs == rhs (and build the
 			// subpaths that the proof generator uses to resolve the bridge step).
 			assert offset.equals(Rational.ZERO);
-			computeCongruence((CCAppTerm) lhs, (CCAppTerm) rhs);
+			enqueueCongruence((CCAppTerm) lhs, (CCAppTerm) rhs);
 		}
 		// Two single-class paths for lhs and rhs, each offset-correct on its own. These are merged later by hand into a
 		// single main path, so they are not standalone subpaths: computePathNonRecursive builds them without caching in
 		// mVisited, so they neither enter mAllPaths nor short-circuit a later standalone request for the same edge
 		// (their congruence dependencies are still enqueued and collected through the drain below).
-		final SubPath segSrc = computePathNonRecursive(lhsDiseq, lhs);
-		final SubPath segDest = computePathNonRecursive(rhs, rhsDiseq);
+		final SubPath segSrc = computePath(lhsDiseq, lhs);
+		final SubPath segDest = computePath(rhs, rhsDiseq);
 		drainTodo();
 		final Literal[] clause = new Literal[mAllLiterals.size() + (diseq != null ? 1 : 0)];
 		int i = 0;
@@ -532,7 +518,7 @@ public class CongruencePath {
 	public Clause computeDTLemma(final CCEquality propagatedEq, final DataTypeLemma lemma,
 			final boolean produceProofs) {
 		for (final SymmetricPair<CCTerm> reason : lemma.getReason()) {
-			computePath(reason.getFirst(), reason.getSecond());
+			enqueuePath(reason.getFirst(), reason.getSecond());
 		}
 		drainTodo();
 
@@ -563,7 +549,7 @@ public class CongruencePath {
 	 * @return the earliest decide level.
 	 */
 	public int computeDecideLevel(final CCTerm lhs, final CCTerm rhs) {
-		computePath(lhs, rhs);
+		enqueuePath(lhs, rhs);
 		drainTodo();
 		int depth = 0;
 		for (final Literal l : mAllLiterals) {
