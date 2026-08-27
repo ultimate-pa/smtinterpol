@@ -193,37 +193,32 @@ public class CongruencePath {
 	}
 
 	/**
-	 * Compute the conflict set and interpolation information for the
-	 * congruence path from start to end.  The terms must be congruent AppTerms,
-	 * i.e. their func and arg values are congruent.
+	 * Enqueue the congruence from start to end. The terms must be congruent
+	 * AppTerms, i.e. their func and arg values are congruent.
 	 *
 	 * @param start one of the function application terms.
-	 * @param end the other function application term.
+	 * @param end   the other function application term.
 	 */
 	private void enqueueCongruence(CCAppTerm start, CCAppTerm end) {
 		// Pair the argument values (CCParameters), so the recorded subpath for each argument is anchored at the
 		// argument's offset, e.g. f(x+2) congruent f(z+8) yields a subpath from x+2 to z+8. This only enqueues the
-		// argument pairs; the surrounding drain loop ({@link #drainTodo} builds them.
+		// argument pairs; the surrounding drain loop (drainTodo) builds them.
 		for (int i = 0; i < start.getArgCount(); i++) {
 			mTodo.addFirst(new SymmetricPair<>(start.getArgParam(i).getCCTerm(), end.getArgParam(i).getCCTerm()));
 		}
 	}
 
 	/**
-	 * Compute the conflict set and interpolation information for the congruence
-	 * path from term t to end. The terms must be directly connected by the
-	 * equalEdge graph, i.e. end is reachable from t by repeatedly following the
-	 * equalEdge field. The last equalEdge must be induced by a equality literal not
-	 * a congruence edge.
+	 * Compute the path from start to end, where end must be on the path from start
+	 * to the representative, i.e. end is reachable from t by repeatedly following
+	 * the equalEdge field. The last equalEdge must be induced by a equality literal
+	 * not a congruence edge.
 	 *
-	 * The interpolation info should be empty, its head/max/lastNr should correspond
-	 * to the last formula number of the edge preceding t in the circle.
-	 *
-	 * @param start the first term in the path. Includes an offset.
-	 * @param end   the last term in the path. The offset is implicit.
+	 * @param start the first term in the path.
+	 * @param end   the last term in the path.
 	 * @return the sub path from start to end.
 	 */
-	private SubPath computePathTo(final CCParameter start, final CCTerm end) {
+	private SubPath computePathTo(final CCTerm start, final CCTerm end) {
 		final SubPath path =
 				new SubPath(start, mClosure.isProofGenerationEnabled());
 		CCTerm t = start.getCCTerm();
@@ -251,11 +246,7 @@ public class CongruencePath {
 
 	/**
 	 * Compute the conflict set and interpolation information for the congruence
-	 * path from term left to right. The interpolation info should be empty and its
-	 * head/max/tailNr should be equal to the (last) formula number of the equality
-	 * that precedes left in the conflict circle. The parameter tailNr should give
-	 * the (last) formula number of the next equality after right. On return
-	 * info.tailNr is equal to tailNr.
+	 * path from term left to right.
 	 *
 	 * <p>
 	 * This is a pure builder: it does not consult or update the {@link #mVisited}
@@ -275,18 +266,16 @@ public class CongruencePath {
 	 * @return the built path, or {@code null} for a trivial path ({@code left} and
 	 *         {@code right} share the same term).
 	 */
-	SubPath computePath(final CCParameter left, final CCParameter right) {
-		final CCTerm leftTerm = left.getCCTerm();
-		final CCTerm rightTerm = right.getCCTerm();
+	SubPath computePath(final CCTerm left, final CCTerm right) {
 		/* check for and ignore trivial paths (the offsets coincide for a genuine congruence) */
-		if (leftTerm == rightTerm) {
+		if (left == right) {
 			return null;
 		}
 
-		int leftDepth = computeDepth(leftTerm);
-		int rightDepth = computeDepth(rightTerm);
-		CCTerm ll = leftTerm;
-		CCTerm rr = rightTerm;
+		int leftDepth = computeDepth(left);
+		int rightDepth = computeDepth(right);
+		CCTerm ll = left;
+		CCTerm rr = right;
 		CCTerm llWithReason = ll, rrWithReason = rr;
 		while (leftDepth > rightDepth) {
 			if (ll.mOldRep.mReasonLiteral != null) {
@@ -343,11 +332,11 @@ public class CongruencePath {
 	 * work list via {@link #enqueuePath} (a single pair) and
 	 * {@link #enqueueCongruence} (argument pairs), then call this once. Partial
 	 * subpaths (like the paths concatenated in {@link #computeMergeConflictCycle}
-	 * or the strong subpaths of {@link WeakCongruencePath} are instead built
+	 * or the strong subpaths of {@link WeakCongruencePath}) are instead built
 	 * directly via {@link #computePath} and they will also enqueue subpaths using
 	 * {@link #enqueueCongruence}. They must call this function before the
 	 * concatenated path is added to ensure all dependent subpaths are computed
-	 * before. The function uses a persistent {@link #mVisited} map so that every
+	 * before. The function uses a persistent {@link #mCollected} map so that every
 	 * path is only added once.
 	 *
 	 * <p>
@@ -355,8 +344,8 @@ public class CongruencePath {
 	 * after its congruence dependencies, so it precedes the paths explaining its
 	 * congruences (as the proof generator requires). This holds because a freshly
 	 * seen path takes the {@code path == null} branch: it re-enqueues itself
-	 * <em>behind</em> the dependencies that {@link #computePathNonRecursive} pushes
-	 * to the front, so those are collected first. Since there cannot be cyclic
+	 * <em>behind</em> the dependencies that {@link #computePath} pushes to the
+	 * front, so those are collected first. Since there cannot be cyclic
 	 * dependencies between congruences, it is guaranteed that the next time the
 	 * path is collected, the dependencies were already added.
 	 */
@@ -373,7 +362,7 @@ public class CongruencePath {
 			final SubPath path = mVisited.get(pathEnds);
 			if (path == null) {
 				// if we did not visit it yet, enqueue again for later, build the path and cache it. drainTodo owns the
-				// mVisited cache; computePathNonRecursive is a pure builder. The pair is non-trivial (checked above), so
+				// mVisited cache; computePath is a pure builder. The pair is non-trivial (checked above), so
 				// the build never returns null here.
 				mTodo.addFirst(pathEnds);
 				mVisited.put(pathEnds, computePath(pathEnds.getFirst(), pathEnds.getSecond()));
@@ -470,7 +459,7 @@ public class CongruencePath {
 			enqueueCongruence((CCAppTerm) lhs, (CCAppTerm) rhs);
 		}
 		// Two single-class paths for lhs and rhs, each offset-correct on its own. These are merged later by hand into a
-		// single main path, so they are not standalone subpaths: computePathNonRecursive builds them without caching in
+		// single main path, so they are not standalone subpaths: computePath builds them without caching in
 		// mVisited, so they neither enter mAllPaths nor short-circuit a later standalone request for the same edge
 		// (their congruence dependencies are still enqueued and collected through the drain below).
 		final SubPath segSrc = computePath(lhsDiseq, lhs);

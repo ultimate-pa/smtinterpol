@@ -229,7 +229,7 @@ public class CCAnnotation implements IAnnotation {
 	 * is the only positive atom in the generated theory clause. If this is null, then the first and last element in the
 	 * main paths are distinct terms.
 	 */
-	final SymmetricPair<CCParameter> mDiseqParam;
+	final SymmetricPair<CCParameter> mDiseq;
 
 	/**
 	 * A sequence of paths, as {@link CCParameter}s with offsets (e.g. {@code x+2, y+6, z+8}). The main path with index 0
@@ -269,7 +269,7 @@ public class CCAnnotation implements IAnnotation {
 	 */
 	public CCAnnotation(final SymmetricPair<CCParameter> diseq, final CCParameter[] mainPath,
 			final Collection<SubPath> otherPaths, final RuleKind rule) {
-		mDiseqParam = diseq;
+		mDiseq = diseq;
 		final int n = 1 + otherPaths.size();
 		mParamPaths = new CCParameter[n][];
 		mWeakIndices = new CCParameter[n];
@@ -290,7 +290,7 @@ public class CCAnnotation implements IAnnotation {
 
 	private CCAnnotation(final SymmetricPair<CCParameter> diseq, final Collection<SubPath> paths, final RuleKind rule,
 			final DataTypeLemma lemma) {
-		mDiseqParam = diseq;
+		mDiseq = diseq;
 		mParamPaths = new CCParameter[paths.size()][];
 		mWeakIndices = new CCParameter[mParamPaths.length];
 		mSelectEdges = new CCParameter[mParamPaths.length][];
@@ -306,8 +306,8 @@ public class CCAnnotation implements IAnnotation {
 	}
 
 	/** The disequality with offsets. */
-	public SymmetricPair<CCParameter> getDiseqParam() {
-		return mDiseqParam;
+	public SymmetricPair<CCParameter> getDiseq() {
+		return mDiseq;
 	}
 
 	/** The paths with offsets. */
@@ -347,7 +347,7 @@ public class CCAnnotation implements IAnnotation {
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
 		sb.append('(');
-		sb.append(mDiseqParam);
+		sb.append(mDiseq);
 		for (int i = 0; i < mParamPaths.length; i++) {
 			if (mWeakIndices[i] != null) {
 				sb.append(" :weak ").append(mWeakIndices[i]).append(' ');

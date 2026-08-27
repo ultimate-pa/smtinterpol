@@ -452,8 +452,8 @@ public class CCProofGenerator {
 
 		// Collect the paths needed to prove the main disequality
 		final ProofInfo mainInfo = findMainPaths();
-		if (mAnnot.mDiseqParam != null) {
-			final SymmetricPair<CCParameter> mainDiseq = mAnnot.mDiseqParam;
+		if (mAnnot.mDiseq != null) {
+			final SymmetricPair<CCParameter> mainDiseq = mAnnot.mDiseq;
 			if (!isDisequalityLiteral(mainDiseq)) {
 				assert isTrivialDisequality(mainDiseq);
 				mTrivialDisequalities.add(addAuxEquality(mainDiseq));
@@ -542,7 +542,7 @@ public class CCProofGenerator {
 			return mPathProofMap.get(mIndexedPaths[0].getPathEnds());
 		case READ_OVER_WEAKEQ: {
 			// collect index equality and the weak path
-			final SymmetricPair<CCParameter> selectEquality = mAnnot.mDiseqParam;
+			final SymmetricPair<CCParameter> selectEquality = mAnnot.mDiseq;
 			assert ArrayTheory.isSelectTerm(selectEquality.getFirst())
 					&& ArrayTheory.isSelectTerm(selectEquality.getSecond());
 			// collect the index equality
@@ -756,7 +756,7 @@ public class CCProofGenerator {
 
 		// Build main lemma
 		final ProofInfo mainInfo = proofOrder.get(0);
-		assert mainInfo.getDiseq() == mAnnot.getDiseqParam();
+		assert mainInfo.getDiseq() == mAnnot.getDiseq();
 		// The equality proved by the lemma. It is null for rules without main equality
 		final Term mainEq = mainInfo.getDiseq() == null ? null
 				: isDisequalityLiteral(mainInfo.getDiseq())
