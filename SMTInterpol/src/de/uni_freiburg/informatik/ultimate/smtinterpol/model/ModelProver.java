@@ -1295,6 +1295,28 @@ public class ModelProver extends TermTransformer {
 		return args.length == 0 ? theory.mTrue : args.length == 1 ? args[0] : theory.term(SMTLIBConstants.AND, args);
 	}
 
+	/**
+	 * Prove the model's truth value of a single Boolean term. This is the
+	 * atom-level counterpart of {@link #buildModelProof}: for every Boolean-sorted
+	 * subterm, {@code convert} already produces a proof of the literal itself
+	 * (not of an equality with the evaluated value), so the proof for the whole
+	 * term can be returned directly, in whichever polarity the model gives it.
+	 *
+	 * Unlike {@link #buildModelProof}, this can be used on subformulas containing
+	 * quantifiers, as long as {@code atom} itself is ground -- the sat-side proof
+	 * assembler only ever calls this on the (ground) atoms of the clausified
+	 * problem, never on a whole quantified formula.
+	 *
+	 * @param atom a closed, quantifier-free Boolean term.
+	 * @return a proof of the unit clause {@code {atom}} if it evaluates to true in
+	 *         the model, or of {@code {(not atom)}} if it evaluates to false.
+	 */
+	public Term proveAtom(final Term atom) {
+		final Term provedTerm = transform(mUnletter.transform(atom));
+		assert isBooleanValue(getAnnotation(provedTerm));
+		return getProof(provedTerm);
+	}
+
 	public Term buildModelProof(List<Term> assertions) {
 		final Term[] andArgs = assertions.toArray(new Term[assertions.size()]);
 		final Term andTerm = createAnd(andArgs);

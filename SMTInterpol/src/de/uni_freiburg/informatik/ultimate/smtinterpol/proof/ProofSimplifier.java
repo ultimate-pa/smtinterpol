@@ -4350,6 +4350,23 @@ public class ProofSimplifier extends TermTransformer {
 		setResult(proof);
 	}
 
+	/**
+	 * Convert the reverse direction of a rewrite oracle: from a proof of
+	 * {@code (= lhs rhs)} derive {~rhs, lhs} using {@code iffElim1} instead of
+	 * {@code iffElim2}. This is the dual of {@link #convertMP}.
+	 */
+	private void convertMPReverse(final ProofLiteral[] clause) {
+		final AnnotatedTerm rewrite = (AnnotatedTerm) getConverted();
+		final ApplicationTerm provedEq = (ApplicationTerm) provedTerm(rewrite);
+		assert isApplication(SMTLIBConstants.EQUALS, provedEq);
+		final Term[] eqParams = provedEq.getParameters();
+		Term proof = res(provedEq, subproof(rewrite), mProofRules.iffElim1(provedEq));
+		proof = removeNot(proof, eqParams[1], false);
+		proof = removeNot(proof, eqParams[0], true);
+		assert checkProof(proof, clause);
+		setResult(proof);
+	}
+
 	public void convertOracle(final AnnotatedTerm oracle) {
 		final Annotation[] annots = oracle.getAnnotations();
 		assert annots.length >= 2;
@@ -4433,6 +4450,10 @@ public class ProofSimplifier extends TermTransformer {
 
 		case ProofConstants.ANNOTKEY_REWRITE:
 			enqueueWalker((NonRecursive engine) -> ((ProofSimplifier) engine).convertMP(clause));
+			convert((Term) annots[1].getValue());
+			break;
+		case ProofConstants.ANNOTKEY_REWRITE_REV:
+			enqueueWalker((NonRecursive engine) -> ((ProofSimplifier) engine).convertMPReverse(clause));
 			convert((Term) annots[1].getValue());
 			break;
 		case ":inst": {

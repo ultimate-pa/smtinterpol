@@ -40,6 +40,7 @@ public interface ProofConstants {
 	//// ==== Annotation keys for clauses and resolution steps ====
 	public static final String ANNOTKEY_INPUTCLAUSE = ":input";
 	public static final String ANNOTKEY_REWRITE = ":rewrite";
+	public static final String ANNOTKEY_REWRITE_REV = ":rewriteRev";
 	public static final String ANNOTKEY_PROVES = ":proves";
 	public static final String ANNOTKEY_RUP = ":rup";
 	public static final String ANNOTKEY_VARS = ":vars";

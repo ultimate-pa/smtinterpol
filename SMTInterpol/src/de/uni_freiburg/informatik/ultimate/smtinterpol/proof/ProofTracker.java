@@ -209,6 +209,32 @@ public class ProofTracker implements IProofTracker {
 		return buildProof(mProofRules.oracle(lits, annots), getProvedTerm(rewrite));
 	}
 
+	/**
+	 * Create a proof of {~rhs, lhs} from a rewrite proof {@code (= lhs rhs)} for
+	 * rhs.
+	 *
+	 * @param lhs
+	 *            the rewritten literal.
+	 * @param rewrite
+	 *            the simplified formula rhs annotated with a proof of
+	 *            {@code (= lhs rhs)}.
+	 * @return the clause proving {~rhs, lhs}
+	 */
+	@Override
+	public Term rewriteToClauseReverse(Term lhs, Term rewrite) {
+		if (isReflexivity(getProof(rewrite))) {
+			return null;
+		}
+		final ProofLiteral[] lits = new ProofLiteral[] {
+				termToProofLiteral(getProvedTerm(rewrite)).negate(),
+				termToProofLiteral(lhs)
+		};
+		final Annotation[] annots = new Annotation[] {
+				new Annotation(ProofConstants.ANNOTKEY_REWRITE_REV, getProof(rewrite))
+		};
+		return buildProof(mProofRules.oracle(lits, annots), lhs);
+	}
+
 	public Term resolve(Term pivotLit, final Term posClause, final Term negClause) {
 		boolean positive = true;
 		while (isApplication(SMTLIBConstants.NOT, pivotLit)) {

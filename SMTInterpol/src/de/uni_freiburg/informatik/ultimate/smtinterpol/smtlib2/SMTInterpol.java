@@ -94,6 +94,19 @@ public class SMTInterpol extends NoopScript {
 		NONE, CLAUSES, FULL, LOWLEVEL
 	}
 
+	/**
+	 * The mechanism used to construct proofs for satisfiable formulas (see
+	 * {@code get-proof} and SMTInterpol/doc/model-proof-plan.md).
+	 * {@code EVALUATE} builds the proof by evaluating the asserted formulas in the
+	 * model ({@link de.uni_freiburg.informatik.ultimate.smtinterpol.model.ModelProver}),
+	 * which doesn't support quantifiers. {@code CLAUSES} assembles the proof from
+	 * the clauses created during clausification instead, and does support
+	 * quantifiers; it needs {@link ProofMode#FULL} or {@link ProofMode#LOWLEVEL}.
+	 */
+	public static enum ModelProofMode {
+		EVALUATE, CLAUSES
+	}
+
 	public static enum CheckType {
 		FULL {
 			@Override
@@ -624,8 +637,10 @@ public class SMTInterpol extends NoopScript {
 	private void setupClausifier(final Logics logic) {
 		try {
 			final ProofMode proofMode = getProofMode();
+			final boolean satProofsEnabled = (proofMode == ProofMode.FULL || proofMode == ProofMode.LOWLEVEL)
+					&& mSolverOptions.getModelProofMode() == ModelProofMode.CLAUSES;
 			mEngine = new DPLLEngine(mLogger, mResourceLimit);
-			mClausifier = new Clausifier(getTheory(), mEngine, proofMode);
+			mClausifier = new Clausifier(getTheory(), mEngine, proofMode, satProofsEnabled);
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
 			mEngine.setProofGeneration(proofMode != ProofMode.NONE);
@@ -820,6 +835,13 @@ public class SMTInterpol extends NoopScript {
 			}
 		} else if (mStatus == LBool.SAT) {
 			buildModel();
+			if (mClausifier.satProofsEnabled()) {
+				// TODO Phase 1+ of the model-proof plan: assemble the proof from the sat-proof
+				// artifacts recorded by the clausifier (SMTInterpol/doc/model-proof-plan.md)
+				// instead of evaluating the assertions in the model. Not yet implemented.
+				throw new UnsupportedOperationException(
+						"Option :model-proof-mode clauses is not yet implemented");
+			}
 			final ModelProver modelProver = new ModelProver(mModel);
 			return modelProver.buildModelProof(mAssertions);
 		} else {

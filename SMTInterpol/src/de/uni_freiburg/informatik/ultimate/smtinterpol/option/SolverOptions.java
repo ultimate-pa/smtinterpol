@@ -23,6 +23,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.Config;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.Transformations.AvailableTransformations;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.CheckType;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ModelProofMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
 
@@ -47,6 +48,7 @@ public class SolverOptions {
 	private final BooleanOption mProofCheckMode;
 	private final EnumOption<CheckType> mSimpCheckType;
 	private final EnumOption<ProofMode> mProofLevel;
+	private final EnumOption<ModelProofMode> mModelProofMode;
 	private final EnumOption<InstantiationMethod> mInstantiationMethod;
 	private final OptionMap mOptions;
 
@@ -84,6 +86,10 @@ public class SolverOptions {
 		mInstantiationMethod = new EnumOption<>(InstantiationMethod.E_MATCHING_CONFLICT, false,
 				InstantiationMethod.class, "Quantifier Theory: Method to instantiate quantified formulas.");
 		mProofLevel = new EnumOption<>(ProofMode.NONE, false, ProofMode.class, "Proof level.");
+		mModelProofMode = new EnumOption<>(ModelProofMode.EVALUATE, true, ModelProofMode.class,
+				"Mechanism used to construct proofs for satisfiable formulas: evaluate the assertions in the "
+				+ "model, or assemble the proof from the clauses created during clausification. The latter "
+				+ "supports quantifiers but needs :proof-level full or lowlevel.");
 
 		// general standard compliant options
 		options.addOption(SMTLIBConstants.VERBOSITY, new VerbosityOption(logger));
@@ -107,6 +113,7 @@ public class SolverOptions {
 		options.addOption(SMTInterpolConstants.PROOF_TRANSFORMATION, mProofTrans);
 		options.addOption(SMTInterpolConstants.PROOF_CHECK_MODE, mProofCheckMode);
 		options.addOption(SMTInterpolConstants.PROOF_LEVEL, mProofLevel);
+		options.addOption(SMTInterpolConstants.MODEL_PROOF_MODE, mModelProofMode);
 
 		// interpolant options
 		options.addOption(SMTInterpolConstants.PRODUCE_INTERPOLANTS, mProduceInterpolants);
@@ -166,6 +173,7 @@ public class SolverOptions {
 		mProofCheckMode = (BooleanOption) options.getOption(SMTInterpolConstants.PROOF_CHECK_MODE);
 		mSimpCheckType = (EnumOption<CheckType>) options.getOption(SMTInterpolConstants.SIMPLIFY_CHECK_TYPE);
 		mProofLevel = (EnumOption<ProofMode>) options.getOption(SMTInterpolConstants.PROOF_LEVEL);
+		mModelProofMode = (EnumOption<ModelProofMode>) options.getOption(SMTInterpolConstants.MODEL_PROOF_MODE);
 		mInstantiationMethod =
 				(EnumOption<InstantiationMethod>) options.getOption(SMTInterpolConstants.INSTANTIATION_METHOD);
 		mOptions = options;
@@ -213,6 +221,10 @@ public class SolverOptions {
 			}
 		}
 		return level;
+	}
+
+	public final ModelProofMode getModelProofMode() {
+		return mModelProofMode.getValue();
 	}
 
 	public final AvailableTransformations getProofTransformation() {

@@ -176,6 +176,73 @@ public class Clausifier {
 	final ScopedHashMap<Polynomial, EqualityProxy> mEqualities = new ScopedHashMap<>();
 
 	/**
+	 * Sat-proof record for every aux {@link ILiteral}: a proof of {@code (not l)}
+	 * from the clause formulas of {@code l}'s defining clauses, see "Registries and
+	 * the clause record" in SMTInterpol/doc/model-proof-plan.md. Only filled in
+	 * when {@link #satProofsEnabled()}.
+	 */
+	private final ScopedHashMap<ILiteral, FormulaSatProof> mLiteralSatProofs = new ScopedHashMap<>();
+	/**
+	 * Sat-proof record for every asserted term: a proof of the assertion from the
+	 * clause formulas of the clauses created from it. Only filled in when
+	 * {@link #satProofsEnabled()}.
+	 */
+	private final ScopedHashMap<Term, FormulaSatProof> mAssertionSatProofs = new ScopedHashMap<>();
+
+	/**
+	 * A sat-proof record: a proof of the tracked formula (an aux literal's formula
+	 * or an assertion) from the clause formulas of {@link #mHyps}, see
+	 * SMTInterpol/doc/model-proof-plan.md.
+	 */
+	static final class FormulaSatProof {
+		/** Proof of {@code {¬ψ_1, .., ¬ψ_m, conclusion}}; {@code null} means the identity, i.e. {@code m == 1}. */
+		final Term mProof;
+		/** The clauses proving {@code ψ_1, .., ψ_m}, by reference. */
+		final ClauseSatProof[] mHyps;
+
+		FormulaSatProof(final Term proof, final ClauseSatProof[] hyps) {
+			mProof = proof;
+			mHyps = hyps;
+		}
+	}
+
+	/**
+	 * A sat-proof record for a single clause: its clause formula {@code ψ}, fixed
+	 * by the consumer when the clause is created, and either a ready-made proof of
+	 * {@code {ψ}} (for a trivially true clause) or, per literal, the disjunct of
+	 * {@code ψ} it descends from and the proof connecting them. See
+	 * SMTInterpol/doc/model-proof-plan.md.
+	 */
+	static final class ClauseSatProof {
+		/** The clause formula ψ. */
+		final Term mFormula;
+		/** != null: a proof of {@code {ψ}} that needs no model input (trivially true clause). */
+		Term mReadyMadeProof;
+		/** Else: per literal of the clause, how to reach ψ. */
+		Map<ILiteral, SatEntry> mLiterals;
+		/** Memo for the sat-proof assembler. */
+		Term mAssembled;
+
+		ClauseSatProof(final Term formula) {
+			mFormula = formula;
+		}
+	}
+
+	/**
+	 * The disjunct of a clause formula ψ a term/literal descends from, and a proof
+	 * of {@code {¬it, disjunct}}; {@code mProof == null} means {@code it == disjunct}.
+	 */
+	static final class SatEntry {
+		final Term mDisjunct;
+		final Term mProof;
+
+		SatEntry(final Term disjunct, final Term proof) {
+			mDisjunct = disjunct;
+			mProof = proof;
+		}
+	}
+
+	/**
 	 * Cache to determine if a sort is stably infinite.
 	 */
 	private final HashMap<Sort, Boolean> mInfinityMap = new HashMap<>();
@@ -202,19 +269,40 @@ public class Clausifier {
 	final IProofTracker mTracker;
 	private final LogicSimplifier mUtils;
 	private final BvToIntUtils mBvToIntUtils;
+	/**
+	 * Whether the clause-based sat-proof artifacts (see
+	 * SMTInterpol/doc/model-proof-plan.md) are tracked while clausifying. Requires
+	 * a real {@link ProofTracker}, i.e. {@link ProofMode#FULL} or
+	 * {@link ProofMode#LOWLEVEL}.
+	 */
+	private final boolean mSatProofsEnabled;
 
 	final static ILiteral mTRUE = new TrueLiteral();
 	final static ILiteral mFALSE = new FalseLiteral();
 
 	public Clausifier(final Theory theory, final DPLLEngine engine, final ProofMode proofLevel) {
+		this(theory, engine, proofLevel, false);
+	}
+
+	public Clausifier(final Theory theory, final DPLLEngine engine, final ProofMode proofLevel,
+			final boolean satProofsEnabled) {
 		mTheory = theory;
 		mEngine = engine;
 		mLogger = engine.getLogger();
 		mTracker = proofLevel == ProofMode.NONE || proofLevel == ProofMode.CLAUSES ? new NoopProofTracker()
 				: new ProofTracker(theory);
+		mSatProofsEnabled = satProofsEnabled && mTracker instanceof ProofTracker;
 		mUtils = new LogicSimplifier(mTracker);
 		mBvToIntUtils = new BvToIntUtils(theory, mTracker, true, mCompiler);
 		mCompiler.setProofTracker(mTracker, mUtils, mBvToIntUtils);
+	}
+
+	/**
+	 * @return whether the per-clause sat-proof artifacts should be recorded, see
+	 *         SMTInterpol/doc/model-proof-plan.md.
+	 */
+	public boolean satProofsEnabled() {
+		return mSatProofsEnabled;
 	}
 
 	/**
@@ -1942,6 +2030,10 @@ public class Clausifier {
 			mAnonAuxTerms.beginScope();
 			mLATerms.beginScope();
 			mCCTerms.beginScope();
+			if (mSatProofsEnabled) {
+				mLiteralSatProofs.beginScope();
+				mAssertionSatProofs.beginScope();
+			}
 		}
 	}
 
@@ -1968,6 +2060,10 @@ public class Clausifier {
 			mAnonAuxTerms.endScope();
 			mTermDataFlags.endScope();
 			mEqualities.endScope();
+			if (mSatProofsEnabled) {
+				mLiteralSatProofs.endScope();
+				mAssertionSatProofs.endScope();
+			}
 		}
 		mStackLevel -= numpops;
 		mInfinityMap.clear();

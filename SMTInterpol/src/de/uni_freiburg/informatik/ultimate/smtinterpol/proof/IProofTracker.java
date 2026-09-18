@@ -223,6 +223,21 @@ public interface IProofTracker {
 	public Term rewriteToClause(Term lhs, Term rewrite);
 
 	/**
+	 * Create a proof of {~rhs, lhs} from a rewrite proof {@code (= lhs rhs)} for
+	 * rhs. This is the reverse direction of {@link #rewriteToClause}; it is sound
+	 * for every rewrite rule since the underlying proof always establishes the
+	 * full equivalence {@code (= lhs rhs)}, not just the forward implication.
+	 *
+	 * @param lhs
+	 *            the rewritten literal.
+	 * @param rewrite
+	 *            the simplified formula rhs annotated with a proof of
+	 *            {@code (= lhs rhs)}.
+	 * @return the clause proving {~rhs, lhs}
+	 */
+	public Term rewriteToClauseReverse(Term lhs, Term rewrite);
+
+	/**
 	 * Creates the clause proof of t. This is usually the annotation of t.
 	 *
 	 * @param t

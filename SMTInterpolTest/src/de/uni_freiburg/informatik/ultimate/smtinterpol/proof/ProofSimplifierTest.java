@@ -130,6 +130,30 @@ public class ProofSimplifierTest {
 		final Term rewriteEqSimp = mSmtInterpol.term(ProofConstants.FN_REWRITE, mSmtInterpol.annotate(lhs, rewriteRule),
 				rhs);
 		checkLemmaOrRewrite(rewriteEqSimp, new Term[] { rewriteEquality });
+		checkReverseRewriteRule(lhs, rhs, rewriteRule);
+	}
+
+	/**
+	 * Check that {@link ProofTracker#rewriteToClauseReverse} for this rewrite rule
+	 * produces a checkable proof of {~rhs, lhs} (the reverse direction of
+	 * {@link IProofTracker#rewriteToClause}, see the model-proof plan's Phase 0
+	 * rewrite-rule audit).
+	 */
+	private void checkReverseRewriteRule(final Term lhs, final Term rhs, final Annotation rewriteRule) {
+		if (lhs.getSort().getName() != SMTLIBConstants.BOOL) {
+			// rewriteToClauseReverse builds a clause {~rhs, lhs}, so lhs/rhs must be
+			// Boolean-sorted proof literals; non-Boolean rewrites (e.g. on array or
+			// arithmetic terms) are never passed to it in the actual clausifier.
+			return;
+		}
+		final Term rewrite = mProofTracker.buildRewrite(lhs, rhs, rewriteRule);
+		final Term reverseClause = mProofTracker.rewriteToClauseReverse(lhs, rewrite);
+		if (reverseClause == null) {
+			// lhs and rhs are the same term (reflexivity); nothing to check.
+			return;
+		}
+		final Term oracle = mProofTracker.getClauseProof(reverseClause);
+		checkLemmaOrRewrite(oracle, new Term[] { mTheory.term(SMTLIBConstants.NOT, rhs), lhs });
 	}
 
 	private Term buildOracle(Term[] clause, Annotation rule) {
@@ -264,6 +288,29 @@ public class ProofSimplifierTest {
 		final Term eqTerm = mSmtInterpol.term("=", terms);
 		final Term xorTerm = mSmtInterpol.term("xor", terms);
 		checkRewriteRule(eqTerm, mSmtInterpol.term("not", xorTerm), ProofConstants.RW_EQ_TO_XOR);
+		mSmtInterpol.pop(1);
+	}
+
+	/**
+	 * RW_NOT_SIMP is the one rewrite rule where lhs itself starts with "not" -- for
+	 * "not (not p) = p" it even starts with two "not"s. This checks that
+	 * {@link ProofTracker#rewriteToClauseReverse}/{@link #convertMPReverse} handle
+	 * that correctly, i.e. that {@code removeNot} is applied to the raw (possibly
+	 * "not"-headed) lhs/rhs terms, not just to the equality's already-stripped
+	 * proof literals.
+	 */
+	@Test
+	public void testNotSimpRewrite() {
+		mSmtInterpol.push(1);
+		final Term[] terms = generateDummyTerms("b", 1, mSmtInterpol.sort("Bool"));
+		final Term p = terms[0];
+		final Term trueTerm = mSmtInterpol.term(SMTLIBConstants.TRUE);
+		final Term falseTerm = mSmtInterpol.term(SMTLIBConstants.FALSE);
+
+		checkRewriteRule(mSmtInterpol.term("not", trueTerm), falseTerm, ProofConstants.RW_NOT_SIMP);
+		checkRewriteRule(mSmtInterpol.term("not", falseTerm), trueTerm, ProofConstants.RW_NOT_SIMP);
+		// lhs == (not (not p)), rhs == p: lhs itself is doubly negated.
+		checkRewriteRule(mSmtInterpol.term("not", mSmtInterpol.term("not", p)), p, ProofConstants.RW_NOT_SIMP);
 		mSmtInterpol.pop(1);
 	}
 
