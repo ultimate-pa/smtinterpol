@@ -696,7 +696,7 @@ public class ModelProver extends TermTransformer {
 					mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ot1),
 							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct1), eq1,
 									mProofRules.symm(ct1, ot1)),
-							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct2, ot2), eq2,
+							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot2, ct2), eq2,
 									mProofRules.trans(ct1, ot1, ot2, ct2))),
 					mProofUtils.proveDisequality(ct1, ct2));
 		} else {
