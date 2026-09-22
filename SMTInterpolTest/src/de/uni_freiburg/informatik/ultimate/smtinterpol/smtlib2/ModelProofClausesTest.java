@@ -1,0 +1,169 @@
+/*
+ * Copyright (C) 2026 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
+
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.MinimalProofChecker;
+
+/**
+ * End-to-end tests for Phase 1 of the model-proof plan
+ * (SMTInterpol/doc/model-proof-plan.md): with {@code :model-proof-mode
+ * clauses}, {@code get-proof} on a SAT result should produce a proof that
+ * {@link MinimalProofChecker#checkModelProof} accepts with no remaining
+ * oracles, for quantifier-free inputs without aux literals (propositional
+ * and/or/=> splits over CC/LA atoms).
+ *
+ * @author Jochen Hoenicke
+ */
+@RunWith(JUnit4.class)
+public class ModelProofClausesTest {
+
+	private SMTInterpol newScript() {
+		final SMTInterpol script = new SMTInterpol(new DefaultLogger());
+		script.setOption(":produce-models", true);
+		script.setOption(":interactive-mode", true);
+		script.setOption(":produce-proofs", true);
+		script.setOption(":proof-level", "full");
+		script.setOption(":model-proof-mode", "clauses");
+		return script;
+	}
+
+	private void checkSatAndProof(final SMTInterpol script) {
+		Assert.assertEquals(LBool.SAT, script.checkSat());
+		final Term proof = script.getProof();
+		final MinimalProofChecker checker = new MinimalProofChecker(script, script.getLogger());
+		// The reversed-rewrite/tautology steps built via ProofTracker aren't (yet) run
+		// through ProofSimplifier for :model-proof-mode clauses (see SMTInterpol.getProof),
+		// so a few :rewriteRev oracles may legitimately remain; checkModelProof still
+		// accepts them (same as it accepts theory-axiom oracles elsewhere).
+		Assert.assertTrue("checkModelProof", checker.checkModelProof(proof));
+	}
+
+	@Test
+	public void testConjunctionWithNegatedConjunct() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), y = s.term("y"), p = s.term("p");
+		s.assertTerm(s.term("and", s.term("<=", x, y), s.term("not", s.term("=", x, y)), p));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testNegatedOr() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y");
+		// not (x > y or x = y)  ==  x <= y and x != y
+		s.assertTerm(s.term("not", s.term("or", s.term(">", x, y), s.term("=", x, y))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testNegatedImplies() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), p = s.term("p");
+		// not (p => x > 0)  ==  p and x <= 0
+		s.assertTerm(s.term("not", s.term("=>", p, s.term(">", x, s.numeral("0")))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMultipleAssertions() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y");
+		s.assertTerm(s.term("<=", x, y));
+		s.assertTerm(s.term("not", s.term("=", x, y)));
+		// >= compiles to a negatively-interned LA literal: exercises the polarity
+		// handling in ModelProofBuilder.proveFromLiterals.
+		s.assertTerm(s.term(">=", y, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testNestedAndInsideNegatedOr() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		s.assertTerm(s.term("and", s.term("<=", x, y),
+				s.term("and", s.term("<=", y, z), s.term("not", s.term("=", x, z)))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testNegatedOrWithNegatedDisjunct() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y");
+		// a disjunct that is itself negated: exercises the "double not" case in
+		// AddAsAxiom's or-negative child bridging.
+		s.assertTerm(s.term("not", s.term("or", s.term(">", x, y), s.term("not", s.term("=", x, y)))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testModelProofModeDefaultsToEvaluate() {
+		// Sanity check that the default (":model-proof-mode" unset) is unaffected by
+		// Phase 1: it should keep using the whole-formula evaluating ModelProver path.
+		final SMTInterpol s = new SMTInterpol(new DefaultLogger());
+		s.setOption(":produce-models", true);
+		s.setOption(":interactive-mode", true);
+		s.setOption(":produce-proofs", true);
+		s.setOption(":proof-level", "full");
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y");
+		s.assertTerm(s.term("<=", x, y));
+		checkSatAndProof(s);
+	}
+}

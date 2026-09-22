@@ -1317,6 +1317,20 @@ public class ModelProver extends TermTransformer {
 		return getProof(provedTerm);
 	}
 
+	/**
+	 * Prefix {@code proof} with a {@code refineFun} for every function the model
+	 * defines, the same wrapping {@link #buildModelProof} applies to its own
+	 * result. Used by the clause-based assembler ({@code ModelProofBuilder}),
+	 * whose proof is otherwise built independently of this class.
+	 */
+	public Term wrapRefineFun(Term proof) {
+		for (final FunctionSymbol fs : mModel.getDefinedFunctions()) {
+			final Term definition = mModel.getFunctionDefinition(fs);
+			proof = mProofRules.refineFun(fs, definition, proof);
+		}
+		return proof;
+	}
+
 	public Term buildModelProof(List<Term> assertions) {
 		final Term[] andArgs = assertions.toArray(new Term[assertions.size()]);
 		final Term andTerm = createAnd(andArgs);

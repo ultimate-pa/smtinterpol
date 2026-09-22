@@ -71,9 +71,16 @@ class CollectLiteral implements Operation {
 		final Term litRewrite = mClausifier.rewriteLiteral(mLiteral);
 		final Term rewrittenLit = mClausifier.mTracker.getProvedTerm(litRewrite);
 		if (rewrittenLit != mLiteral) {
+			final Clausifier.SatEntry descended = mClausifier.satProofsEnabled()
+					? mClauseBuilder.descend(mLiteral, mClausifier.mTracker.rewriteToClauseReverse(mLiteral, litRewrite))
+					: null;
 			mClauseBuilder.mCurrentLits.remove(mLiteral);
 			mClauseBuilder.addResolution(mClausifier.mTracker.rewriteToClause(mLiteral, litRewrite), mLiteral);
-			mClauseBuilder.collectLiteral(rewrittenLit);
+			if (descended != null) {
+				mClauseBuilder.collectLiteral(rewrittenLit, descended.mDisjunct, descended.mProof);
+			} else {
+				mClauseBuilder.collectLiteral(rewrittenLit);
+			}
 			return;
 		}
 		Term idx = mLiteral;
@@ -117,6 +124,13 @@ class CollectLiteral implements Operation {
 					tautClause[i + 1] = p;
 				}
 				final Term taut = mClausifier.mTracker.tautology(theory.term("or", tautClause), rule);
+				// TODO: track the sat-side dual (TAUT_OR_POS/TAUT_IMP_POS/TAUT_AND_NEG per
+				// inlined child, see the model-proof plan). Until then, mark the clause's
+				// record as unusable so the assembler falls back to evaluating it directly,
+				// rather than recording an incorrect disjunct/proof for the inlined children.
+				if (mClausifier.satProofsEnabled()) {
+					mClauseBuilder.poisonSatRecord();
+				}
 				mClauseBuilder.mCurrentLits.remove(mLiteral);
 				mClauseBuilder.addResolution(taut, mLiteral);
 				for (int i = params.length - 1; i >= 0; i--) {
@@ -210,6 +224,11 @@ class CollectLiteral implements Operation {
 			final Term negLit = positive ? theory.term(SMTLIBConstants.NOT, idx) : idx;
 			final Term tautology =
 					mClausifier.mTracker.tautology(theory.term(SMTLIBConstants.OR, negLit, substituted), converted.getSecond());
+			// TODO: track the sat-side dual for quantifier elimination (phase 4 of the
+			// model-proof plan). Poison instead of recording an incorrect entry.
+			if (mClausifier.satProofsEnabled()) {
+				mClauseBuilder.poisonSatRecord();
+			}
 			mClauseBuilder.mCurrentLits.remove(mLiteral);
 			mClauseBuilder.addResolution(tautology, lit);
 			final Term substitutedCanonic = mClausifier.mCompiler.transform(substituted);

@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
@@ -70,20 +71,56 @@ class BuildClause implements Operation {
 	private Term mProof;
 
 	private boolean mIsTrue = false;
-	final LinkedHashSet<Term> mCurrentLits = new LinkedHashSet<>();
+	final LinkedHashMap<Term, Clausifier.SatEntry> mCurrentLits = new LinkedHashMap<>();
 	private final LinkedHashSet<Literal> mLits = new LinkedHashSet<>();
 	private final LinkedHashSet<QuantLiteral> mQuantLits = new LinkedHashSet<>();
 	private final SourceAnnotation mSource;
+	/**
+	 * The sat-proof record for this clause, or null when sat proofs are disabled
+	 * or this clause is never a hypothesis of one (theory axioms). Its
+	 * {@code mFormula} is already set by the caller; {@code perform()} fills in
+	 * {@code mLiterals}/{@code mReadyMadeProof}.
+	 */
+	private final Clausifier.ClauseSatProof mSatRecord;
+	/** Per literal, how it descends from its disjunct of {@code mSatRecord.mFormula}; filled in by {@link #addLiteral}. */
+	private final LinkedHashMap<ILiteral, Clausifier.SatEntry> mLitSatProofs = new LinkedHashMap<>();
+	/**
+	 * Set when {@link CollectLiteral} took a branch that doesn't (yet) track its
+	 * sat-proof dual (e.g. the or/and/=> inlining branch, or a quantified
+	 * subformula). {@code perform()} then leaves {@code mSatRecord} without
+	 * {@code mLiterals}, so the assembler falls back to evaluating
+	 * {@code mSatRecord.mFormula} directly instead of using (incomplete,
+	 * potentially unsound) per-literal entries.
+	 */
+	private boolean mSatRecordPoisoned = false;
+
+	void poisonSatRecord() {
+		mSatRecordPoisoned = true;
+	}
 
 	public BuildClause(Clausifier clausifier, final Term clauseWithProof, final SourceAnnotation proofNode) {
+		this(clausifier, clauseWithProof, proofNode, null);
+	}
+
+	public BuildClause(Clausifier clausifier, final Term clauseWithProof, final SourceAnnotation proofNode,
+			final Clausifier.ClauseSatProof satRecord) {
 		mClausifier = clausifier;
 		mClause = clauseWithProof;
 		mSource = proofNode;
 		mProof = mClausifier.mTracker.getClauseProof(clauseWithProof);
+		mSatRecord = satRecord;
 	}
 
 	public SourceAnnotation getSource() {
 		return mSource;
+	}
+
+	private static Term stripDoubleNot(Term term) {
+		while (Clausifier.isNotTerm(term) && Clausifier.isNotTerm(((ApplicationTerm) term).getParameters()[0])) {
+			final Term negated = ((ApplicationTerm) term).getParameters()[0];
+			term = ((ApplicationTerm) negated).getParameters()[0];
+		}
+		return term;
 	}
 
 	/**
@@ -94,13 +131,55 @@ class BuildClause implements Operation {
 	 *            the disjunct to add to the clause.
 	 */
 	public void collectLiteral(Term term) {
-		while (Clausifier.isNotTerm(term) && Clausifier.isNotTerm(((ApplicationTerm) term).getParameters()[0])) {
-			final Term negated = ((ApplicationTerm) term).getParameters()[0];
-			term = ((ApplicationTerm) negated).getParameters()[0];
+		term = stripDoubleNot(term);
+		collectLiteral(term, term, null);
+	}
+
+	/**
+	 * Start collecting a term in a clause, recording which disjunct of the sat
+	 * clause formula it descends from.
+	 *
+	 * @param term     the (already double-not-stripped) literal to collect.
+	 * @param disjunct the disjunct of {@code mSatRecord.mFormula} this literal
+	 *                 descends from; ignored when sat proofs are disabled.
+	 * @param satProof a proof of {@code {~term, disjunct}}, or null if
+	 *                 {@code term == disjunct}.
+	 */
+	public void collectLiteral(final Term term, final Term disjunct, final Term satProof) {
+		final Term strippedTerm = stripDoubleNot(term);
+		if (mCurrentLits.put(strippedTerm, new Clausifier.SatEntry(disjunct, satProof)) == null) {
+			mClausifier.pushOperation(new CollectLiteral(mClausifier, strippedTerm, this));
 		}
-		if (mCurrentLits.add(term)) {
-			mClausifier.pushOperation(new CollectLiteral(mClausifier, term, this));
-		}
+	}
+
+	/**
+	 * Compose {@code {~newTerm, term}} (a proof that {@code term}'s literal
+	 * implies {@code newTerm}'s, or null for the identity) with {@code term}'s own
+	 * recorded descent, giving the descent for {@code newTerm}.
+	 *
+	 * @param term            a term already in {@link #mCurrentLits}.
+	 * @param proofFromNewTerm a proof of {@code {~newTerm, term}}, or null.
+	 * @return the descent entry for {@code newTerm}.
+	 */
+	Clausifier.SatEntry descend(final Term term, final Term proofNewTermToTerm) {
+		final Clausifier.SatEntry parent = mCurrentLits.get(term);
+		return new Clausifier.SatEntry(parent.mDisjunct, compose(term, proofNewTermToTerm, parent.mProof));
+	}
+
+	/**
+	 * Resolve {@code {~newTerm, term}} ({@code proofNewTermToTerm}) with
+	 * {@code {~term, disjunct}} ({@code proofTermToDisjunct}) on {@code term},
+	 * giving {@code {~newTerm, disjunct}}. Either may be null (identity); the
+	 * composition is then the other one, or null if both are.
+	 */
+	private Term compose(final Term term, final Term proofNewTermToTerm, final Term proofTermToDisjunct) {
+		// proofNewTermToTerm comes fresh from rewriteToClauseReverse (annotated with its
+		// proof), while proofTermToDisjunct is already the raw @Proof term; unwrap the former.
+		final Term inner =
+				proofNewTermToTerm == null ? null : mClausifier.mTracker.getClauseProof(proofNewTermToTerm);
+		return proofTermToDisjunct == null ? inner
+				: inner == null ? proofTermToDisjunct
+						: ((ProofTracker) mClausifier.mTracker).resolve(term, inner, proofTermToDisjunct);
 	}
 
 	/**
@@ -162,7 +241,13 @@ class BuildClause implements Operation {
 		final Term origLiteral = positive ? origAtom : theory.term(SMTLIBConstants.NOT, origAtom);
 		final Term rewriteLiteral = positive ? rewriteAtom
 				: mClausifier.mTracker.congruence(mClausifier.mTracker.reflexivity(origLiteral), new Term[] { rewriteAtom });
-		assert mCurrentLits.contains(origLiteral);
+		assert mCurrentLits.containsKey(origLiteral);
+		if (mSatRecord != null) {
+			final Clausifier.SatEntry entry = mCurrentLits.get(origLiteral);
+			final Term reverse = mClausifier.mTracker.rewriteToClauseReverse(origLiteral, rewriteLiteral);
+			mLitSatProofs.put(positive ? lit : lit.negate(),
+					new Clausifier.SatEntry(entry.mDisjunct, compose(origLiteral, reverse, entry.mProof)));
+		}
 		mCurrentLits.remove(origLiteral);
 		addResolution(mClausifier.mTracker.rewriteToClause(origLiteral, rewriteLiteral), origLiteral);
 		if (lit == Clausifier.mFALSE && mClausifier.mTracker instanceof ProofTracker) {
@@ -232,7 +317,14 @@ class BuildClause implements Operation {
 	 */
 	public void perform() {
 		if (mIsTrue) {
+			// A trivially true clause never reaches the engine, so no literal of it can be
+			// picked from the assignment. The record is left empty (no mLiterals, no
+			// mReadyMadeProof); the assembler falls back to evaluating mFormula directly.
+			// TODO: build mReadyMadeProof from the entries in mLitSatProofs instead.
 			return;
+		}
+		if (mSatRecord != null && !mSatRecordPoisoned) {
+			mSatRecord.mLiterals = mLitSatProofs;
 		}
 		final Theory theory = mClause.getTheory();
 		boolean isDpllClause = true;

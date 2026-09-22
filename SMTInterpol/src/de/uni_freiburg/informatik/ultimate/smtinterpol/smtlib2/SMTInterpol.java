@@ -55,6 +55,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Version;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.ModelProofBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -835,14 +836,18 @@ public class SMTInterpol extends NoopScript {
 			}
 		} else if (mStatus == LBool.SAT) {
 			buildModel();
-			if (mClausifier.satProofsEnabled()) {
-				// TODO Phase 1+ of the model-proof plan: assemble the proof from the sat-proof
-				// artifacts recorded by the clausifier (SMTInterpol/doc/model-proof-plan.md)
-				// instead of evaluating the assertions in the model. Not yet implemented.
-				throw new UnsupportedOperationException(
-						"Option :model-proof-mode clauses is not yet implemented");
-			}
 			final ModelProver modelProver = new ModelProver(mModel);
+			if (mClausifier.satProofsEnabled()) {
+				final ModelProofBuilder builder = new ModelProofBuilder(mClausifier, modelProver);
+				// TODO: the reversed-rewrite/tautology steps built via ProofTracker (e.g. the
+				// :rewriteRev oracle from rewriteToClauseReverse) are, like the unsat LOWLEVEL
+				// proof, only fully checked after running through ProofSimplifier -- but
+				// ProofSimplifier's tree walk isn't (yet) safe to run over a tree that also
+				// embeds ModelProver's own (already fully-checked, oracle-free) sub-proofs, as
+				// this one does via the ModelProver.proveAtom fallback. So for now this proof
+				// can contain a few :rewriteRev oracles; checkModelProof still accepts it.
+				return modelProver.wrapRefineFun(builder.buildProof(mAssertions));
+			}
 			return modelProver.buildModelProof(mAssertions);
 		} else {
 			if (mErrorCallback != null) {

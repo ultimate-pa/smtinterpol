@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
@@ -242,6 +243,132 @@ public class ProofTracker implements IProofTracker {
 			positive = !positive;
 		}
 		return mProofRules.resolutionRule(pivotLit, positive ? posClause : negClause, positive ? negClause : posClause);
+	}
+
+	/**
+	 * Given a proof of {@code rawTerm}'s literal, used as an opaque atom (sign
+	 * {@code rawPositive}, not "not"-stripped), return a proof of the literal for
+	 * {@code rawTerm}'s fully-"not"-stripped core atom instead.
+	 *
+	 * @param rawTerm     a term with zero or more leading "not"s, used opaquely.
+	 * @param rawPositive the sign {@code rawTerm} occurs with in {@code proof}.
+	 * @param proof       a proof containing {@code rawTerm^rawPositive}.
+	 * @return a proof containing {@code core^sign}, where {@code core} is
+	 *         {@code rawTerm} with all leading "not"s peeled and {@code sign} is
+	 *         {@code rawPositive} iff an even number were peeled.
+	 */
+	public Term stripNot(final Term rawTerm, final boolean rawPositive, final Term proof) {
+		Term cur = rawTerm;
+		boolean sign = rawPositive;
+		Term p = proof;
+		while (isApplication(SMTLIBConstants.NOT, cur)) {
+			final Term inner = ((ApplicationTerm) cur).getParameters()[0];
+			p = sign ? mProofRules.resolutionRule(cur, p, mProofRules.notElim(cur))
+					: mProofRules.resolutionRule(cur, mProofRules.notIntro(cur), p);
+			cur = inner;
+			sign = !sign;
+		}
+		return p;
+	}
+
+	/**
+	 * The inverse of {@link #stripNot}: given a proof of {@code rawTerm}'s
+	 * fully-"not"-stripped core atom, with whatever sign stripping produces, wrap
+	 * it back up into a proof of {@code rawTerm} itself, used opaquely, with sign
+	 * {@code rawPositive}.
+	 */
+	public Term wrapNot(final Term rawTerm, final boolean rawPositive, final Term proofOfCore) {
+		final ArrayList<Term> notTerms = new ArrayList<>();
+		Term cur = rawTerm;
+		while (isApplication(SMTLIBConstants.NOT, cur)) {
+			notTerms.add(cur);
+			cur = ((ApplicationTerm) cur).getParameters()[0];
+		}
+		Term p = proofOfCore;
+		boolean sign = notTerms.size() % 2 == 0 ? rawPositive : !rawPositive;
+		for (int i = notTerms.size() - 1; i >= 0; i--) {
+			final Term notTerm = notTerms.get(i);
+			p = sign ? mProofRules.resolutionRule(cur, p, mProofRules.notElim(notTerm))
+					: mProofRules.resolutionRule(cur, mProofRules.notIntro(notTerm), p);
+			cur = notTerm;
+			sign = !sign;
+		}
+		return p;
+	}
+
+	/**
+	 * Resolve on the exact term {@code pivot}, without the "not"-stripping
+	 * {@link #resolve} does. Used when {@code pivot} itself (e.g. a "not"-headed
+	 * clause formula) is the literal genuinely shared by both clauses, as opposed
+	 * to {@link #resolve}'s usual case of a possibly-negated pivot whose clauses
+	 * already use the stripped atom.
+	 *
+	 * @param pivot    the literal, exactly as it occurs (positively) in proofPos and
+	 *                 (negatively) in proofNeg.
+	 * @param proofPos proof of a clause containing {@code pivot} positively.
+	 * @param proofNeg proof of a clause containing {@code pivot} negatively.
+	 * @return the resolvent.
+	 */
+	public Term resolveAtom(final Term pivot, final Term proofPos, final Term proofNeg) {
+		return mProofRules.resolutionRule(pivot, proofPos, proofNeg);
+	}
+
+	/**
+	 * Create a proof of {@code {~notTerm, ~t}} where {@code notTerm == (not t)}.
+	 * Combined with {@link #resolveAtom}, this peels a "not" from a literal that
+	 * occurs positively in some proof, turning it into the (negated) underlying
+	 * atom -- the checked-axiom counterpart of what
+	 * {@code ProofSimplifier.removeNot} does when converting an oracle.
+	 *
+	 * @param notTerm a term of the form {@code (not t)}.
+	 * @return the tautology {@code {~notTerm, ~t}}.
+	 */
+	public Term notElim(final Term notTerm) {
+		return mProofRules.notElim(notTerm);
+	}
+
+	/**
+	 * Create a proof of the excluded-middle-style tautology {@code {notTerm, t}}
+	 * where {@code notTerm == (not t)}. The dual of {@link #notElim}: resolving a
+	 * proof that uses the stripped atom {@code t} positively against this turns it
+	 * into one using the raw, "not"-headed term {@code notTerm} negatively (or vice
+	 * versa).
+	 *
+	 * @param notTerm a term of the form {@code (not t)}.
+	 * @return the tautology {@code {notTerm, t}}.
+	 */
+	public Term notIntro(final Term notTerm) {
+		return mProofRules.notIntro(notTerm);
+	}
+
+	/**
+	 * Create a proof of {@code {andTerm, ~p_1, .., ~p_n}} where
+	 * {@code andTerm == (and p_1 .. p_n)}, using {@code andTerm}'s own parameters
+	 * as opaque literals (unlike {@link #tautology}, which strips "not"s from
+	 * its "or"-shaped axiom). The sat-side dual of and-splitting.
+	 */
+	public Term andIntro(final Term andTerm) {
+		return mProofRules.andIntro(andTerm);
+	}
+
+	/**
+	 * Create a proof of {@code {~orTerm, p_1, .., p_n}} where
+	 * {@code orTerm == (or p_1 .. p_n)}, using {@code orTerm}'s own parameters as
+	 * opaque literals (unlike {@link #tautology}). The sat-side dual of
+	 * or-splitting.
+	 */
+	public Term orElim(final Term orTerm) {
+		return mProofRules.orElim(orTerm);
+	}
+
+	/**
+	 * Create a proof of {@code {~impTerm, ~p_1, .., ~p_{n-1}, p_n}} where
+	 * {@code impTerm == (=> p_1 .. p_n)}, using {@code impTerm}'s own parameters
+	 * as opaque literals (unlike {@link #tautology}). The sat-side dual of
+	 * =>-splitting.
+	 */
+	public Term impElim(final Term impTerm) {
+		return mProofRules.impElim(impTerm);
 	}
 
 	@Override

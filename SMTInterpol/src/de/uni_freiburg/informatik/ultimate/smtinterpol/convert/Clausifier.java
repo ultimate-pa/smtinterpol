@@ -181,13 +181,13 @@ public class Clausifier {
 	 * the clause record" in SMTInterpol/doc/model-proof-plan.md. Only filled in
 	 * when {@link #satProofsEnabled()}.
 	 */
-	private final ScopedHashMap<ILiteral, FormulaSatProof> mLiteralSatProofs = new ScopedHashMap<>();
+	final ScopedHashMap<ILiteral, FormulaSatProof> mLiteralSatProofs = new ScopedHashMap<>();
 	/**
 	 * Sat-proof record for every asserted term: a proof of the assertion from the
 	 * clause formulas of the clauses created from it. Only filled in when
 	 * {@link #satProofsEnabled()}.
 	 */
-	private final ScopedHashMap<Term, FormulaSatProof> mAssertionSatProofs = new ScopedHashMap<>();
+	final ScopedHashMap<Term, FormulaSatProof> mAssertionSatProofs = new ScopedHashMap<>();
 
 	/**
 	 * A sat-proof record: a proof of the tracked formula (an aux literal's formula
@@ -975,10 +975,21 @@ public class Clausifier {
 		}
 	}
 
-	public void buildClause(final Term term, final SourceAnnotation source) {
-		final BuildClause bc = new BuildClause(this, term, source);
+	/**
+	 * Build a clause for {@code term} (a single literal, or an "or" term for a
+	 * genuine clause). If sat proofs are enabled, the returned record's formula is
+	 * {@code term}'s own provedTerm -- the leaf case of artifact 1/3: the record is
+	 * the identity, since the node's formula already is its own clause formula.
+	 *
+	 * @return the (still empty, to be filled in by {@code BuildClause.perform()})
+	 *         sat-proof record for this clause, or null if sat proofs are off.
+	 */
+	public ClauseSatProof buildClause(final Term term, final SourceAnnotation source) {
+		final ClauseSatProof csp = satProofsEnabled() ? new ClauseSatProof(mTracker.getProvedTerm(term)) : null;
+		final BuildClause bc = new BuildClause(this, term, source, csp);
 		pushOperation(bc);
 		bc.collectLiteral(mTracker.getProvedTerm(term));
+		return csp;
 	}
 
 	public void buildClause(final Annotation rule, final SourceAnnotation source, final Term... clauseLits) {
@@ -1660,7 +1671,7 @@ public class Clausifier {
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.tautology(mTheory.not(trueEqFalse), ProofConstants.TAUT_TRUE_NOT_FALSE);
 			final BuildClause bc = new BuildClause(this, axiom, source);
-			bc.mCurrentLits.add(mTheory.not(trueEqFalse));
+			bc.mCurrentLits.put(mTheory.not(trueEqFalse), new SatEntry(mTheory.not(trueEqFalse), null));
 			final Term rewrite = mTracker.intern(trueEqFalse, atom.getSMTFormula(mTheory));
 			bc.addLiteral(atom.negate(), trueEqFalse, rewrite, false);
 			bc.perform();
@@ -1995,7 +2006,10 @@ public class Clausifier {
 		} finally {
 			mCompiler.reset();
 		}
-		simpFormula = mTracker.modusPonens(mTracker.asserted(origFormula), simpFormula);
+		final Term rewriteProof = simpFormula;
+		final Term assertedProof = mTracker.asserted(origFormula);
+		final Term assertedTerm = mTracker.getProvedTerm(assertedProof);
+		simpFormula = mTracker.modusPonens(assertedProof, simpFormula);
 		origFormula = null;
 
 		mOccCounter.count(mTracker.getProvedTerm(simpFormula));
@@ -2005,8 +2019,35 @@ public class Clausifier {
 				trackAssignment(me.getKey(), me.getValue(), source);
 			}
 		}
-		pushOperation(new AddAsAxiom(this, simpFormula, source));
+		final AddAsAxiom root = new AddAsAxiom(this, simpFormula, source);
+		pushOperation(root);
 		run();
+		if (satProofsEnabled() && root.mSatProof != null && assertedTerm == f) {
+			// Bridge from the clausifier-internal (compiled) formula back to the term the
+			// user actually asserted, reversing the rewrite addFormula itself applied above.
+			// rewriteToClauseReverse works in the "always stripped" clause-literal
+			// convention, while root.mSatProof.mProof concludes simpFormulaRaw/assertedTerm
+			// opaquely (see SplitJoin), so the two ends of the bridge are wrapped back into
+			// that opaque convention with wrapNot before composing them.
+			final ProofTracker tracker = (ProofTracker) mTracker;
+			final Term simpFormulaRaw = mTracker.getProvedTerm(simpFormula);
+			Term reverse = mTracker.rewriteToClauseReverse(assertedTerm, rewriteProof);
+			final Term proof;
+			if (reverse == null) {
+				// The compiler didn't actually rewrite anything: assertedTerm == simpFormulaRaw.
+				proof = root.mSatProof.mProof;
+			} else {
+				reverse = mTracker.getClauseProof(reverse);
+				// reverse : {+coreOfSimpFormulaRaw, ~coreOfAssertedTerm}; wrap both literals
+				// back up to the opaque, "not"-headed terms they were stripped from.
+				Term bridge = tracker.wrapNot(simpFormulaRaw, false, reverse);
+				bridge = tracker.wrapNot(assertedTerm, true, bridge);
+				// bridge : {~simpFormulaRaw, +assertedTerm}
+				proof = root.mSatProof.mProof == null ? bridge
+						: tracker.resolveAtom(simpFormulaRaw, root.mSatProof.mProof, bridge);
+			}
+			mAssertionSatProofs.put(f, new FormulaSatProof(proof, root.mSatProof.mHyps));
+		}
 		mOccCounter.reset(simpFormula);
 		simpFormula = null;
 
