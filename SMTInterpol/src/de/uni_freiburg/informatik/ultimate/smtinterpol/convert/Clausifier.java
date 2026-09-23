@@ -1272,17 +1272,7 @@ public class Clausifier {
 				}
 			} else {
 				 assert lit instanceof QuantEquality;
-				if (negative) {
-					// (or (= AUX false) term)
-					Term axiom = t.term("or", litTerm, term);
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_2);
-					buildAuxClause(lit, axiom, source);
-				} else {
-					// (or (= AUX true) (not term))
-					Term axiom = t.term("or", litTerm, t.term("not", term));
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_1);
-					buildAuxClause(lit, axiom, source);
-				}
+				return createExcludedMiddleSatProof(lit, term, negative, litTerm, tracker, source);
 			}
 		} else if (term instanceof MatchTerm) {
 			final Theory theory = term.getTheory();
@@ -1341,21 +1331,52 @@ public class Clausifier {
 			}
 		} else {
 			assert lit instanceof QuantEquality;
-			if (negative) {
-				// (or (= AUX false) term)
-				Term axiom = t.term("or", litTerm, term);
-				axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_2);
-				buildAuxClause(lit, axiom, source);
-			} else {
-				// (or (= AUX true) (not term))
-				Term axiom = t.term("or", litTerm, t.term("not", term));
-				axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_1);
-				buildAuxClause(lit, axiom, source);
-			}
+			return createExcludedMiddleSatProof(lit, term, negative, litTerm, tracker, source);
 		}
-		// MatchTerm and QuantEquality (quantified aux literals): not yet implemented -- falls
-		// back gracefully (see the model-proof plan, Phase 2).
+		// MatchTerm: not yet implemented -- falls back gracefully (see the model-proof plan).
 		return null;
+	}
+
+	/**
+	 * Build the sat proof for a {@code QuantEquality} aux literal ({@code lit == (= AUX
+	 * val)}) defined via the excluded-middle clause {@code (or (= AUX false) term)} /
+	 * {@code (or (= AUX true) (not term))}. Unlike or/and/=>, there is no checked axiom
+	 * relating the (structurally unrelated) {@code AUX} and {@code term}, so the defining
+	 * clause is necessarily an oracle ({@link ProofTracker#tautology}, "stripped"
+	 * convention); that oracle is reused directly (it already proves the whole clause
+	 * unconditionally) instead of proving it twice, and bridged into the "opaque"
+	 * convention via a single controlled {@code wrapNot} (closing {@code term}/{@code (not
+	 * term)} back up to one opaque atom, safe regardless of how many leading "not"s
+	 * {@code term} itself has) followed by one single-level {@code notElim} step -- never a
+	 * second {@code wrapNot} on a term that might re-peel into {@code term}'s own nots.
+	 */
+	private FormulaSatProof createExcludedMiddleSatProof(final ILiteral lit, final Term term, final boolean negative,
+			final Term litTerm, final ProofTracker tracker, final SourceAnnotation source) {
+		final Theory t = term.getTheory();
+		final Term notTerm = t.term("not", term);
+		if (negative) {
+			// (or (= AUX false) term)
+			final Term axiom = mTracker.tautology(t.term("or", litTerm, term), ProofConstants.TAUT_EXCLUDED_MIDDLE_2);
+			buildAuxClause(lit, axiom, source);
+			if (tracker == null) {
+				return null;
+			}
+			// litTerm == (= AUX false), 0 nots; term is axiom's own (unwrapped) param.
+			Term proof = tracker.wrapNot(term, true, axiom); // {+litTerm, +term}
+			proof = tracker.resolveAtom(term, proof, tracker.notElim(notTerm)); // {+litTerm, ~notTerm}
+			return new FormulaSatProof(proof, new ClauseSatProof[] { new ClauseSatProof(notTerm) });
+		} else {
+			// (or (= AUX true) (not term))
+			final Term axiom = mTracker.tautology(t.term("or", litTerm, notTerm), ProofConstants.TAUT_EXCLUDED_MIDDLE_1);
+			buildAuxClause(lit, axiom, source);
+			if (tracker == null) {
+				return null;
+			}
+			// litTerm == (= AUX true), 0 nots; notTerm is axiom's own (unwrapped) param.
+			Term proof = tracker.wrapNot(notTerm, true, axiom); // {+litTerm, +notTerm}
+			proof = tracker.resolveAtom(notTerm, proof, tracker.notElim(notTerm)); // {+litTerm, ~term}
+			return new FormulaSatProof(proof, new ClauseSatProof[] { new ClauseSatProof(term) });
+		}
 	}
 
 	public void addStoreAxiom(final ApplicationTerm store, final SourceAnnotation source) {
