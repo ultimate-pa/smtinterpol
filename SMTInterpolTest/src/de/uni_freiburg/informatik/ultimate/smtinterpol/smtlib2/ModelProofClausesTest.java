@@ -150,6 +150,100 @@ public class ModelProofClausesTest {
 	}
 
 	@Test
+	public void testDnfWithConjunctiveDisjuncts() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("d", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), c = s.term("c"), d = s.term("d");
+		// A DNF top-level clause (or (and ...) (and ...)): AddAsAxiom hands the top "or"
+		// to buildClause, and each "and" disjunct is not inline-eligible (only a
+		// negative "and" or a positive or/=> inlines), so CollectLiteral must fall back
+		// to a Tseitin aux literal per disjunct -- exercising the inline sat-dual fix in
+		// CollectLiteral (positive occurrence; the aux literal's own defining-clause
+		// proof is not required here since ModelProver can still evaluate "and" directly).
+		final Term and1 = s.term("and", s.term(">", a, b), s.term("<", a, s.numeral("10")));
+		final Term and2 = s.term("and", s.term(">", c, d), s.term("<", c, s.numeral("10")));
+		s.assertTerm(s.term("or", and1, and2));
+		s.assertTerm(s.term(">", a, b));
+		s.assertTerm(s.term("<", a, s.numeral("10")));
+		s.assertTerm(s.term("<=", c, d));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralSharedOrBothPolarities() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// (or (> x y) (= x y)) occurs twice -- once as a direct (positive) "and" conjunct,
+		// once (negated) as the antecedent of an inlined "=>" -- forcing a Tseitin aux
+		// literal used at both polarities. Exercises both the inline sat-dual fix in
+		// CollectLiteral and BuildClause.addLiteral's mLitSatProofs key (must use the
+		// already-signed "lit" directly, not re-apply "positive").
+		final Term orTerm = s.term("or", s.term(">", x, y), s.term("=", x, y));
+		s.assertTerm(s.term("and", orTerm, s.term("=>", orTerm, s.term("<=", z, x))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralSharedOrForcedFalse() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// (or (> x y) (= x y)) is forced false and shared (occurs twice), exercising
+		// createDefiningClausesForLiteral's "or" branch with the aux literal's negation
+		// as the one satisfied by the model.
+		final Term orTerm = s.term("or", s.term(">", x, y), s.term("=", x, y));
+		s.assertTerm(
+				s.term("and", s.term("not", orTerm), s.term("or", orTerm, s.term("<=", z, x))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralSharedAnd() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// (and (<= x y) (<= y z)) occurs twice, forcing a Tseitin aux literal: exercises
+		// createDefiningClausesForLiteral's "and" branch (Phase 2), both polarities.
+		final Term andTerm = s.term("and", s.term("<=", x, y), s.term("<=", y, z));
+		s.assertTerm(s.term("or", andTerm, s.term("=>", andTerm, s.term("=", x, z))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralSharedImplies() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), p = s.term("p");
+		// (=> p (> x 0)) occurs twice, forcing a Tseitin aux literal: exercises
+		// createDefiningClausesForLiteral's "=>" branch (Phase 2), both polarities.
+		final Term impTerm = s.term("=>", p, s.term(">", x, s.numeral("0")));
+		s.assertTerm(s.term("and", impTerm, s.term("or", impTerm, s.term("not", p))));
+		checkSatAndProof(s);
+	}
+
+	@Test
 	public void testModelProofModeDefaultsToEvaluate() {
 		// Sanity check that the default (":model-proof-mode" unset) is unaffected by
 		// Phase 1: it should keep using the whole-formula evaluating ModelProver path.

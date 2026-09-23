@@ -371,6 +371,16 @@ public class ProofTracker implements IProofTracker {
 		return mProofRules.impElim(impTerm);
 	}
 
+	/**
+	 * Create a proof of {@code {orTerm, ~p_pos}} where
+	 * {@code orTerm == (or p_1 .. p_n)}, using {@code orTerm}'s own parameters as
+	 * opaque literals (unlike {@link #tautology}). The dual of {@link #orElim}:
+	 * a single disjunct implies the whole "or".
+	 */
+	public Term orIntro(final int pos, final Term orTerm) {
+		return mProofRules.orIntro(pos, orTerm);
+	}
+
 	@Override
 	public Term resolveBinaryTautology(final Term asserted, final Term conclusion, final Annotation rule) {
 		final Theory theory = asserted.getTheory();

@@ -1040,7 +1040,10 @@ public class Clausifier {
 		ILiteral negLit = getILiteral(term);
 		assert negLit != null;
 		negLit = positive ? negLit.negate() : negLit;
-		createDefiningClausesForLiteral(negLit, term, positive, source);
+		final FormulaSatProof satProof = createDefiningClausesForLiteral(negLit, term, positive, source);
+		if (satProof != null) {
+			mLiteralSatProofs.put(negLit, satProof);
+		}
 	}
 
 	/**
@@ -1065,8 +1068,14 @@ public class Clausifier {
 
 		final QuantAuxEquality auxTrueLit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
 		final ILiteral auxFalseLit = mQuantTheory.createAuxFalseLiteral(auxTrueLit, source);
-		createDefiningClausesForLiteral(auxFalseLit, term, true, source);
-		createDefiningClausesForLiteral(auxTrueLit, term, false, source);
+		final FormulaSatProof falseProof = createDefiningClausesForLiteral(auxFalseLit, term, true, source);
+		if (falseProof != null) {
+			mLiteralSatProofs.put(auxFalseLit, falseProof);
+		}
+		final FormulaSatProof trueProof = createDefiningClausesForLiteral(auxTrueLit, term, false, source);
+		if (trueProof != null) {
+			mLiteralSatProofs.put(auxTrueLit, trueProof);
+		}
 	}
 
 	/**
@@ -1082,10 +1091,11 @@ public class Clausifier {
 	 * @param source
 	 *            The input clause from which this axiom was created.
 	 */
-	private void createDefiningClausesForLiteral(final ILiteral lit, final Term term, final boolean negative,
-			final SourceAnnotation source) {
+	private FormulaSatProof createDefiningClausesForLiteral(final ILiteral lit, final Term term,
+			final boolean negative, final SourceAnnotation source) {
 		final Theory t = term.getTheory();
 		final Term litTerm = lit.getSMTFormula(t);
+		final ProofTracker tracker = satProofsEnabled() ? (ProofTracker) mTracker : null;
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm at = (ApplicationTerm) term;
 			Term[] params = at.getParameters();
@@ -1097,6 +1107,19 @@ public class Clausifier {
 					System.arraycopy(params, 0, literals, 1, params.length);
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_OR_NEG);
 					buildAuxClause(lit, axiom, source);
+					if (tracker == null) {
+						return null;
+					}
+					// litTerm == (not term); orElim(term) = {~term, +t1, .., +tn}; wrap ~term into
+					// +litTerm, then wrap each +ti into ~(not ti) so it matches its hyp below.
+					Term proof = tracker.wrapNot(litTerm, true, tracker.orElim(term));
+					final ClauseSatProof[] hyps = new ClauseSatProof[params.length];
+					for (int i = 0; i < params.length; i++) {
+						final Term notPi = t.term("not", params[i]);
+						proof = tracker.wrapNot(notPi, false, proof);
+						hyps[i] = new ClauseSatProof(notPi);
+					}
+					return new FormulaSatProof(proof, hyps);
 				} else {
 					// (or (or t1 ... tn)) (not ti))
 					params = at.getParameters();
@@ -1105,6 +1128,9 @@ public class Clausifier {
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_OR_POS);
 						buildAuxClause(lit, axiomProof, source);
 					}
+					// Which disjunct justifies litTerm depends on the model (any one of the n
+					// clauses could apply); not yet implemented -- falls back gracefully.
+					return null;
 				}
 			} else if (at.getFunction() == t.mImplies) {
 				if (negative) {
@@ -1117,6 +1143,21 @@ public class Clausifier {
 					literals[params.length] = params[params.length - 1];
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_IMP_NEG);
 					buildAuxClause(lit, axiom, source);
+					if (tracker == null) {
+						return null;
+					}
+					// litTerm == (not term); impElim(term) = {~term, ~t1, .., ~tn-1, +tn}; wrap
+					// ~term into +litTerm and the conclusion tn into ~(not tn) for its hyp below;
+					// the premises t1..tn-1 already match their (unwrapped) hyps directly.
+					Term proof = tracker.wrapNot(litTerm, true, tracker.impElim(term));
+					final ClauseSatProof[] hyps = new ClauseSatProof[params.length];
+					for (int i = 0; i < params.length - 1; i++) {
+						hyps[i] = new ClauseSatProof(params[i]);
+					}
+					final Term notLast = t.term("not", params[params.length - 1]);
+					proof = tracker.wrapNot(notLast, false, proof);
+					hyps[params.length - 1] = new ClauseSatProof(notLast);
+					return new FormulaSatProof(proof, hyps);
 				} else {
 					// (or (=> t1 ... tn) ti), (or (=> t1 ... tn) (not tn))
 					params = at.getParameters();
@@ -1126,6 +1167,9 @@ public class Clausifier {
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_IMP_POS);
 						buildAuxClause(lit, axiomProof, source);
 					}
+					// Which premise/the conclusion justifies litTerm depends on the model; not
+					// yet implemented -- falls back gracefully.
+					return null;
 				}
 			} else if (at.getFunction() == t.mAnd) {
 				if (negative) {
@@ -1135,6 +1179,9 @@ public class Clausifier {
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_AND_NEG);
 						buildAuxClause(lit, axiomProof, source);
 					}
+					// Which conjunct justifies litTerm depends on the model; not yet
+					// implemented -- falls back gracefully.
+					return null;
 				} else {
 					// (or (and t1 ... tn) (not t1) ... (not tn))
 					final Term[] literals = new Term[params.length + 1];
@@ -1144,8 +1191,22 @@ public class Clausifier {
 					}
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_AND_POS);
 					buildAuxClause(lit, axiom, source);
+					if (tracker == null) {
+						return null;
+					}
+					// litTerm == term; andIntro(term) = {+term, ~t1, .., ~tn} already matches
+					// each (unwrapped) hyp directly.
+					final Term proof = tracker.andIntro(term);
+					final ClauseSatProof[] hyps = new ClauseSatProof[params.length];
+					for (int i = 0; i < params.length; i++) {
+						hyps[i] = new ClauseSatProof(params[i]);
+					}
+					return new FormulaSatProof(proof, hyps);
 				}
 			} else if (at.getFunction().getName().equals("ite")) {
+				// ite/xor have no direct checked axiom (unlike and/or/=>) and would need
+				// per-literal folding of a mTracker.tautology(...) oracle; not yet
+				// implemented -- falls back gracefully (see the model-proof plan, Phase 2).
 				final Term cond = params[0];
 				Term thenTerm = params[1];
 				Term elseTerm = params[2];
@@ -1292,6 +1353,9 @@ public class Clausifier {
 				buildAuxClause(lit, axiom, source);
 			}
 		}
+		// MatchTerm and QuantEquality (quantified aux literals): not yet implemented -- falls
+		// back gracefully (see the model-proof plan, Phase 2).
+		return null;
 	}
 
 	public void addStoreAxiom(final ApplicationTerm store, final SourceAnnotation source) {

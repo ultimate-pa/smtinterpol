@@ -245,8 +245,10 @@ class BuildClause implements Operation {
 		if (mSatRecord != null) {
 			final Clausifier.SatEntry entry = mCurrentLits.get(origLiteral);
 			final Term reverse = mClausifier.mTracker.rewriteToClauseReverse(origLiteral, rewriteLiteral);
-			mLitSatProofs.put(positive ? lit : lit.negate(),
-					new Clausifier.SatEntry(entry.mDisjunct, compose(origLiteral, reverse, entry.mProof)));
+			// lit is already in the clause's own polarity (positive is only used above to
+			// build origLiteral/rewriteLiteral for the rewrite proof) -- do not re-apply it
+			// here, or a negative occurrence's key gets flipped back to lit's positive form.
+			mLitSatProofs.put(lit, new Clausifier.SatEntry(entry.mDisjunct, compose(origLiteral, reverse, entry.mProof)));
 		}
 		mCurrentLits.remove(origLiteral);
 		addResolution(mClausifier.mTracker.rewriteToClause(origLiteral, rewriteLiteral), origLiteral);

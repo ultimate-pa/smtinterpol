@@ -112,6 +112,12 @@ class CollectLiteral implements Operation {
 				final Annotation rule = at.getFunction() == theory.mOr ? ProofConstants.TAUT_OR_NEG
 						: at.getFunction() == theory.mImplies ? ProofConstants.TAUT_IMP_NEG
 								: ProofConstants.TAUT_AND_POS;
+				// The dual rule, for each inlined child i: {~child_i, mLiteral} -- lets that
+				// child's own (later determined) truth justify mLiteral via the normal
+				// descend/compose machinery, instead of poisoning the whole clause.
+				final Annotation dualRule = at.getFunction() == theory.mOr ? ProofConstants.TAUT_OR_POS
+						: at.getFunction() == theory.mImplies ? ProofConstants.TAUT_IMP_POS
+								: ProofConstants.TAUT_AND_NEG;
 				final Term[] params = at.getParameters();
 				final Term[] tautClause = new Term[params.length + 1];
 				tautClause[0] = positive ? theory.term("not", idx) : idx;
@@ -124,17 +130,27 @@ class CollectLiteral implements Operation {
 					tautClause[i + 1] = p;
 				}
 				final Term taut = mClausifier.mTracker.tautology(theory.term("or", tautClause), rule);
-				// TODO: track the sat-side dual (TAUT_OR_POS/TAUT_IMP_POS/TAUT_AND_NEG per
-				// inlined child, see the model-proof plan). Until then, mark the clause's
-				// record as unusable so the assembler falls back to evaluating it directly,
-				// rather than recording an incorrect disjunct/proof for the inlined children.
-				if (mClausifier.satProofsEnabled()) {
-					mClauseBuilder.poisonSatRecord();
+				final Clausifier.SatEntry[] descended =
+						mClausifier.satProofsEnabled() ? new Clausifier.SatEntry[params.length] : null;
+				if (descended != null) {
+					for (int i = 0; i < params.length; i++) {
+						final Term child = tautClause[i + 1];
+						// child, toggled by one "not" -- the opposite wrapping of tautClause[i+1].
+						final Term dualChild =
+								Clausifier.isNotTerm(child) ? Clausifier.toPositive(child) : theory.term("not", child);
+						final Term dualProof = mClausifier.mTracker.tautology(theory.term("or", mLiteral, dualChild),
+								dualRule);
+						descended[i] = mClauseBuilder.descend(mLiteral, dualProof);
+					}
 				}
 				mClauseBuilder.mCurrentLits.remove(mLiteral);
 				mClauseBuilder.addResolution(taut, mLiteral);
 				for (int i = params.length - 1; i >= 0; i--) {
-					mClauseBuilder.collectLiteral(tautClause[i + 1]);
+					if (descended != null) {
+						mClauseBuilder.collectLiteral(tautClause[i + 1], descended[i].mDisjunct, descended[i].mProof);
+					} else {
+						mClauseBuilder.collectLiteral(tautClause[i + 1]);
+					}
 				}
 				return;
 			}

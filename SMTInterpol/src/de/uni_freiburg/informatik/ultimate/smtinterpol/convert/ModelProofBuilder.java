@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 import java.util.List;
 import java.util.Map;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -106,32 +107,62 @@ public class ModelProofBuilder {
 				continue;
 			}
 			final Clausifier.SatEntry entry = e.getValue();
-			if (entry.mDisjunct != c.mFormula) {
-				// TODO: bridge disjunct -> mFormula via orIntro, for multi-literal "or"
-				// clause formulas (see the model-proof plan); not yet implemented.
-				return null;
-			}
 			final Term litFormula = l.getSMTFormula(mTheory);
 			final Term litProof = proveLiteral(l);
+			Term proof;
 			if (entry.mProof == null) {
-				return litProof;
+				proof = litProof;
+			} else {
+				// litProof concludes litFormula opaquely (see ModelProver), while entry.mProof
+				// -- built via BuildClause's reversed-rewrite composition -- uses the "always
+				// stripped" clause-literal convention; strip litProof down to match before
+				// folding the two together. Stripping keeps litProof's own sign for the core
+				// atom (positive iff litFormula is, i.e. iff l is a positive literal), while
+				// entry.mProof -- built from the reverse of the *same* rewrite -- always has
+				// the opposite sign for it; so which one plays "proofPos" flips with l's polarity.
+				final Term core = stripNotTerm(litFormula);
+				final Term strippedLitProof = mTracker.stripNot(litFormula, true, litProof);
+				proof = Clausifier.isNotTerm(litFormula) ? mTracker.resolveAtom(core, entry.mProof, strippedLitProof)
+						: mTracker.resolveAtom(core, strippedLitProof, entry.mProof);
+				// The fold above lands on entry.mDisjunct's own "always stripped" core, at
+				// whichever sign that leaves it (core == stripNotTerm(entry.mDisjunct) by
+				// construction); wrap it back up to the opaque {+entry.mDisjunct} the rest of
+				// this method (and its callers) expect. A no-op when mDisjunct has no leading
+				// "not" of its own.
+				proof = mTracker.wrapNot(entry.mDisjunct, true, proof);
 			}
-			// litProof concludes litFormula opaquely (see ModelProver), while entry.mProof
-			// -- built via BuildClause's reversed-rewrite composition -- uses the "always
-			// stripped" clause-literal convention; strip litProof down to match before
-			// folding the two together. Stripping keeps litProof's own sign for the core
-			// atom (positive iff litFormula is, i.e. iff l is a positive literal), while
-			// entry.mProof -- built from the reverse of the *same* rewrite -- always has
-			// the opposite sign for it; so which one plays "proofPos" flips with l's polarity.
-			final Term core = stripNotTerm(litFormula);
-			final Term strippedLitProof = mTracker.stripNot(litFormula, true, litProof);
-			return Clausifier.isNotTerm(litFormula) ? mTracker.resolveAtom(core, entry.mProof, strippedLitProof)
-					: mTracker.resolveAtom(core, strippedLitProof, entry.mProof);
+			// proof concludes {+entry.mDisjunct}; when the clause formula is a
+			// multi-literal "or" and entry.mDisjunct is just one of its disjuncts (aux
+			// clauses, e.g. Tseitin definitions), bridge it up to {+c.mFormula} via orIntro.
+			if (entry.mDisjunct != c.mFormula) {
+				final int pos = disjunctIndex(c.mFormula, entry.mDisjunct);
+				if (pos < 0) {
+					// Shouldn't happen (entry.mDisjunct is always one of c.mFormula's own
+					// disjuncts by construction) but degrade gracefully rather than crash.
+					return null;
+				}
+				proof = mTracker.resolveAtom(entry.mDisjunct, proof, mTracker.orIntro(pos, c.mFormula));
+			}
+			return proof;
 		}
 		// No literal of this clause is set to true. Shouldn't happen (see the
 		// "invariant the assembler relies on" in the model-proof plan) but degrade
 		// gracefully rather than crash.
 		return null;
+	}
+
+	/** Index of {@code disjunct} among {@code orTerm}'s params, or -1 if not found/not an "or". */
+	private static int disjunctIndex(final Term orTerm, final Term disjunct) {
+		if (!(orTerm instanceof ApplicationTerm)) {
+			return -1;
+		}
+		final Term[] params = ((ApplicationTerm) orTerm).getParameters();
+		for (int i = 0; i < params.length; i++) {
+			if (params[i] == disjunct) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	/** Returns a proof of {@code {f.mHyps[i].mFormula+}}'s combined conclusion, i.e. what {@code f} proves. */
