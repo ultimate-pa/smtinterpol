@@ -244,6 +244,54 @@ public class ModelProofClausesTest {
 	}
 
 	@Test
+	public void testAndNWayNegative() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("q", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term p = s.term("p"), q = s.term("q"), r = s.term("r");
+		// (and (p>0) (q>0)) occurs bare (positive, forcing its "and-negative" aux
+		// clauses) and negated-and-shared elsewhere; forced false via p<=0, so its
+		// negation is the literal the assembler actually needs to justify --
+		// exercises createDefiningClausesForLiteral's "and-negative" N-way case
+		// (Clausifier.NWayAuxProof / ModelProofBuilder.proveNWay), picking the
+		// false conjunct (q here would also work) at assembly time.
+		final Term andTerm = s.term("and", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")));
+		s.assertTerm(s.term("and", s.term("or", andTerm, s.term(">", r, s.numeral("0"))),
+				s.term("or", s.term("not", andTerm), s.term("=", r, s.numeral("5"))),
+				s.term("or", s.term("not", andTerm), s.term("=", r, s.numeral("6")))));
+		s.assertTerm(s.term("<=", p, s.numeral("0")));
+		s.assertTerm(s.term(">", r, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testImpliesNWayPositive() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("q", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("t", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term p = s.term("p"), q = s.term("q"), r = s.term("r"), t = s.term("t");
+		// (=> (p>0) (q>0) (r>0)) occurs bare-and-shared (forcing "=>-positive" aux
+		// clauses) and negated elsewhere; forced true via the *first premise* being
+		// false (p<=0) -- exercises createDefiningClausesForLiteral's "=>-positive"
+		// N-way case picking a premise (as opposed to the conclusion).
+		final Term impTerm = s.term("=>", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")),
+				s.term(">", r, s.numeral("0")));
+		s.assertTerm(s.term("and", s.term("or", impTerm, s.term("=", t, s.numeral("1"))),
+				s.term("or", impTerm, s.term("=", t, s.numeral("2"))),
+				s.term("or", s.term("not", impTerm), s.term("=", t, s.numeral("3")))));
+		s.assertTerm(s.term("<=", p, s.numeral("0")));
+		s.assertTerm(s.term("=", t, s.numeral("3")));
+		checkSatAndProof(s);
+	}
+
+	@Test
 	public void testModelProofModeDefaultsToEvaluate() {
 		// Sanity check that the default (":model-proof-mode" unset) is unaffected by
 		// Phase 1: it should keep using the whole-formula evaluating ModelProver path.

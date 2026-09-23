@@ -381,6 +381,27 @@ public class ProofTracker implements IProofTracker {
 		return mProofRules.orIntro(pos, orTerm);
 	}
 
+	/**
+	 * Create a proof of {@code {~andTerm, p_pos}} where
+	 * {@code andTerm == (and p_1 .. p_n)}, using {@code andTerm}'s own
+	 * parameters as opaque literals (unlike {@link #tautology}). The dual of
+	 * {@link #andIntro}: the whole "and" implies a single conjunct.
+	 */
+	public Term andElim(final int pos, final Term andTerm) {
+		return mProofRules.andElim(pos, andTerm);
+	}
+
+	/**
+	 * Create a proof of {@code {impTerm, p_pos}} (positive for {@code pos < n-1},
+	 * negative for {@code pos == n-1}) where {@code impTerm == (=> p_1 .. p_n)},
+	 * using {@code impTerm}'s own parameters as opaque literals (unlike
+	 * {@link #tautology}). The dual of {@link #impElim}: a single premise being
+	 * false (or the conclusion being true) implies the whole "=>".
+	 */
+	public Term impIntro(final int pos, final Term impTerm) {
+		return mProofRules.impIntro(pos, impTerm);
+	}
+
 	@Override
 	public Term resolveBinaryTautology(final Term asserted, final Term conclusion, final Annotation rule) {
 		final Theory theory = asserted.getTheory();

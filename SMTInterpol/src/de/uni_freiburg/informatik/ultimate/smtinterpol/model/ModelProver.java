@@ -1318,6 +1318,24 @@ public class ModelProver extends TermTransformer {
 	}
 
 	/**
+	 * The model's truth value for a closed, quantifier-free Boolean term, without
+	 * building a proof for it. {@link #proveAtom}'s own return value doesn't
+	 * expose which polarity it proved (it's a raw proof term, not annotated with
+	 * its conclusion), so callers that need to pick among several candidates
+	 * before committing to one (e.g. which disjunct of an "or" is true) should
+	 * check this first.
+	 *
+	 * @param atom a closed, quantifier-free Boolean term.
+	 * @return {@code true} iff {@code atom} evaluates to true in the model.
+	 */
+	public boolean evaluateBoolean(final Term atom) {
+		final Term provedTerm = transform(mUnletter.transform(atom));
+		final Term value = getAnnotation(provedTerm);
+		assert isBooleanValue(value);
+		return value == atom.getTheory().mTrue;
+	}
+
+	/**
 	 * Prefix {@code proof} with a {@code refineFun} for every function the model
 	 * defines, the same wrapping {@link #buildModelProof} applies to its own
 	 * result. Used by the clause-based assembler ({@code ModelProofBuilder}),

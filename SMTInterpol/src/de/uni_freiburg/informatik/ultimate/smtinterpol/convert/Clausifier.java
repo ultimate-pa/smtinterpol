@@ -188,6 +188,14 @@ public class Clausifier {
 	 * {@link #satProofsEnabled()}.
 	 */
 	final ScopedHashMap<Term, FormulaSatProof> mAssertionSatProofs = new ScopedHashMap<>();
+	/**
+	 * For the "N separate defining clauses" aux-literal cases (or-positive,
+	 * and-negative, =>-positive): which of the N clauses justifies the literal
+	 * depends on the model, so it can't be decided at clause-construction time --
+	 * deferred to assembly time (see {@link NWayAuxProof}). Only filled in when
+	 * {@link #satProofsEnabled()}.
+	 */
+	final ScopedHashMap<ILiteral, NWayAuxProof> mNWayAuxProofs = new ScopedHashMap<>();
 
 	/**
 	 * A sat-proof record: a proof of the tracked formula (an aux literal's formula
@@ -239,6 +247,25 @@ public class Clausifier {
 		SatEntry(final Term disjunct, final Term proof) {
 			mDisjunct = disjunct;
 			mProof = proof;
+		}
+	}
+
+	/** Which "N separate defining clauses" case {@link NWayAuxProof#mTerm} is. */
+	enum NWayKind { OR_POSITIVE, AND_NEGATIVE, IMPLIES_POSITIVE }
+
+	/**
+	 * A deferred aux-literal sat proof for the "N separate defining clauses" cases
+	 * (or-positive, and-negative, =>-positive): {@link ModelProofBuilder} picks
+	 * which of {@code mTerm}'s params justifies the literal once the model is
+	 * known, then builds the (checked-axiom-based) proof on the fly.
+	 */
+	static final class NWayAuxProof {
+		final Term mTerm;
+		final NWayKind mKind;
+
+		NWayAuxProof(final Term term, final NWayKind kind) {
+			mTerm = term;
+			mKind = kind;
 		}
 	}
 
@@ -1129,7 +1156,10 @@ public class Clausifier {
 						buildAuxClause(lit, axiomProof, source);
 					}
 					// Which disjunct justifies litTerm depends on the model (any one of the n
-					// clauses could apply); not yet implemented -- falls back gracefully.
+					// clauses could apply) -- deferred to ModelProofBuilder, see NWayAuxProof.
+					if (satProofsEnabled()) {
+						mNWayAuxProofs.put(lit, new NWayAuxProof(term, NWayKind.OR_POSITIVE));
+					}
 					return null;
 				}
 			} else if (at.getFunction() == t.mImplies) {
@@ -1167,8 +1197,11 @@ public class Clausifier {
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_IMP_POS);
 						buildAuxClause(lit, axiomProof, source);
 					}
-					// Which premise/the conclusion justifies litTerm depends on the model; not
-					// yet implemented -- falls back gracefully.
+					// Which premise/the conclusion justifies litTerm depends on the model --
+					// deferred to ModelProofBuilder, see NWayAuxProof.
+					if (satProofsEnabled()) {
+						mNWayAuxProofs.put(lit, new NWayAuxProof(term, NWayKind.IMPLIES_POSITIVE));
+					}
 					return null;
 				}
 			} else if (at.getFunction() == t.mAnd) {
@@ -1179,8 +1212,11 @@ public class Clausifier {
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_AND_NEG);
 						buildAuxClause(lit, axiomProof, source);
 					}
-					// Which conjunct justifies litTerm depends on the model; not yet
-					// implemented -- falls back gracefully.
+					// Which conjunct justifies litTerm depends on the model -- deferred to
+					// ModelProofBuilder, see NWayAuxProof.
+					if (satProofsEnabled()) {
+						mNWayAuxProofs.put(lit, new NWayAuxProof(term, NWayKind.AND_NEGATIVE));
+					}
 					return null;
 				} else {
 					// (or (and t1 ... tn) (not t1) ... (not tn))
@@ -2159,6 +2195,7 @@ public class Clausifier {
 			if (mSatProofsEnabled) {
 				mLiteralSatProofs.beginScope();
 				mAssertionSatProofs.beginScope();
+				mNWayAuxProofs.beginScope();
 			}
 		}
 	}
@@ -2189,6 +2226,7 @@ public class Clausifier {
 			if (mSatProofsEnabled) {
 				mLiteralSatProofs.endScope();
 				mAssertionSatProofs.endScope();
+				mNWayAuxProofs.endScope();
 			}
 		}
 		mStackLevel -= numpops;
