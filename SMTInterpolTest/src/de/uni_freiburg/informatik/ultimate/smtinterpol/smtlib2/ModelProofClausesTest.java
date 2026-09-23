@@ -292,6 +292,102 @@ public class ModelProofClausesTest {
 	}
 
 	@Test
+	public void testIteAuxLiteralCondTrue() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term c = s.term("c"), x = s.term("x"), y = s.term("y"), r = s.term("r");
+		// "ite" has no direct checked axiom, so its aux-literal proof has to bridge a
+		// tautology() oracle into the opaque convention -- exercises
+		// createIteSatProof's "case split via final resolution on cond" derivation,
+		// with cond/thenTerm/elseTerm themselves ">"-compiled (i.e. already
+		// "not"-headed) to exercise the wrapNot-recursive-over-peel pitfall too.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		final Term iteTerm = s.term("ite", cond, thenTerm, elseTerm);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(cond);
+		s.assertTerm(thenTerm);
+		s.assertTerm(s.term("=", r, s.numeral("2")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testIteAuxLiteralCondFalseNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term c = s.term("c"), x = s.term("x"), y = s.term("y"), r = s.term("r");
+		// Same as testIteAuxLiteralCondTrue, but forces cond false (the "else" branch)
+		// and thenTerm false so the ite as a whole is false -- exercises the
+		// negative-litTerm ("not ite") side of createIteSatProof.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		final Term iteTerm = s.term("ite", cond, thenTerm, elseTerm);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(cond);
+		s.assertTerm(s.term("<=", x, s.numeral("0")));
+		s.assertTerm(s.term("=", r, s.numeral("1")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testXorAuxLiteralTrue() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), r = s.term("r");
+		// "xor" also has no direct checked axiom -- exercises createXorSatProof's
+		// same case-split derivation, splitting on p1.
+		final Term p1 = s.term(">", a, s.numeral("0"));
+		final Term p2 = s.term(">", b, s.numeral("0"));
+		final Term xorTerm = s.term("xor", p1, p2);
+		s.assertTerm(s.term("and", s.term("or", xorTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", xorTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(p1);
+		s.assertTerm(s.term("<=", b, s.numeral("0")));
+		s.assertTerm(s.term("=", r, s.numeral("2")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testXorAuxLiteralFalseNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), r = s.term("r");
+		// Forces both p1/p2 true (xor false) -- exercises the negative-litTerm
+		// ("not xor") side of createXorSatProof.
+		final Term p1 = s.term(">", a, s.numeral("0"));
+		final Term p2 = s.term(">", b, s.numeral("0"));
+		final Term xorTerm = s.term("xor", p1, p2);
+		s.assertTerm(s.term("and", s.term("or", xorTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", xorTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(p1);
+		s.assertTerm(p2);
+		s.assertTerm(s.term("=", r, s.numeral("1")));
+		checkSatAndProof(s);
+	}
+
+	@Test
 	public void testModelProofModeDefaultsToEvaluate() {
 		// Sanity check that the default (":model-proof-mode" unset) is unaffected by
 		// Phase 1: it should keep using the whole-formula evaluating ModelProver path.
