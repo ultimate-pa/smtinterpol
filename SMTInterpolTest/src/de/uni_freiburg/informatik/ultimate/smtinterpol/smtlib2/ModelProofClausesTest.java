@@ -404,4 +404,51 @@ public class ModelProofClausesTest {
 		s.assertTerm(s.term("<=", x, y));
 		checkSatAndProof(s);
 	}
+
+	@Test
+	public void testAuxLiteralsWithProofProductionDisabled() {
+		// With produce-proofs off entirely, Clausifier.mTracker is a NoopProofTracker,
+		// not a ProofTracker -- IProofTracker.tautology(...) then returns the plain
+		// term itself rather than a proof-annotated one (see NoopProofTracker vs.
+		// ProofTracker). createDefiningClausesForLiteral's new (Phase 2) branches must
+		// never call any of the ProofTracker-only helpers (wrapNot/getClauseProof/
+		// orElim/etc.) in that case; satProofsEnabled()/the tracker==null checks are
+		// supposed to skip all of that, but this is only checked by actually running
+		// the aux-literal-heavy code paths without proofs enabled, not by inspection.
+		final SMTInterpol s = new SMTInterpol(new DefaultLogger());
+		s.setOption(":produce-models", true);
+		s.setOption(":interactive-mode", true);
+		// produce-proofs deliberately left at its default (off).
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), c = s.term("c"), x = s.term("x"), y = s.term("y"),
+				r = s.term("r");
+		// DNF (or/and) aux literals.
+		final Term and1 = s.term("and", s.term(">", a, b), s.term("<", a, s.numeral("10")));
+		final Term and2 = s.term("and", s.term(">", c, s.numeral("0")), s.term("<", c, s.numeral("10")));
+		s.assertTerm(s.term("or", and1, and2));
+		s.assertTerm(s.term(">", a, b));
+		s.assertTerm(s.term("<", a, s.numeral("10")));
+		// ite aux literal, both polarities via sharing.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		final Term iteTerm = s.term("ite", cond, thenTerm, elseTerm);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(cond);
+		s.assertTerm(thenTerm);
+		// xor aux literal.
+		final Term p1 = s.term(">", x, s.numeral("5"));
+		final Term p2 = s.term(">", y, s.numeral("5"));
+		final Term xorTerm = s.term("xor", p1, p2);
+		s.assertTerm(s.term("or", xorTerm, s.term("=", r, s.numeral("9"))));
+		Assert.assertEquals(LBool.SAT, s.checkSat());
+	}
 }
