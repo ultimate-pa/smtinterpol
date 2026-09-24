@@ -98,4 +98,49 @@ public class ModelProverTest {
 		checkAtom(checker, funcDefs, prover, model, script.term("<=", y, x));
 		checkAtom(checker, funcDefs, prover, model, script.term(">=", script.term("+", x, script.numeral("1")), y));
 	}
+
+	/**
+	 * Regression test: XOR is the only interpret()-routed function (i.e. one that
+	 * goes through convertApplicationTerm's generic congruence path rather than
+	 * interpretWithoutCongruence) taking Boolean-sorted arguments. Building the
+	 * (origTerm = argValue) equality proof for a Boolean argument via
+	 * iffIntro1/iffIntro2 leaves a dangling {@code -true}/{@code +false} literal
+	 * (the axiom's third literal, for the constant argValue itself) that was never
+	 * resolved away, so proveAtom's result failed to conclude the clean {atom}
+	 * clause checkAtom expects. Covers both xor branches: a "mixed" true/false
+	 * argument pair (needs the trueIntro/falseElim cancellation) and a "clean" pair
+	 * with equal truth values (xorElim branch, no cancellation needed).
+	 */
+	@Test
+	public void testProveAtomXor() {
+		final SMTInterpol script = new SMTInterpol(new DefaultLogger());
+		script.setOption(":produce-models", true);
+		script.setLogic("QF_UFLIA");
+		final Sort intSort = script.sort("Int");
+		script.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		script.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+
+		final Term x = script.term("x");
+		final Term y = script.term("y");
+		final Term p1 = script.term(">", x, script.numeral("5"));
+		final Term p2 = script.term(">", y, script.numeral("5"));
+
+		script.assertTerm(p1);
+		script.assertTerm(script.term("not", p2));
+
+		Assert.assertEquals(LBool.SAT, script.checkSat());
+		final Model model = (Model) script.getModel();
+
+		final ModelProver prover = new ModelProver(model);
+		final MinimalProofChecker checker = new MinimalProofChecker(script, script.getLogger());
+		final Map<FunctionSymbol, Term> funcDefs = new HashMap<>();
+		for (final FunctionSymbol fs : model.getDefinedFunctions()) {
+			funcDefs.put(fs, model.getFunctionDefinition(fs));
+		}
+
+		// mixed (p1 true, p2 false): (xor p1 p2) is true.
+		checkAtom(checker, funcDefs, prover, model, script.term("xor", p1, p2));
+		// same truth value: (xor p1 p1) is false.
+		checkAtom(checker, funcDefs, prover, model, script.term("xor", p1, p1));
+	}
 }

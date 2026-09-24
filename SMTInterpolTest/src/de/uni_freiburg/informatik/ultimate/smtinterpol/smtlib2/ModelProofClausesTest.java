@@ -457,12 +457,9 @@ public class ModelProofClausesTest {
 		// With :proof-level lowlevel (as opposed to full), SMTInterpol.getProof()
 		// additionally runs the assembled model proof through ProofSimplifier, just
 		// like it already does for the unsat LOWLEVEL proof -- see SMTInterpol.getProof.
-		// Reuses the DNF/ite portion of the aux-literal formula from
+		// Reuses the DNF/ite/xor aux-literal formula from
 		// testAuxLiteralsWithProofProductionDisabled to exercise the aux-literal sat
-		// proofs together with the (many) rewriteRev oracles from clausification. (The
-		// xor portion is deliberately left out -- ModelProver's own xor evaluation has
-		// a separate, pre-existing bug leaving a dangling true/false literal in the
-		// final proof, unrelated to ProofSimplifier; see the reported finding.)
+		// proofs together with the (many) rewriteRev oracles from clausification.
 		final SMTInterpol s = new SMTInterpol(new DefaultLogger());
 		s.setOption(":produce-models", true);
 		s.setOption(":interactive-mode", true);
@@ -492,6 +489,10 @@ public class ModelProofClausesTest {
 				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
 		s.assertTerm(cond);
 		s.assertTerm(thenTerm);
+		final Term p1 = s.term(">", x, s.numeral("5"));
+		final Term p2 = s.term(">", y, s.numeral("5"));
+		final Term xorTerm = s.term("xor", p1, p2);
+		s.assertTerm(s.term("or", xorTerm, s.term("=", r, s.numeral("9"))));
 		Assert.assertEquals(LBool.SAT, s.checkSat());
 		final Term proof = s.getProof();
 		final MinimalProofChecker checker = new MinimalProofChecker(s, s.getLogger());

@@ -439,8 +439,10 @@ public class ModelProver extends TermTransformer {
 				if (origTerm.getSort().getName() == SMTLIBConstants.BOOL) {
 					if (argTerms[i] == theory.mTrue) {
 						eqProof = mProofUtils.res(origTerm, argProofs[i], mProofRules.iffIntro2(equality));
+						eqProof = mProofUtils.res(theory.mTrue, mProofRules.trueIntro(), eqProof);
 					} else {
 						eqProof = mProofUtils.res(origTerm, mProofRules.iffIntro1(equality), argProofs[i]);
+						eqProof = mProofUtils.res(theory.mFalse, eqProof, mProofRules.falseElim());
 					}
 				} else {
 					eqProof = argProofs[i];
