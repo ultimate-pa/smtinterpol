@@ -4525,6 +4525,11 @@ public class ProofSimplifier extends TermTransformer {
 			}
 		} else if (ProofRules.isOracle(term)) {
 			convertOracle((AnnotatedTerm) term);
+		} else if (!ProofRules.isProof(term) && term.getSort().getName() != ProofConstants.SORT_EQPROOF) {
+			// don't convert plain value sub-terms of other sorts (e.g. the arithmetic
+			// terms in a polyAdd/polyMul annotation) -- same reasoning as for Boolean
+			// sub-formulas above.
+			setResult(term);
 		} else {
 			super.convert(term);
 		}
