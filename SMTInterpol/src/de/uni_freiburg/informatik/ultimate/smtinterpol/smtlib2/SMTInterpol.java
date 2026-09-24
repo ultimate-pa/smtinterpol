@@ -837,18 +837,17 @@ public class SMTInterpol extends NoopScript {
 		} else if (mStatus == LBool.SAT) {
 			buildModel();
 			final ModelProver modelProver = new ModelProver(mModel);
+			Term res;
 			if (mClausifier.satProofsEnabled()) {
 				final ModelProofBuilder builder = new ModelProofBuilder(mClausifier, modelProver);
-				// TODO: the reversed-rewrite/tautology steps built via ProofTracker (e.g. the
-				// :rewriteRev oracle from rewriteToClauseReverse) are, like the unsat LOWLEVEL
-				// proof, only fully checked after running through ProofSimplifier -- but
-				// ProofSimplifier's tree walk isn't (yet) safe to run over a tree that also
-				// embeds ModelProver's own (already fully-checked, oracle-free) sub-proofs, as
-				// this one does via the ModelProver.proveAtom fallback. So for now this proof
-				// can contain a few :rewriteRev oracles; checkModelProof still accepts it.
-				return modelProver.wrapRefineFun(builder.buildProof(mAssertions));
+				res = modelProver.wrapRefineFun(builder.buildProof(mAssertions));
+			} else {
+				res = modelProver.buildModelProof(mAssertions);
 			}
-			return modelProver.buildModelProof(mAssertions);
+			if (proofMode == ProofMode.LOWLEVEL) {
+				res = new ProofSimplifier(this).transformProof(res);
+			}
+			return res;
 		} else {
 			if (mErrorCallback != null) {
 				mErrorCallback.notifyError(ErrorReason.GET_PROOF_BUT_UNKNOWN);

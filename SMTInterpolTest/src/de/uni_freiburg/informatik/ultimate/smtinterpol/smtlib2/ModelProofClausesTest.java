@@ -451,4 +451,51 @@ public class ModelProofClausesTest {
 		s.assertTerm(s.term("or", xorTerm, s.term("=", r, s.numeral("9"))));
 		Assert.assertEquals(LBool.SAT, s.checkSat());
 	}
+
+	@Test
+	public void testLowlevelProofModeHasNoOracles() {
+		// With :proof-level lowlevel (as opposed to full), SMTInterpol.getProof()
+		// additionally runs the assembled model proof through ProofSimplifier, just
+		// like it already does for the unsat LOWLEVEL proof -- see SMTInterpol.getProof.
+		// Reuses the DNF/ite portion of the aux-literal formula from
+		// testAuxLiteralsWithProofProductionDisabled to exercise the aux-literal sat
+		// proofs together with the (many) rewriteRev oracles from clausification. (The
+		// xor portion is deliberately left out -- ModelProver's own xor evaluation has
+		// a separate, pre-existing bug leaving a dangling true/false literal in the
+		// final proof, unrelated to ProofSimplifier; see the reported finding.)
+		final SMTInterpol s = new SMTInterpol(new DefaultLogger());
+		s.setOption(":produce-models", true);
+		s.setOption(":interactive-mode", true);
+		s.setOption(":produce-proofs", true);
+		s.setOption(":proof-level", "lowlevel");
+		s.setOption(":model-proof-mode", "clauses");
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), c = s.term("c"), x = s.term("x"), y = s.term("y"),
+				r = s.term("r");
+		final Term and1 = s.term("and", s.term(">", a, b), s.term("<", a, s.numeral("10")));
+		final Term and2 = s.term("and", s.term(">", c, s.numeral("0")), s.term("<", c, s.numeral("10")));
+		s.assertTerm(s.term("or", and1, and2));
+		s.assertTerm(s.term(">", a, b));
+		s.assertTerm(s.term("<", a, s.numeral("10")));
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		final Term iteTerm = s.term("ite", cond, thenTerm, elseTerm);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(cond);
+		s.assertTerm(thenTerm);
+		Assert.assertEquals(LBool.SAT, s.checkSat());
+		final Term proof = s.getProof();
+		final MinimalProofChecker checker = new MinimalProofChecker(s, s.getLogger());
+		Assert.assertTrue("checkModelProof", checker.checkModelProof(proof));
+		Assert.assertEquals("no oracles should remain after ProofSimplifier", 0, checker.getNumberOfHoles());
+	}
 }
