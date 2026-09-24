@@ -1448,7 +1448,7 @@ public class Clausifier {
 	 * @param negative  true for the negative-litTerm axioms, false for the
 	 *                  positive ones.
 	 */
-	private FormulaSatProof createIteSatProof(final ProofTracker tracker, final Term litTerm, final Term cond,
+	FormulaSatProof createIteSatProof(final ProofTracker tracker, final Term litTerm, final Term cond,
 			final Term thenTerm, final Term elseTerm, final Term axiom1, final Term axiom2, final boolean negative) {
 		final Theory t = cond.getTheory();
 		final Term notCond = t.term("not", cond);
@@ -1506,7 +1506,7 @@ public class Clausifier {
 	 * Build the sat proof for a "xor" aux literal, same "case split via final
 	 * resolution" idea as {@link #createIteSatProof}, splitting on {@code p1}.
 	 */
-	private FormulaSatProof createXorSatProof(final ProofTracker tracker, final Term litTerm, final Term p1,
+	FormulaSatProof createXorSatProof(final ProofTracker tracker, final Term litTerm, final Term p1,
 			final Term p2, final Term axiom1, final Term axiom2, final boolean negative) {
 		final Theory t = p1.getTheory();
 		final Term notP1 = t.term("not", p1);

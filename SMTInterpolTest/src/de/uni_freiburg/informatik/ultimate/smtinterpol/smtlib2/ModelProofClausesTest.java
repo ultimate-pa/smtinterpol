@@ -388,6 +388,85 @@ public class ModelProofClausesTest {
 	}
 
 	@Test
+	public void testToplevelIteAssertion() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term c = s.term("c"), x = s.term("x"), y = s.term("y");
+		// A bare, unshared "ite" assertion: getILiteral(term) is null, so this reaches
+		// AddAsAxiom's own ite branch (not createDefiningClausesForLiteral's aux-literal
+		// path) -- exercises reusing createIteSatProof directly from AddAsAxiom, with
+		// cond/thenTerm themselves ">"-compiled (i.e. already "not"-headed) to exercise
+		// the wrapNot-recursive-over-peel pitfall too.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		s.assertTerm(s.term("ite", cond, thenTerm, elseTerm));
+		s.assertTerm(cond);
+		s.assertTerm(thenTerm);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testToplevelIteAssertionNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term c = s.term("c"), x = s.term("x"), y = s.term("y");
+		// Same as testToplevelIteAssertion, but the assertion is the negated "ite" --
+		// exercises AddAsAxiom's ite branch on the other (positive == false) side.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		s.assertTerm(s.term("not", s.term("ite", cond, thenTerm, elseTerm)));
+		s.assertTerm(cond);
+		s.assertTerm(s.term("<=", x, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testToplevelXorAssertion() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b");
+		// A bare, unshared "xor" assertion: exercises reusing createXorSatProof
+		// directly from AddAsAxiom's own xor branch.
+		final Term p1 = s.term(">", a, s.numeral("0"));
+		final Term p2 = s.term(">", b, s.numeral("0"));
+		s.assertTerm(s.term("xor", p1, p2));
+		s.assertTerm(p1);
+		s.assertTerm(s.term("<=", b, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testToplevelXorAssertionNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b");
+		// Same as testToplevelXorAssertion, but the assertion is the negated "xor" --
+		// exercises AddAsAxiom's xor branch on the other (positive == false) side.
+		final Term p1 = s.term(">", a, s.numeral("0"));
+		final Term p2 = s.term(">", b, s.numeral("0"));
+		s.assertTerm(s.term("not", s.term("xor", p1, p2)));
+		s.assertTerm(p1);
+		s.assertTerm(p2);
+		checkSatAndProof(s);
+	}
+
+	@Test
 	public void testModelProofModeDefaultsToEvaluate() {
 		// Sanity check that the default (":model-proof-mode" unset) is unaffected by
 		// Phase 1: it should keep using the whole-formula evaluating ModelProver path.
