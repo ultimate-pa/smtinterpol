@@ -402,6 +402,19 @@ public class ProofTracker implements IProofTracker {
 		return mProofRules.impIntro(pos, impTerm);
 	}
 
+	/**
+	 * Create a proof of {@code {+is-c_1(term), .., +is-c_n(term)}}, one literal per
+	 * constructor of {@code term}'s datatype sort, using the constructors' own
+	 * "is" terms as opaque literals (a genuinely checked axiom, unlike a
+	 * {@link #tautology}-based oracle -- there is no direct checked axiom relating
+	 * or/and/=>-like connectives to their operands, but datatype exhaustiveness is
+	 * itself a checked fact). The completeness ingredient for the "match" sat-proof
+	 * case split, mirroring how boolean excluded middle is free for "ite"/"xor".
+	 */
+	public Term dtExhaust(final Term term) {
+		return mProofRules.dtExhaust(term);
+	}
+
 	@Override
 	public Term resolveBinaryTautology(final Term asserted, final Term conclusion, final Annotation rule) {
 		final Theory theory = asserted.getTheory();

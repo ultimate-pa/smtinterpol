@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.math.BigInteger;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
@@ -27,6 +28,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -1328,6 +1330,13 @@ public class Clausifier {
 			final Term dataTerm = mt.getDataTerm();
 			final Map<Constructor, Term> cases = new LinkedHashMap<>();
 			final Constructor[] constrs = mt.getConstructors();
+			// Collected per named (non-default) case, for the sat-proof derivation below
+			// (createMatchSatProof); the default case (if any) is collected separately.
+			final List<Term> isTerms = new ArrayList<>();
+			final List<Term> caseEquals = new ArrayList<>();
+			final List<Term> caseAxioms = new ArrayList<>();
+			Term defaultAxiom = null;
+			Term defaultEqual = null;
 			for (int caseNr = 0; caseNr < constrs.length; caseNr++) {
 				final Constructor c = constrs[caseNr];
 				Annotation rule;
@@ -1339,6 +1348,7 @@ public class Clausifier {
 				clause.add(litTerm);
 
 				final Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
+				Term isTerm = null;
 				if (c == null) {
 					// if c == null, this is the default case which matches everything else
 					clause.addAll(cases.values());
@@ -1348,7 +1358,7 @@ public class Clausifier {
 					// build is-condition
 					final FunctionSymbol isFs =
 							theory.getFunctionWithResult("is", new String[] { c.getName() }, null, dataTerm.getSort());
-					final Term isTerm = theory.term(isFs, dataTerm);
+					isTerm = theory.term(isFs, dataTerm);
 					cases.put(c, isTerm);
 					clause.add(theory.term("not", isTerm));
 
@@ -1373,16 +1383,155 @@ public class Clausifier {
 				final Term axiom = mTracker.tautology(theory.term("or", clause.toArray(new Term[clause.size()])), rule);
 				buildAuxClause(lit, axiom, source);
 				if (c == null) {
+					defaultAxiom = axiom;
+					defaultEqual = equalTerm;
 					// skip all remaining cases
 					break;
+				} else {
+					isTerms.add(isTerm);
+					caseEquals.add(equalTerm);
+					caseAxioms.add(axiom);
 				}
 			}
+			if (tracker == null) {
+				return null;
+			}
+			if (defaultAxiom != null && isTerms.isEmpty()) {
+				// Degenerate: the match is a single wildcard pattern with no named cases at
+				// all -- not handled, falls back gracefully.
+				return null;
+			}
+			return createMatchSatProof(tracker, theory, litTerm, dataTerm, isTerms, caseEquals, caseAxioms,
+					defaultAxiom, defaultEqual, negative);
 		} else {
 			assert lit instanceof QuantEquality;
 			return createExcludedMiddleSatProof(lit, term, negative, litTerm, tracker, source);
 		}
-		// MatchTerm: not yet implemented -- falls back gracefully (see the model-proof plan).
-		return null;
+	}
+
+	/**
+	 * Build the sat proof for a "match" aux literal: generalizes
+	 * {@link #createIteSatProof}'s "case split via final resolution" from a single
+	 * boolean guard ({@code cond}/{@code ~cond}) to one guard per datatype
+	 * constructor ({@code is-c_i(dataTerm)}). Each named case contributes a helper
+	 * formula {@code psi_i} (vacuously true whenever this case's own guard doesn't
+	 * apply), built by {@link #liftMatchCase}; folding all of them together needs
+	 * one extra completeness fact establishing that some guard always applies --
+	 * the role boolean excluded middle plays for free in {@code ite}/{@code xor}.
+	 * That fact is supplied either by the checked {@link ProofTracker#dtExhaust}
+	 * axiom (no default/wildcard case: {@code MatchTerm.getConstructors()}'s own
+	 * well-formedness check already guarantees it then enumerates exactly the
+	 * datatype's full constructor list) or, when there is a default case, by its
+	 * own clause -- which already states the same fact structurally ("if none of
+	 * the named guards hold, the default applies") -- via {@link #liftMatchDefault}.
+	 */
+	private FormulaSatProof createMatchSatProof(final ProofTracker tracker, final Theory theory, final Term litTerm,
+			final Term dataTerm, final List<Term> isTerms, final List<Term> caseEquals, final List<Term> caseAxioms,
+			final Term defaultAxiom, final Term defaultEqual, final boolean negative) {
+		final int n = isTerms.size();
+		final Term[] psis = new Term[n + (defaultAxiom != null ? 1 : 0)];
+		final Term[] qs = new Term[n];
+		for (int i = 0; i < n; i++) {
+			final Term[] psiAndQ = liftMatchCase(tracker, theory, litTerm, caseAxioms.get(i), isTerms.get(i),
+					caseEquals.get(i), negative);
+			psis[i] = psiAndQ[0];
+			qs[i] = psiAndQ[1];
+		}
+		Term acc;
+		if (defaultAxiom != null) {
+			final Term[] psiAndQ = liftMatchDefault(tracker, theory, litTerm, defaultAxiom,
+					isTerms.toArray(new Term[n]), defaultEqual, negative);
+			psis[n] = psiAndQ[0];
+			acc = psiAndQ[1];
+		} else {
+			acc = tracker.dtExhaust(dataTerm);
+		}
+		for (int i = 0; i < n; i++) {
+			acc = tracker.resolveAtom(isTerms.get(i), acc, qs[i]);
+		}
+		final ClauseSatProof[] hyps = new ClauseSatProof[psis.length];
+		for (int i = 0; i < psis.length; i++) {
+			hyps[i] = new ClauseSatProof(psis[i]);
+		}
+		return new FormulaSatProof(acc, hyps);
+	}
+
+	/**
+	 * Lift one named match case's defining-clause oracle (built via
+	 * {@code mTracker.tautology}, "stripped" convention, of the form
+	 * {@code {litTerm, (not isTerm), equalTerm}} when {@code negative}, or
+	 * {@code {litTerm, (not isTerm), (not equalTerm)}} otherwise -- see the two
+	 * shapes {@code createDefiningClausesForLiteral}'s "match" branch builds) into
+	 * {@code {psi, Q}}: {@code psi} is the corresponding helper formula
+	 * ("{@code isTerm} implies the opposite of what this axiom's own consequent
+	 * says", vacuously true when {@code isTerm} doesn't apply) and {@code Q} proves
+	 * {@code {+litTerm, ~isTerm, ~psi}} -- the bare, negatively-signed
+	 * {@code isTerm} literal ready to resolve against {@link ProofTracker#dtExhaust}'s
+	 * (or {@link #liftMatchDefault}'s) own bare, positively-signed literals.
+	 */
+	private Term[] liftMatchCase(final ProofTracker tracker, final Theory theory, final Term litTerm, final Term axiom,
+			final Term isTerm, final Term equalTerm, final boolean negative) {
+		final Term notIs = theory.term("not", isTerm);
+		final Term notEqual = theory.term("not", equalTerm);
+		final Term rawAxiom = tracker.getClauseProof(axiom);
+		final Term psi;
+		Term proof = tracker.wrapNot(litTerm, true, rawAxiom);
+		proof = tracker.wrapNot(notIs, true, proof);
+		if (negative) {
+			// axiom == {litTerm, (not isTerm), equalTerm}; psi = "isTerm -> ~equalTerm".
+			psi = theory.term("or", notIs, notEqual);
+			proof = tracker.wrapNot(equalTerm, true, proof); // {+litTerm, +notIs, +equalTerm}
+			proof = tracker.resolveAtom(equalTerm, proof, tracker.notElim(notEqual)); // {+litTerm, +notIs, ~notEqual}
+			proof = tracker.resolveAtom(notEqual, tracker.orElim(psi), proof); // {+litTerm, +notIs, ~psi}
+		} else {
+			// axiom == {litTerm, (not isTerm), (not equalTerm)}; psi = "isTerm -> equalTerm".
+			psi = theory.term("or", notIs, equalTerm);
+			proof = tracker.wrapNot(notEqual, true, proof); // {+litTerm, +notIs, +notEqual}
+			proof = tracker.resolveAtom(notEqual, proof, tracker.notElim(notEqual)); // {+litTerm, +notIs, ~equalTerm}
+			proof = tracker.resolveAtom(equalTerm, tracker.orElim(psi), proof); // {+litTerm, +notIs, ~psi}
+		}
+		proof = tracker.resolveAtom(notIs, proof, tracker.notElim(notIs)); // {+litTerm, ~isTerm, ~psi}
+		return new Term[] { psi, proof };
+	}
+
+	/**
+	 * Lift the default/wildcard match case's defining-clause oracle (of the form
+	 * {@code {litTerm, is-c_1(d), .., is-c_(k-1)(d), equalTerm}} when
+	 * {@code negative}, or with {@code (not equalTerm)} otherwise -- {@code isTerms}
+	 * being the guards of every earlier named case) into {@code {psi, Q}}, the same
+	 * shape {@link #liftMatchCase} returns, except {@code Q} proves
+	 * {@code {+litTerm, +is-c_1(d), .., +is-c_(k-1)(d), ~psi}} -- bare,
+	 * positively-signed guards, since (unlike a named case's single negated guard)
+	 * they already occur positively in the default clause itself, playing
+	 * {@link ProofTracker#dtExhaust}'s role as the seed of the case-split fold.
+	 */
+	private Term[] liftMatchDefault(final ProofTracker tracker, final Theory theory, final Term litTerm,
+			final Term axiom, final Term[] isTerms, final Term equalTerm, final boolean negative) {
+		final Term notEqual = theory.term("not", equalTerm);
+		final Term rawAxiom = tracker.getClauseProof(axiom);
+		final Term psi;
+		Term proof = tracker.wrapNot(litTerm, true, rawAxiom);
+		for (final Term isTerm : isTerms) {
+			proof = tracker.wrapNot(isTerm, true, proof); // no-op: isTerm has no leading "not"
+		}
+		if (negative) {
+			// axiom == {litTerm, is-c_1(d), .., is-c_(k-1)(d), equalTerm}.
+			final Term[] psiParams = Arrays.copyOf(isTerms, isTerms.length + 1);
+			psiParams[isTerms.length] = notEqual;
+			psi = theory.term("or", psiParams);
+			proof = tracker.wrapNot(equalTerm, true, proof); // {+litTerm, +is-c_i(d).., +equalTerm}
+			proof = tracker.resolveAtom(equalTerm, proof, tracker.notElim(notEqual)); // {.., ~notEqual}
+			proof = tracker.resolveAtom(notEqual, tracker.orElim(psi), proof); // {+litTerm, +is-c_i(d).., ~psi}
+		} else {
+			// axiom == {litTerm, is-c_1(d), .., is-c_(k-1)(d), (not equalTerm)}.
+			final Term[] psiParams = Arrays.copyOf(isTerms, isTerms.length + 1);
+			psiParams[isTerms.length] = equalTerm;
+			psi = theory.term("or", psiParams);
+			proof = tracker.wrapNot(notEqual, true, proof); // {+litTerm, +is-c_i(d).., +notEqual}
+			proof = tracker.resolveAtom(notEqual, proof, tracker.notElim(notEqual)); // {.., ~equalTerm}
+			proof = tracker.resolveAtom(equalTerm, tracker.orElim(psi), proof); // {+litTerm, +is-c_i(d).., ~psi}
+		}
+		return new Term[] { psi, proof };
 	}
 
 	/**

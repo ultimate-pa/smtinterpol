@@ -23,10 +23,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import de.uni_freiburg.informatik.ultimate.logic.DataType;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.MinimalProofChecker;
 
@@ -384,6 +387,108 @@ public class ModelProofClausesTest {
 		s.assertTerm(p1);
 		s.assertTerm(p2);
 		s.assertTerm(s.term("=", r, s.numeral("1")));
+		checkSatAndProof(s);
+	}
+
+	/** A 3-constructor enum datatype shared by the "match" aux-literal tests below. */
+	private DataType.Constructor[] declareColor(final SMTInterpol s) {
+		final DataType color = s.datatype("Color", 0);
+		final DataType.Constructor[] constrs = new DataType.Constructor[] {
+				new DataType.Constructor("red", new String[0], new Sort[0]),
+				new DataType.Constructor("green", new String[0], new Sort[0]),
+				new DataType.Constructor("blue", new String[0], new Sort[0]) };
+		s.declareDatatype(color, constrs);
+		return constrs;
+	}
+
+	@Test
+	public void testMatchAuxLiteralNoDefaultTrue() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p3", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2"), p3 = s.term("p3");
+		// "match" (no default/wildcard case) has no direct checked axiom either --
+		// exercises createMatchSatProof's N-ary generalization of createIteSatProof's
+		// case split, using the checked DT_EXHAUST axiom (mt.getConstructors() names
+		// every constructor of Color) as the completeness fact.
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, {}, {} }, new Term[] { p1, p2, p3 }, constrs);
+		s.assertTerm(s.term("and", matchTerm, s.term("=>", matchTerm, p1)));
+		s.assertTerm(s.term("=", c, s.term("red")));
+		s.assertTerm(p1);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralNoDefaultFalseNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p3", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2"), p3 = s.term("p3");
+		// Forces the match term false -- exercises the negative-litTerm ("not match")
+		// side of createMatchSatProof, still via DT_EXHAUST (no default case).
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, {}, {} }, new Term[] { p1, p2, p3 }, constrs);
+		s.assertTerm(s.term("and", s.term("not", matchTerm), s.term("or", matchTerm, s.term("not", p1))));
+		s.assertTerm(s.term("=", c, s.term("red")));
+		s.assertTerm(s.term("not", p1));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralWithDefaultTrue() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2");
+		final Theory theory = s.getTheory();
+		final TermVariable q = theory.createTermVariable("q", colorSort);
+		// match c ((red p1) (q p2)) -- "q" is a fresh-variable (default/wildcard)
+		// pattern, so the completeness fact comes from the default clause's own
+		// shape (liftMatchDefault) instead of DT_EXHAUST.
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, { q } }, new Term[] { p1, p2 },
+				new DataType.Constructor[] { constrs[0], null });
+		s.assertTerm(s.term("and", matchTerm, s.term("=>", matchTerm, p2)));
+		s.assertTerm(s.term("=", c, s.term("green")));
+		s.assertTerm(p2);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralWithDefaultFalseNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2");
+		final Theory theory = s.getTheory();
+		final TermVariable q = theory.createTermVariable("q", colorSort);
+		// Same as testMatchAuxLiteralWithDefaultTrue, but forces the match term
+		// false -- exercises the negative-litTerm side of liftMatchDefault.
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, { q } }, new Term[] { p1, p2 },
+				new DataType.Constructor[] { constrs[0], null });
+		s.assertTerm(s.term("and", s.term("not", matchTerm), s.term("or", matchTerm, s.term("not", p2))));
+		s.assertTerm(s.term("=", c, s.term("green")));
+		s.assertTerm(s.term("not", p2));
 		checkSatAndProof(s);
 	}
 
