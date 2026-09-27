@@ -245,21 +245,20 @@ public class ModelProofBuilder {
 	 * prefix -- the caller adds that, see {@link ModelProver#wrapRefineFun}.
 	 */
 	public Term buildProof(final List<Term> assertions) {
-		final Term[] proofs = new Term[assertions.size()];
-		for (int i = 0; i < assertions.size(); i++) {
-			final Term a = assertions.get(i);
+		if (assertions.size() == 0) {
+			return mTracker.getProofRules().trueIntro();
+		}
+
+		final Term[] assertionArray = assertions.toArray(new Term[assertions.size()]);
+		Term proof = null;
+		if (assertionArray.length > 1) {
+			proof = mTracker.getProofRules().andIntro(mTheory.term(SMTLIBConstants.AND, assertionArray));
+		}
+		for (int i = 0; i < assertionArray.length; i++) {
+			final Term a = assertionArray[i];
 			final Clausifier.FormulaSatProof record = mClausifier.mAssertionSatProofs.get(a);
-			proofs[i] = record != null ? proveFormula(record) : mModelProver.proveAtom(a);
-		}
-		if (proofs.length == 1) {
-			return proofs[0];
-		}
-		final Term andTerm = mTheory.term(SMTLIBConstants.AND, assertions.toArray(new Term[assertions.size()]));
-		// andIntro(andTerm) = {andTerm, ~a_1, .., ~a_n}, using the assertions themselves as
-		// opaque literals (unlike tautology(), which would strip "not"s from them).
-		Term proof = mTracker.andIntro(andTerm);
-		for (int i = 0; i < proofs.length; i++) {
-			proof = mTracker.resolveAtom(assertions.get(i), proofs[i], proof);
+			final Term aProof = record != null ? proveFormula(record) : mModelProver.proveAtom(a);
+			proof = proof == null ? aProof : mTracker.resolveAtom(a, aProof, proof);
 		}
 		return proof;
 	}

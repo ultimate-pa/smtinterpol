@@ -25,8 +25,6 @@ import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
@@ -36,6 +34,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 
 /**
  * This is an implementation of the IProofTracker that generates the proof
@@ -311,6 +311,15 @@ public class ProofTracker implements IProofTracker {
 	 */
 	public Term resolveAtom(final Term pivot, final Term proofPos, final Term proofNeg) {
 		return mProofRules.resolutionRule(pivot, proofPos, proofNeg);
+	}
+
+	/**
+	 * Return the proof rules object to create sub-proofs.
+	 *
+	 * @return the proof rules.
+	 */
+	public ProofRules getProofRules() {
+		return mProofRules;
 	}
 
 	/**
