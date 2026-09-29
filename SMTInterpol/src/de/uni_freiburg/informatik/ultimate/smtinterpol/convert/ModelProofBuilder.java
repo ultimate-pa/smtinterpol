@@ -78,46 +78,69 @@ public class ModelProofBuilder {
 		if (record != null) {
 			return proveFormula(record);
 		}
-		final Clausifier.NWayAuxProof nway = mClausifier.mNWayAuxProofs.get(l);
-		if (nway != null) {
-			final Term proof = proveNWay(nway);
-			if (proof != null) {
-				return proof;
-			}
-		}
 		return mModelProver.proveAtom(l.getSMTFormula(mTheory));
 	}
 
 	/**
-	 * Returns a proof of {@code {+rec.mTerm}} (or-positive) or {@code {+(not
-	 * rec.mTerm)}} (and-negative) or {@code {+rec.mTerm}} (=>-positive): picks
-	 * whichever of {@code rec.mTerm}'s params justifies the literal in the
-	 * model -- not decidable at clause-construction time, see
-	 * {@link Clausifier.NWayAuxProof} -- then builds the checked-axiom-based
-	 * proof for that one choice on the fly. Returns {@code null} if (contrary
-	 * to the invariant the assembler relies on) no choice fits.
+	 * Returns a proof of {@code {+probe}}, recursing into probe's own structural
+	 * sat-proof record when one is available, falling back to {@link ModelProver}
+	 * otherwise (e.g. {@code probe} is a base-theory atom, which never gets a
+	 * {@link Clausifier#mLiteralSatProofs} entry, or was never registered at all).
+	 * Recursion only fires when the registered literal's own formula is exactly
+	 * (by reference) {@code probe} -- true for a compound Boolean aux term (its
+	 * {@code NamedAtom} echoes back the very term it was created from), but not
+	 * guaranteed for a base-theory atom (CC/LA give their atoms a canonicalized
+	 * formula, which could differ from how {@code probe} is spelled out here as
+	 * one of {@code term}'s own, unnormalized params) -- using that would resolve
+	 * against the wrong pivot and leave a dangling literal in the assembled proof.
 	 */
-	private Term proveNWay(final Clausifier.NWayAuxProof rec) {
-		final Term[] params = ((ApplicationTerm) rec.mTerm).getParameters();
-		switch (rec.mKind) {
+	private Term proveTerm(final Term probe) {
+		final Term pos = Clausifier.toPositive(probe);
+		final ILiteral base = mClausifier.getILiteral(pos);
+		if (base != null) {
+			final ILiteral l = probe == pos ? base : base.negate();
+			if (l.getSMTFormula(mTheory) == probe) {
+				final Clausifier.FormulaSatProof record = mClausifier.mLiteralSatProofs.get(l);
+				if (record != null) {
+					return proveFormula(record);
+				}
+			}
+		}
+		return mModelProver.proveAtom(probe);
+	}
+
+	/**
+	 * Returns a proof of {@code {+c.mFormula}} for the "N separate defining
+	 * clauses" aux-literal cases (or-positive, and-negative, =>-positive): picks
+	 * whichever of {@code c.mNWayTerm}'s params justifies it in the model -- not
+	 * decidable at clause-construction time, hence deferred here -- then builds
+	 * the checked-axiom-based proof for that one choice, recursing into
+	 * {@link #proveTerm} for the chosen param instead of consulting
+	 * {@link ModelProver} unconditionally. Returns {@code null} if (contrary to
+	 * the invariant the assembler relies on) no choice fits.
+	 */
+	private Term proveNWay(final Clausifier.ClauseSatProof c) {
+		final Term nwayTerm = c.mNWayTerm;
+		final Term[] params = ((ApplicationTerm) nwayTerm).getParameters();
+		switch (c.mNWayKind) {
 		case OR_POSITIVE:
 			// term true iff some p_i is true; orIntro(i,term) = {+term, ~p_i}.
 			for (int i = 0; i < params.length; i++) {
 				final Term probe = params[i];
 				if (mModelProver.evaluateBoolean(probe)) {
-					return mTracker.resolveAtom(probe, mModelProver.proveAtom(probe), mTracker.orIntro(i, rec.mTerm));
+					return mTracker.resolveAtom(probe, proveTerm(probe), mTracker.orIntro(i, nwayTerm));
 				}
 			}
 			break;
 		case AND_NEGATIVE: {
 			// (not term) true iff some p_i is false; andElim(i,term) = {~term, +p_i},
 			// wrapped so ~term becomes +(not term).
-			final Term notTerm = mTheory.term(SMTLIBConstants.NOT, rec.mTerm);
+			final Term notTerm = mTheory.term(SMTLIBConstants.NOT, nwayTerm);
 			for (int i = 0; i < params.length; i++) {
 				final Term probe = params[i];
 				if (!mModelProver.evaluateBoolean(probe)) {
-					final Term wrapped = mTracker.wrapNot(notTerm, true, mTracker.andElim(i, rec.mTerm));
-					return mTracker.resolveAtom(probe, wrapped, mModelProver.proveAtom(probe));
+					final Term wrapped = mTracker.wrapNot(notTerm, true, mTracker.andElim(i, nwayTerm));
+					return mTracker.resolveAtom(probe, wrapped, proveTerm(probe));
 				}
 			}
 			break;
@@ -128,13 +151,13 @@ public class ModelProofBuilder {
 				final Term probe = params[i];
 				if (!mModelProver.evaluateBoolean(probe)) {
 					// premise i false -- impIntro(i,term) = {+term, +p_i}.
-					return mTracker.resolveAtom(probe, mTracker.impIntro(i, rec.mTerm), mModelProver.proveAtom(probe));
+					return mTracker.resolveAtom(probe, mTracker.impIntro(i, nwayTerm), proveTerm(probe));
 				}
 			}
 			final Term concl = params[last];
 			if (mModelProver.evaluateBoolean(concl)) {
 				// conclusion true -- impIntro(last,term) = {+term, ~p_last}.
-				return mTracker.resolveAtom(concl, mModelProver.proveAtom(concl), mTracker.impIntro(last, rec.mTerm));
+				return mTracker.resolveAtom(concl, proveTerm(concl), mTracker.impIntro(last, nwayTerm));
 			}
 			break;
 		}
@@ -152,10 +175,16 @@ public class ModelProofBuilder {
 			result = c.mReadyMadeProof;
 		} else if (c.mLiterals != null) {
 			result = proveFromLiterals(c);
+		} else if (c.mNWayTerm != null) {
+			result = proveNWay(c);
 		}
 		if (result == null) {
-			// No (usable) structural derivation for this clause -- evaluate it directly.
-			result = mModelProver.proveAtom(c.mFormula);
+			// No (usable) per-literal/N-way derivation for this clause -- c.mFormula is
+			// then always a bare leaf term (e.g. and-positive's/ite's/xor's hyps), never
+			// itself collected through BuildClause -- so recurse into its own structural
+			// record via proveTerm (e.g. it may be a nested aux term in its own right)
+			// instead of consulting ModelProver unconditionally.
+			result = proveTerm(c.mFormula);
 		}
 		c.mAssembled = result;
 		return result;

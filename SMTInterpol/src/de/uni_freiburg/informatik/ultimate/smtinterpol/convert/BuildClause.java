@@ -71,7 +71,7 @@ class BuildClause implements Operation {
 	private Term mProof;
 
 	private boolean mIsTrue = false;
-	final LinkedHashMap<Term, Clausifier.SatEntry> mCurrentLits = new LinkedHashMap<>();
+	final LinkedHashSet<Term> mCurrentLits = new LinkedHashSet<>();
 	private final LinkedHashSet<Literal> mLits = new LinkedHashSet<>();
 	private final LinkedHashSet<QuantLiteral> mQuantLits = new LinkedHashSet<>();
 	private final SourceAnnotation mSource;
@@ -147,32 +147,20 @@ class BuildClause implements Operation {
 	 */
 	public void collectLiteral(final Term term, final Term disjunct, final Term satProof) {
 		final Term strippedTerm = stripDoubleNot(term);
-		if (mCurrentLits.put(strippedTerm, new Clausifier.SatEntry(disjunct, satProof)) == null) {
-			mClausifier.pushOperation(new CollectLiteral(mClausifier, strippedTerm, this));
+		if (mCurrentLits.add(strippedTerm)) {
+			final Clausifier.SatEntry entry = mSatRecord == null ? null : new Clausifier.SatEntry(disjunct, satProof);
+			mClausifier.pushOperation(new CollectLiteral(mClausifier, strippedTerm, this, entry));
 		}
-	}
-
-	/**
-	 * Compose {@code {~newTerm, term}} (a proof that {@code term}'s literal
-	 * implies {@code newTerm}'s, or null for the identity) with {@code term}'s own
-	 * recorded descent, giving the descent for {@code newTerm}.
-	 *
-	 * @param term            a term already in {@link #mCurrentLits}.
-	 * @param proofFromNewTerm a proof of {@code {~newTerm, term}}, or null.
-	 * @return the descent entry for {@code newTerm}.
-	 */
-	Clausifier.SatEntry descend(final Term term, final Term proofNewTermToTerm) {
-		final Clausifier.SatEntry parent = mCurrentLits.get(term);
-		return new Clausifier.SatEntry(parent.mDisjunct, compose(term, proofNewTermToTerm, parent.mProof));
 	}
 
 	/**
 	 * Resolve {@code {~newTerm, term}} ({@code proofNewTermToTerm}) with
 	 * {@code {~term, disjunct}} ({@code proofTermToDisjunct}) on {@code term},
 	 * giving {@code {~newTerm, disjunct}}. Either may be null (identity); the
-	 * composition is then the other one, or null if both are.
+	 * composition is then the other one, or null if both are. Called from
+	 * {@link CollectLiteral#descend} on its own (single, immutable) sat entry.
 	 */
-	private Term compose(final Term term, final Term proofNewTermToTerm, final Term proofTermToDisjunct) {
+	Term compose(final Term term, final Term proofNewTermToTerm, final Term proofTermToDisjunct) {
 		// proofNewTermToTerm comes fresh from rewriteToClauseReverse (annotated with its
 		// proof), while proofTermToDisjunct is already the raw @Proof term; unwrap the former.
 		final Term inner =
@@ -234,22 +222,29 @@ class BuildClause implements Operation {
 	 *            the rewrite proof from the original argument to the literal.
 	 * @param positive
 	 *            True, if the literal occured positive in the original clause.
+	 * @param entry
+	 *            how {@code origAtom}'s (signed) literal descends from its
+	 *            disjunct of {@code mSatRecord.mFormula}, as recorded by the
+	 *            {@link CollectLiteral} that collected it; {@code null} when this
+	 *            clause has no {@code mSatRecord} (or the caller has none, e.g.
+	 *            {@link Clausifier#setupCClosure}).
 	 */
 	public void addLiteral(final ILiteral lit, final Term origAtom, final Term rewriteAtom,
-			final boolean positive) {
+			final boolean positive, final Clausifier.SatEntry entry) {
 		final Theory theory = rewriteAtom.getTheory();
 		final Term origLiteral = positive ? origAtom : theory.term(SMTLIBConstants.NOT, origAtom);
 		final Term rewriteLiteral = positive ? rewriteAtom
 				: mClausifier.mTracker.congruence(mClausifier.mTracker.reflexivity(origLiteral), new Term[] { rewriteAtom });
-		assert mCurrentLits.containsKey(origLiteral);
-		if (mSatRecord != null) {
-			final Clausifier.SatEntry entry = mCurrentLits.get(origLiteral);
+		assert mCurrentLits.contains(origLiteral);
+		if (entry != null) {
 			final Term reverse = mClausifier.mTracker.rewriteToClauseReverse(origLiteral, rewriteLiteral);
 			// lit is already in the clause's own polarity (positive is only used above to
 			// build origLiteral/rewriteLiteral for the rewrite proof) -- do not re-apply it
 			// here, or a negative occurrence's key gets flipped back to lit's positive form.
 			mLitSatProofs.put(lit, new Clausifier.SatEntry(entry.mDisjunct, compose(origLiteral, reverse, entry.mProof)));
 		}
+		// See CollectLiteral's rewriteLiteral branch for why this removal (allowing a
+		// later, fresh reprocessing of origLiteral) is required, not vestigial.
 		mCurrentLits.remove(origLiteral);
 		addResolution(mClausifier.mTracker.rewriteToClause(origLiteral, rewriteLiteral), origLiteral);
 		if (lit == Clausifier.mFALSE && mClausifier.mTracker instanceof ProofTracker) {

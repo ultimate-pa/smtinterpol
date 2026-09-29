@@ -190,14 +190,6 @@ public class Clausifier {
 	 * {@link #satProofsEnabled()}.
 	 */
 	final ScopedHashMap<Term, FormulaSatProof> mAssertionSatProofs = new ScopedHashMap<>();
-	/**
-	 * For the "N separate defining clauses" aux-literal cases (or-positive,
-	 * and-negative, =>-positive): which of the N clauses justifies the literal
-	 * depends on the model, so it can't be decided at clause-construction time --
-	 * deferred to assembly time (see {@link NWayAuxProof}). Only filled in when
-	 * {@link #satProofsEnabled()}.
-	 */
-	final ScopedHashMap<ILiteral, NWayAuxProof> mNWayAuxProofs = new ScopedHashMap<>();
 
 	/**
 	 * A sat-proof record: a proof of the tracked formula (an aux literal's formula
@@ -230,11 +222,29 @@ public class Clausifier {
 		Term mReadyMadeProof;
 		/** Else: per literal of the clause, how to reach ψ. */
 		Map<ILiteral, SatEntry> mLiterals;
+		/**
+		 * For the "N separate defining clauses" aux-literal cases (or-positive,
+		 * and-negative, =>-positive): {@link #mLiterals} can't be built yet -- which
+		 * of the N clauses justifies ψ depends on the model, and the params of
+		 * {@link #mNWayTerm} may not even have their own literal yet (their defining
+		 * clauses can still be pending on the operation stack) -- so only {@code
+		 * mNWayTerm}/{@code mNWayKind} are recorded here; {@link ModelProofBuilder}
+		 * builds {@link #mLiterals} from them lazily, once assembly starts and
+		 * every literal is guaranteed to exist.
+		 */
+		Term mNWayTerm;
+		NWayKind mNWayKind;
 		/** Memo for the sat-proof assembler. */
 		Term mAssembled;
 
 		ClauseSatProof(final Term formula) {
 			mFormula = formula;
+		}
+
+		ClauseSatProof(final Term formula, final Term nwayTerm, final NWayKind nwayKind) {
+			mFormula = formula;
+			mNWayTerm = nwayTerm;
+			mNWayKind = nwayKind;
 		}
 	}
 
@@ -252,24 +262,11 @@ public class Clausifier {
 		}
 	}
 
-	/** Which "N separate defining clauses" case {@link NWayAuxProof#mTerm} is. */
-	enum NWayKind { OR_POSITIVE, AND_NEGATIVE, IMPLIES_POSITIVE }
-
 	/**
-	 * A deferred aux-literal sat proof for the "N separate defining clauses" cases
-	 * (or-positive, and-negative, =>-positive): {@link ModelProofBuilder} picks
-	 * which of {@code mTerm}'s params justifies the literal once the model is
-	 * known, then builds the (checked-axiom-based) proof on the fly.
+	 * Which "N separate defining clauses" case a {@link ClauseSatProof}'s {@code
+	 * mNWayTerm} is.
 	 */
-	static final class NWayAuxProof {
-		final Term mTerm;
-		final NWayKind mKind;
-
-		NWayAuxProof(final Term term, final NWayKind kind) {
-			mTerm = term;
-			mKind = kind;
-		}
-	}
+	enum NWayKind { OR_POSITIVE, AND_NEGATIVE, IMPLIES_POSITIVE }
 
 	/**
 	 * Cache to determine if a sort is stably infinite.
@@ -950,6 +947,20 @@ public class Clausifier {
 		return t;
 	}
 
+	/**
+	 * Builds an auxiliary defining clause for a Tseitin aux literal.
+	 *
+	 * <p>
+	 * Deliberately returns no {@link ClauseSatProof}: unlike an ordinary clause
+	 * built via {@link #buildClause(Term, SourceAnnotation)}, this clause's own
+	 * literal-selection proof is not usable as a hypothesis for the aux literal's
+	 * {@code FormulaSatProof} -- see
+	 * "Why buildAuxClause's own ClauseSatProof cannot be wired in" in
+	 * {@code SMTInterpol/doc/model-proof-plan.md} for the (verified, not merely
+	 * unattempted) reason: this clause's own disjuncts, taken alone, prove the
+	 * *opposite* polarity of what the aux literal's record needs to conclude, for
+	 * every connective this is used for.
+	 */
 	public void buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source) {
 		final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
 		assert orTerm.getFunction().getName() == "or";
@@ -1158,11 +1169,13 @@ public class Clausifier {
 						buildAuxClause(lit, axiomProof, source);
 					}
 					// Which disjunct justifies litTerm depends on the model (any one of the n
-					// clauses could apply) -- deferred to ModelProofBuilder, see NWayAuxProof.
-					if (satProofsEnabled()) {
-						mNWayAuxProofs.put(lit, new NWayAuxProof(term, NWayKind.OR_POSITIVE));
+					// clauses could apply) -- deferred to ModelProofBuilder via the returned
+					// ClauseSatProof's mNWayTerm/mNWayKind, see there.
+					if (!satProofsEnabled()) {
+						return null;
 					}
-					return null;
+					return new FormulaSatProof(null,
+							new ClauseSatProof[] { new ClauseSatProof(litTerm, term, NWayKind.OR_POSITIVE) });
 				}
 			} else if (at.getFunction() == t.mImplies) {
 				if (negative) {
@@ -1200,11 +1213,13 @@ public class Clausifier {
 						buildAuxClause(lit, axiomProof, source);
 					}
 					// Which premise/the conclusion justifies litTerm depends on the model --
-					// deferred to ModelProofBuilder, see NWayAuxProof.
-					if (satProofsEnabled()) {
-						mNWayAuxProofs.put(lit, new NWayAuxProof(term, NWayKind.IMPLIES_POSITIVE));
+					// deferred to ModelProofBuilder via the returned ClauseSatProof's
+					// mNWayTerm/mNWayKind, see there.
+					if (!satProofsEnabled()) {
+						return null;
 					}
-					return null;
+					return new FormulaSatProof(null,
+							new ClauseSatProof[] { new ClauseSatProof(litTerm, term, NWayKind.IMPLIES_POSITIVE) });
 				}
 			} else if (at.getFunction() == t.mAnd) {
 				if (negative) {
@@ -1215,11 +1230,13 @@ public class Clausifier {
 						buildAuxClause(lit, axiomProof, source);
 					}
 					// Which conjunct justifies litTerm depends on the model -- deferred to
-					// ModelProofBuilder, see NWayAuxProof.
-					if (satProofsEnabled()) {
-						mNWayAuxProofs.put(lit, new NWayAuxProof(term, NWayKind.AND_NEGATIVE));
+					// ModelProofBuilder via the returned ClauseSatProof's mNWayTerm/mNWayKind,
+					// see there.
+					if (!satProofsEnabled()) {
+						return null;
 					}
-					return null;
+					return new FormulaSatProof(null,
+							new ClauseSatProof[] { new ClauseSatProof(litTerm, term, NWayKind.AND_NEGATIVE) });
 				} else {
 					// (or (and t1 ... tn) (not t1) ... (not tn))
 					final Term[] literals = new Term[params.length + 1];
@@ -2078,9 +2095,9 @@ public class Clausifier {
 			final Term trueEqFalse = mTheory.term("=", mTheory.mTrue, mTheory.mFalse);
 			final Term axiom = mTracker.tautology(mTheory.not(trueEqFalse), ProofConstants.TAUT_TRUE_NOT_FALSE);
 			final BuildClause bc = new BuildClause(this, axiom, source);
-			bc.mCurrentLits.put(mTheory.not(trueEqFalse), new SatEntry(mTheory.not(trueEqFalse), null));
+			bc.mCurrentLits.add(mTheory.not(trueEqFalse));
 			final Term rewrite = mTracker.intern(trueEqFalse, atom.getSMTFormula(mTheory));
-			bc.addLiteral(atom.negate(), trueEqFalse, rewrite, false);
+			bc.addLiteral(atom.negate(), trueEqFalse, rewrite, false, null);
 			bc.perform();
 		}
 	}
@@ -2481,7 +2498,6 @@ public class Clausifier {
 			if (mSatProofsEnabled) {
 				mLiteralSatProofs.beginScope();
 				mAssertionSatProofs.beginScope();
-				mNWayAuxProofs.beginScope();
 			}
 		}
 	}
@@ -2512,7 +2528,6 @@ public class Clausifier {
 			if (mSatProofsEnabled) {
 				mLiteralSatProofs.endScope();
 				mAssertionSatProofs.endScope();
-				mNWayAuxProofs.endScope();
 			}
 		}
 		mStackLevel -= numpops;

@@ -48,12 +48,27 @@ class CollectLiteral implements Operation {
 	private final Clausifier mClausifier;
 	private final Term mLiteral;
 	private final BuildClause mClauseBuilder;
+	/**
+	 * How {@link #mLiteral} descends from its disjunct of the owning
+	 * {@code BuildClause}'s clause formula, and the proof connecting them; fixed
+	 * at construction (by whichever {@link BuildClause#collectLiteral} call
+	 * created this object) and never mutated or looked up elsewhere. {@code null}
+	 * when the owning clause has no sat-proof record.
+	 */
+	private final Clausifier.SatEntry mSatEntry;
 
-	public CollectLiteral(Clausifier clausifier, final Term term, final BuildClause collector) {
+	public CollectLiteral(Clausifier clausifier, final Term term, final BuildClause collector,
+			final Clausifier.SatEntry satEntry) {
 		mClausifier = clausifier;
 		assert term.getSort() == term.getTheory().getBooleanSort();
 		mLiteral = term;
 		mClauseBuilder = collector;
+		mSatEntry = satEntry;
+	}
+
+	/** compose {@code {~child, mLiteral}} ({@code dualProof}, or null for the identity) with this term's own entry. */
+	private Clausifier.SatEntry descend(final Term dualProof) {
+		return new Clausifier.SatEntry(mSatEntry.mDisjunct, mClauseBuilder.compose(mLiteral, dualProof, mSatEntry.mProof));
 	}
 
 	private Term rewriteBooleanSubterms(final Term term, final SourceAnnotation source) {
@@ -71,9 +86,15 @@ class CollectLiteral implements Operation {
 		final Term litRewrite = mClausifier.rewriteLiteral(mLiteral);
 		final Term rewrittenLit = mClausifier.mTracker.getProvedTerm(litRewrite);
 		if (rewrittenLit != mLiteral) {
-			final Clausifier.SatEntry descended = mClausifier.satProofsEnabled()
-					? mClauseBuilder.descend(mLiteral, mClausifier.mTracker.rewriteToClauseReverse(mLiteral, litRewrite))
-					: null;
+			final Clausifier.SatEntry descended = mSatEntry == null ? null
+					: descend(mClausifier.mTracker.rewriteToClauseReverse(mLiteral, litRewrite));
+			// A structurally repeated occurrence of the same term (reached via a
+			// different unfolding path) must be reprocessed -- each occurrence needs
+			// its own addResolution step below to fully eliminate it from its own
+			// parent disjunction's proof, even though mLits (the DPLL literal set)
+			// dedups the semantic content. mCurrentLits therefore only blocks a
+			// second, concurrently-pending collectLiteral call for this term, not a
+			// later, fresh one after this CollectLiteral has already run.
 			mClauseBuilder.mCurrentLits.remove(mLiteral);
 			mClauseBuilder.addResolution(mClausifier.mTracker.rewriteToClause(mLiteral, litRewrite), mLiteral);
 			if (descended != null) {
@@ -100,7 +121,7 @@ class CollectLiteral implements Operation {
 								mClauseBuilder.getSource());
 
 				mClauseBuilder.addLiteral(positive ? eprAtom : eprAtom.negate(), idx, mClausifier.mTracker.reflexivity(idx),
-						positive);
+						positive, mSatEntry);
 				return;
 			}
 
@@ -130,8 +151,7 @@ class CollectLiteral implements Operation {
 					tautClause[i + 1] = p;
 				}
 				final Term taut = mClausifier.mTracker.tautology(theory.term("or", tautClause), rule);
-				final Clausifier.SatEntry[] descended =
-						mClausifier.satProofsEnabled() ? new Clausifier.SatEntry[params.length] : null;
+				final Clausifier.SatEntry[] descended = mSatEntry == null ? null : new Clausifier.SatEntry[params.length];
 				if (descended != null) {
 					for (int i = 0; i < params.length; i++) {
 						final Term child = tautClause[i + 1];
@@ -140,9 +160,11 @@ class CollectLiteral implements Operation {
 								Clausifier.isNotTerm(child) ? Clausifier.toPositive(child) : theory.term("not", child);
 						final Term dualProof = mClausifier.mTracker.tautology(theory.term("or", mLiteral, dualChild),
 								dualRule);
-						descended[i] = mClauseBuilder.descend(mLiteral, dualProof);
+						descended[i] = descend(dualProof);
 					}
 				}
+				// See the rewriteLiteral branch above for why this removal (allowing a
+				// later, fresh reprocessing of mLiteral) is required, not vestigial.
 				mClauseBuilder.mCurrentLits.remove(mLiteral);
 				mClauseBuilder.addResolution(taut, mLiteral);
 				for (int i = params.length - 1; i >= 0; i--) {
@@ -231,7 +253,7 @@ class CollectLiteral implements Operation {
 			// TODO end
 			rewrite = mClausifier.mTracker.transitivity(rewrite,
 					mClausifier.mTracker.intern(mClausifier.mTracker.getProvedTerm(rewrite), lit.getSMTFormula(theory)));
-			mClauseBuilder.addLiteral(positive ? lit : lit.negate(), at, rewrite, positive);
+			mClauseBuilder.addLiteral(positive ? lit : lit.negate(), at, rewrite, positive, mSatEntry);
 		} else if (idx instanceof QuantifiedFormula) {
 			final QuantifiedFormula qf = (QuantifiedFormula) idx;
 			final Pair<Term, Annotation> converted = mClausifier.convertQuantifiedSubformula(positive, qf);
@@ -242,9 +264,10 @@ class CollectLiteral implements Operation {
 					mClausifier.mTracker.tautology(theory.term(SMTLIBConstants.OR, negLit, substituted), converted.getSecond());
 			// TODO: track the sat-side dual for quantifier elimination (phase 4 of the
 			// model-proof plan). Poison instead of recording an incorrect entry.
-			if (mClausifier.satProofsEnabled()) {
+			if (mSatEntry != null) {
 				mClauseBuilder.poisonSatRecord();
 			}
+			// See the rewriteLiteral branch above for why this removal is required.
 			mClauseBuilder.mCurrentLits.remove(mLiteral);
 			mClauseBuilder.addResolution(tautology, lit);
 			final Term substitutedCanonic = mClausifier.mCompiler.transform(substituted);
@@ -260,7 +283,7 @@ class CollectLiteral implements Operation {
 			final ILiteral lit = mClausifier.getQuantifierTheory().getQuantEquality(idx, value,
 					mClauseBuilder.getSource());
 			final Term rewrite = mClausifier.mTracker.intern(idx, (positive ? lit.negate() : lit).getSMTFormula(theory));
-			mClauseBuilder.addLiteral(lit.negate(), idx, rewrite, positive);
+			mClauseBuilder.addLiteral(lit.negate(), idx, rewrite, positive, mSatEntry);
 		} else if (idx instanceof MatchTerm) {
 			final ILiteral lit = mClausifier.createAnonLiteral(idx, mClauseBuilder.getSource());
 			// aux axioms will always automatically created for quantified formulas
@@ -272,7 +295,7 @@ class CollectLiteral implements Operation {
 				}
 			}
 			final Term rewrite = mClausifier.mTracker.intern(idx, lit.getSMTFormula(theory));
-			mClauseBuilder.addLiteral(positive ? lit : lit.negate(), idx, rewrite, positive);
+			mClauseBuilder.addLiteral(positive ? lit : lit.negate(), idx, rewrite, positive, mSatEntry);
 		} else {
 			throw new SMTLIBException("Cannot handle literal " + mLiteral);
 		}

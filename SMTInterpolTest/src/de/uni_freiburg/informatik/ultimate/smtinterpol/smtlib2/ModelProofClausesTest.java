@@ -259,8 +259,8 @@ public class ModelProofClausesTest {
 		// clauses) and negated-and-shared elsewhere; forced false via p<=0, so its
 		// negation is the literal the assembler actually needs to justify --
 		// exercises createDefiningClausesForLiteral's "and-negative" N-way case
-		// (Clausifier.NWayAuxProof / ModelProofBuilder.proveNWay), picking the
-		// false conjunct (q here would also work) at assembly time.
+		// (ClauseSatProof.mNWayTerm/mNWayKind / ModelProofBuilder.proveNWay), picking
+		// the false conjunct (q here would also work) at assembly time.
 		final Term andTerm = s.term("and", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")));
 		s.assertTerm(s.term("and", s.term("or", andTerm, s.term(">", r, s.numeral("0"))),
 				s.term("or", s.term("not", andTerm), s.term("=", r, s.numeral("5"))),

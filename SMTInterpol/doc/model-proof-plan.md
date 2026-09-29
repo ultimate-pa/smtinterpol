@@ -181,6 +181,18 @@ Clause formulas (clause minus the aux literal):
 
 ### Deriving the aux record
 
+**Correction (2026-09-29): the derivation below is mathematically valid (`ψ_1 ∧
+ψ_2 → ρ` really does hold) but is stored under the wrong key** — it concludes
+`ρ`, but `addAuxAxioms`'s actual, confirmed convention stores this branch's
+record under `negLit` itself (`= lit`, unnegated), which needs `¬ρ`, not `ρ`.
+The committed `createIteSatProof` derives `¬ρ` instead, via differently-signed
+helper formulas that are *not* `ψ_1`/`ψ_2` as used here. See "Why
+`buildAuxClause`'s own `ClauseSatProof` cannot be wired in" (further down this
+document) for the full account — this worked example predates that finding and
+is kept here only for the (still valid) points it makes about *which* clauses
+are recorded and why (the "sufficient subset" and "reversed rewrite" points
+below), not for its conclusion's sign or its `mLiteralSatProofs` key.
+
 Needed: the dual tautologies of the rules that built the clauses (`:ite+1`,
 `:ite+2`, both already in `ProofConstants` and emittable with
 `mTracker.tautology`), and one `orElim` per clause formula.  All pivots are
@@ -203,8 +215,12 @@ No new checker support is required: `ProofSimplifier.convertTautIte1Helper`
 
 The negative occurrence (`addAuxAxioms(ρ, false, …)`, branch at line 1061) is the
 mirror image: clauses `{ρ, ¬c, ¬a}`, `{ρ, c, ¬b}` with clause formulas
-`(or (not c) (not a))` and `(or c (not b))`, record conclusion `¬ρ`, derived from
-the duals `:ite-1` and `:ite-2`.
+`(or (not c) (not a))` and `(or c (not b))`. **Correction (2026-09-29): the
+record conclusion here is `ρ`, not `¬ρ`** — `addAuxAxioms(ρ, positive=false, …)`
+stores under `negLit` unnegated (`= getILiteral(ρ)`), which needs `{+ρ}`; see the
+correction note above "Deriving the aux record". Still derived from the duals
+`:ite-1` and `:ite-2` (mirrored) — but, per the same finding, *not* directly
+from these two clauses' own `buildAuxClause` records, for the same reason.
 
 ### Signatures and registries
 
@@ -217,16 +233,25 @@ are the duals — which are neither per literal nor even per clause:
 
 So the sat-side structure is per *case* and belongs to a companion of
 `createDefiningClausesForLiteral`, right where the rule — and hence its dual — is
-known.  `buildAuxClause` returns the record object for the clause it creates, so
-the companion can reference it:
+known. The signature below (`buildAuxClause` returning a record object for the
+companion to reference) was the original design; **it does not work** — see the
+correction note above and "Why `buildAuxClause`'s own `ClauseSatProof` cannot be
+wired in" further down. `buildAuxClause` stays `void`, and the companion proves
+its duals independently instead (as the committed code does):
 
 ```java
-/** @return the (still empty) record for this clause, whose formula is the `or` of
- *          params[1..] of the axiom; null if sat proofs are off. */
+/** Superseded — buildAuxClause stays void. Kept to show what was tried and why
+ *  it doesn't work; see "Why buildAuxClause's own ClauseSatProof cannot be
+ *  wired in". */
 public ClauseSatProof buildAuxClause(ILiteral auxlit, Term axiom, SourceAnnotation source)
 ```
 
-and the `ite` branch of the companion reads:
+and the `ite` branch of the companion reads (superseded — see the correction
+note above "Deriving the aux record" and "Why `buildAuxClause`'s own
+`ClauseSatProof` cannot be wired in" further down; kept for the historical
+`buildAuxClause`-returns-a-record shape, not for its `lit.negate()` key or its
+use of `cl1.mFormula`/`cl2.mFormula` as resolution pivots, both since found
+wrong):
 
 ```java
 final Term axiom1 = mTracker.tautology(or(litTerm, not(c), a), TAUT_ITE_NEG_1);
@@ -240,9 +265,10 @@ final Term satProof = mTracker.resolve(c,
 mLiteralSatProofs.put(lit.negate(), new FormulaSatProof(satProof, new ClauseSatProof[] { cl1, cl2 }));
 ```
 
-`ProofTracker.resolve` already exists and handles the pivot polarity.  The record
-objects are filled in later, when the `BuildClause` operations run; only their
-`mFormula` is needed now.
+`ProofTracker.resolve` already exists and handles the pivot polarity.  The
+committed `createIteSatProof` instead derives `¬ρ` (stored under `lit`, not
+`lit.negate()`), using its own `psi1`/`psi2` (not `cl1.mFormula`/`cl2.mFormula`),
+proven independently rather than via `buildAuxClause`'s returned record.
 
 The two scoped registries in the `Clausifier`, both `ScopedHashMap` like
 `mLiterals` so `push`/`pop` work:
@@ -386,7 +412,7 @@ Three kinds of clause records fall out of the existing call sites:
 | created by | ψ | record |
 | --- | --- | --- |
 | `buildTautology`, `buildClause(rule, …)`, `buildClause(tautologyProof, …)` — theory axioms | — | **none**: these clauses are never a hypothesis of any record (they constrain the model, they do not derive the input), so they need no sat tracking at all |
-| `buildAuxClause` | clause minus the aux literal | literal entries; owned by the aux `FormulaSatProof` |
+| `buildAuxClause` | — | **none** — checked and found unusable for this purpose, not merely unused; see "Why `buildAuxClause`'s own `ClauseSatProof` cannot be wired in" below. The soundness argument above (only usable "inside `l`'s own record") describes a hypothetical design this method does *not* actually implement. |
 | `buildClause(term, source)` (via `AddAsAxiom`) | the collected formula | literal entries; owned by an assertion `FormulaSatProof` |
 
 `mReadyMadeProof` covers the `mIsTrue` case, where no clause reaches the engine:
@@ -396,26 +422,116 @@ complementary pair `l`/`¬l` gives `res(atom, {¬l, o_i}, {l, o_j})` + two
 
 ### `buildAuxClause`
 
-Only the clause formula is new; it is `params[1..]` of the axiom, and the aux
-literal at `params[0]` is excluded for free because it is added directly.
+Deliberately returns **no** `ClauseSatProof`, unlike `buildClause`. An earlier
+draft of this plan (and an earlier draft of this section) assumed it should, so
+that `createDefiningClausesForLiteral`'s branches could use the real per-clause
+record as a hyp instead of the synthetic, disconnected `ClauseSatProof` objects
+they build today (`new ClauseSatProof(psi1)`, `new ClauseSatProof(notPi)`, ...).
+**That assumption was checked carefully — by tracing the exact sign algebra
+against `ProofTracker.wrapNot`'s actual implementation, not by guesswork — and
+found to be wrong**, for a reason that is structural, not a missed wiring step;
+see the next section. The clause formula is still `params[1..]` of the axiom,
+and the aux literal at `params[0]` is still excluded for free (it is added
+directly, `bc.addLiteral(auxlit)`, no `SatEntry`) — that part of the design was
+correct and is unaffected — but the method itself stays as committed:
 
 ```java
- public void buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source) {
-     final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
-     assert orTerm.getParameters()[0] == auxlit.getSMTFormula(orTerm.getTheory());
-     final Term[] params = orTerm.getParameters();
-+    final Term clauseFormula = !satProofsEnabled() ? null
-+            : params.length == 2 ? params[1]
-+            : mTheory.term("or", Arrays.copyOfRange(params, 1, params.length));
--    final BuildClause bc = new BuildClause(this, axiom, source);
-+    final BuildClause bc = new BuildClause(this, axiom, source, clauseFormula);
-     pushOperation(bc);
-     bc.addLiteral(auxlit);          // no SatEntry: excluded by construction
-     for (int i = params.length - 1; i >= 1; i--) {
-         bc.collectLiteral(params[i]);
-     }
- }
+public void buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source) {
+    final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
+    assert orTerm.getParameters()[0] == auxlit.getSMTFormula(orTerm.getTheory());
+    final BuildClause bc = new BuildClause(this, axiom, source);
+    final Term[] params = orTerm.getParameters();
+    pushOperation(bc);
+    bc.addLiteral(auxlit);          // no SatEntry: excluded by construction
+    for (int i = params.length - 1; i >= 1; i--) {
+        bc.collectLiteral(params[i]);
+    }
+}
 ```
+
+### Why `buildAuxClause`'s own `ClauseSatProof` cannot be wired in
+
+**Investigated and rejected** (2026-09-29): for *every* connective checked —
+`or` negative, and both polarities of `ite` — the aux clause's own disjuncts,
+taken alone (i.e. exactly what `buildAuxClause`'s `ClauseSatProof.mFormula`
+would be), prove the **opposite** polarity of what that same branch's
+`FormulaSatProof` needs to conclude. This is not a missing wiring step to fix;
+it is a property of what a Tseitin defining clause *is*.
+
+**Concretely, for `or` negative** (`ρ = (or l1 .. ln)`, the branch triggered by
+`addAuxAxioms(ρ, positive=true, …)`, i.e. exactly the shape in the user's own
+example — the single aux clause `{¬l, l1, .., ln}`):
+`buildAuxClause`'s own `ClauseSatProof` for this clause has `mFormula =
+(or l1 .. ln) = ρ`, and — via the ordinary `BuildClause`/`CollectLiteral`
+machinery — genuinely proves `{+ρ}` from whichever `l_i` the model sets true,
+exactly as the user described. **But this branch's own `FormulaSatProof` is
+stored under the key `negLit = getILiteral(ρ).negate()`** (`Clausifier.addAuxAxioms`:
+`negLit = positive ? negLit.negate() : negLit`, and `mLiteralSatProofs.put(negLit,
+satProof)` — the *un*-negated key, confirmed against the committed code, not the
+`negLit.negate()` an earlier session's summary mis-remembered), and
+`ModelProofBuilder.proveLiteral`/`proveFormula` need whatever is stored there to
+conclude `{+negLit's own formula}` — here `¬ρ`. So the branch's `FormulaSatProof`
+must conclude `¬ρ`, while `buildAuxClause`'s own `ClauseSatProof` for the very
+clause it builds proves `ρ`: an exact, unresolvable sign mismatch. (The
+committed `createDefiningClausesForLiteral` code derives `¬ρ` correctly instead,
+via `orElim(ρ)` plus one `¬l_i` hypothesis per disjunct — each `¬l_i` proven
+independently, via `ModelProver`/a nested lookup, *not* via this clause at all.)
+
+**Concretely, for `ite`** (both polarities checked the same way): the
+`negative=true` branch (`addAuxAxioms(ρ, positive=true, …)`) builds axiom clauses
+whose own disjuncts are `ψ_1 = (or ¬c a)`, `ψ_2 = (or c b)` — bare `a`/`b`, i.e.
+*not* negated. A valid derivation exists from these: `ψ_1 ∧ ψ_2 → ρ` (if `c`,
+`ψ_1` forces `a`, so `ite c a b = a` = true; if `¬c`, `ψ_2` forces `b`, so
+`ite c a b = b` = true — either way `ρ`) — this is exactly the derivation this
+plan's own worked "ite" example above computes (`res(c, …, …) = {ρ, ¬ψ_1, ¬ψ_2}`,
+concluding `ρ`, stored there under `lit.negate()`). **But per the confirmed
+`addAuxAxioms` key convention above, the `negative=true` branch's own
+`FormulaSatProof` must be stored under `negLit` itself (`= lit`, not
+`lit.negate()`), and must conclude `¬ρ`, not `ρ`** — so this plan's own worked
+example was itself relying on the same wrong (`lit.negate()`) keying an earlier
+session's summary had already flagged as "a stale, wrong plan from an earlier
+session" elsewhere, and never actually matched what got implemented. The
+committed `createIteSatProof` derives `¬ρ` correctly instead, from `psi1 = (or ¬c
+¬a)`/`psi2 = (or c ¬b)` — the *negated*-`a`/`b` duals of `ψ_1`/`ψ_2` — which are
+*not* `buildAuxClause`'s own clause formulas for this branch at all (they would
+be, coincidentally, if the *other* polarity's branch — `negative=false` — had
+also been triggered for the same `ρ`, since that branch's own axiom clauses use
+negated `a`/`b`; but that branch is only built when `ρ` *also* occurs negatively
+somewhere else, which is not guaranteed, so the committed code correctly does
+not rely on it and proves `psi1`/`psi2` independently via `ModelProver`/nested
+lookup instead).
+
+**The general pattern**: a Tseitin defining clause `{litTerm} ∪ D` is a
+tautology *because* it can always be satisfied either via `litTerm` or via `D`
+— it does not, by itself, pin down `litTerm`'s truth value one way or the
+other. The branch that builds it is trying to establish `litTerm`'s value
+(`negLit`'s conclusion) in the case where `litTerm` is *not* the escape (that is
+the entire point of the aux-literal record), so appealing to "`D` was
+satisfied" tells you nothing new — `D` being provable from the model is
+consistent with either value of `litTerm`. What actually pins down `litTerm`'s
+value is a *different*, appropriately-signed fact (`ψ_1`/`ψ_2` above, not
+`buildAuxClause`'s own `ψ_1`/`ψ_2`), which happens not to correspond to any
+single clause that branch itself builds — proven instead, correctly, via
+`ModelProver`/a nested `mLiteralSatProofs` lookup, exactly as the committed code
+already does. `buildAuxClause`'s own `ClauseSatProof` remains genuinely useful
+for what `buildClause` already provides elsewhere (an ordinary, non-aux clause,
+where the clause formula *is* the thing being concluded) — it is specifically
+the *aux*-clause case, where the conclusion is about the excluded literal
+rather than about the clause formula itself, that this does not apply to.
+
+**Why the aux literal itself never appears in `mLiterals`.** `ψ` is the clause
+*without* the aux literal (`params[1..]` only) by construction, so the aux
+literal's own truth plays no part in proving `ψ` — and it must not: the clause
+is `{litTerm, o_1, .., o_k}` with `litTerm` at whatever sign `lit` has, so if
+`litTerm` needed an entry in `mLiterals` it would have to be recorded at the
+*opposite* sign from how it occurs in the clause (assembly needs `{¬litTerm,
+ψ}`, a proof *from litTerm false*, while the clause records `litTerm` true as
+one of its own disjuncts) — a second, oppositely-signed entry for the same atom
+that the one-entry-per-`ILiteral` map cannot express, and — per the finding
+above — would not even be useful if it could be expressed, since `ψ` being
+provable says nothing about `litTerm`'s value either way. Excluding `litTerm`
+(`bc.addLiteral(auxlit)`, no `SatEntry`) sidesteps this outright, and is already
+how `buildAuxClause` is written above.
 
 ### `createDefiningClausesForLiteral` and `addAuxAxioms`
 
@@ -460,9 +576,16 @@ private FormulaSatProof createDefiningClausesForLiteral(ILiteral lit, Term term,
     }
 ```
 
-`addAuxAxioms` only has to store it.  The polarity bookkeeping is uniform: the
-literal that occurs in the defining clauses is `negLit`, so the record proves the
-formula of `negLit.negate()`, which is therefore the key.
+`addAuxAxioms` only has to store it. **Stale note, corrected 2026-09-29**: an
+earlier draft of this section said the record is stored under `negLit.negate()`
+("the record proves the formula of `negLit.negate()`") — this was already
+flagged elsewhere as a mis-remembered, never-implemented convention (see "Why
+`buildAuxClause`'s own `ClauseSatProof` cannot be wired in" above), and the
+sketch below is fixed accordingly. The committed code stores the record under
+`negLit` itself, unnegated (`Clausifier.java:1085`, `mLiteralSatProofs.put(negLit,
+satProof)`), i.e. the record concludes the formula of `negLit` — the very
+literal `createDefiningClausesForLiteral`'s defining clauses are built for, not
+its negation.
 
 ```java
  public void addAuxAxioms(final Term term, final boolean positive, final SourceAnnotation source) {
@@ -472,24 +595,33 @@ formula of `negLit.negate()`, which is therefore the key.
 -    createDefiningClausesForLiteral(negLit, term, positive, source);
 +    final FormulaSatProof satProof = createDefiningClausesForLiteral(negLit, term, positive, source);
 +    if (satProof != null) {
-+        // the record proves the literal occurring positively in ρ's role,
-+        // i.e. the negation of the literal in the defining clauses
-+        mLiteralSatProofs.put(negLit.negate(), satProof);
++        mLiteralSatProofs.put(negLit, satProof);
 +    }
  }
 ```
 
 `addAuxAxiomsQuant` does the same twice, for `auxFalseLit` and `auxTrueLit`.
 
-### `BuildClause`
+### `BuildClause` and `CollectLiteral`
 
-`mCurrentLits` becomes a map, so that every collected term knows which disjunct of
-ψ it descends from and how (call sites: `CollectLiteral`, `setupCClosure`).
+**`mCurrentLits` stays exactly what it always was: a plain `Set<Term>`, used only
+to stop the same term from being collected twice** (e.g. a literal occurring
+twice in one clause) — it never held the sat-proof payload and does not need to.
+Each `Term` gets collected at most once regardless, so its `SatEntry` — the
+disjunct of ψ it descends from, and the proof connecting them — can live as an
+**immutable field on the one `CollectLiteral` instance created for it**, fixed at
+construction, rather than in a second, mutable, term-keyed map on `BuildClause`
+that every `descend`/`addLiteral` call would otherwise have to look back up (and
+that a duplicate `collectLiteral` call for the same term would silently
+overwrite, before the map was even fully removed here — harmless, since any
+valid derivation of ψ from a literal is as good as any other, but needless
+aliasing between an unrelated occurrence's provenance and this one's). Binding
+the entry at construction instead also means `addLiteral` can no longer *look
+up* the entry — the caller (`CollectLiteral.perform()`, which already holds it
+as its own field) must *pass* it in.
 
 ```java
--final LinkedHashSet<Term> mCurrentLits = new LinkedHashSet<>();
-+final LinkedHashMap<Term, SatEntry> mCurrentLits = new LinkedHashMap<>();
-+private final Term mClauseFormula;                       // null when sat proofs are off
+ final LinkedHashSet<Term> mCurrentLits = new LinkedHashSet<>();    // dedup only, unchanged
 +private final LinkedHashMap<ILiteral, SatEntry> mLitSatProofs = new LinkedHashMap<>();
 
  public void collectLiteral(Term term) { collectLiteral(term, term, null); }
@@ -498,37 +630,72 @@ formula of `negLit.negate()`, which is therefore the key.
 + *  @param satProof a proof of {¬term, disjunct}, or null if term == disjunct */
 +public void collectLiteral(Term term, Term disjunct, Term satProof) {
      while (isNotTerm(term) && isNotTerm(...)) { ... }
--    if (mCurrentLits.add(term)) {
-+    if (mCurrentLits.put(term, new SatEntry(disjunct, satProof)) == null) {
-         mClausifier.pushOperation(new CollectLiteral(mClausifier, term, this));
+     if (mCurrentLits.add(term)) {
++        final SatEntry entry = mSatRecord == null ? null : new SatEntry(disjunct, satProof);
++        mClausifier.pushOperation(new CollectLiteral(mClausifier, term, this, entry));
+-        mClausifier.pushOperation(new CollectLiteral(mClausifier, term, this));
      }
  }
 
-+/** compose {¬newTerm, term} with term's entry into an entry for newTerm. */
-+SatEntry descend(Term term, Term proofFromNewTerm) {
-+    final SatEntry parent = mCurrentLits.get(term);
-+    return new SatEntry(parent.mDisjunct, compose(term, proofFromNewTerm, parent.mProof));
-+}
-+
-+/** resolve {¬new, term} with {¬term, disjunct} on term; null == identity. */
-+private Term compose(Term term, Term inner, Term outer) {
++/** resolve {¬new, term} with {¬term, disjunct} on term; null == identity. Stays
++ *  on BuildClause (not CollectLiteral) only because it needs mClausifier.mTracker;
++ *  CollectLiteral calls it on its own mClauseBuilder. */
++Term compose(Term term, Term inner, Term outer) {
 +    return outer == null ? inner : inner == null ? outer
 +            : ((ProofTracker) mClausifier.mTracker).resolve(term, inner, outer);
 +}
 ```
 
-In `addLiteral(lit, origAtom, rewriteAtom, positive)` everything needed is already
-computed — `origLiteral` and `rewriteLiteral`:
+`CollectLiteral` itself gains the field and a `descend` of its own, operating on
+`mLiteral`/`mSatEntry` instead of a lookup:
 
 ```java
-+    if (mClauseFormula != null) {
-+        final SatEntry entry = mCurrentLits.get(origLiteral);
-+        final Term reverse = mClausifier.mTracker.rewriteToClauseReverse(origLiteral, rewriteLiteral);
-+        mLitSatProofs.put(positive ? lit : lit.negate(),
-+                new SatEntry(entry.mDisjunct, compose(origLiteral, reverse, entry.mProof)));
+ class CollectLiteral implements Operation {
+     private final Term mLiteral;
+     private final BuildClause mClauseBuilder;
++    private final Clausifier.SatEntry mSatEntry;   // null when this clause has no ClauseSatProof
+
+-    public CollectLiteral(Clausifier clausifier, Term term, BuildClause collector) {
++    public CollectLiteral(Clausifier clausifier, Term term, BuildClause collector, Clausifier.SatEntry satEntry) {
+         ...
++        mSatEntry = satEntry;
+     }
+
++    /** compose {¬child, mLiteral} (dualProof, or null for identity) with this term's own entry. */
++    private Clausifier.SatEntry descend(final Term dualProof) {
++        return new Clausifier.SatEntry(mSatEntry.mDisjunct, mClauseBuilder.compose(mLiteral, dualProof, mSatEntry.mProof));
 +    }
-     mCurrentLits.remove(origLiteral);
 ```
+
+In `BuildClause.addLiteral`, `origAtom`/`positive` no longer need to reconstruct
+a map key — the entry simply arrives as a parameter, straight from the caller's
+own field:
+
+```java
+-public void addLiteral(final ILiteral lit, final Term origAtom, final Term rewriteAtom, final boolean positive) {
++public void addLiteral(final ILiteral lit, final Term origAtom, final Term rewriteAtom, final boolean positive,
++        final Clausifier.SatEntry entry) {
+     ...
+-    if (mClauseFormula != null) {
+-        final SatEntry entry = mCurrentLits.get(origLiteral);
++    if (entry != null) {
+         final Term reverse = mClausifier.mTracker.rewriteToClauseReverse(origLiteral, rewriteLiteral);
+         mLitSatProofs.put(positive ? lit : lit.negate(),
+                 new SatEntry(entry.mDisjunct, compose(origLiteral, reverse, entry.mProof)));
+     }
+-    mCurrentLits.remove(origLiteral);
+```
+
+`CollectLiteral.perform()`'s call sites then read, uniformly, `mSatEntry == null
+? null : descend(...)` where they used to call `mClauseBuilder.descend(mLiteral,
+...)`, and its one terminal `addLiteral` call becomes `mClauseBuilder.addLiteral(
+positive ? lit : lit.negate(), at, rewrite, positive, mSatEntry)`. A welcome
+side effect: the old sketch's `mCurrentLits.remove(mLiteral)` calls (and the
+"must happen *after* the `descend` calls that read `mLiteral`'s entry" ordering
+hazard they created, see the inlining example below) disappear entirely — there
+is no shared entry left to go stale, so nothing needs removing once `mLiteral`
+is fully handled; `mCurrentLits` itself is untouched except for the initial
+`add` in `collectLiteral`.
 
 and `perform()` fills in the record the consumer already holds — or, when
 `mIsTrue`, its `mReadyMadeProof` instead, since no clause reaches the engine:
@@ -562,26 +729,26 @@ nothing has to be threaded *into* `collectLiteral` from outside.
 | aux literal (line 191ff, 230ff) | nothing extra — the generic `addLiteral` path records the reversed `intern`; the *record* comes from `addAuxAxioms` |
 | `TermVariable` (line 220ff), `MatchTerm`, `=`, `<=`, uninterpreted | nothing extra — generic `addLiteral` path |
 
-Concretely for the inlining branch:
+Concretely for the inlining branch — no ordering hazard this time, `mSatEntry` is
+`this`'s own field and is read as many times as needed, in any order, since
+nothing here mutates it or removes it:
 
 ```java
      final Term taut = mClausifier.mTracker.tautology(theory.term("or", tautClause), rule);
--    mClauseBuilder.mCurrentLits.remove(mLiteral);
      mClauseBuilder.addResolution(taut, mLiteral);
      for (int i = params.length - 1; i >= 0; i--) {
 -        mClauseBuilder.collectLiteral(tautClause[i + 1]);
-+        final Term dual = satProofsEnabled()
-+                ? mClausifier.mTracker.tautology(
-+                        theory.term("or", idx, theory.term("not", tautClause[i + 1])), dualRule)
-+                : null;
-+        final SatEntry e = mClauseBuilder.descend(mLiteral, dual);
-+        mClauseBuilder.collectLiteral(tautClause[i + 1], e.mDisjunct, e.mProof);
++        if (mSatEntry == null) {
++            mClauseBuilder.collectLiteral(tautClause[i + 1]);
++        } else {
++            final Term dualChild = Clausifier.isNotTerm(tautClause[i + 1]) ? Clausifier.toPositive(tautClause[i + 1])
++                    : theory.term("not", tautClause[i + 1]);
++            final Term dual = mClausifier.mTracker.tautology(theory.term("or", mLiteral, dualChild), dualRule);
++            final Clausifier.SatEntry e = descend(dual);
++            mClauseBuilder.collectLiteral(tautClause[i + 1], e.mDisjunct, e.mProof);
++        }
      }
-+    mClauseBuilder.mCurrentLits.remove(mLiteral);   // after the descends
 ```
-
-Note the reordering: `mCurrentLits.remove(mLiteral)` must happen *after* the
-`descend` calls that read `mLiteral`'s entry.
 
 ### Input clauses and assertions
 
@@ -729,7 +896,7 @@ Every place that needs new code, from the inventory of existing call sites.
 | fields, `push`, `pop` (1914ff, 1933ff) | `mLiteralSatProofs`, `mAssertionSatProofs`, `satProofsEnabled()`, `beginScope`/`endScope` |
 | `addFormula` (1867) | build the assertion record from the `AddAsAxiom` root, bridge the `modusPonens` rewrite (1895) in reverse, store it |
 | `buildClause(Term, SourceAnnotation)` (883) | create the `ClauseSatProof` (ψ = the collected formula), pass it to `BuildClause`, return it to `AddAsAxiom` |
-| `buildAuxClause` (829) | create the record with ψ = `or(params[1..])`, return it |
+| `buildAuxClause` (829) | **no record** — checked and found unwireable, not merely unwired; see "Why `buildAuxClause`'s own `ClauseSatProof` cannot be wired in" |
 | `buildTautology` (874), `buildClause(Annotation, …)` (889), `buildClauseWithTautology` (900) | pass `null` — theory-axiom clauses need no record.  (`buildClauseWithTautology` is only used by `AddAsAxiom`'s `xor`/`ite` splits, whose sat side is the dual tautology in the join, not a clause record.) |
 | `createDefiningClausesForLiteral` (979) | **the bulk of the work**: one record proof per branch — `or`, `=>`, `and`, `ite`, `xor`, `QuantEquality` fallback (986–1118), `MatchTerm` (1120ff), default (1179ff) |
 | `addAuxAxioms` (922) | store the returned record under `negLit.negate()` |
@@ -793,8 +960,8 @@ branch of `getProof` and the option; plus a new test class.
 
 | Class | Change |
 | --- | --- |
-| `Clausifier` | the registries above, plus threading the sat proof through `buildClause`, `buildTautology`, `buildClauseWithTautology`, `buildAuxClause`.  `addAuxAxioms` / `addAuxAxiomsQuant` / `createDefiningClausesForLiteral` need the per-case companion (one branch per function symbol, mirroring its own structure) that builds the record from the dual tautologies — see the `ite` example. |
-| `buildAuxClause` | signature unchanged.  It is the natural place to fix the aux clause's formula: it already asserts `orTerm.getParameters()[0] == auxlit.getSMTFormula(...)` and adds the aux literal directly (`bc.addLiteral(auxlit)`), so `ψ` is the `or` of `params[1..]` — the terms the loop at line 840ff iterates — and the aux literal is excluded from the literal proofs by construction. |
+| `Clausifier` | the registries above, plus threading the sat proof through `buildClause`, `buildTautology`, `buildClauseWithTautology` (`buildAuxClause` stays untouched — see "Why `buildAuxClause`'s own `ClauseSatProof` cannot be wired in").  `addAuxAxioms` / `addAuxAxiomsQuant` / `createDefiningClausesForLiteral` need the per-case companion (one branch per function symbol, mirroring its own structure) that builds the record from the dual tautologies, proven independently of `buildAuxClause`'s own clauses — see the `ite` example (and its correction note). |
+| `buildAuxClause` | **signature stays `void`** — checked (2026-09-29) whether it should return a `ClauseSatProof` like `buildClause`, and found this does not work: the aux clause's own disjuncts always prove the *opposite* polarity of what the branch that built it needs to conclude (verified for `or` negative and both `ite` polarities, traced against `ProofTracker.wrapNot`'s actual semantics). See "Why `buildAuxClause`'s own `ClauseSatProof` cannot be wired in". It still asserts `orTerm.getParameters()[0] == auxlit.getSMTFormula(...)` and adds the aux literal directly (`bc.addLiteral(auxlit)`), unchanged. |
 | `AddAsAxiom` | the core new construction.  Its splits (`and` positive, `or`/`=>` negative, `xor`, `ite`, quantifier) currently derive children with `resolveBinaryTautology`; the sat direction must *join* the children's proofs back into the parent formula with the dual tautology — for quantifier nodes via schema instantiation + `forallIntro`/`existsIntro`, see "Quantified input formulas — dual tracking".  Since `AddAsAxiom` pushes children onto `mTodoStack`, this needs a join `Operation` (analogous to how `BuildClause` performs after its literals are collected). |
 | `BuildClause` | register `ψ_C` and the per-literal entries in `addLiteral(lit, origAtom, rewriteAtom, positive)` (all information is already there), and hand the proof "this node's formula from `ψ_C`" up to the parent.  Also the two quantifier paths: dual of `buildQuantifierProof`, and the DER path. |
 | `CollectLiteral` | duals for each branch, all folded into the collected literal's proof (`ψ_C` stays as created): `or`/`=>`/`and` inlining (one `or+`/`=>+`/`and-` step per inlined literal), the `QuantifiedFormula` branch, the aux-literal branch, the `TermVariable` branch, the `MatchTerm` branch.  No sat proof has to be threaded *into* `collectLiteral`. |
