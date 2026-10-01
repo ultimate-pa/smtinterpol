@@ -109,62 +109,6 @@ public class ModelProofBuilder {
 		return mModelProver.proveAtom(probe);
 	}
 
-	/**
-	 * Returns a proof of {@code {+c.mFormula}} for the "N separate defining
-	 * clauses" aux-literal cases (or-positive, and-negative, =>-positive): picks
-	 * whichever of {@code c.mNWayTerm}'s params justifies it in the model -- not
-	 * decidable at clause-construction time, hence deferred here -- then builds
-	 * the checked-axiom-based proof for that one choice, recursing into
-	 * {@link #proveTerm} for the chosen param instead of consulting
-	 * {@link ModelProver} unconditionally. Returns {@code null} if (contrary to
-	 * the invariant the assembler relies on) no choice fits.
-	 */
-	private Term proveNWay(final Clausifier.ClauseSatProof c) {
-		final Term nwayTerm = c.mNWayTerm;
-		final Term[] params = ((ApplicationTerm) nwayTerm).getParameters();
-		switch (c.mNWayKind) {
-		case OR_POSITIVE:
-			// term true iff some p_i is true; orIntro(i,term) = {+term, ~p_i}.
-			for (int i = 0; i < params.length; i++) {
-				final Term probe = params[i];
-				if (mModelProver.evaluateBoolean(probe)) {
-					return mTracker.resolveAtom(probe, proveTerm(probe), mTracker.orIntro(i, nwayTerm));
-				}
-			}
-			break;
-		case AND_NEGATIVE: {
-			// (not term) true iff some p_i is false; andElim(i,term) = {~term, +p_i},
-			// wrapped so ~term becomes +(not term).
-			final Term notTerm = mTheory.term(SMTLIBConstants.NOT, nwayTerm);
-			for (int i = 0; i < params.length; i++) {
-				final Term probe = params[i];
-				if (!mModelProver.evaluateBoolean(probe)) {
-					final Term wrapped = mTracker.wrapNot(notTerm, true, mTracker.andElim(i, nwayTerm));
-					return mTracker.resolveAtom(probe, wrapped, proveTerm(probe));
-				}
-			}
-			break;
-		}
-		case IMPLIES_POSITIVE: {
-			final int last = params.length - 1;
-			for (int i = 0; i < last; i++) {
-				final Term probe = params[i];
-				if (!mModelProver.evaluateBoolean(probe)) {
-					// premise i false -- impIntro(i,term) = {+term, +p_i}.
-					return mTracker.resolveAtom(probe, mTracker.impIntro(i, nwayTerm), proveTerm(probe));
-				}
-			}
-			final Term concl = params[last];
-			if (mModelProver.evaluateBoolean(concl)) {
-				// conclusion true -- impIntro(last,term) = {+term, ~p_last}.
-				return mTracker.resolveAtom(concl, proveTerm(concl), mTracker.impIntro(last, nwayTerm));
-			}
-			break;
-		}
-		}
-		return null;
-	}
-
 	/** Returns a proof of {@code {c.mFormula+}}, memoized in {@code c.mAssembled}. */
 	private Term proveClause(final Clausifier.ClauseSatProof c) {
 		if (c.mAssembled != null) {
@@ -175,8 +119,6 @@ public class ModelProofBuilder {
 			result = c.mReadyMadeProof;
 		} else if (c.mLiterals != null) {
 			result = proveFromLiterals(c);
-		} else if (c.mNWayTerm != null) {
-			result = proveNWay(c);
 		}
 		if (result == null) {
 			// No (usable) per-literal/N-way derivation for this clause -- c.mFormula is

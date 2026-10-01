@@ -219,25 +219,26 @@ class AddAsAxiom implements Operation {
 							ProofConstants.TAUT_XOR_POS_2);
 				}
 				if (this.clausifier.satProofsEnabled()) {
-					// mSatProof must prove provedTerm(mAxiom) -- the OPPOSITE polarity of
-					// "pivot" above (pivot is negated so it cancels against mAxiom's own known
-					// truth when building the two engine clauses via buildClauseWithTautology).
-					// createXorSatProof needs its own, freshly-built dual oracle pair for that
-					// opposite polarity -- distinct from (and not added to the engine like) the
-					// pair just built above, which serves the other direction; see the
-					// model-proof plan's "plus a case split belonging to neither".
+					// mSatProof must prove provedTerm(mAxiom) == term (positive ? term :
+					// ~term). createXorSatProof's own "negative" flag matches "positive"
+					// directly here (negative=true concludes term, see its own doc) --
+					// unlike createDefiningClausesForLiteral's aux-literal callers, this
+					// is a direct assertion, not subject to the addAuxAxioms key fix.
+					// cl1/cl2 are synthetic (no real DPLL clause backs them here, unlike
+					// the aux-literal case): their own psi is built to match exactly what
+					// buildAuxClause would have produced for the engine clauses just
+					// built above, so createXorSatProof's internal orElim/dual-oracle
+					// derivation is unaffected by which kind of ClauseSatProof it gets.
 					final ProofTracker tracker = (ProofTracker) this.clausifier.mTracker;
-					final Term goal = positive ? term : t.term("not", term);
-					final Term dualAxiom1, dualAxiom2;
+					final Clausifier.ClauseSatProof cl1, cl2;
 					if (positive) {
-						dualAxiom1 = tracker.tautology(t.term("or", goal, p1, t.term("not", p2)), ProofConstants.TAUT_XOR_POS_1);
-						dualAxiom2 = tracker.tautology(t.term("or", goal, t.term("not", p1), p2), ProofConstants.TAUT_XOR_POS_2);
+						cl1 = new Clausifier.ClauseSatProof(t.term("or", p1, p2));
+						cl2 = new Clausifier.ClauseSatProof(t.term("or", t.term("not", p1), t.term("not", p2)));
 					} else {
-						dualAxiom1 = tracker.tautology(t.term("or", goal, p1, p2), ProofConstants.TAUT_XOR_NEG_1);
-						dualAxiom2 = tracker.tautology(t.term("or", goal, t.term("not", p1), t.term("not", p2)),
-								ProofConstants.TAUT_XOR_NEG_2);
+						cl1 = new Clausifier.ClauseSatProof(t.term("or", p1, t.term("not", p2)));
+						cl2 = new Clausifier.ClauseSatProof(t.term("or", t.term("not", p1), p2));
 					}
-					mSatProof = this.clausifier.createXorSatProof(tracker, goal, p1, p2, dualAxiom1, dualAxiom2, !positive);
+					mSatProof = this.clausifier.createXorSatProof(tracker, term, p1, p2, cl1, cl2, positive);
 				}
 				return;
 			} else if (at.getFunction().getName().equals("ite")) {
@@ -261,25 +262,21 @@ class AddAsAxiom implements Operation {
 							ProofConstants.TAUT_ITE_POS_2);
 				}
 				if (this.clausifier.satProofsEnabled()) {
-					// mSatProof must prove provedTerm(mAxiom) -- the OPPOSITE polarity of
-					// "pivot" above; see the analogous comment in the xor branch. thenForm/
-					// elseForm are passed bare (never negated) regardless of branch, matching
-					// createIteSatProof's own convention (see its doc comment).
+					// mSatProof must prove provedTerm(mAxiom) == term (positive ? term :
+					// ~term); see the analogous comment in the xor branch -- same "negative
+					// matches positive directly" convention, same synthetic cl1/cl2 (their
+					// psi built to match the engine clauses just built above, no real
+					// buildAuxClause record backing them since this is a direct assertion).
 					final ProofTracker tracker = (ProofTracker) this.clausifier.mTracker;
-					final Term goal = positive ? term : t.term("not", term);
-					final Term dualAxiom1, dualAxiom2;
+					final Clausifier.ClauseSatProof cl1, cl2;
 					if (positive) {
-						dualAxiom1 = tracker.tautology(t.term("or", goal, t.term("not", cond), t.term("not", thenForm)),
-								ProofConstants.TAUT_ITE_POS_1);
-						dualAxiom2 =
-								tracker.tautology(t.term("or", goal, cond, t.term("not", elseForm)), ProofConstants.TAUT_ITE_POS_2);
+						cl1 = new Clausifier.ClauseSatProof(t.term("or", t.term("not", cond), thenForm));
+						cl2 = new Clausifier.ClauseSatProof(t.term("or", cond, elseForm));
 					} else {
-						dualAxiom1 =
-								tracker.tautology(t.term("or", goal, t.term("not", cond), thenForm), ProofConstants.TAUT_ITE_NEG_1);
-						dualAxiom2 = tracker.tautology(t.term("or", goal, cond, elseForm), ProofConstants.TAUT_ITE_NEG_2);
+						cl1 = new Clausifier.ClauseSatProof(t.term("or", t.term("not", cond), t.term("not", thenForm)));
+						cl2 = new Clausifier.ClauseSatProof(t.term("or", cond, t.term("not", elseForm)));
 					}
-					mSatProof = this.clausifier.createIteSatProof(tracker, goal, cond, thenForm, elseForm, dualAxiom1,
-							dualAxiom2, !positive);
+					mSatProof = this.clausifier.createIteSatProof(tracker, term, cond, thenForm, elseForm, cl1, cl2, positive);
 				}
 				return;
 			}

@@ -222,29 +222,11 @@ public class Clausifier {
 		Term mReadyMadeProof;
 		/** Else: per literal of the clause, how to reach ψ. */
 		Map<ILiteral, SatEntry> mLiterals;
-		/**
-		 * For the "N separate defining clauses" aux-literal cases (or-positive,
-		 * and-negative, =>-positive): {@link #mLiterals} can't be built yet -- which
-		 * of the N clauses justifies ψ depends on the model, and the params of
-		 * {@link #mNWayTerm} may not even have their own literal yet (their defining
-		 * clauses can still be pending on the operation stack) -- so only {@code
-		 * mNWayTerm}/{@code mNWayKind} are recorded here; {@link ModelProofBuilder}
-		 * builds {@link #mLiterals} from them lazily, once assembly starts and
-		 * every literal is guaranteed to exist.
-		 */
-		Term mNWayTerm;
-		NWayKind mNWayKind;
 		/** Memo for the sat-proof assembler. */
 		Term mAssembled;
 
 		ClauseSatProof(final Term formula) {
 			mFormula = formula;
-		}
-
-		ClauseSatProof(final Term formula, final Term nwayTerm, final NWayKind nwayKind) {
-			mFormula = formula;
-			mNWayTerm = nwayTerm;
-			mNWayKind = nwayKind;
 		}
 	}
 
@@ -261,12 +243,6 @@ public class Clausifier {
 			mProof = proof;
 		}
 	}
-
-	/**
-	 * Which "N separate defining clauses" case a {@link ClauseSatProof}'s {@code
-	 * mNWayTerm} is.
-	 */
-	enum NWayKind { OR_POSITIVE, AND_NEGATIVE, IMPLIES_POSITIVE }
 
 	/**
 	 * Cache to determine if a sort is stably infinite.
@@ -951,30 +927,36 @@ public class Clausifier {
 	 * Builds an auxiliary defining clause for a Tseitin aux literal.
 	 *
 	 * <p>
-	 * Deliberately returns no {@link ClauseSatProof}: unlike an ordinary clause
-	 * built via {@link #buildClause(Term, SourceAnnotation)}, this clause's own
-	 * literal-selection proof is not usable as a hypothesis for the aux literal's
-	 * {@code FormulaSatProof} -- see
-	 * "Why buildAuxClause's own ClauseSatProof cannot be wired in" in
-	 * {@code SMTInterpol/doc/model-proof-plan.md} for the (verified, not merely
-	 * unattempted) reason: this clause's own disjuncts, taken alone, prove the
-	 * *opposite* polarity of what the aux literal's record needs to conclude, for
-	 * every connective this is used for.
+	 * Returns the {@link ClauseSatProof} for the clause it creates, exactly like
+	 * {@link #buildClause(Term, SourceAnnotation)}: the clause formula is
+	 * {@code params[1..]} of the axiom (the aux literal at {@code params[0]} is
+	 * excluded for free, added directly via {@code bc.addLiteral(auxlit)}, no
+	 * {@code SatEntry}). See "The addAuxAxioms key bug, and why buildAuxClause's
+	 * own ClauseSatProof wires in cleanly once it's fixed" in
+	 * {@code SMTInterpol/doc/model-proof-plan.md}: an earlier session briefly
+	 * concluded this couldn't be wired into {@code createDefiningClausesForLiteral}'s
+	 * own record, but that was downstream of {@code addAuxAxioms} storing under
+	 * the wrong key ({@code negLit} instead of {@code negLit.negate()}), now fixed.
 	 */
-	public void buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source) {
+	public ClauseSatProof buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source) {
 		final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
 		assert orTerm.getFunction().getName() == "or";
 		assert orTerm.getParameters()[0] == auxlit.getSMTFormula(orTerm.getTheory());
 
-		final BuildClause bc = new BuildClause(this, axiom, source);
-		/* use the usual engine to create the other literals of the axiom. */
 		final Term[] params = orTerm.getParameters();
+		final Term clauseFormula = !satProofsEnabled() ? null
+				: params.length == 2 ? params[1]
+				: mTheory.term("or", Arrays.copyOfRange(params, 1, params.length));
+		final ClauseSatProof csp = clauseFormula == null ? null : new ClauseSatProof(clauseFormula);
+		final BuildClause bc = new BuildClause(this, axiom, source, csp);
+		/* use the usual engine to create the other literals of the axiom. */
 		pushOperation(bc);
 		/* add auxlit directly to prevent it getting converted. No rewrite proof necessary */
 		bc.addLiteral(auxlit);
 		for (int i = params.length - 1; i >= 1; i--) {
 			bc.collectLiteral(params[i]);
 		}
+		return csp;
 	}
 
 	/**
@@ -1082,7 +1064,7 @@ public class Clausifier {
 		negLit = positive ? negLit.negate() : negLit;
 		final FormulaSatProof satProof = createDefiningClausesForLiteral(negLit, term, positive, source);
 		if (satProof != null) {
-			mLiteralSatProofs.put(negLit, satProof);
+			mLiteralSatProofs.put(negLit.negate(), satProof);
 		}
 	}
 
@@ -1141,45 +1123,49 @@ public class Clausifier {
 			Term[] params = at.getParameters();
 			if (at.getFunction() == t.mOr) {
 				if (negative) {
-					// (or (not (or t1 ... tn)) t1 ... tn)
+					// (or (not (or t1 ... tn)) t1 ... tn); this clause's own psi ==
+					// "or"(t1..tn) == term (the aux clause's other literals *are* the
+					// term's own params, syntactically) -- the record is the pure
+					// identity: no orElim/wrapNot derivation needed at all.
 					final Term[] literals = new Term[params.length + 1];
 					literals[0] = litTerm;
 					System.arraycopy(params, 0, literals, 1, params.length);
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_OR_NEG);
-					buildAuxClause(lit, axiom, source);
-					if (tracker == null) {
-						return null;
-					}
-					// litTerm == (not term); orElim(term) = {~term, +t1, .., +tn}; wrap ~term into
-					// +litTerm, then wrap each +ti into ~(not ti) so it matches its hyp below.
-					Term proof = tracker.wrapNot(litTerm, true, tracker.orElim(term));
+					final ClauseSatProof csp = buildAuxClause(lit, axiom, source);
+					return satProofsEnabled() ? new FormulaSatProof(null, new ClauseSatProof[] { csp }) : null;
+				} else {
+					// (or (or t1 ... tn)) (not ti)); N clauses, each trivially proving
+					// ~p_i via buildAuxClause; orElim(term) = {~term,+p_1,..,+p_n}
+					// wrapped per i to match, combined lazily by proveFormula -- no
+					// search, all n are hypotheses of one conjunction.
+					params = at.getParameters();
 					final ClauseSatProof[] hyps = new ClauseSatProof[params.length];
 					for (int i = 0; i < params.length; i++) {
-						final Term notPi = t.term("not", params[i]);
-						proof = tracker.wrapNot(notPi, false, proof);
-						hyps[i] = new ClauseSatProof(notPi);
-					}
-					return new FormulaSatProof(proof, hyps);
-				} else {
-					// (or (or t1 ... tn)) (not ti))
-					params = at.getParameters();
-					for (final Term p : params) {
-						final Term axiom = t.term("or", litTerm, t.term("not", p));
+						final Term axiom = t.term("or", litTerm, t.term("not", params[i]));
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_OR_POS);
-						buildAuxClause(lit, axiomProof, source);
+						hyps[i] = buildAuxClause(lit, axiomProof, source);   // psi_i == (not params[i])
 					}
-					// Which disjunct justifies litTerm depends on the model (any one of the n
-					// clauses could apply) -- deferred to ModelProofBuilder via the returned
-					// ClauseSatProof's mNWayTerm/mNWayKind, see there.
 					if (!satProofsEnabled()) {
 						return null;
 					}
-					return new FormulaSatProof(null,
-							new ClauseSatProof[] { new ClauseSatProof(litTerm, term, NWayKind.OR_POSITIVE) });
+					Term proof = tracker.orElim(term);   // {~term, +p_1, .., +p_n}
+					for (final Term p : params) {
+						proof = tracker.wrapNot(t.term("not", p), false, proof);
+					}
+					return new FormulaSatProof(proof, hyps);
 				}
 			} else if (at.getFunction() == t.mImplies) {
 				if (negative) {
-					// (or (not (=> t1 ... tn)) (not t1) ... (not tn-1) tn)
+					// (or (not (=> t1 ... tn)) (not t1) ... (not tn-1) tn); single
+					// clause, but "=>" is a different function symbol from "or" so
+					// this clause's generic psi ("or"(~t1..~tn-1,tn)) would only be
+					// logically, not syntactically, equal to term. Search-free via a
+					// custom per-literal SatEntry instead: impIntro(i,term) =
+					// {+term,+t_i} (i<n-1) / {+term,~t_last} (i==n-1) is exactly a
+					// proof of {~(~t_i), term} / {~t_last, term} for every i, so
+					// build with psi == term directly and give each literal its own
+					// bridge -- whichever one the model sets true already carries
+					// the right disjunct/proof, no search needed.
 					final Term[] literals = new Term[params.length + 1];
 					literals[0] = litTerm;
 					for (int i = 0; i < params.length - 1; i++) {
@@ -1187,76 +1173,92 @@ public class Clausifier {
 					}
 					literals[params.length] = params[params.length - 1];
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_IMP_NEG);
-					buildAuxClause(lit, axiom, source);
-					if (tracker == null) {
-						return null;
+					final ClauseSatProof csp = satProofsEnabled() ? new ClauseSatProof(term) : null;
+					final BuildClause bc = new BuildClause(this, axiom, source, csp);
+					pushOperation(bc);
+					bc.addLiteral(lit);
+					for (int i = params.length - 1; i >= 0; i--) {
+						final boolean isLast = i == params.length - 1;
+						final Term litI = isLast ? params[i] : t.term("not", params[i]);
+						// impIntro(i,term) uses params[i] opaquely ({+term,+params[i]} for
+						// i<n-1, {+term,~params[last]} for i==last); collectLiteral's
+						// SatEntry wants it stripped to its core atom at the
+						// correspondingly-flipped sign -- stripNot does exactly that,
+						// and is a no-op when params[i] has no leading "not" of its own.
+						final Term impIntroProof = satProofsEnabled()
+								? tracker.stripNot(params[i], !isLast, tracker.impIntro(i, term))
+								: null;
+						bc.collectLiteral(litI, term, impIntroProof);
 					}
-					// litTerm == (not term); impElim(term) = {~term, ~t1, .., ~tn-1, +tn}; wrap
-					// ~term into +litTerm and the conclusion tn into ~(not tn) for its hyp below;
-					// the premises t1..tn-1 already match their (unwrapped) hyps directly.
-					Term proof = tracker.wrapNot(litTerm, true, tracker.impElim(term));
-					final ClauseSatProof[] hyps = new ClauseSatProof[params.length];
-					for (int i = 0; i < params.length - 1; i++) {
-						hyps[i] = new ClauseSatProof(params[i]);
-					}
-					final Term notLast = t.term("not", params[params.length - 1]);
-					proof = tracker.wrapNot(notLast, false, proof);
-					hyps[params.length - 1] = new ClauseSatProof(notLast);
-					return new FormulaSatProof(proof, hyps);
+					return satProofsEnabled() ? new FormulaSatProof(null, new ClauseSatProof[] { csp }) : null;
 				} else {
-					// (or (=> t1 ... tn) ti), (or (=> t1 ... tn) (not tn))
+					// (or (=> t1 ... tn) ti), (or (=> t1 ... tn) (not tn)); N clauses,
+					// each trivially proving its own literal via buildAuxClause;
+					// impElim(term) = {~term,~t1,..,~tn-1,+tn} wrapped for the last
+					// (negated) hyp, combined lazily -- no search.
 					params = at.getParameters();
+					final ClauseSatProof[] hyps = new ClauseSatProof[params.length];
 					for (int i = 0; i < params.length; i++) {
 						final Term p = i < params.length - 1 ? params[i] : t.term("not", params[i]);
 						final Term axiom = t.term("or", litTerm, p);
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_IMP_POS);
-						buildAuxClause(lit, axiomProof, source);
+						hyps[i] = buildAuxClause(lit, axiomProof, source);   // psi_i == p
 					}
-					// Which premise/the conclusion justifies litTerm depends on the model --
-					// deferred to ModelProofBuilder via the returned ClauseSatProof's
-					// mNWayTerm/mNWayKind, see there.
 					if (!satProofsEnabled()) {
 						return null;
 					}
-					return new FormulaSatProof(null,
-							new ClauseSatProof[] { new ClauseSatProof(litTerm, term, NWayKind.IMPLIES_POSITIVE) });
+					Term proof = tracker.impElim(term);   // {~term, ~t1, .., ~tn-1, +tn}
+					final Term notLast = t.term("not", params[params.length - 1]);
+					proof = tracker.wrapNot(notLast, false, proof);
+					return new FormulaSatProof(proof, hyps);
 				}
 			} else if (at.getFunction() == t.mAnd) {
 				if (negative) {
-					// (or (not (and t1 ... tn)) ti)
-					for (final Term p : params) {
-						final Term axiom = t.term("or", litTerm, p);
+					// (or (not (and t1 ... tn)) ti); N clauses, each trivially proving
+					// t_i via buildAuxClause; andIntro(term) = {+term,~t1,..,~tn}
+					// already matches each (unwrapped) hyp directly -- no search, all
+					// n are hypotheses of one conjunction.
+					final ClauseSatProof[] hyps = new ClauseSatProof[params.length];
+					for (int i = 0; i < params.length; i++) {
+						final Term axiom = t.term("or", litTerm, params[i]);
 						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_AND_NEG);
-						buildAuxClause(lit, axiomProof, source);
+						hyps[i] = buildAuxClause(lit, axiomProof, source);   // psi_i == params[i]
 					}
-					// Which conjunct justifies litTerm depends on the model -- deferred to
-					// ModelProofBuilder via the returned ClauseSatProof's mNWayTerm/mNWayKind,
-					// see there.
 					if (!satProofsEnabled()) {
 						return null;
 					}
-					return new FormulaSatProof(null,
-							new ClauseSatProof[] { new ClauseSatProof(litTerm, term, NWayKind.AND_NEGATIVE) });
+					final Term andIntroProof = tracker.andIntro(term);   // {+term, ~t1, .., ~tn}
+					return new FormulaSatProof(andIntroProof, hyps);
 				} else {
-					// (or (and t1 ... tn) (not t1) ... (not tn))
+					// (or (and t1 ... tn) (not t1) ... (not tn)); single clause, but
+					// this clause's generic psi ("or"(~t1..~tn)) would only be
+					// De-Morgan-, not syntactically, equal to ~term. Search-free via
+					// a custom per-literal SatEntry instead: andElim(i,term) =
+					// {~term,+t_i} is exactly a proof of {~(~t_i), ~term} for every
+					// i, so build with psi == ~term directly and give each ~t_i its
+					// own bridge -- whichever one the model sets true already
+					// carries the right disjunct/proof, no search needed.
 					final Term[] literals = new Term[params.length + 1];
 					literals[0] = litTerm;
 					for (int i = 0; i < params.length; i++) {
 						literals[i + 1] = t.term("not", params[i]);
 					}
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_AND_POS);
-					buildAuxClause(lit, axiom, source);
-					if (tracker == null) {
-						return null;
+					final Term notTerm = t.term("not", term);
+					final ClauseSatProof csp = satProofsEnabled() ? new ClauseSatProof(notTerm) : null;
+					final BuildClause bc = new BuildClause(this, axiom, source, csp);
+					pushOperation(bc);
+					bc.addLiteral(lit);
+					for (int i = params.length - 1; i >= 0; i--) {
+						// andElim(i,term) = {~term,+params[i]} uses params[i] opaquely;
+						// strip it to its core atom at the flipped sign, same reasoning
+						// as the =>-negative branch above.
+						final Term andElimProof = satProofsEnabled()
+								? tracker.stripNot(params[i], true, tracker.andElim(i, term))
+								: null;
+						bc.collectLiteral(t.term("not", params[i]), notTerm, andElimProof);
 					}
-					// litTerm == term; andIntro(term) = {+term, ~t1, .., ~tn} already matches
-					// each (unwrapped) hyp directly.
-					final Term proof = tracker.andIntro(term);
-					final ClauseSatProof[] hyps = new ClauseSatProof[params.length];
-					for (int i = 0; i < params.length; i++) {
-						hyps[i] = new ClauseSatProof(params[i]);
-					}
-					return new FormulaSatProof(proof, hyps);
+					return satProofsEnabled() ? new FormulaSatProof(null, new ClauseSatProof[] { csp }) : null;
 				}
 			} else if (at.getFunction().getName().equals("ite")) {
 				final Term cond = params[0];
@@ -1268,10 +1270,10 @@ public class Clausifier {
 					// (or (not (ite c t e)) t e)
 					final Term axiom1 = mTracker.tautology(t.term("or", litTerm, t.term("not", cond), thenTerm),
 							ProofConstants.TAUT_ITE_NEG_1);
-					buildAuxClause(lit, axiom1, source);
+					final ClauseSatProof cl1 = buildAuxClause(lit, axiom1, source);
 					final Term axiom2 =
 							mTracker.tautology(t.term("or", litTerm, cond, elseTerm), ProofConstants.TAUT_ITE_NEG_2);
-					buildAuxClause(lit, axiom2, source);
+					final ClauseSatProof cl2 = buildAuxClause(lit, axiom2, source);
 					if (Config.REDUNDANT_ITE_CLAUSES) {
 						final Term axiomRed = mTracker.tautology(t.term("or", litTerm, thenTerm, elseTerm),
 								ProofConstants.TAUT_ITE_NEG_RED);
@@ -1280,7 +1282,7 @@ public class Clausifier {
 					if (tracker == null) {
 						return null;
 					}
-					return createIteSatProof(tracker, litTerm, cond, thenTerm, elseTerm, axiom1, axiom2, true);
+					return createIteSatProof(tracker, term, cond, thenTerm, elseTerm, cl1, cl2, true);
 				} else {
 					// (or (ite c t e) (not c) (not t))
 					// (or (ite c t e) c (not e))
@@ -1289,10 +1291,10 @@ public class Clausifier {
 					elseTerm = t.term("not", elseTerm);
 					final Term axiom1 = mTracker.tautology(t.term("or", litTerm, t.term("not", cond), thenTerm),
 							ProofConstants.TAUT_ITE_POS_1);
-					buildAuxClause(lit, axiom1, source);
+					final ClauseSatProof cl1 = buildAuxClause(lit, axiom1, source);
 					final Term axiom2 =
 							mTracker.tautology(t.term("or", litTerm, cond, elseTerm), ProofConstants.TAUT_ITE_POS_2);
-					buildAuxClause(lit, axiom2, source);
+					final ClauseSatProof cl2 = buildAuxClause(lit, axiom2, source);
 					if (Config.REDUNDANT_ITE_CLAUSES) {
 						final Term axiomRed = mTracker.tautology(t.term("or", litTerm, thenTerm, elseTerm),
 								ProofConstants.TAUT_ITE_POS_RED);
@@ -1301,7 +1303,7 @@ public class Clausifier {
 					if (tracker == null) {
 						return null;
 					}
-					return createIteSatProof(tracker, litTerm, cond, params[1], params[2], axiom1, axiom2, false);
+					return createIteSatProof(tracker, term, cond, params[1], params[2], cl1, cl2, false);
 				}
 			} else if (at.getFunction().getName().equals("xor")) {
 				assert at.getParameters().length == 2;
@@ -1315,27 +1317,27 @@ public class Clausifier {
 					// (or (not (xor p1 p2)) p1 p2)
 					// (or (not (xor p1 p2)) (not p1) (not p2))
 					final Term axiom1 = mTracker.tautology(t.term("or", litTerm, p1, p2), ProofConstants.TAUT_XOR_NEG_1);
-					buildAuxClause(lit, axiom1, source);
+					final ClauseSatProof cl1 = buildAuxClause(lit, axiom1, source);
 					final Term axiom2 = mTracker.tautology(t.term("or", litTerm, t.term("not", p1), t.term("not", p2)),
 							ProofConstants.TAUT_XOR_NEG_2);
-					buildAuxClause(lit, axiom2, source);
+					final ClauseSatProof cl2 = buildAuxClause(lit, axiom2, source);
 					if (tracker == null) {
 						return null;
 					}
-					return createXorSatProof(tracker, litTerm, p1, p2, axiom1, axiom2, true);
+					return createXorSatProof(tracker, term, p1, p2, cl1, cl2, true);
 				} else {
 					// (or (xor p1 p2) p1 (not p2))
 					// (or (xor p1 p2) (not p1) p2)
 					final Term axiom1 =
 							mTracker.tautology(t.term("or", litTerm, p1, t.term("not", p2)), ProofConstants.TAUT_XOR_POS_1);
-					buildAuxClause(lit, axiom1, source);
+					final ClauseSatProof cl1 = buildAuxClause(lit, axiom1, source);
 					final Term axiom2 =
 							mTracker.tautology(t.term("or", litTerm, t.term("not", p1), p2), ProofConstants.TAUT_XOR_POS_2);
-					buildAuxClause(lit, axiom2, source);
+					final ClauseSatProof cl2 = buildAuxClause(lit, axiom2, source);
 					if (tracker == null) {
 						return null;
 					}
-					return createXorSatProof(tracker, litTerm, p1, p2, axiom1, axiom2, false);
+					return createXorSatProof(tracker, term, p1, p2, cl1, cl2, false);
 				}
 			} else {
 				 assert lit instanceof QuantEquality;
@@ -1351,8 +1353,8 @@ public class Clausifier {
 			// (createMatchSatProof); the default case (if any) is collected separately.
 			final List<Term> isTerms = new ArrayList<>();
 			final List<Term> caseEquals = new ArrayList<>();
-			final List<Term> caseAxioms = new ArrayList<>();
-			Term defaultAxiom = null;
+			final List<ClauseSatProof> caseClauses = new ArrayList<>();
+			ClauseSatProof defaultClause = null;
 			Term defaultEqual = null;
 			for (int caseNr = 0; caseNr < constrs.length; caseNr++) {
 				final Constructor c = constrs[caseNr];
@@ -1398,28 +1400,28 @@ public class Clausifier {
 					clause.add(theory.term("not", equalTerm));
 				}
 				final Term axiom = mTracker.tautology(theory.term("or", clause.toArray(new Term[clause.size()])), rule);
-				buildAuxClause(lit, axiom, source);
+				final ClauseSatProof csp = buildAuxClause(lit, axiom, source);
 				if (c == null) {
-					defaultAxiom = axiom;
+					defaultClause = csp;
 					defaultEqual = equalTerm;
 					// skip all remaining cases
 					break;
 				} else {
 					isTerms.add(isTerm);
 					caseEquals.add(equalTerm);
-					caseAxioms.add(axiom);
+					caseClauses.add(csp);
 				}
 			}
 			if (tracker == null) {
 				return null;
 			}
-			if (defaultAxiom != null && isTerms.isEmpty()) {
+			if (defaultClause != null && isTerms.isEmpty()) {
 				// Degenerate: the match is a single wildcard pattern with no named cases at
 				// all -- not handled, falls back gracefully.
 				return null;
 			}
-			return createMatchSatProof(tracker, theory, litTerm, dataTerm, isTerms, caseEquals, caseAxioms,
-					defaultAxiom, defaultEqual, negative);
+			return createMatchSatProof(tracker, theory, term, dataTerm, isTerms, caseEquals, caseClauses,
+					defaultClause, defaultEqual, negative);
 		} else {
 			assert lit instanceof QuantEquality;
 			return createExcludedMiddleSatProof(lit, term, negative, litTerm, tracker, source);
@@ -1442,113 +1444,127 @@ public class Clausifier {
 	 * own clause -- which already states the same fact structurally ("if none of
 	 * the named guards hold, the default applies") -- via {@link #liftMatchDefault}.
 	 */
-	private FormulaSatProof createMatchSatProof(final ProofTracker tracker, final Theory theory, final Term litTerm,
-			final Term dataTerm, final List<Term> isTerms, final List<Term> caseEquals, final List<Term> caseAxioms,
-			final Term defaultAxiom, final Term defaultEqual, final boolean negative) {
+	private FormulaSatProof createMatchSatProof(final ProofTracker tracker, final Theory theory, final Term term,
+			final Term dataTerm, final List<Term> isTerms, final List<Term> caseEquals,
+			final List<ClauseSatProof> caseClauses, final ClauseSatProof defaultClause, final Term defaultEqual,
+			final boolean negative) {
 		final int n = isTerms.size();
-		final Term[] psis = new Term[n + (defaultAxiom != null ? 1 : 0)];
 		final Term[] qs = new Term[n];
 		for (int i = 0; i < n; i++) {
-			final Term[] psiAndQ = liftMatchCase(tracker, theory, litTerm, caseAxioms.get(i), isTerms.get(i),
-					caseEquals.get(i), negative);
-			psis[i] = psiAndQ[0];
-			qs[i] = psiAndQ[1];
+			qs[i] = liftMatchCase(tracker, theory, term, caseClauses.get(i), isTerms.get(i), caseEquals.get(i), negative);
 		}
 		Term acc;
-		if (defaultAxiom != null) {
-			final Term[] psiAndQ = liftMatchDefault(tracker, theory, litTerm, defaultAxiom,
-					isTerms.toArray(new Term[n]), defaultEqual, negative);
-			psis[n] = psiAndQ[0];
-			acc = psiAndQ[1];
+		if (defaultClause != null) {
+			acc = liftMatchDefault(tracker, theory, term, defaultClause, isTerms.toArray(new Term[n]), defaultEqual,
+					negative);
 		} else {
 			acc = tracker.dtExhaust(dataTerm);
 		}
 		for (int i = 0; i < n; i++) {
 			acc = tracker.resolveAtom(isTerms.get(i), acc, qs[i]);
 		}
-		final ClauseSatProof[] hyps = new ClauseSatProof[psis.length];
-		for (int i = 0; i < psis.length; i++) {
-			hyps[i] = new ClauseSatProof(psis[i]);
+		final ClauseSatProof[] hyps = new ClauseSatProof[n + (defaultClause != null ? 1 : 0)];
+		for (int i = 0; i < n; i++) {
+			hyps[i] = caseClauses.get(i);
+		}
+		if (defaultClause != null) {
+			hyps[n] = defaultClause;
 		}
 		return new FormulaSatProof(acc, hyps);
 	}
 
 	/**
-	 * Lift one named match case's defining-clause oracle (built via
-	 * {@code mTracker.tautology}, "stripped" convention, of the form
-	 * {@code {litTerm, (not isTerm), equalTerm}} when {@code negative}, or
-	 * {@code {litTerm, (not isTerm), (not equalTerm)}} otherwise -- see the two
-	 * shapes {@code createDefiningClausesForLiteral}'s "match" branch builds) into
-	 * {@code {psi, Q}}: {@code psi} is the corresponding helper formula
-	 * ("{@code isTerm} implies the opposite of what this axiom's own consequent
-	 * says", vacuously true when {@code isTerm} doesn't apply) and {@code Q} proves
-	 * {@code {+litTerm, ~isTerm, ~psi}} -- the bare, negatively-signed
+	 * Lift one named match case's own {@code buildAuxClause} record ({@code cl},
+	 * whose formula is the case's own {@code psi = (or (not isTerm) equalTerm)} or
+	 * {@code (or (not isTerm) (not equalTerm))} -- see the two shapes
+	 * {@code createDefiningClausesForLiteral}'s "match" branch builds) into a proof
+	 * of {@code {+term (or ~term), ~isTerm, ~psi}} -- the bare, negatively-signed
 	 * {@code isTerm} literal ready to resolve against {@link ProofTracker#dtExhaust}'s
-	 * (or {@link #liftMatchDefault}'s) own bare, positively-signed literals.
+	 * (or {@link #liftMatchDefault}'s) own bare, positively-signed literals. Same
+	 * "case split via final resolution" shape as {@link #createIteSatProof}: reads
+	 * {@code cl.mFormula} via {@code orElim} (opaque, no stripping) and combines it
+	 * with a *fresh*, independently-derivable dual-tautology oracle (the opposite
+	 * polarity's own clause shape) -- wrapNot'd *directly* to whatever target each
+	 * resolveAtom needs, exactly as in {@code createIteSatProof}.
 	 */
-	private Term[] liftMatchCase(final ProofTracker tracker, final Theory theory, final Term litTerm, final Term axiom,
-			final Term isTerm, final Term equalTerm, final boolean negative) {
+	private Term liftMatchCase(final ProofTracker tracker, final Theory theory, final Term term,
+			final ClauseSatProof cl, final Term isTerm, final Term equalTerm, final boolean negative) {
 		final Term notIs = theory.term("not", isTerm);
-		final Term notEqual = theory.term("not", equalTerm);
-		final Term rawAxiom = tracker.getClauseProof(axiom);
-		final Term psi;
-		Term proof = tracker.wrapNot(litTerm, true, rawAxiom);
-		proof = tracker.wrapNot(notIs, true, proof);
+		final Term psi = cl.mFormula;
 		if (negative) {
-			// axiom == {litTerm, (not isTerm), equalTerm}; psi = "isTerm -> ~equalTerm".
-			psi = theory.term("or", notIs, notEqual);
-			proof = tracker.wrapNot(equalTerm, true, proof); // {+litTerm, +notIs, +equalTerm}
-			proof = tracker.resolveAtom(equalTerm, proof, tracker.notElim(notEqual)); // {+litTerm, +notIs, ~notEqual}
-			proof = tracker.resolveAtom(notEqual, tracker.orElim(psi), proof); // {+litTerm, +notIs, ~psi}
+			// cl (this branch's own real clause): {~term, notIs, equalTerm}; fresh dual
+			// (opposite polarity's own shape): {term, notIs, ~equalTerm}.
+			Term tI = tracker.getClauseProof(mTracker.tautology(
+					theory.term("or", term, notIs, theory.term("not", equalTerm)), ProofConstants.TAUT_MATCH_CASE));
+			tI = tracker.wrapNot(term, true, tI);
+			tI = tracker.wrapNot(notIs, true, tI);
+			tI = tracker.wrapNot(equalTerm, false, tI); // direct: {+term, +notIs, ~equalTerm}
+			final Term e = tracker.orElim(psi); // {~psi, +notIs, +equalTerm}
+			final Term res = tracker.resolveAtom(equalTerm, e, tI); // {+notIs, ~psi, +term}
+			return tracker.resolveAtom(notIs, res, tracker.notElim(notIs)); // {~psi, +term, ~isTerm}
 		} else {
-			// axiom == {litTerm, (not isTerm), (not equalTerm)}; psi = "isTerm -> equalTerm".
-			psi = theory.term("or", notIs, equalTerm);
-			proof = tracker.wrapNot(notEqual, true, proof); // {+litTerm, +notIs, +notEqual}
-			proof = tracker.resolveAtom(notEqual, proof, tracker.notElim(notEqual)); // {+litTerm, +notIs, ~equalTerm}
-			proof = tracker.resolveAtom(equalTerm, tracker.orElim(psi), proof); // {+litTerm, +notIs, ~psi}
+			// cl (this branch's own real clause): {term, notIs, ~equalTerm}; fresh dual
+			// (opposite polarity's own shape): {~term, notIs, equalTerm}.
+			final Term notTerm = theory.term("not", term);
+			final Term notEqual = theory.term("not", equalTerm);
+			Term tI = tracker
+					.getClauseProof(mTracker.tautology(theory.term("or", notTerm, notIs, equalTerm), ProofConstants.TAUT_MATCH_CASE));
+			tI = tracker.wrapNot(notTerm, true, tI);
+			tI = tracker.wrapNot(notIs, true, tI);
+			tI = tracker.wrapNot(notEqual, false, tI); // direct: {+notTerm, +notIs, ~notEqual}
+			final Term e = tracker.orElim(psi); // {~psi, +notIs, +notEqual}
+			final Term res = tracker.resolveAtom(notEqual, e, tI); // {+notIs, ~psi, +notTerm}
+			return tracker.resolveAtom(notIs, res, tracker.notElim(notIs)); // {~psi, +notTerm, ~isTerm}
 		}
-		proof = tracker.resolveAtom(notIs, proof, tracker.notElim(notIs)); // {+litTerm, ~isTerm, ~psi}
-		return new Term[] { psi, proof };
 	}
 
 	/**
-	 * Lift the default/wildcard match case's defining-clause oracle (of the form
-	 * {@code {litTerm, is-c_1(d), .., is-c_(k-1)(d), equalTerm}} when
-	 * {@code negative}, or with {@code (not equalTerm)} otherwise -- {@code isTerms}
-	 * being the guards of every earlier named case) into {@code {psi, Q}}, the same
-	 * shape {@link #liftMatchCase} returns, except {@code Q} proves
-	 * {@code {+litTerm, +is-c_1(d), .., +is-c_(k-1)(d), ~psi}} -- bare,
-	 * positively-signed guards, since (unlike a named case's single negated guard)
-	 * they already occur positively in the default clause itself, playing
-	 * {@link ProofTracker#dtExhaust}'s role as the seed of the case-split fold.
+	 * Lift the default/wildcard match case's own {@code buildAuxClause} record
+	 * ({@code cl}, formula {@code psi = (or is-c_1(d) .. is-c_(k-1)(d) equalTerm)}
+	 * or with {@code (not equalTerm)} otherwise -- {@code isTerms} being the guards
+	 * of every earlier named case) into a proof of {@code {+term (or ~term),
+	 * +is-c_1(d), .., +is-c_(k-1)(d), ~psi}} -- bare, positively-signed guards,
+	 * since (unlike a named case's single negated guard) they already occur
+	 * positively in the default clause itself, playing {@link ProofTracker#dtExhaust}'s
+	 * role as the seed of the case-split fold, so -- unlike {@link #liftMatchCase}'s
+	 * {@code isTerm} -- they need no extra notElim bridge here.
 	 */
-	private Term[] liftMatchDefault(final ProofTracker tracker, final Theory theory, final Term litTerm,
-			final Term axiom, final Term[] isTerms, final Term equalTerm, final boolean negative) {
-		final Term notEqual = theory.term("not", equalTerm);
-		final Term rawAxiom = tracker.getClauseProof(axiom);
-		final Term psi;
-		Term proof = tracker.wrapNot(litTerm, true, rawAxiom);
-		for (final Term isTerm : isTerms) {
-			proof = tracker.wrapNot(isTerm, true, proof); // no-op: isTerm has no leading "not"
-		}
+	private Term liftMatchDefault(final ProofTracker tracker, final Theory theory, final Term term,
+			final ClauseSatProof cl, final Term[] isTerms, final Term equalTerm, final boolean negative) {
+		final Term psi = cl.mFormula;
 		if (negative) {
-			// axiom == {litTerm, is-c_1(d), .., is-c_(k-1)(d), equalTerm}.
-			final Term[] psiParams = Arrays.copyOf(isTerms, isTerms.length + 1);
-			psiParams[isTerms.length] = notEqual;
-			psi = theory.term("or", psiParams);
-			proof = tracker.wrapNot(equalTerm, true, proof); // {+litTerm, +is-c_i(d).., +equalTerm}
-			proof = tracker.resolveAtom(equalTerm, proof, tracker.notElim(notEqual)); // {.., ~notEqual}
-			proof = tracker.resolveAtom(notEqual, tracker.orElim(psi), proof); // {+litTerm, +is-c_i(d).., ~psi}
+			// cl (this branch's own real clause): {~term, is-c_i(d).., equalTerm}; fresh
+			// dual (opposite polarity's own shape): {term, is-c_i(d).., ~equalTerm}.
+			final Term[] dualLits = new Term[isTerms.length + 2];
+			dualLits[0] = term;
+			System.arraycopy(isTerms, 0, dualLits, 1, isTerms.length);
+			dualLits[isTerms.length + 1] = theory.term("not", equalTerm);
+			Term tD = tracker.getClauseProof(mTracker.tautology(theory.term("or", dualLits), ProofConstants.TAUT_MATCH_DEFAULT));
+			tD = tracker.wrapNot(term, true, tD);
+			for (final Term isTerm : isTerms) {
+				tD = tracker.wrapNot(isTerm, true, tD); // no-op: isTerm has no leading "not"
+			}
+			tD = tracker.wrapNot(equalTerm, false, tD); // direct: {.., ~equalTerm}
+			final Term e = tracker.orElim(psi); // {~psi, +is-c_i(d).., +equalTerm}
+			return tracker.resolveAtom(equalTerm, e, tD); // {+is-c_i(d).., ~psi, +term}
 		} else {
-			// axiom == {litTerm, is-c_1(d), .., is-c_(k-1)(d), (not equalTerm)}.
-			final Term[] psiParams = Arrays.copyOf(isTerms, isTerms.length + 1);
-			psiParams[isTerms.length] = equalTerm;
-			psi = theory.term("or", psiParams);
-			proof = tracker.wrapNot(notEqual, true, proof); // {+litTerm, +is-c_i(d).., +notEqual}
-			proof = tracker.resolveAtom(notEqual, proof, tracker.notElim(notEqual)); // {.., ~equalTerm}
-			proof = tracker.resolveAtom(equalTerm, tracker.orElim(psi), proof); // {+litTerm, +is-c_i(d).., ~psi}
+			// cl (this branch's own real clause): {term, is-c_i(d).., ~equalTerm}; fresh
+			// dual (opposite polarity's own shape): {~term, is-c_i(d).., equalTerm}.
+			final Term notTerm = theory.term("not", term);
+			final Term notEqual = theory.term("not", equalTerm);
+			final Term[] dualLits = new Term[isTerms.length + 2];
+			dualLits[0] = notTerm;
+			System.arraycopy(isTerms, 0, dualLits, 1, isTerms.length);
+			dualLits[isTerms.length + 1] = equalTerm;
+			Term tD = tracker.getClauseProof(mTracker.tautology(theory.term("or", dualLits), ProofConstants.TAUT_MATCH_DEFAULT));
+			tD = tracker.wrapNot(notTerm, true, tD);
+			for (final Term isTerm : isTerms) {
+				tD = tracker.wrapNot(isTerm, true, tD);
+			}
+			tD = tracker.wrapNot(notEqual, false, tD); // direct: {.., ~notEqual}
+			final Term e = tracker.orElim(psi); // {~psi, +is-c_i(d).., +notEqual}
+			return tracker.resolveAtom(notEqual, e, tD); // {+is-c_i(d).., ~psi, +notTerm}
 		}
-		return new Term[] { psi, proof };
 	}
 
 	/**
@@ -1569,30 +1585,18 @@ public class Clausifier {
 		final Theory t = term.getTheory();
 		final Term notTerm = t.term("not", term);
 		if (negative) {
-			// (or (= AUX false) term)
+			// (or (= AUX false) term); single 2-literal clause, so buildAuxClause's
+			// own psi == term exactly -- the aux literal here represents ~term, so
+			// negLit.negate()'s target is term itself: the pure identity, same shape
+			// as or-negative, no oracle bridging needed.
 			final Term axiom = mTracker.tautology(t.term("or", litTerm, term), ProofConstants.TAUT_EXCLUDED_MIDDLE_2);
-			buildAuxClause(lit, axiom, source);
-			if (tracker == null) {
-				return null;
-			}
-			// litTerm == (= AUX false), 0 nots; term is axiom's own (unwrapped) param.
-			// tautology()'s result is annotated (Bool-sorted), not the raw @Proof term
-			// wrapNot/resolveAtom need -- unwrap it first (matters even when term has 0
-			// nots, since wrapNot is then a no-op and passes it straight through).
-			Term proof = tracker.wrapNot(term, true, tracker.getClauseProof(axiom)); // {+litTerm, +term}
-			proof = tracker.resolveAtom(term, proof, tracker.notElim(notTerm)); // {+litTerm, ~notTerm}
-			return new FormulaSatProof(proof, new ClauseSatProof[] { new ClauseSatProof(notTerm) });
+			final ClauseSatProof csp = buildAuxClause(lit, axiom, source);
+			return satProofsEnabled() ? new FormulaSatProof(null, new ClauseSatProof[] { csp }) : null;
 		} else {
-			// (or (= AUX true) (not term))
+			// (or (= AUX true) (not term)); mirror image, psi == notTerm exactly.
 			final Term axiom = mTracker.tautology(t.term("or", litTerm, notTerm), ProofConstants.TAUT_EXCLUDED_MIDDLE_1);
-			buildAuxClause(lit, axiom, source);
-			if (tracker == null) {
-				return null;
-			}
-			// litTerm == (= AUX true), 0 nots; notTerm is axiom's own (unwrapped) param.
-			Term proof = tracker.wrapNot(notTerm, true, tracker.getClauseProof(axiom)); // {+litTerm, +notTerm}
-			proof = tracker.resolveAtom(notTerm, proof, tracker.notElim(notTerm)); // {+litTerm, ~term}
-			return new FormulaSatProof(proof, new ClauseSatProof[] { new ClauseSatProof(term) });
+			final ClauseSatProof csp = buildAuxClause(lit, axiom, source);
+			return satProofsEnabled() ? new FormulaSatProof(null, new ClauseSatProof[] { csp }) : null;
 		}
 	}
 
@@ -1614,57 +1618,67 @@ public class Clausifier {
 	 * @param negative  true for the negative-litTerm axioms, false for the
 	 *                  positive ones.
 	 */
-	FormulaSatProof createIteSatProof(final ProofTracker tracker, final Term litTerm, final Term cond,
-			final Term thenTerm, final Term elseTerm, final Term axiom1, final Term axiom2, final boolean negative) {
+	FormulaSatProof createIteSatProof(final ProofTracker tracker, final Term term, final Term cond,
+			final Term thenTerm, final Term elseTerm, final ClauseSatProof cl1, final ClauseSatProof cl2,
+			final boolean negative) {
 		final Theory t = cond.getTheory();
 		final Term notCond = t.term("not", cond);
-		// tautology()'s result is annotated (Bool-sorted), not the raw @Proof term
-		// wrapNot/resolveAtom need -- unwrap once, up front.
-		final Term rawAxiom1 = tracker.getClauseProof(axiom1);
-		final Term rawAxiom2 = tracker.getClauseProof(axiom2);
+		// cl1.mFormula/cl2.mFormula are buildAuxClause's own psi_1/psi_2 for *this*
+		// branch's two clauses; orElim reads them directly (opaque, no stripping).
+		// The combining step needs two *fresh*, independently-derivable dual
+		// tautologies (the other polarity's own axiom shape) -- not obtained from
+		// the other branch's actual clauses, even where structurally identical.
 		if (negative) {
-			// thenTerm/elseTerm are the bare params here (may themselves be "not"-headed,
-			// e.g. from a ">"-to-"not(<=)" rewrite -- so each gets its own single wrapNot
-			// call, closing it to one fully-opaque atom, rather than a second wrapNot on a
-			// "(not X)" built from it, which would recurse into X's own leading "not"s).
-			final Term notThen = t.term("not", thenTerm);
-			final Term notElse = t.term("not", elseTerm);
-			final Term psi1 = t.term("or", notCond, notThen); // "cond -> ~thenTerm"
-			final Term psi2 = t.term("or", cond, notElse); // "~cond -> ~elseTerm"
-			Term proof1 = tracker.wrapNot(litTerm, true, rawAxiom1); // {+litTerm, ~cond, thenTerm-stripped}
-			proof1 = tracker.wrapNot(notCond, true, proof1); // {+litTerm, +notCond, thenTerm-stripped}
-			proof1 = tracker.wrapNot(thenTerm, true, proof1); // {+litTerm, +notCond, +thenTerm}
-			proof1 = tracker.resolveAtom(thenTerm, proof1, tracker.notElim(notThen)); // {+litTerm, +notCond, ~notThen}
-			proof1 = tracker.resolveAtom(notThen, tracker.orElim(psi1), proof1); // {+litTerm, +notCond, ~psi1}
-			proof1 = tracker.resolveAtom(notCond, proof1, tracker.notElim(notCond)); // {+litTerm, ~cond, ~psi1}
-			Term proof2 = tracker.wrapNot(litTerm, true, rawAxiom2); // {+litTerm, cond-stripped, elseTerm-stripped}
-			proof2 = tracker.wrapNot(cond, true, proof2); // {+litTerm, +cond, elseTerm-stripped}
-			proof2 = tracker.wrapNot(elseTerm, true, proof2); // {+litTerm, +cond, +elseTerm}
-			proof2 = tracker.resolveAtom(elseTerm, proof2, tracker.notElim(notElse)); // {+litTerm, +cond, ~notElse}
-			proof2 = tracker.resolveAtom(notElse, tracker.orElim(psi2), proof2); // {+litTerm, +cond, ~psi2}
-			final Term proof = tracker.resolveAtom(cond, proof2, proof1); // {+litTerm, ~psi1, ~psi2}
-			return new FormulaSatProof(proof, new ClauseSatProof[] { new ClauseSatProof(psi1), new ClauseSatProof(psi2) });
+			// this branch's own clauses: {~term,~cond,thenTerm}/{~term,cond,elseTerm};
+			// duals (fresh oracles, :ite+1/:ite+2 shape): {term,~cond,~thenTerm}/{term,cond,~elseTerm}.
+			// tautology() strips "not"s internally when building each oracle, so each of
+			// ITS OWN literals needs wrapNot to become opaque again -- wrapped *directly*
+			// to whatever target literal the following resolveAtom needs (not to the
+			// literal as written in the axiom), since wrapNot peels/re-wraps an arbitrary
+			// number of "not"s in one call and only the final (term, sign) pair matters.
+			// cond persists to the final case-split step, so -- unlike thenTerm/elseTerm,
+			// which fully cancel within res1/res2 -- it needs one extra notElim bridge to
+			// unify the "notCond" form (shared with orElim's opaque psi) with the bare
+			// "cond" form the final step pivots on.
+			Term t1 = tracker.getClauseProof(mTracker.tautology(t.term("or", term, notCond, t.term("not", thenTerm)),
+					ProofConstants.TAUT_ITE_POS_1));
+			t1 = tracker.wrapNot(term, true, t1);
+			t1 = tracker.wrapNot(notCond, true, t1);
+			t1 = tracker.wrapNot(thenTerm, false, t1); // {+term, +notCond, ~thenTerm}
+			Term t2 = tracker.getClauseProof(
+					mTracker.tautology(t.term("or", term, cond, t.term("not", elseTerm)), ProofConstants.TAUT_ITE_POS_2));
+			t2 = tracker.wrapNot(term, true, t2);
+			t2 = tracker.wrapNot(cond, true, t2);
+			t2 = tracker.wrapNot(elseTerm, false, t2); // {+term, +cond, ~elseTerm}
+			final Term e1 = tracker.orElim(cl1.mFormula); // {~psi_1, +notCond, +thenTerm}
+			final Term e2 = tracker.orElim(cl2.mFormula); // {~psi_2, +cond, +elseTerm}
+			final Term res1 = tracker.resolveAtom(thenTerm, e1, t1); // {+notCond, ~psi_1, +term}
+			final Term res2 = tracker.resolveAtom(elseTerm, e2, t2); // {+cond, ~psi_2, +term}
+			final Term res1b = tracker.resolveAtom(notCond, res1, tracker.notElim(notCond)); // {~psi_1, +term, ~cond}
+			final Term proof = tracker.resolveAtom(cond, res2, res1b); // {~psi_1, ~psi_2, +term}
+			return new FormulaSatProof(proof, new ClauseSatProof[] { cl1, cl2 });
 		} else {
-			// thenTerm/elseTerm here are the bare originals; axiom1/axiom2's own 3rd
-			// literal is actually (not thenTerm)/(not elseTerm) (the caller's negated
-			// locals, used only to build the axioms, not passed in) -- litTerm == term
-			// (0 nots), so it needs no bridging, but thenTerm/elseTerm's own occurrence
-			// in the axiom is wrapped and needs the same care as negative's notThen/notElse.
+			// this branch's own clauses: {term,~cond,~thenTerm}/{term,cond,~elseTerm};
+			// duals (fresh oracles, :ite-1/:ite-2 shape): {~term,~cond,thenTerm}/{~term,cond,elseTerm}.
+			final Term notTerm = t.term("not", term);
 			final Term notThenBare = t.term("not", thenTerm);
 			final Term notElseBare = t.term("not", elseTerm);
-			final Term psi1 = t.term("or", notCond, thenTerm); // "cond -> thenTerm"
-			final Term psi2 = t.term("or", cond, elseTerm); // "~cond -> elseTerm"
-			Term proof1 = tracker.wrapNot(notCond, true, rawAxiom1); // {+litTerm, +notCond, notThenBare-stripped}
-			proof1 = tracker.wrapNot(notThenBare, true, proof1); // {+litTerm, +notCond, +notThenBare}
-			proof1 = tracker.resolveAtom(notThenBare, proof1, tracker.notElim(notThenBare)); // {+litTerm, +notCond, ~thenTerm}
-			proof1 = tracker.resolveAtom(thenTerm, tracker.orElim(psi1), proof1); // {+litTerm, +notCond, ~psi1}
-			proof1 = tracker.resolveAtom(notCond, proof1, tracker.notElim(notCond)); // {+litTerm, ~cond, ~psi1}
-			Term proof2 = tracker.wrapNot(cond, true, rawAxiom2); // {+litTerm, +cond, notElseBare-stripped}
-			proof2 = tracker.wrapNot(notElseBare, true, proof2); // {+litTerm, +cond, +notElseBare}
-			proof2 = tracker.resolveAtom(notElseBare, proof2, tracker.notElim(notElseBare)); // {+litTerm, +cond, ~elseTerm}
-			proof2 = tracker.resolveAtom(elseTerm, tracker.orElim(psi2), proof2); // {+litTerm, +cond, ~psi2}
-			final Term proof = tracker.resolveAtom(cond, proof2, proof1); // {+litTerm, ~psi1, ~psi2}
-			return new FormulaSatProof(proof, new ClauseSatProof[] { new ClauseSatProof(psi1), new ClauseSatProof(psi2) });
+			Term t1 = tracker.getClauseProof(
+					mTracker.tautology(t.term("or", notTerm, notCond, thenTerm), ProofConstants.TAUT_ITE_NEG_1));
+			t1 = tracker.wrapNot(notTerm, true, t1);
+			t1 = tracker.wrapNot(notCond, true, t1);
+			t1 = tracker.wrapNot(notThenBare, false, t1); // {+notTerm, +notCond, ~notThenBare}
+			Term t2 = tracker.getClauseProof(mTracker.tautology(t.term("or", notTerm, cond, elseTerm), ProofConstants.TAUT_ITE_NEG_2));
+			t2 = tracker.wrapNot(notTerm, true, t2);
+			t2 = tracker.wrapNot(cond, true, t2);
+			t2 = tracker.wrapNot(notElseBare, false, t2); // {+notTerm, +cond, ~notElseBare}
+			final Term e1 = tracker.orElim(cl1.mFormula); // {~psi_1, +notCond, +notThenBare}
+			final Term e2 = tracker.orElim(cl2.mFormula); // {~psi_2, +cond, +notElseBare}
+			final Term res1 = tracker.resolveAtom(notThenBare, e1, t1); // {+notCond, ~psi_1, +notTerm}
+			final Term res2 = tracker.resolveAtom(notElseBare, e2, t2); // {+cond, ~psi_2, +notTerm}
+			final Term res1b = tracker.resolveAtom(notCond, res1, tracker.notElim(notCond)); // {~psi_1, +notTerm, ~cond}
+			final Term proof = tracker.resolveAtom(cond, res2, res1b); // {~psi_1, ~psi_2, +notTerm}
+			return new FormulaSatProof(proof, new ClauseSatProof[] { cl1, cl2 });
 		}
 	}
 
@@ -1672,49 +1686,51 @@ public class Clausifier {
 	 * Build the sat proof for a "xor" aux literal, same "case split via final
 	 * resolution" idea as {@link #createIteSatProof}, splitting on {@code p1}.
 	 */
-	FormulaSatProof createXorSatProof(final ProofTracker tracker, final Term litTerm, final Term p1,
-			final Term p2, final Term axiom1, final Term axiom2, final boolean negative) {
+	FormulaSatProof createXorSatProof(final ProofTracker tracker, final Term term, final Term p1,
+			final Term p2, final ClauseSatProof cl1, final ClauseSatProof cl2, final boolean negative) {
 		final Theory t = p1.getTheory();
 		final Term notP1 = t.term("not", p1);
 		final Term notP2 = t.term("not", p2);
-		// See createIteSatProof: unwrap the tautology oracles to raw @Proof terms up front,
-		// and give p1/p2 (which may themselves be "not"-headed) each their own single
-		// wrapNot call rather than a second one on a "not"-wrapper built from them.
-		final Term rawAxiom1 = tracker.getClauseProof(axiom1);
-		final Term rawAxiom2 = tracker.getClauseProof(axiom2);
 		if (negative) {
-			// axiom1 == (or litTerm p1 p2); axiom2 == (or litTerm ~p1 ~p2).
-			final Term psi1 = t.term("or", p1, notP2); // vacuous when p1 true
-			final Term psi2 = t.term("or", notP1, p2); // vacuous when p1 false
-			Term proof1 = tracker.wrapNot(litTerm, true, rawAxiom1); // {+litTerm, p1-stripped, p2-stripped}
-			proof1 = tracker.wrapNot(p1, true, proof1); // {+litTerm, +p1, p2-stripped}
-			proof1 = tracker.wrapNot(p2, true, proof1); // {+litTerm, +p1, +p2}
-			proof1 = tracker.resolveAtom(p2, proof1, tracker.notElim(notP2)); // {+litTerm, +p1, ~notP2}
-			proof1 = tracker.resolveAtom(notP2, tracker.orElim(psi1), proof1); // {+litTerm, +p1, ~psi1}
-			Term proof2 = tracker.wrapNot(litTerm, true, rawAxiom2); // {+litTerm, notP1-stripped, notP2-stripped}
-			proof2 = tracker.wrapNot(notP1, true, proof2); // {+litTerm, +notP1, notP2-stripped}
-			proof2 = tracker.wrapNot(notP2, true, proof2); // {+litTerm, +notP1, +notP2}
-			proof2 = tracker.resolveAtom(notP2, proof2, tracker.notElim(notP2)); // {+litTerm, +notP1, ~p2}
-			proof2 = tracker.resolveAtom(p2, tracker.orElim(psi2), proof2); // {+litTerm, +notP1, ~psi2}
-			proof2 = tracker.resolveAtom(notP1, proof2, tracker.notElim(notP1)); // {+litTerm, ~p1, ~psi2}
-			final Term proof = tracker.resolveAtom(p1, proof1, proof2); // {+litTerm, ~psi1, ~psi2}
-			return new FormulaSatProof(proof, new ClauseSatProof[] { new ClauseSatProof(psi1), new ClauseSatProof(psi2) });
+			// this branch's own clauses: {~term,p1,p2}/{~term,~p1,~p2}; duals (fresh
+			// oracles, :xor+1/:xor+2 shape): {term,p1,~p2}/{term,~p1,p2}. Direct wrapNot
+			// targets as in createIteSatProof; p1 persists to the final split, so it
+			// needs the extra notElim bridge (see there for why).
+			Term t1 = tracker.getClauseProof(mTracker.tautology(t.term("or", term, p1, notP2), ProofConstants.TAUT_XOR_POS_1));
+			t1 = tracker.wrapNot(term, true, t1);
+			t1 = tracker.wrapNot(p1, true, t1);
+			t1 = tracker.wrapNot(p2, false, t1); // {+term, +p1, ~p2}
+			Term t2 = tracker.getClauseProof(mTracker.tautology(t.term("or", term, notP1, p2), ProofConstants.TAUT_XOR_POS_2));
+			t2 = tracker.wrapNot(term, true, t2);
+			t2 = tracker.wrapNot(notP1, true, t2);
+			t2 = tracker.wrapNot(notP2, false, t2); // {+term, +notP1, ~notP2}
+			final Term e1 = tracker.orElim(cl1.mFormula); // {~psi_1, +p1, +p2}
+			final Term e2 = tracker.orElim(cl2.mFormula); // {~psi_2, +notP1, +notP2}
+			final Term res1 = tracker.resolveAtom(p2, e1, t1); // {+p1, ~psi_1, +term}
+			final Term res2 = tracker.resolveAtom(notP2, e2, t2); // {+notP1, ~psi_2, +term}
+			final Term res2b = tracker.resolveAtom(notP1, res2, tracker.notElim(notP1)); // {~psi_2, +term, ~p1}
+			final Term proof = tracker.resolveAtom(p1, res1, res2b); // {~psi_1, ~psi_2, +term}
+			return new FormulaSatProof(proof, new ClauseSatProof[] { cl1, cl2 });
 		} else {
-			// axiom1 == (or litTerm p1 ~p2); axiom2 == (or litTerm ~p1 p2). litTerm == term
-			// (0 nots) here, so neither axiom needs litTerm bridging.
-			final Term psi1 = t.term("or", p1, p2); // vacuous when p1 true
-			final Term psi2 = t.term("or", notP1, notP2); // vacuous when p1 false
-			Term proof1 = tracker.wrapNot(p1, true, rawAxiom1); // {+litTerm, +p1, notP2-stripped}
-			proof1 = tracker.wrapNot(notP2, true, proof1); // {+litTerm, +p1, +notP2}
-			proof1 = tracker.resolveAtom(notP2, proof1, tracker.notElim(notP2)); // {+litTerm, +p1, ~p2}
-			proof1 = tracker.resolveAtom(p2, tracker.orElim(psi1), proof1); // {+litTerm, +p1, ~psi1}
-			Term proof2 = tracker.wrapNot(notP1, true, rawAxiom2); // {+litTerm, +notP1, p2-stripped}
-			proof2 = tracker.wrapNot(p2, true, proof2); // {+litTerm, +notP1, +p2}
-			proof2 = tracker.resolveAtom(p2, proof2, tracker.notElim(notP2)); // {+litTerm, +notP1, ~notP2}
-			proof2 = tracker.resolveAtom(notP2, tracker.orElim(psi2), proof2); // {+litTerm, +notP1, ~psi2}
-			proof2 = tracker.resolveAtom(notP1, proof2, tracker.notElim(notP1)); // {+litTerm, ~p1, ~psi2}
-			final Term proof = tracker.resolveAtom(p1, proof1, proof2); // {+litTerm, ~psi1, ~psi2}
-			return new FormulaSatProof(proof, new ClauseSatProof[] { new ClauseSatProof(psi1), new ClauseSatProof(psi2) });
+			// this branch's own clauses: {term,p1,~p2}/{term,~p1,p2}; duals (fresh
+			// oracles, :xor-1/:xor-2 shape): {~term,p1,p2}/{~term,~p1,~p2}.
+			final Term notTerm = t.term("not", term);
+			Term t1 = tracker.getClauseProof(mTracker.tautology(t.term("or", notTerm, p1, p2), ProofConstants.TAUT_XOR_NEG_1));
+			t1 = tracker.wrapNot(notTerm, true, t1);
+			t1 = tracker.wrapNot(p1, true, t1);
+			t1 = tracker.wrapNot(notP2, false, t1); // {+notTerm, +p1, ~notP2}
+			Term t2 = tracker.getClauseProof(
+					mTracker.tautology(t.term("or", notTerm, notP1, notP2), ProofConstants.TAUT_XOR_NEG_2));
+			t2 = tracker.wrapNot(notTerm, true, t2);
+			t2 = tracker.wrapNot(notP1, true, t2);
+			t2 = tracker.wrapNot(p2, false, t2); // {+notTerm, +notP1, ~p2}
+			final Term e1 = tracker.orElim(cl1.mFormula); // {~psi_1, +p1, +notP2}
+			final Term e2 = tracker.orElim(cl2.mFormula); // {~psi_2, +notP1, +p2}
+			final Term res1 = tracker.resolveAtom(notP2, e1, t1); // {+p1, ~psi_1, +notTerm}
+			final Term res2 = tracker.resolveAtom(p2, e2, t2); // {+notP1, ~psi_2, +notTerm}
+			final Term res2b = tracker.resolveAtom(notP1, res2, tracker.notElim(notP1)); // {~psi_2, +notTerm, ~p1}
+			final Term proof = tracker.resolveAtom(p1, res1, res2b); // {~psi_1, ~psi_2, +notTerm}
+			return new FormulaSatProof(proof, new ClauseSatProof[] { cl1, cl2 });
 		}
 	}
 

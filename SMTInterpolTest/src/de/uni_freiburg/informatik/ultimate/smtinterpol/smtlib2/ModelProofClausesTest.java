@@ -256,11 +256,13 @@ public class ModelProofClausesTest {
 		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
 		final Term p = s.term("p"), q = s.term("q"), r = s.term("r");
 		// (and (p>0) (q>0)) occurs bare (positive, forcing its "and-negative" aux
-		// clauses) and negated-and-shared elsewhere; forced false via p<=0, so its
-		// negation is the literal the assembler actually needs to justify --
-		// exercises createDefiningClausesForLiteral's "and-negative" N-way case
-		// (ClauseSatProof.mNWayTerm/mNWayKind / ModelProofBuilder.proveNWay), picking
-		// the false conjunct (q here would also work) at assembly time.
+		// clauses) and negated-and-shared elsewhere (forcing "and-positive"'s own
+		// single clause); forced false via p<=0, so the negation is the literal the
+		// assembler actually needs to justify -- exercises createDefiningClausesForLiteral's
+		// "and-positive" branch, search-free via a custom per-literal SatEntry
+		// (andElim(i,term) bridging each ~t_i to ~term directly, see "The
+		// addAuxAxioms key bug" in the model-proof plan) -- no model query needed,
+		// whichever conjunct (p or q) the model happens to set false just works.
 		final Term andTerm = s.term("and", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")));
 		s.assertTerm(s.term("and", s.term("or", andTerm, s.term(">", r, s.numeral("0"))),
 				s.term("or", s.term("not", andTerm), s.term("=", r, s.numeral("5"))),
@@ -280,10 +282,14 @@ public class ModelProofClausesTest {
 		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
 		s.declareFun("t", Script.EMPTY_SORT_ARRAY, intSort);
 		final Term p = s.term("p"), q = s.term("q"), r = s.term("r"), t = s.term("t");
-		// (=> (p>0) (q>0) (r>0)) occurs bare-and-shared (forcing "=>-positive" aux
-		// clauses) and negated elsewhere; forced true via the *first premise* being
-		// false (p<=0) -- exercises createDefiningClausesForLiteral's "=>-positive"
-		// N-way case picking a premise (as opposed to the conclusion).
+		// (=> (p>0) (q>0) (r>0)) occurs bare-and-shared (forcing "=>-negative"'s own
+		// single clause) and negated elsewhere (forcing "=>-positive"'s N clauses);
+		// forced true via the *first premise* being false (p<=0) -- exercises
+		// createDefiningClausesForLiteral's "=>-negative" branch, search-free via a
+		// custom per-literal SatEntry (impIntro(i,term) bridging each premise/the
+		// conclusion to term directly, see "The addAuxAxioms key bug" in the
+		// model-proof plan) -- no model query needed, whichever premise the model
+		// sets false (or the conclusion, if all premises hold) just works.
 		final Term impTerm = s.term("=>", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")),
 				s.term(">", r, s.numeral("0")));
 		s.assertTerm(s.term("and", s.term("or", impTerm, s.term("=", t, s.numeral("1"))),
