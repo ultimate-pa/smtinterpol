@@ -1117,9 +1117,13 @@ public class ProofSimplifier extends TermTransformer {
 			iteTerm = ((ApplicationTerm) iteTerm).getParameters()[1];
 		}
 		eqSequence.add(iteTerm);
-		Term proof = mProofRules.trans(eqSequence.toArray(new Term[eqSequence.size()]));
-		proof = res(theory.term(SMTLIBConstants.EQUALS, matchTerm, eqSequence.get(1)), mProofRules.dtMatch(matchTerm),
-				proof);
+		// Without an ite chain to step through (a match that is only a default case, or a single constructor),
+		// dtMatch already proves (= match body) and trans would get only two terms.
+		Term proof = mProofRules.dtMatch(matchTerm);
+		if (eqSequence.size() > 2) {
+			proof = res(theory.term(SMTLIBConstants.EQUALS, matchTerm, eqSequence.get(1)), proof,
+					mProofRules.trans(eqSequence.toArray(new Term[eqSequence.size()])));
+		}
 		final Constructor cons = constrs[caseNr];
 		Term consTerm = null;
 		if (isMatchCase) {
