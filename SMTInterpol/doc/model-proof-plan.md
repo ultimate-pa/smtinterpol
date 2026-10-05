@@ -622,8 +622,10 @@ costs nothing: records are only checked as part of the assembled proof, and
 - `addFormula`'s bridge is itself a `FormulaSatProof`: the root record if the
   simplification is the identity, otherwise hyps `{getClauseProof(reverse)}`
   (`{¬simp, asserted}`, the reversed rewrite) and the root record, pivot `simp`.
-- `addAuxAxiomsQuant` registers its records under `auxFalseLit.negate()` /
-  `auxTrueLit.negate()`, consistently with `addAuxAxioms`.
+- `addAuxAxiomsQuant` currently registers its records under
+  `auxFalseLit.negate()` / `auxTrueLit.negate()`, by analogy with `addAuxAxioms`;
+  that is wrong for quantified aux literals — see "Quantified aux literals"
+  below.
 
 **Fallback.** A record can still be incomplete (a `poisonSatRecord()`ed clause,
 e.g. a quantified literal inside an `ite` branch). Proving a multi-literal
@@ -633,16 +635,84 @@ one level: if any hyp of a `FormulaSatProof` cannot be proved structurally,
 `proveLiteral` falls back to `ModelProver.proveAtom(ρ)` for the whole record,
 exactly as it already does when no record exists.
 
-**Open point: `createExcludedMiddleSatProof`.** Its clauses `{(= AUX false),
-term}`/`{(= AUX true), (not term)}` relate the fresh `AUX` symbol to `term`; with
-`ρ = negLit.negate()` the target is `{¬(= AUX false)}` resp. `{¬(= AUX true)}`,
-and the per-literal proof `{¬term, ¬(= AUX false)}` is the definitional
-excluded-middle fact, not a structural dual. As implemented, the record's
-target is the clause's other literal (`term` resp. `(not term)`) with
-conclusion `ρ`; the assembler's conclusion check rejects it, so these literals
-always fall back to `ModelProver` (sound, never structural). Making it
-structural needs `AUX`'s definition and can only be tested once quantifier
-model production exists.
+**Quantified aux literals (decided 2026-10-05, not yet implemented).**
+`createQuantAuxTerm` introduces a fresh defined function `AUX` (`@AUX…`, defined as
+the subformula `term`, free variables as arguments) and two `QuantAuxEquality`
+atoms, `T = (= AUX true)` and `F = (= AUX false)`.  `T` is the quantified
+counterpart of a `NamedAtom`: parent clauses only ever contain `T` or `¬T`
+(`createAnonLiteral` returns `T`; `CollectLiteral` adds `T` or `T.negate()`).
+`F` only occurs in defining clauses, as the stand-in for `¬T`: wherever the
+ground encoding has `¬L`, the quantified one has `F` — the *strong* form, so that
+the unsat side can use the existing tautologies with a positive `AUX` equality.
+
+Records are therefore needed only under `T` and `¬T`, and the sat side must use
+the same stand-in mapping instead of negating syntactically (which would give
+`ρ = ¬F` resp. `¬T` and duals with a *negated* `AUX` equality, which
+`ProofSimplifier` cannot convert):
+
+| record built from | its aux atom stands for | conclusion | stored under |
+| --- | --- | --- | --- |
+| `auxFalseLit`'s clauses `{F, …}` | `¬L` | `T` | `T` |
+| `auxTrueLit`'s clauses `{T, …}` | `L` | `F`, then bridge `F → ¬T` | `¬T` |
+
+With this mapping every per-literal and start proof has the `AUX` equality
+*positive* — exactly the forms the existing conversions accept:
+`convertTautElimIntro` takes a positive `(= AUX true)` in intro rules and a
+positive `(= AUX false)` in elim rules (expanding `AUX` via `expand`), and the
+excluded-middle duals are the existing tautologies verbatim:
+
+- `createExcludedMiddleSatProof` (subformulas that are not connectives:
+  quantified formulas, theory atoms with free variables, …): the `auxFalse`
+  record needs `{¬term, T}` for its literal `term` — `:excludedMiddle1`; the
+  `auxTrue` record needs `{term, F}` for its literal `(not term)` —
+  `:excludedMiddle2`.  No new rule.
+- The connective branches (`or`, `and`, `=>`, `ite`, `xor`, `match`) apply the
+  table of "The aux-clause contract" with `T` in the role of `ρ`'s atom and `F`
+  in the role of its negation.
+
+The one extra fact is the bridge `F → ¬T` for the `¬T` record: the exclusivity
+clause `{¬F, ¬T}`, from `symm`/`trans` (`(= true AUX)`, `(= AUX false)` ⊢
+`(= true false)`) and `¬(= true false)`.  This is the only place where the sat
+side uses the weaker `¬F` form; everything else reuses the strong forms of the
+unsat side.
+
+**Ground Boolean terms used as function arguments** get
+`addExcludedMiddleAxiom`'s CC equality proxies `(= p true)`/`(= p false)` (it
+explicitly skips `@AUX` terms).  The model does not know the value of such a
+`p` — it can be an arbitrary formula — so these equalities must be *proved*:
+today `ModelProver` evaluates `p` recursively as a formula into `{p}`/`{¬p}` and
+then applies `iffIntro2`+`trueIntro` resp. `iffIntro1`+`falseElim`
+(`ModelProver.convertApplicationTerm`), which redoes `p`'s structure and throws
+for quantified `p`.  Instead, take `{p}`/`{¬p}` from the assembler
+(`proveLiteral` on `p`'s clausifier literal — its aux record if `p` is
+compound) and resolve with the unsat side's clause verbatim: `:excludedMiddle1`
+`{(= p true), ¬p}` resp. `:excludedMiddle2` `{(= p false), p}`.  Only the
+positive equality matching `p`'s value is ever needed, so no dual and no bridge;
+the excluded-middle clauses still need no `ClauseSatProof` record (the
+tautology is rebuilt where it is used).  This plugs into `ModelProver` as a hook
+(a small callback implemented by `ModelProofBuilder`):
+
+- **Where:** at every Boolean subterm `ModelProver` would otherwise evaluate
+  recursively — arguments of uninterpreted functions, Boolean arguments of
+  `select`/`store`/constructors, and the condition `c` of a term-level
+  `(ite c x y)` inside an LA/CC atom.  Non-Boolean terms can only contain
+  formulas (and quantifiers) through such Boolean subterms, so this one hook is
+  also what keeps `ModelProver` quantifier-free once Phase 4 records exist.
+- **When:** only if the subterm's clausifier literal has an `mLiteralSatProofs`
+  record, i.e. it is a compound formula the clausifier decomposed.  For atoms
+  such as `((_ is c) d)`, `(= x y)` or `(<= x 0)` the evaluation *is* their sat
+  proof; otherwise evaluate as today.
+
+Non-Boolean terms are always proved by evaluation from the model and the
+interpretation of the builtin functions — e.g. `(div (+ x y) 5)` is evaluated
+recursively rather than derived from its axiom clauses, which stay record-less
+theory axioms.  Not implemented yet.
+
+All of this is still behind Phase 4: `T`/`F` are `QuantLiteral`s in quantified
+clauses (the assembler's `isTrue` rejects them) and the records are schemas over
+the free variables.  Until then these literals fall back to `ModelProver`
+(which also cannot evaluate quantified formulas), so nothing is exercised end
+to end.
 
 ### `BuildClause` and `CollectLiteral`
 
@@ -949,8 +1019,8 @@ Every place that needs new code, from the inventory of existing call sites.
 | `buildTautology` (874), `buildClause(Annotation, …)` (889), `buildClauseWithTautology` (900) | pass `null` — theory-axiom clauses need no record.  (`buildClauseWithTautology` is only used by `AddAsAxiom`'s `xor`/`ite` splits, whose sat side is the dual tautology in the join, not a clause record.) |
 | `createDefiningClausesForLiteral` (979) | **the bulk of the work**: one record proof per branch — `or`, `=>`, `and`, `ite`, `xor`, `QuantEquality` fallback (986–1118), `MatchTerm` (1120ff), default (1179ff) |
 | `addAuxAxioms` (922) | store the returned record under `negLit.negate()` |
-| `addAuxAxiomsQuant` (950) | same, for both `auxTrueLit` and `auxFalseLit` |
-| `addExcludedMiddleAxiom` (1311) | **no record** — it calls `buildAuxClause` but its clauses are tautologies that no record depends on; pass `null` |
+| `addAuxAxiomsQuant` (950) | records under `T` (from `auxFalseLit`'s clauses) and `¬T` (from `auxTrueLit`'s clauses, plus the `F → ¬T` bridge) — see "Quantified aux literals" |
+| `addExcludedMiddleAxiom` (1311) | **no record**; the equality proxy `(= p true/false)` is proved where `ModelProver` needs it, from `p`'s sat proof plus the excluded-middle tautology — see "Quantified aux literals" (ground paragraph) |
 | `addMatchAxiom` (1337) / `buildTautology` at 1378 | no record (tautology clauses) |
 | `setupCClosure` (1555ff) | direct `BuildClause` use with a hand-built `mCurrentLits` entry — adapt to the map, no record |
 | `addStoreAxiom`, `addDiffAxiom`, `addDivideAxioms`, `addModuloAxioms`, `addToIntAxioms`, `addNat2BvAxiom`, `addBv2NatAxioms`, `addBitvectorAxiom` (413–1305) | nothing: all tautology clauses |
