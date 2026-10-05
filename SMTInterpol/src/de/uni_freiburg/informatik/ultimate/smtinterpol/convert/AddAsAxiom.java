@@ -18,18 +18,13 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
-import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 
@@ -56,7 +51,7 @@ class AddAsAxiom implements Operation {
 	 * be asserted; the caller then falls back to evaluating the formula directly
 	 * instead of using this record.
 	 */
-	Clausifier.FormulaSatProof mSatProof;
+	Clausifier.SatRecord mSatProof;
 
 	/**
 	 * Add the clauses for an asserted term.
@@ -74,11 +69,9 @@ class AddAsAxiom implements Operation {
 		mSource = source;
 	}
 
-	/** Record a leaf clause's sat-proof record as this node's own (identity: mAxiom's formula is its own clause formula). */
+	/** Record a leaf clause's sat-proof record (target {provedTerm(mAxiom)}) as this node's own. */
 	private void setLeafSatProof(final Clausifier.ClauseSatProof csp) {
-		if (csp != null) {
-			mSatProof = new Clausifier.FormulaSatProof(null, new Clausifier.ClauseSatProof[] { csp });
-		}
+		mSatProof = csp;
 	}
 
 	@Override
@@ -133,16 +126,11 @@ class AddAsAxiom implements Operation {
 					children[i] = new AddAsAxiom(this.clausifier, split, mSource);
 				}
 				if (this.clausifier.satProofsEnabled()) {
-					// orElim(term) = {~term, p_1, .., p_k}, using term's own params as opaque
-					// literals (unlike tautology(), which strips "not"s); rho-bridged to
-					// {rho, p_1, .., p_k}; each p_i is then child-bridged to ~(not p_i), since
-					// child_i's own formula is (not p_i).
-					final ProofTracker tracker = (ProofTracker) this.clausifier.mTracker;
-					Term dualTaut = tracker.orElim(term);
-					dualTaut = rhoBridge(tracker, dualTaut, term);
-					final boolean[] childBridge = new boolean[params.length];
-					Arrays.fill(childBridge, true);
-					this.clausifier.pushOperation(new SplitJoin(this, children, dualTaut, childBridge));
+					// or- {~term, p_1, .., p_k}, resolved with the children's (not p_i)
+					final Term[] startLits = new Term[params.length + 1];
+					startLits[0] = t.term("not", term);
+					System.arraycopy(params, 0, startLits, 1, params.length);
+					this.clausifier.pushOperation(new SplitJoin(this, children, startLits, ProofConstants.TAUT_OR_NEG));
 				}
 				for (int i = params.length - 1; i >= 0; i--) {
 					this.clausifier.pushOperation(children[i]);
@@ -160,11 +148,13 @@ class AddAsAxiom implements Operation {
 					children[i] = new AddAsAxiom(this.clausifier, split, mSource);
 				}
 				if (this.clausifier.satProofsEnabled()) {
-					// andIntro(term) = {rho, ~p_1, .., ~p_k}, using term's own params as opaque
-					// literals; rho == term (positive), no rho-bridge needed, and child_i's own
-					// formula is p_i itself (opaque), so no child-bridge is needed either.
-					final Term dualTaut = ((ProofTracker) this.clausifier.mTracker).andIntro(term);
-					this.clausifier.pushOperation(new SplitJoin(this, children, dualTaut, new boolean[params.length]));
+					// and+ {term, ~p_1, .., ~p_k}, resolved with the children's p_i
+					final Term[] startLits = new Term[params.length + 1];
+					startLits[0] = term;
+					for (int i = 0; i < params.length; i++) {
+						startLits[i + 1] = t.term("not", params[i]);
+					}
+					this.clausifier.pushOperation(new SplitJoin(this, children, startLits, ProofConstants.TAUT_AND_POS));
 				}
 				for (int i = params.length - 1; i >= 0; i--) {
 					this.clausifier.pushOperation(children[i]);
@@ -183,15 +173,14 @@ class AddAsAxiom implements Operation {
 					children[i] = new AddAsAxiom(this.clausifier, split, mSource);
 				}
 				if (this.clausifier.satProofsEnabled()) {
-					// impElim(term) = {~term, ~p_1, .., ~p_{n-1}, p_n}, using term's own params
-					// as opaque literals; rho-bridged; only the last child (whose own formula is
-					// (not p_n)) needs a child-bridge, since the others' formula is p_i itself.
-					final ProofTracker tracker = (ProofTracker) this.clausifier.mTracker;
-					Term dualTaut = tracker.impElim(term);
-					dualTaut = rhoBridge(tracker, dualTaut, term);
-					final boolean[] childBridge = new boolean[params.length];
-					childBridge[params.length - 1] = true;
-					this.clausifier.pushOperation(new SplitJoin(this, children, dualTaut, childBridge));
+					// =>- {~term, ~p_1, .., ~p_{n-1}, p_n}, resolved with the children's p_i / (not p_n)
+					final Term[] startLits = new Term[params.length + 1];
+					startLits[0] = t.term("not", term);
+					for (int i = 0; i < params.length - 1; i++) {
+						startLits[i + 1] = t.term("not", params[i]);
+					}
+					startLits[params.length] = params[params.length - 1];
+					this.clausifier.pushOperation(new SplitJoin(this, children, startLits, ProofConstants.TAUT_IMP_NEG));
 				}
 				for (int i = params.length - 1; i >= 0; i--) {
 					this.clausifier.pushOperation(children[i]);
@@ -204,42 +193,24 @@ class AddAsAxiom implements Operation {
 				final Term p1 = at.getParameters()[0];
 				final Term p2 = at.getParameters()[1];
 				final Term pivot = positive ? t.term("not", term) : term;
-				if (positive) {
-					// (xor p1 p2) --> (p1 \/ p2) /\ (~p1 \/ ~p2)
-					this.clausifier.buildClauseWithTautology(mAxiom, mSource, new Term[] { pivot, p1, p2 },
-							ProofConstants.TAUT_XOR_NEG_1);
-					this.clausifier.buildClauseWithTautology(mAxiom, mSource,
-							new Term[] { pivot, t.term("not", p1), t.term("not", p2) },
-							ProofConstants.TAUT_XOR_NEG_2);
-				} else {
-					// (not (xor p1 p2)) --> (p1 \/ ~p2) /\ (~p1 \/ p2)
-					this.clausifier.buildClauseWithTautology(mAxiom, mSource, new Term[] { pivot, p1, t.term("not", p2) },
-							ProofConstants.TAUT_XOR_POS_1);
-					this.clausifier.buildClauseWithTautology(mAxiom, mSource, new Term[] { pivot, t.term("not", p1), p2 },
-							ProofConstants.TAUT_XOR_POS_2);
-				}
-				if (this.clausifier.satProofsEnabled()) {
-					// mSatProof must prove provedTerm(mAxiom) == term (positive ? term :
-					// ~term). createXorSatProof's own "negative" flag matches "positive"
-					// directly here (negative=true concludes term, see its own doc) --
-					// unlike createDefiningClausesForLiteral's aux-literal callers, this
-					// is a direct assertion, not subject to the addAuxAxioms key fix.
-					// cl1/cl2 are synthetic (no real DPLL clause backs them here, unlike
-					// the aux-literal case): their own psi is built to match exactly what
-					// buildAuxClause would have produced for the engine clauses just
-					// built above, so createXorSatProof's internal orElim/dual-oracle
-					// derivation is unaffected by which kind of ClauseSatProof it gets.
-					final ProofTracker tracker = (ProofTracker) this.clausifier.mTracker;
-					final Clausifier.ClauseSatProof cl1, cl2;
-					if (positive) {
-						cl1 = new Clausifier.ClauseSatProof(t.term("or", p1, p2));
-						cl2 = new Clausifier.ClauseSatProof(t.term("or", t.term("not", p1), t.term("not", p2)));
-					} else {
-						cl1 = new Clausifier.ClauseSatProof(t.term("or", p1, t.term("not", p2)));
-						cl2 = new Clausifier.ClauseSatProof(t.term("or", t.term("not", p1), p2));
-					}
-					mSatProof = this.clausifier.createXorSatProof(tracker, term, p1, p2, cl1, cl2, positive);
-				}
+				// the clauses mirror the aux-literal ones (Clausifier.createDefiningClausesForLiteral), with
+				// rho = provedTerm(mAxiom) and its negation resolved away against mAxiom
+				final Term rho = positive ? term : t.term("not", term);
+				final Term notP1 = t.term("not", p1);
+				// positive: (p1 \/ p2) /\ (~p1 \/ ~p2); negative: (p1 \/ ~p2) /\ (~p1 \/ p2)
+				final Term q1 = positive ? p2 : t.term("not", p2);
+				final Term q2 = positive ? t.term("not", p2) : p2;
+				final Annotation rule1 = positive ? ProofConstants.TAUT_XOR_NEG_1 : ProofConstants.TAUT_XOR_POS_1;
+				final Annotation rule2 = positive ? ProofConstants.TAUT_XOR_NEG_2 : ProofConstants.TAUT_XOR_POS_2;
+				final Annotation dual1 = positive ? ProofConstants.TAUT_XOR_POS_1 : ProofConstants.TAUT_XOR_NEG_1;
+				final Annotation dual2 = positive ? ProofConstants.TAUT_XOR_POS_2 : ProofConstants.TAUT_XOR_NEG_2;
+				final Clausifier.ClauseSatProof cl1 = this.clausifier.buildClauseWithTautology(mAxiom, mSource,
+						new Term[] { pivot, p1, q1 }, rule1, new Term[] { p1, rho },
+						new Term[] { null, this.clausifier.satTaut(dual1, rho, p1, Clausifier.negate(q1)) });
+				final Clausifier.ClauseSatProof cl2 = this.clausifier.buildClauseWithTautology(mAxiom, mSource,
+						new Term[] { pivot, notP1, q2 }, rule2, new Term[] { notP1, rho },
+						new Term[] { null, this.clausifier.satTaut(dual2, rho, notP1, Clausifier.negate(q2)) });
+				mSatProof = this.clausifier.caseSplitRecord(cl1, cl2, p1, rho);
 				return;
 			} else if (at.getFunction().getName().equals("ite")) {
 				// the axioms added below already imply the auxaxiom clauses.
@@ -249,35 +220,22 @@ class AddAsAxiom implements Operation {
 				final Term thenForm = at.getParameters()[1];
 				final Term elseForm = at.getParameters()[2];
 				final Term pivot = positive ? t.term("not", term) : term;
-				if (positive) {
-					this.clausifier.buildClauseWithTautology(mAxiom, mSource, new Term[] { pivot, t.term("not", cond), thenForm },
-							ProofConstants.TAUT_ITE_NEG_1);
-					this.clausifier.buildClauseWithTautology(mAxiom, mSource, new Term[] { pivot, cond, elseForm },
-							ProofConstants.TAUT_ITE_NEG_2);
-				} else {
-					this.clausifier.buildClauseWithTautology(mAxiom, mSource,
-							new Term[] { pivot, t.term("not", cond), t.term("not", thenForm) },
-							ProofConstants.TAUT_ITE_POS_1);
-					this.clausifier.buildClauseWithTautology(mAxiom, mSource, new Term[] { pivot, cond, t.term("not", elseForm) },
-							ProofConstants.TAUT_ITE_POS_2);
-				}
-				if (this.clausifier.satProofsEnabled()) {
-					// mSatProof must prove provedTerm(mAxiom) == term (positive ? term :
-					// ~term); see the analogous comment in the xor branch -- same "negative
-					// matches positive directly" convention, same synthetic cl1/cl2 (their
-					// psi built to match the engine clauses just built above, no real
-					// buildAuxClause record backing them since this is a direct assertion).
-					final ProofTracker tracker = (ProofTracker) this.clausifier.mTracker;
-					final Clausifier.ClauseSatProof cl1, cl2;
-					if (positive) {
-						cl1 = new Clausifier.ClauseSatProof(t.term("or", t.term("not", cond), thenForm));
-						cl2 = new Clausifier.ClauseSatProof(t.term("or", cond, elseForm));
-					} else {
-						cl1 = new Clausifier.ClauseSatProof(t.term("or", t.term("not", cond), t.term("not", thenForm)));
-						cl2 = new Clausifier.ClauseSatProof(t.term("or", cond, t.term("not", elseForm)));
-					}
-					mSatProof = this.clausifier.createIteSatProof(tracker, term, cond, thenForm, elseForm, cl1, cl2, positive);
-				}
+				// mirrors the aux-literal clauses, see the xor case above
+				final Term rho = positive ? term : t.term("not", term);
+				final Term notCond = t.term("not", cond);
+				final Term thenLit = positive ? thenForm : t.term("not", thenForm);
+				final Term elseLit = positive ? elseForm : t.term("not", elseForm);
+				final Annotation rule1 = positive ? ProofConstants.TAUT_ITE_NEG_1 : ProofConstants.TAUT_ITE_POS_1;
+				final Annotation rule2 = positive ? ProofConstants.TAUT_ITE_NEG_2 : ProofConstants.TAUT_ITE_POS_2;
+				final Annotation dual1 = positive ? ProofConstants.TAUT_ITE_POS_1 : ProofConstants.TAUT_ITE_NEG_1;
+				final Annotation dual2 = positive ? ProofConstants.TAUT_ITE_POS_2 : ProofConstants.TAUT_ITE_NEG_2;
+				final Clausifier.ClauseSatProof cl1 = this.clausifier.buildClauseWithTautology(mAxiom, mSource,
+						new Term[] { pivot, notCond, thenLit }, rule1, new Term[] { notCond, rho },
+						new Term[] { null, this.clausifier.satTaut(dual1, rho, notCond, Clausifier.negate(thenLit)) });
+				final Clausifier.ClauseSatProof cl2 = this.clausifier.buildClauseWithTautology(mAxiom, mSource,
+						new Term[] { pivot, cond, elseLit }, rule2, new Term[] { cond, rho },
+						new Term[] { null, this.clausifier.satTaut(dual2, rho, cond, Clausifier.negate(elseLit)) });
+				mSatProof = this.clausifier.caseSplitRecord(cl1, cl2, cond, rho);
 				return;
 			}
 		} else if (term instanceof QuantifiedFormula) {
@@ -296,82 +254,44 @@ class AddAsAxiom implements Operation {
 	}
 
 	/**
-	 * Turn {@code {~term, ...}} (what {@code orElim(term)}/{@code impElim(term)}
-	 * naturally gives for their own negated first literal) into
-	 * {@code {+(not term), ...}}, matching a negatively-asserted node's own raw,
-	 * opaque {@code provedTerm(mAxiom)}.
-	 */
-	private static Term rhoBridge(final ProofTracker tracker, final Term proof, final Term term) {
-		final Term notTerm = term.getTheory().term(SMTLIBConstants.NOT, term);
-		return tracker.wrapNot(notTerm, true, proof);
-	}
-
-	/**
-	 * Runs after all children of a propositional split (and+/or-/=>-) have
-	 * finished, and composes their sat-proof records into one for the parent, via
-	 * the dual tautology. See "Input clauses and assertions" in the model-proof
-	 * plan; pushed under the children so it runs after them (the todo stack is
-	 * LIFO).
+	 * Runs after all children of a propositional split (and+/or-/=>-) have finished, and composes their sat-proof
+	 * records into one for the parent: the dual tautology as start proof, resolved with each child's record on the
+	 * child's formula. Pushed under the children so it runs after them (the todo stack is LIFO).
 	 */
 	private static final class SplitJoin implements Operation {
 		private final AddAsAxiom mParent;
 		private final AddAsAxiom[] mChildren;
-		/**
-		 * Proof of {@code {provedTerm(mParent.mAxiom), d_1, .., d_n}}, where
-		 * {@code d_i} is child i's own formula {@code provedTerm(children[i].mAxiom)}
-		 * if {@code mChildBridge[i]} is false, else the underlying atom of that
-		 * (then "not"-headed) formula, opaquely and positively (see
-		 * {@link ProofTracker#wrapNot}).
-		 */
-		private final Term mDualTaut;
-		/**
-		 * For each child, whether {@link ProofTracker#wrapNot} is needed to turn
-		 * {@code mDualTaut}'s slot into {@code ~provedTerm(children[i].mAxiom)}
-		 * before folding the child in -- true exactly when that formula is itself
-		 * "not"-headed but the dual tautology's own construction (orElim/impElim,
-		 * tied to the parent's un-negated params) offers its underlying atom instead.
-		 */
-		private final boolean[] mChildBridge;
+		/** The literals of the dual tautology: the parent's formula and the negations of the children's. */
+		private final Term[] mStartLits;
+		private final Annotation mRule;
 
-		SplitJoin(final AddAsAxiom parent, final AddAsAxiom[] children, final Term dualTaut, final boolean[] childBridge) {
+		SplitJoin(final AddAsAxiom parent, final AddAsAxiom[] children, final Term[] startLits,
+				final Annotation rule) {
 			mParent = parent;
 			mChildren = children;
-			mDualTaut = dualTaut;
-			mChildBridge = childBridge;
+			mStartLits = startLits;
+			mRule = rule;
 		}
 
 		@Override
 		public void perform() {
-			for (final AddAsAxiom child : mChildren) {
-				if (child.mSatProof == null) {
+			final Clausifier clausifier = mParent.clausifier;
+			final Clausifier.SatRecord[] hyps = new Clausifier.SatRecord[mChildren.length];
+			final Term[] pivots = new Term[mChildren.length];
+			for (int i = 0; i < mChildren.length; i++) {
+				if (mChildren[i].mSatProof == null) {
 					// A child's own derivation isn't available (e.g. it went through an
 					// unimplemented branch) -- the whole join falls back too.
 					mParent.mSatProof = null;
 					return;
 				}
+				hyps[i] = mChildren[i].mSatProof;
+				pivots[i] = clausifier.mTracker.getProvedTerm(mChildren[i].mAxiom);
 			}
-			final ProofTracker tracker = (ProofTracker) mParent.clausifier.mTracker;
-			Term proof = mDualTaut;
-			final ArrayList<Clausifier.ClauseSatProof> hyps = new ArrayList<>();
-			for (int i = 0; i < mChildren.length; i++) {
-				final Term psi = mParent.clausifier.mTracker.getProvedTerm(mChildren[i].mAxiom);
-				if (mChildBridge[i]) {
-					// The dual tautology naturally has +p at this slot (p = psi's own, opaque
-					// argument, since orElim/impElim don't peel INTO their params any further
-					// than the parent's own structure); turn it into ~psi = ~(not p).
-					final Term p = ((ApplicationTerm) psi).getParameters()[0];
-					proof = tracker.resolveAtom(p, proof, tracker.notElim(psi));
-				}
-				final Clausifier.FormulaSatProof childProof = mChildren[i].mSatProof;
-				if (childProof.mProof != null) {
-					proof = tracker.resolveAtom(psi, childProof.mProof, proof);
-				}
-				for (final Clausifier.ClauseSatProof hyp : childProof.mHyps) {
-					hyps.add(hyp);
-				}
-			}
-			mParent.mSatProof =
-					new Clausifier.FormulaSatProof(proof, hyps.toArray(new Clausifier.ClauseSatProof[hyps.size()]));
+			final Theory t = mParent.mAxiom.getTheory();
+			final Term start = clausifier.mTracker.getClauseProof(clausifier.mTracker.tautology(t.term("or", mStartLits), mRule));
+			mParent.mSatProof = new Clausifier.FormulaSatProof(start, mStartLits, hyps, pivots,
+					clausifier.mTracker.getProvedTerm(mParent.mAxiom));
 		}
 	}
 }

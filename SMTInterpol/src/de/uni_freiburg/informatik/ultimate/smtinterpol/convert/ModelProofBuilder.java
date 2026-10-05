@@ -18,10 +18,13 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -30,15 +33,17 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.ModelProver;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
 
 /**
- * Assembles a model (sat) proof from the sat-proof artifacts the clausifier
- * recorded ({@link Clausifier#mAssertionSatProofs}/{@link Clausifier#mLiteralSatProofs})
- * and the DPLL engine's final assignment, falling back to evaluating a
- * (sub)formula directly with {@link ModelProver} wherever the structural
- * tracking is incomplete (not yet implemented, or genuinely unavailable, e.g.
- * a trivially true clause). See SMTInterpol/doc/model-proof-plan.md,
- * "Assembling the proof at sat time".
+ * Assembles a model (sat) proof from the sat-proof records the clausifier recorded
+ * ({@link Clausifier#mAssertionSatProofs}/{@link Clausifier#mLiteralSatProofs}) and the DPLL engine's final
+ * assignment, falling back to evaluating a literal or assertion directly with {@link ModelProver} wherever a
+ * record is missing or incomplete. All record proofs are clause proofs in the "stripped" convention (a literal
+ * {@code (not x)} is the negative literal of {@code x}); the conversions to and from the "opaque" convention of
+ * {@link ModelProver} and of the final {@code (and assertions)} happen only in {@link #proveLiteral} and
+ * {@link #buildProof}. See SMTInterpol/doc/model-proof-plan.md, "The aux-clause contract" and "Assembling the
+ * proof at sat time".
  *
  * @author Jochen Hoenicke
  */
@@ -47,6 +52,20 @@ public class ModelProofBuilder {
 	private final ModelProver mModelProver;
 	private final ProofTracker mTracker;
 	private final Theory mTheory;
+	/** Memo per record; {@link #FAILED} for a record that could not be proved structurally. */
+	private final IdentityHashMap<Clausifier.SatRecord, ProvedClause> mMemo = new IdentityHashMap<>();
+	private static final ProvedClause FAILED = new ProvedClause(null, null);
+
+	/** A clause proof together with the clause it proves (canonical literals). */
+	private static final class ProvedClause {
+		final Term mProof;
+		final Set<ProofLiteral> mClause;
+
+		ProvedClause(final Term proof, final Set<ProofLiteral> clause) {
+			mProof = proof;
+			mClause = clause;
+		}
+	}
 
 	public ModelProofBuilder(final Clausifier clausifier, final ModelProver modelProver) {
 		mClausifier = clausifier;
@@ -55,11 +74,15 @@ public class ModelProofBuilder {
 		mTheory = clausifier.getTheory();
 	}
 
-	private static Term stripNotTerm(Term t) {
-		while (Clausifier.isNotTerm(t)) {
-			t = Clausifier.toPositive(t);
-		}
-		return t;
+	private static Set<ProofLiteral> clauseOf(final ProofLiteral... lits) {
+		return new HashSet<>(Arrays.asList(lits));
+	}
+
+	/**
+	 * Resolve two clause proofs on {@code atom}; {@code proofPos} is the one containing {@code atom} positively.
+	 */
+	private Term res(final Term atom, final Term proofPos, final Term proofNeg) {
+		return mTracker.getProofRules().resolutionRule(atom, proofPos, proofNeg);
 	}
 
 	private boolean isTrue(final ILiteral l) {
@@ -72,148 +95,127 @@ public class ModelProofBuilder {
 		return false;
 	}
 
-	/** Returns a proof of the unit clause containing {@code l} itself, signed. */
+	/** Returns a proof of the unit clause {@code {l}} (stripped convention). */
 	private Term proveLiteral(final ILiteral l) {
+		final Term formula = l.getSMTFormula(mTheory);
 		final Clausifier.FormulaSatProof record = mClausifier.mLiteralSatProofs.get(l);
 		if (record != null) {
-			return proveFormula(record);
+			final Term proof = proveRecord(record, Clausifier.toProofLiteral(formula));
+			if (proof != null) {
+				return proof;
+			}
 		}
-		return mModelProver.proveAtom(l.getSMTFormula(mTheory));
+		// ModelProver proves {+formula} with formula used opaquely
+		return mTracker.stripNot(formula, true, mModelProver.proveAtom(formula));
 	}
 
 	/**
-	 * Returns a proof of {@code {+probe}}, recursing into probe's own structural
-	 * sat-proof record when one is available, falling back to {@link ModelProver}
-	 * otherwise (e.g. {@code probe} is a base-theory atom, which never gets a
-	 * {@link Clausifier#mLiteralSatProofs} entry, or was never registered at all).
-	 * Recursion only fires when the registered literal's own formula is exactly
-	 * (by reference) {@code probe} -- true for a compound Boolean aux term (its
-	 * {@code NamedAtom} echoes back the very term it was created from), but not
-	 * guaranteed for a base-theory atom (CC/LA give their atoms a canonicalized
-	 * formula, which could differ from how {@code probe} is spelled out here as
-	 * one of {@code term}'s own, unnormalized params) -- using that would resolve
-	 * against the wrong pivot and leave a dangling literal in the assembled proof.
+	 * Prove a record and check that it proves exactly {@code {conclusion}}.
+	 *
+	 * @return the proof, or null if the record is incomplete.
 	 */
-	private Term proveTerm(final Term probe) {
-		final Term pos = Clausifier.toPositive(probe);
-		final ILiteral base = mClausifier.getILiteral(pos);
-		if (base != null) {
-			final ILiteral l = probe == pos ? base : base.negate();
-			if (l.getSMTFormula(mTheory) == probe) {
-				final Clausifier.FormulaSatProof record = mClausifier.mLiteralSatProofs.get(l);
-				if (record != null) {
-					return proveFormula(record);
-				}
-			}
+	private Term proveRecord(final Clausifier.SatRecord record, final ProofLiteral conclusion) {
+		final ProvedClause pc = prove(record);
+		if (pc == FAILED) {
+			return null;
 		}
-		return mModelProver.proveAtom(probe);
+		if (pc.mClause.size() != 1 || !pc.mClause.contains(conclusion)) {
+			// e.g. the open createExcludedMiddleSatProof case, see the model-proof plan
+			return null;
+		}
+		return pc.mProof;
 	}
 
-	/** Returns a proof of {@code {c.mFormula+}}, memoized in {@code c.mAssembled}. */
-	private Term proveClause(final Clausifier.ClauseSatProof c) {
-		if (c.mAssembled != null) {
-			return c.mAssembled;
-		}
-		Term result = null;
-		if (c.mReadyMadeProof != null) {
-			result = c.mReadyMadeProof;
-		} else if (c.mLiterals != null) {
-			result = proveFromLiterals(c);
-		}
+	private ProvedClause prove(final Clausifier.SatRecord record) {
+		ProvedClause result = mMemo.get(record);
 		if (result == null) {
-			// No (usable) per-literal/N-way derivation for this clause -- c.mFormula is
-			// then always a bare leaf term (e.g. and-positive's/ite's/xor's hyps), never
-			// itself collected through BuildClause -- so recurse into its own structural
-			// record via proveTerm (e.g. it may be a nested aux term in its own right)
-			// instead of consulting ModelProver unconditionally.
-			result = proveTerm(c.mFormula);
+			if (record instanceof Clausifier.ClauseSatProof) {
+				result = proveClause((Clausifier.ClauseSatProof) record);
+			} else {
+				result = proveFormula((Clausifier.FormulaSatProof) record);
+			}
+			mMemo.put(record, result);
 		}
-		c.mAssembled = result;
 		return result;
 	}
 
-	private Term proveFromLiterals(final Clausifier.ClauseSatProof c) {
+	/** Proves the target of {@code c} (or a subclause of it) from the literal the model sets true. */
+	private ProvedClause proveClause(final Clausifier.ClauseSatProof c) {
+		if (c.mReadyMadeProof != null) {
+			return new ProvedClause(c.mReadyMadeProof, clauseOf(c.mTarget));
+		}
+		if (c.mLiterals == null) {
+			// incomplete record (poisoned or trivially true clause)
+			return FAILED;
+		}
 		for (final Map.Entry<ILiteral, Clausifier.SatEntry> e : c.mLiterals.entrySet()) {
 			final ILiteral l = e.getKey();
 			if (!isTrue(l)) {
 				continue;
 			}
 			final Clausifier.SatEntry entry = e.getValue();
-			final Term litFormula = l.getSMTFormula(mTheory);
-			final Term litProof = proveLiteral(l);
-			Term proof;
-			if (entry.mProof == null) {
-				proof = litProof;
-			} else {
-				// litProof concludes litFormula opaquely (see ModelProver), while entry.mProof
-				// -- built via BuildClause's reversed-rewrite composition -- uses the "always
-				// stripped" clause-literal convention; strip litProof down to match before
-				// folding the two together. Stripping keeps litProof's own sign for the core
-				// atom (positive iff litFormula is, i.e. iff l is a positive literal), while
-				// entry.mProof -- built from the reverse of the *same* rewrite -- always has
-				// the opposite sign for it; so which one plays "proofPos" flips with l's polarity.
-				final Term core = stripNotTerm(litFormula);
-				final Term strippedLitProof = mTracker.stripNot(litFormula, true, litProof);
-				proof = Clausifier.isNotTerm(litFormula) ? mTracker.resolveAtom(core, entry.mProof, strippedLitProof)
-						: mTracker.resolveAtom(core, strippedLitProof, entry.mProof);
-				// The fold above lands on entry.mDisjunct's own "always stripped" core, at
-				// whichever sign that leaves it (core == stripNotTerm(entry.mDisjunct) by
-				// construction); wrap it back up to the opaque {+entry.mDisjunct} the rest of
-				// this method (and its callers) expect. A no-op when mDisjunct has no leading
-				// "not" of its own.
-				proof = mTracker.wrapNot(entry.mDisjunct, true, proof);
+			Term proof = proveLiteral(l);
+			if (entry.mProof != null) {
+				// proof proves {l}, entry.mProof proves {~l, mDisjunct} resp. {~l} ∪ target
+				final ProofLiteral lit = Clausifier.toProofLiteral(l.getSMTFormula(mTheory));
+				proof = lit.getPolarity() ? res(lit.getAtom(), proof, entry.mProof)
+						: res(lit.getAtom(), entry.mProof, proof);
 			}
-			// proof concludes {+entry.mDisjunct}; when the clause formula is a
-			// multi-literal "or" and entry.mDisjunct is just one of its disjuncts (aux
-			// clauses, e.g. Tseitin definitions), bridge it up to {+c.mFormula} via orIntro.
-			if (entry.mDisjunct != c.mFormula) {
-				final int pos = disjunctIndex(c.mFormula, entry.mDisjunct);
-				if (pos < 0) {
-					// Shouldn't happen (entry.mDisjunct is always one of c.mFormula's own
-					// disjuncts by construction) but degrade gracefully rather than crash.
-					return null;
-				}
-				proof = mTracker.resolveAtom(entry.mDisjunct, proof, mTracker.orIntro(pos, c.mFormula));
-			}
-			return proof;
+			final Set<ProofLiteral> clause =
+					entry.mDisjunct == null ? clauseOf(c.mTarget) : clauseOf(entry.mDisjunct);
+			return new ProvedClause(proof, clause);
 		}
-		// No literal of this clause is set to true. Shouldn't happen (see the
-		// "invariant the assembler relies on" in the model-proof plan) but degrade
-		// gracefully rather than crash.
-		return null;
-	}
-
-	/** Index of {@code disjunct} among {@code orTerm}'s params, or -1 if not found/not an "or". */
-	private static int disjunctIndex(final Term orTerm, final Term disjunct) {
-		if (!(orTerm instanceof ApplicationTerm)) {
-			return -1;
-		}
-		final Term[] params = ((ApplicationTerm) orTerm).getParameters();
-		for (int i = 0; i < params.length; i++) {
-			if (params[i] == disjunct) {
-				return i;
-			}
-		}
-		return -1;
-	}
-
-	/** Returns a proof of {@code {f.mHyps[i].mFormula+}}'s combined conclusion, i.e. what {@code f} proves. */
-	private Term proveFormula(final Clausifier.FormulaSatProof f) {
-		if (f.mProof == null) {
-			assert f.mHyps.length == 1;
-			return proveClause(f.mHyps[0]);
-		}
-		Term proof = f.mProof;
-		for (final Clausifier.ClauseSatProof hyp : f.mHyps) {
-			proof = mTracker.resolveAtom(hyp.mFormula, proveClause(hyp), proof);
-		}
-		return proof;
+		// No literal of this clause is set to true. Shouldn't happen (see the "invariant the assembler relies on"
+		// in the model-proof plan) but degrade gracefully rather than crash.
+		return FAILED;
 	}
 
 	/**
-	 * Assemble the model proof for the given assertions (in order): a proof of
-	 * the unit clause {@code {(and assertions)}}, without the refineFun/defineFun
-	 * prefix -- the caller adds that, see {@link ModelProver#wrapRefineFun}.
+	 * Proves a record's conclusion: start with the start proof (or the first hyp), then resolve each further hyp
+	 * on its pivot atom. The side containing the atom positively is the positive antecedent; a step is skipped if
+	 * the atom does not occur with opposite polarities on the two sides (the default case of a match can prove a
+	 * strict subclause of its target).
+	 */
+	private ProvedClause proveFormula(final Clausifier.FormulaSatProof f) {
+		Term proof = f.mStart;
+		Set<ProofLiteral> clause = f.mStart == null ? null : clauseOf(f.mStartClause);
+		for (int i = 0; i < f.mHyps.length; i++) {
+			final ProvedClause hyp = prove(f.mHyps[i]);
+			if (hyp == FAILED) {
+				return FAILED;
+			}
+			if (proof == null) {
+				proof = hyp.mProof;
+				clause = new HashSet<>(hyp.mClause);
+				continue;
+			}
+			final Term atom = f.mPivots[i];
+			final ProofLiteral pos = new ProofLiteral(atom, true);
+			final ProofLiteral neg = pos.negate();
+			final ProofLiteral inHyp;
+			if (hyp.mClause.contains(pos) && clause.contains(neg)) {
+				proof = res(atom, hyp.mProof, proof);
+				inHyp = pos;
+			} else if (hyp.mClause.contains(neg) && clause.contains(pos)) {
+				proof = res(atom, proof, hyp.mProof);
+				inHyp = neg;
+			} else {
+				continue;
+			}
+			clause.remove(inHyp.negate());
+			for (final ProofLiteral l : hyp.mClause) {
+				if (!l.equals(inHyp)) {
+					clause.add(l);
+				}
+			}
+		}
+		return new ProvedClause(proof, clause);
+	}
+
+	/**
+	 * Assemble the model proof for the given assertions (in order): a proof of the unit clause
+	 * {@code {(and assertions)}}, without the refineFun/defineFun prefix -- the caller adds that, see
+	 * {@link ModelProver#wrapRefineFun}.
 	 */
 	public Term buildProof(final List<Term> assertions) {
 		if (assertions.size() == 0) {
@@ -227,8 +229,10 @@ public class ModelProofBuilder {
 		}
 		for (int i = 0; i < assertionArray.length; i++) {
 			final Term a = assertionArray[i];
-			final Clausifier.FormulaSatProof record = mClausifier.mAssertionSatProofs.get(a);
-			final Term aProof = record != null ? proveFormula(record) : mModelProver.proveAtom(a);
+			final Clausifier.SatRecord record = mClausifier.mAssertionSatProofs.get(a);
+			Term aProof = record == null ? null : proveRecord(record, Clausifier.toProofLiteral(a));
+			// andIntro (and checkModelProof) use the assertion opaquely
+			aProof = aProof != null ? mTracker.wrapNot(a, true, aProof) : mModelProver.proveAtom(a);
 			proof = proof == null ? aProof : mTracker.resolveAtom(a, aProof, proof);
 		}
 		return proof;

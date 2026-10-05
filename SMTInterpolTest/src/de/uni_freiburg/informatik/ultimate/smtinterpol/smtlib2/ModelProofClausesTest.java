@@ -259,10 +259,10 @@ public class ModelProofClausesTest {
 		// clauses) and negated-and-shared elsewhere (forcing "and-positive"'s own
 		// single clause); forced false via p<=0, so the negation is the literal the
 		// assembler actually needs to justify -- exercises createDefiningClausesForLiteral's
-		// "and-positive" branch, search-free via a custom per-literal SatEntry
-		// (andElim(i,term) bridging each ~t_i to ~term directly, see "The
-		// addAuxAxioms key bug" in the model-proof plan) -- no model query needed,
-		// whichever conjunct (p or q) the model happens to set false just works.
+		// "and-positive" branch, search-free via a per-literal TAUT_AND_NEG proof
+		// {t_i, ~term} (see "The aux-clause contract" in the model-proof plan) --
+		// no model query needed, whichever conjunct (p or q) the model happens to
+		// set false just works.
 		final Term andTerm = s.term("and", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")));
 		s.assertTerm(s.term("and", s.term("or", andTerm, s.term(">", r, s.numeral("0"))),
 				s.term("or", s.term("not", andTerm), s.term("=", r, s.numeral("5"))),
@@ -285,9 +285,8 @@ public class ModelProofClausesTest {
 		// (=> (p>0) (q>0) (r>0)) occurs bare-and-shared (forcing "=>-negative"'s own
 		// single clause) and negated elsewhere (forcing "=>-positive"'s N clauses);
 		// forced true via the *first premise* being false (p<=0) -- exercises
-		// createDefiningClausesForLiteral's "=>-negative" branch, search-free via a
-		// custom per-literal SatEntry (impIntro(i,term) bridging each premise/the
-		// conclusion to term directly, see "The addAuxAxioms key bug" in the
+		// createDefiningClausesForLiteral's "=>-negative" branch, search-free via
+		// per-literal TAUT_IMP_POS proofs (see "The aux-clause contract" in the
 		// model-proof plan) -- no model query needed, whichever premise the model
 		// sets false (or the conclusion, if all premises hold) just works.
 		final Term impTerm = s.term("=>", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")),
@@ -495,6 +494,115 @@ public class ModelProofClausesTest {
 		s.assertTerm(s.term("and", s.term("not", matchTerm), s.term("or", matchTerm, s.term("not", p2))));
 		s.assertTerm(s.term("=", c, s.term("green")));
 		s.assertTerm(s.term("not", p2));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralDefaultPicksNamedCase() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p3", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2"), p3 = s.term("p3");
+		final Theory theory = s.getTheory();
+		final TermVariable q = theory.createTermVariable("q", colorSort);
+		// match c ((red p1) (green p2) (q p3)) with c = green and p3 false: the default
+		// clause {~match, is-red, is-green, p3} is satisfied by its tester is-green alone,
+		// so its proof is just {is-green}, and the resolution with the red case on
+		// ~is-red must be skipped (it would be vacuous).
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, {}, { q } }, new Term[] { p1, p2, p3 },
+				new DataType.Constructor[] { constrs[0], constrs[1], null });
+		s.assertTerm(s.term("and", matchTerm, s.term("=>", matchTerm, p2)));
+		s.assertTerm(s.term("=", c, s.term("green")));
+		s.assertTerm(p2);
+		s.assertTerm(s.term("not", p3));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralOnlyDefault() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p = s.term("p");
+		final Theory theory = s.getTheory();
+		final TermVariable q = theory.createTermVariable("q", colorSort);
+		// a match consisting only of a default case: a single aux clause with target {match}
+		final Term matchTerm = s.match(c, new TermVariable[][] { { q } }, new Term[] { p },
+				new DataType.Constructor[] { null });
+		s.assertTerm(s.term("and", matchTerm, s.term("=>", matchTerm, p)));
+		s.assertTerm(p);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testIteAuxLiteralRewrittenCondFalse() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("f", new Sort[] { intSort }, boolSort);
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), r = s.term("r"), a = s.term("a"), b = s.term("b");
+		// cond (f x) is an uninterpreted predicate, interned to a CC literal by a non-trivial
+		// rewrite, and it is false, so the clause {~ite, ~cond, a} is satisfied by its target
+		// literal ~cond: the entry has a non-null reversed-rewrite proof but only reaches {~cond}.
+		final Term cond = s.term("f", x);
+		final Term iteTerm = s.term("ite", cond, a, b);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(s.term("not", cond));
+		s.assertTerm(b);
+		s.assertTerm(s.term("not", a));
+		s.assertTerm(s.term("=", r, s.numeral("2")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralNegatedOrOccurrence() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// a negated "or" inside a clause is not inlined: its aux literal's record proves
+		// ~(or ..) from the N clauses {(or ..), ~p_i} and the start tautology or-.
+		final Term orTerm = s.term("or", s.term(">", x, y), s.term("=", x, y));
+		s.assertTerm(s.term("or", s.term("not", orTerm), s.term(">", z, s.numeral("5"))));
+		s.assertTerm(s.term("<", x, y));
+		s.assertTerm(s.term("<=", z, s.numeral("5")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralNegatedImpliesOccurrence() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// a negated "=>" inside a clause: its record proves ~(=> ..) via =>- and the N clauses.
+		final Term impTerm = s.term("=>", s.term(">", x, s.numeral("0")), s.term(">", y, s.numeral("0")));
+		s.assertTerm(s.term("or", s.term("not", impTerm), s.term(">", z, s.numeral("5"))));
+		s.assertTerm(s.term(">", x, s.numeral("0")));
+		s.assertTerm(s.term("<=", y, s.numeral("0")));
+		s.assertTerm(s.term("<=", z, s.numeral("5")));
 		checkSatAndProof(s);
 	}
 

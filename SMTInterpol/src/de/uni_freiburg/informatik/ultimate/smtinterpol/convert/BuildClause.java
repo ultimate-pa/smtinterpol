@@ -35,6 +35,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedEqualityAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.atoms.EprQuantifiedPredicateAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.DestructiveEqualityReasoning.DERResult;
@@ -78,18 +79,18 @@ class BuildClause implements Operation {
 	/**
 	 * The sat-proof record for this clause, or null when sat proofs are disabled
 	 * or this clause is never a hypothesis of one (theory axioms). Its
-	 * {@code mFormula} is already set by the caller; {@code perform()} fills in
+	 * {@code mTarget} is already set by the caller; {@code perform()} fills in
 	 * {@code mLiterals}/{@code mReadyMadeProof}.
 	 */
 	private final Clausifier.ClauseSatProof mSatRecord;
-	/** Per literal, how it descends from its disjunct of {@code mSatRecord.mFormula}; filled in by {@link #addLiteral}. */
+	/** Per literal, how it descends from its literal of {@code mSatRecord.mTarget}; filled in by {@link #addLiteral}. */
 	private final LinkedHashMap<ILiteral, Clausifier.SatEntry> mLitSatProofs = new LinkedHashMap<>();
 	/**
 	 * Set when {@link CollectLiteral} took a branch that doesn't (yet) track its
 	 * sat-proof dual (e.g. the or/and/=> inlining branch, or a quantified
 	 * subformula). {@code perform()} then leaves {@code mSatRecord} without
 	 * {@code mLiterals}, so the assembler falls back to evaluating
-	 * {@code mSatRecord.mFormula} directly instead of using (incomplete,
+	 * the record's conclusion directly instead of using (incomplete,
 	 * potentially unsound) per-literal entries.
 	 */
 	private boolean mSatRecordPoisoned = false;
@@ -132,20 +133,22 @@ class BuildClause implements Operation {
 	 */
 	public void collectLiteral(Term term) {
 		term = stripDoubleNot(term);
-		collectLiteral(term, term, null);
+		collectLiteral(term, Clausifier.toProofLiteral(term), null);
 	}
 
 	/**
-	 * Start collecting a term in a clause, recording which disjunct of the sat
-	 * clause formula it descends from.
+	 * Start collecting a term in a clause, recording how it descends from the
+	 * target clause of the sat record.
 	 *
 	 * @param term     the (already double-not-stripped) literal to collect.
-	 * @param disjunct the disjunct of {@code mSatRecord.mFormula} this literal
-	 *                 descends from; ignored when sat proofs are disabled.
-	 * @param satProof a proof of {@code {~term, disjunct}}, or null if
-	 *                 {@code term == disjunct}.
+	 * @param disjunct the literal of {@code mSatRecord.mTarget} this literal
+	 *                 descends from, or null if it descends from the whole
+	 *                 target; ignored when sat proofs are disabled.
+	 * @param satProof a proof of {@code {~term, disjunct}} (resp.
+	 *                 {@code {~term} ∪ target} if {@code disjunct} is null), or
+	 *                 null if {@code term == disjunct}.
 	 */
-	public void collectLiteral(final Term term, final Term disjunct, final Term satProof) {
+	public void collectLiteral(final Term term, final ProofLiteral disjunct, final Term satProof) {
 		final Term strippedTerm = stripDoubleNot(term);
 		if (mCurrentLits.add(strippedTerm)) {
 			final Clausifier.SatEntry entry = mSatRecord == null ? null : new Clausifier.SatEntry(disjunct, satProof);
@@ -224,7 +227,7 @@ class BuildClause implements Operation {
 	 *            True, if the literal occured positive in the original clause.
 	 * @param entry
 	 *            how {@code origAtom}'s (signed) literal descends from its
-	 *            disjunct of {@code mSatRecord.mFormula}, as recorded by the
+	 *            literal of {@code mSatRecord.mTarget}, as recorded by the
 	 *            {@link CollectLiteral} that collected it; {@code null} when this
 	 *            clause has no {@code mSatRecord} (or the caller has none, e.g.
 	 *            {@link Clausifier#setupCClosure}).
@@ -316,7 +319,7 @@ class BuildClause implements Operation {
 		if (mIsTrue) {
 			// A trivially true clause never reaches the engine, so no literal of it can be
 			// picked from the assignment. The record is left empty (no mLiterals, no
-			// mReadyMadeProof); the assembler falls back to evaluating mFormula directly.
+			// mReadyMadeProof); the assembler falls back to evaluating the conclusion directly.
 			// TODO: build mReadyMadeProof from the entries in mLitSatProofs instead.
 			return;
 		}
