@@ -778,13 +778,22 @@ public class ProofSimplifier extends TermTransformer {
 			throw new AssertionError();
 		}
 		if (isAuxDefEq) {
-			final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, firstAtom, mainAtom);
-			if (isElim) {
-				proof = mProofRules.resolutionRule(mainAtom, proveAuxElim(firstAtom, mainAtom), proof);
-			} else {
-				proof = mProofRules.resolutionRule(mainAtom, proof, mProofRules.iffElim1(expandEq));
-				proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(firstAtom, mainAtom), proof);
-			}
+			proof = replaceByAuxDefEq(proof, firstAtom, mainAtom, isElim);
+		}
+		return proof;
+	}
+
+	/**
+	 * Replace the literal {@code mainAtom} (negative if isElim, else positive) of a proved clause by the aux literal
+	 * {@code auxEq}, {@code (= AUX false)} resp. {@code (= AUX true)}, where mainAtom is the definition of AUX.
+	 */
+	private Term replaceByAuxDefEq(Term proof, final ApplicationTerm auxEq, final Term mainAtom, final boolean isElim) {
+		if (isElim) {
+			proof = mProofRules.resolutionRule(mainAtom, proveAuxElim(auxEq, mainAtom), proof);
+		} else {
+			final Term expandEq = mSkript.term(SMTLIBConstants.EQUALS, auxEq, mainAtom);
+			proof = mProofRules.resolutionRule(mainAtom, proof, mProofRules.iffElim1(expandEq));
+			proof = mProofRules.resolutionRule(expandEq, proveAuxExpand(auxEq, mainAtom), proof);
 		}
 		return proof;
 	}
@@ -1057,18 +1066,28 @@ public class ProofSimplifier extends TermTransformer {
 		// similarly, there are two different matchDefault tautologies:
 		// boolean case: +/~(match ...), (is_cons c1), ..., (is_cons cn) ~/+(case ...)
 		// term case: (is_cons c1), ..., (is_cons cn), (= (match ...) (case ...))
+		// In the boolean case, a quantified match is represented by its aux literal (= AUX true) resp. (= AUX false)
+		// instead of +/~(match ...).
 		boolean negated;
 		// check for matchCase or matchDefault.
 		final boolean isMatchCase = rule.equals(":matchCase");
+		final Term firstAtom = clause[0].getAtom();
+		final boolean isAuxDefEq = clause[0].getPolarity() && isApplication(SMTLIBConstants.EQUALS, firstAtom)
+				&& isAuxApplication(((ApplicationTerm) firstAtom).getParameters()[0]);
 		// use the first literal to distinguish between boolean and term case.
-		final boolean boolCase = clause[0].getAtom() instanceof MatchTerm;
+		final boolean boolCase = isAuxDefEq || firstAtom instanceof MatchTerm;
 		MatchTerm matchTerm;
 		ApplicationTerm isTerm = null;
 		if (boolCase) {
 			// boolean case
 			assert clause.length >= 2;
-			negated = !clause[0].getPolarity();
-			matchTerm = (MatchTerm) clause[0].getAtom();
+			if (isAuxDefEq) {
+				negated = isApplication(SMTLIBConstants.FALSE, ((ApplicationTerm) firstAtom).getParameters()[1]);
+				matchTerm = (MatchTerm) expandAuxDef((ApplicationTerm) firstAtom);
+			} else {
+				negated = !clause[0].getPolarity();
+				matchTerm = (MatchTerm) firstAtom;
+			}
 			if (isMatchCase) {
 				assert !clause[1].getPolarity();
 				final Term tester = clause[1].getAtom();
@@ -1159,6 +1178,9 @@ public class ProofSimplifier extends TermTransformer {
 			final Term matchEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
 			proof = res(matchEq, proof, (negated ? mProofRules.iffElim2(matchEq) : mProofRules.iffElim1(matchEq)));
 			proof = removeNot(proof, iteTerm, negated);
+			if (isAuxDefEq) {
+				proof = replaceByAuxDefEq(proof, (ApplicationTerm) firstAtom, matchTerm, negated);
+			}
 		}
 		return proof;
 	}
@@ -1557,7 +1579,7 @@ public class ProofSimplifier extends TermTransformer {
 		Term newSub = newIte;
 		for (int i = 0; i < constructors.length; i++) {
 			Term oldCase, newCase;
-			if (constructors[i] == null || i == newParams.length - 1) {
+			if (constructors[i] == null || i == constructors.length - 1) {
 				oldCase = oldSub;
 				newCase = newSub;
 			} else {
@@ -1587,7 +1609,7 @@ public class ProofSimplifier extends TermTransformer {
 					theory.let(caseVars[i], selectors, rewriteProofs[i]), iteEqualsProof);
 			if (constructors[i] == null) {
 				break;
-			} else if (i < newParams.length - 1) {
+			} else if (i < constructors.length - 1) {
 				oldSub = ((ApplicationTerm) oldSub).getParameters()[2];
 				newSub = ((ApplicationTerm) newSub).getParameters()[2];
 			}
