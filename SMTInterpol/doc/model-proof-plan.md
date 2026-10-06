@@ -706,7 +706,33 @@ tautology is rebuilt where it is used).  This plugs into `ModelProver` as a hook
 Non-Boolean terms are always proved by evaluation from the model and the
 interpretation of the builtin functions — e.g. `(div (+ x y) 5)` is evaluated
 recursively rather than derived from its axiom clauses, which stay record-less
-theory axioms.  Not implemented yet.
+theory axioms.
+
+**Implemented (2026-10-05)** as `ModelProver.BooleanTermProver`, set by the
+`ModelProofBuilder` constructor (`proveBooleanTerm`).  `ModelProver.convert`
+asks it for every Boolean-sorted subterm other than `true`/`false`/`not`
+(after stripping annotations), so it covers all the places above without
+special-casing them; the resulting `{p}`/`{¬p}` proof then flows into the
+existing `iffIntro` step of `convertApplicationTerm` resp. `postConvertIte`.
+`proveBooleanTerm` uses only the record of the *true* one of `p`'s literal and
+its negation (via `proveRecord`, never the `proveAtom` fallback, which would
+evaluate `p` again) and returns null otherwise.  Two technicalities: the
+`TermTransformer` is not re-entrant, so a `proveAtom` reached from inside the
+hook (a record's fallback) runs on a fresh nested `ModelProver`; and `prove`
+memoizes a record as `FAILED` while it is in progress, so a cycle through the
+hook degrades to evaluation instead of looping.
+
+The needed record often does not exist for ground `p`: the excluded-middle
+clause `{(= p false), p}` *flattens* a positive `or` into the clause (likewise
+`{(= p true), ¬p}` a negated `and`), so `p`'s aux axioms for that polarity are
+never created.  The record exists only if `p` also occurs unflattened in that
+polarity, e.g. negated in an input clause, as an xor/`=` argument or as a
+term-ite condition (tests `testCompoundBooleanFunctionArgument`,
+`testCompoundTermIteCondition`).  For ground `p` the evaluation fallback is
+fine.  For Phase 4 it suffices too: the evaluation of a flattened `or`
+descends to its children, and the hook takes over at the quantified child,
+whose `QuantLiteral` is never flattened — provided its record exists for the
+needed polarity.
 
 All of this is still behind Phase 4: `T`/`F` are `QuantLiteral`s in quantified
 clauses (the assembler's `isTrue` rejects them) and the records are schemas over

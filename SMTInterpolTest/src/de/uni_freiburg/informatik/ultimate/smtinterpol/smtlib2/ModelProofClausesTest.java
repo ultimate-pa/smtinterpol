@@ -82,6 +82,46 @@ public class ModelProofClausesTest {
 	}
 
 	@Test
+	public void testCompoundBooleanFunctionArgument() {
+		// The Boolean argument of f has no model value; ModelProver proves (= arg false) from the sat proof of the
+		// argument's aux literal (the BooleanTermProver hook). The record for ~arg only exists because arg also
+		// occurs negated in a clause; the excluded-middle clause {(= arg false), arg} flattens the or.
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("f", new Sort[] { boolSort }, intSort);
+		final Term x = s.term("x"), p = s.term("p"), r = s.term("r");
+		final Term arg = s.term("or", p, s.term("<", x, s.numeral("0")));
+		s.assertTerm(s.term("=", s.term("f", arg), s.numeral("3")));
+		s.assertTerm(s.term("or", s.term("not", arg), r));
+		s.assertTerm(s.term("not", p));
+		s.assertTerm(s.term(">=", x, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testCompoundTermIteCondition() {
+		// as above, for the condition of a term-ite; the term-ite clauses collect the condition in both polarities.
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), y = s.term("y"), p = s.term("p");
+		final Term cond = s.term("or", p, s.term("<", x, s.numeral("0")));
+		s.assertTerm(s.term("=", y, s.term("ite", cond, s.numeral("1"), s.numeral("2"))));
+		s.assertTerm(s.term("not", p));
+		s.assertTerm(s.term(">=", x, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
 	public void testNegatedOr() {
 		final SMTInterpol s = newScript();
 		s.setLogic("QF_UFLIA");

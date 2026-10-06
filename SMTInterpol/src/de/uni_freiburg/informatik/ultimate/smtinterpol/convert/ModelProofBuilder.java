@@ -72,6 +72,40 @@ public class ModelProofBuilder {
 		mModelProver = modelProver;
 		mTracker = (ProofTracker) clausifier.mTracker;
 		mTheory = clausifier.getTheory();
+		modelProver.setBooleanTermProver(this::proveBooleanTerm);
+	}
+
+	/**
+	 * The {@link ModelProver.BooleanTermProver} hook: prove a Boolean subterm the model prover would otherwise
+	 * evaluate (an argument of an uninterpreted function, a term-ite condition, ...) from the sat-proof record of
+	 * its clausifier literal. The model has no values for Boolean terms; for quantified subterms this is the only
+	 * way to prove them.
+	 *
+	 * @return the annotated proof (see {@link ModelProver#annotateValue}), or null if there is no complete record.
+	 */
+	private Term proveBooleanTerm(final Term term) {
+		final ILiteral lit = mClausifier.getILiteral(term);
+		if (lit == null) {
+			return null;
+		}
+		final boolean value;
+		final ILiteral trueLit;
+		if (isTrue(lit)) {
+			value = true;
+			trueLit = lit;
+		} else if (isTrue(lit.negate())) {
+			value = false;
+			trueLit = lit.negate();
+		} else {
+			return null;
+		}
+		final Clausifier.FormulaSatProof record = mClausifier.mLiteralSatProofs.get(trueLit);
+		if (record == null) {
+			return null;
+		}
+		// only the record, never the model prover fallback: that would evaluate term again
+		final Term proof = proveRecord(record, new ProofLiteral(term, value));
+		return proof == null ? null : ModelProver.annotateValue(proof, value);
 	}
 
 	private static Set<ProofLiteral> clauseOf(final ProofLiteral... lits) {
@@ -129,6 +163,8 @@ public class ModelProofBuilder {
 	private ProvedClause prove(final Clausifier.SatRecord record) {
 		ProvedClause result = mMemo.get(record);
 		if (result == null) {
+			// guard against cycles through the BooleanTermProver hook
+			mMemo.put(record, FAILED);
 			if (record instanceof Clausifier.ClauseSatProof) {
 				result = proveClause((Clausifier.ClauseSatProof) record);
 			} else {
