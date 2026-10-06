@@ -89,9 +89,9 @@ so no separate hypothesis or placeholder mechanism is needed.
    `ProofRules.expand`, the `let`/`unlet` expansion in `ProofSimplifier`
    (line 4509), the `defineFun` wrapping from `mAuxDefs` (line 4900ff), and
    definition expansion in `MinimalProofChecker` (line 224ff).
-4. **Per quantified clause** (`QuantClause`): a proof that the quantified formula
-   follows from the universal closure of the clause formulas of its
-   `QuantClause`s.
+4. **Per quantified clause** (`QuantClause`): a proof that the target follows
+   from the universal closure of its clause formula, and a proof of that closure
+   from the model.  See "Quantified clauses and free variables".
 
 ### Why clause formulas and not clause arrays
 
@@ -951,110 +951,99 @@ record type and the assembly logic; they differ in the key (asserted `Term` vs.
 `ILiteral`, see "Registries and the clause record") and in where the record is
 built (`AddAsAxiom` join vs. `createDefiningClausesForLiteral`).
 
-### Quantified clause formulas
+### Quantified clauses and free variables (decided 2026-10-06)
 
-A `QuantClause`'s clause formula `ψ(x⃗)` has free variables, so it is not a
-sentence and cannot be a hypothesis as it stands.  The hypothesis recorded in the
-parent is its **universal closure** `(forall x⃗ ψ(x⃗))`; `BuildClause.buildQuantifierProof`
-already builds that same closure for the unsat side (via `allIntro`), so the term
-is at hand.
+**The hypothesis is the universal closure.**  A `QuantClause` with clause
+formula `ψ(y⃗)` contributes the closed formula `C = (forall y⃗ ψ(y⃗))`.  That is
+what `BuildClause.buildQuantifierProof` already proves on the unsat side (via
+`allIntro`), and it is what the input formula needs.  `C` has no free variables,
+so it can be a hypothesis as it stands.  Using it splits the obligation into two
+independent halves that meet at `C`:
 
-The per-`ILiteral` proofs `{¬l(x⃗), ψ(x⃗)}` are built exactly as in the ground case
-— the same `or+` steps — and simply contain free variables.  That is
-sound to record as a *schema*: proof terms with free variables can be instantiated
-with `theory.let(vars, terms, proof)` followed by `FormulaUnLet`, which is what
-`ProofTracker.allIntro` (line 332ff) already does for skolem terms.  So one
-recorded schema serves every instantiation.
+1. **`C` implies the target** (no model needed): the clause's `ClauseSatProof`
+   proves `{¬C} ∪ T`.
+2. **`C` holds in the model** (the quantifier theory's part, still open): a
+   proof of `{C}`.
 
-Proving the hypothesis at assembly time:
+Resolving the two on `C` gives `T`, exactly as a ground clause's record gives
+`T` from its true literal.
 
-```
-forallIntro((forall x⃗ ψ))  =  {¬ψ[sk⃗/x⃗], (forall x⃗ ψ)}      ; sk⃗ = the choose terms
-```
+**Half 1: from the closure to the target.**  A quantified clause has no true
+literal to pick, so its `ClauseSatProof` is used differently from a ground one.
+It must prove `(forall y⃗ (or l_1(y⃗) … l_n(y⃗))) ⇒ T`, i.e. the clause
+`{¬C} ∪ T`.  For that it keeps, per literal, the proof of `l_i[θ] ⇒ T`, i.e.
+`{¬l_i[θ]} ∪ T` (or a single target literal, as for ground clauses), and the
+instantiation `θ` of the closure's variables.  The assembler then builds:
 
-so what is needed is a proof of `{ψ[sk⃗/x⃗]}` — the clause formula at the choose
-terms.  Two cases:
+1. `forallElim(θ, C)`: `{¬C, (or l_1 … l_n)[θ]}`.  This is valid for *any* `θ`.
+   `θ` is aligned with the closure's variables, `clause.getFreeVars()` as used
+   by `buildQuantifierProof`.
+2. Or-elimination with the dual of the `:or+` steps `buildQuantifierProof` uses:
+   `:or-` `{¬(or l_1 … l_n)[θ], l_1[θ], …, l_n[θ]}`.  Skipped for a one-literal
+   clause, whose closure body is the literal itself.
+3. Resolve each `l_i[θ]` with its literal's proof.  Result: `{¬C} ∪ T`.
 
-1. **A ground literal is true** (`QuantClause.hasTrueGroundLits()`): its schema is
-   unaffected by the substitution, so instantiate `{¬l, ψ}` at `sk⃗`, resolve with
-   `ModelProver`'s proof of `{l}`, and resolve into `forallIntro`.  No case
-   distinction at all.  This is precisely the case for which
-   `QuantifierTheory.checkCompleteness` (line 874) does *not* demand the
-   almost-uninterpreted property.
-2. **Otherwise, a case distinction over the choose terms.**  For variable `x_i`
-   the candidate values are `QuantClause.getInterestingTerms()[i]` — always
-   non-empty, and containing the lambda term for "any other value"
-   (`QuantifierTheory.getLambda`, cf. the assertion at
-   `InstantiationManager:1209`); `computeAllSubstitutions` (line 1199) already
-   enumerates the combinations.  For each substitution σ the instance is satisfied
-   and the instantiation manager knows which literal makes it true, so
-   `{ψ[σ]}` follows from that literal's schema at σ plus the model proof of
-   `{l[σ]}`.  Lifting from σ to `sk⃗` uses the case hypothesis `sk_i = t_i`
-   (congruence on ψ).  The result is a case-split proof of `{ψ[sk⃗]}`, one branch
-   per σ.
+The model is never consulted, unlike for a ground clause.
 
-What case 2 additionally needs, and what is *not* obtainable from the model, is
-**exhaustiveness**: the clause
-`{sk_i = t_1, …, sk_i = t_m, <lambda case>}` for each variable.  That is the
-almost-uninterpreted-fragment argument behind `checkCompleteness`, i.e. the real
-research content of phase 4 — hence the staging: emit it as a `:quant-model`
-oracle first so that everything around it is checkable, then replace it.
+**θ is a global function of the variable, so all records are ground.**
 
-Note the difference from the ground case that forces all this: for a ground clause
-*one* literal is true and that settles it; for a quantified clause "true" is a
-property of each *instance*, so the witness literal varies with the instantiation.
+- `convertQuantifiedSubformula` creates fresh variables per quantifier
+  occurrence for a positive `forall` or negative `exists`.  The dual that a
+  literal's proof needs is `forallIntro` `{(forall x⃗ F), ¬F[c⃗]}` resp.
+  `existsElim` `{¬(exists x⃗ F), F[c⃗]}`, which holds only at the choose terms
+  `c⃗ = getSkolemVars(x⃗, F, isForall)`.
+- So each fresh variable has exactly one binding: the choose term of the
+  quantifier it replaced.  If `F` contains variables of an outer drop, those are
+  bound first: collection goes outside-in, and so does `AddAsAxiom` for a
+  top-level quantifier.  The choose terms are then computed from `F[θ]`, which
+  composes nested drops.
+- The same quantified formula dropped twice gives two fresh variables with the
+  same choose term, which is harmless.
 
-### Quantified input formulas — dual tracking
+Hence a Clausifier-wide scoped map `fresh variable → choose term`, filled by
+`convertQuantifiedSubformula` in its fresh-variable branch, is `θ` for every
+clause.
 
-The unsat side already tracks the whole quantifier pipeline; every step has a
-checkable dual in `CoreRules` (line 483ff, 599ff), so the sat side is tracked
-*in parallel*, step by step, and concludes the input formula **with its original
-quantifier** from the closures of its `QuantClause`s:
+- Every dual and every target is built `θ`-instantiated, so entry proofs prove
+  `{¬l_i[θ]} ∪ T[θ]` with no free variables.  This includes the defining clauses
+  of a quantified `AUX(y⃗)`, whose target `(= AUX(y⃗) true)` becomes
+  `(= AUX(c⃗) true)`, and the body records below a top-level `forall`, which the
+  join then uses as they are.
+- No proof term needs let/unlet instantiation, and memoization stays per record.
+- The `ClauseSatProof` of a quantified clause keeps `θ` restricted to its
+  closure's variables, for step 1 and for the pivots `l_i[θ]`.  The entries
+  stay keyed by the clause's literals `l_i`, which still contain the variables.
+- `CollectLiteral` replaces `poisonSatRecord()` by the dual `forallIntro` /
+  `existsElim` on `qf[θ]` (fresh-variable branch).  In the skolemized branch it
+  uses `existsIntro(sk⃗)` `{(exists x⃗ F), ¬F[sk⃗]}` resp. `forallElim(sk⃗)`
+  `{¬(forall x⃗ F), F[sk⃗]}`, valid for any terms and therefore for the
+  `@skolem` terms (whose definitions are the same choose terms); no variable
+  appears there.  `AddAsAxiom` does the same for a top-level quantifier, as the
+  start of the joining `FormulaSatProof`.
 
-| unsat step | rule | sat dual | rule |
-| --- | --- | --- | --- |
-| drop positive `forall` (fresh vars `y⃗`), `convertQuantifiedSubformula` | `:forall-` | rebuild it at the canonical choose terms | `forallIntro`, `{(forall x⃗ φ), ¬φ[sk⃗]}` |
-| skolemize positive `exists` with `@skolem` terms | `:exists-` | `existsIntro` at those same `@skolem` terms | `{(exists x⃗ φ), ¬φ[t⃗]}`, any witnesses |
-| `allIntro`: clause with free vars → closure (`buildQuantifierProof`) | `:forall+` | `forallElim`: closure → any instance | `{¬(forall y⃗ ψ), ψ[t⃗]}` |
-| compile rewrite of the substituted body (`mCompiler.transform`) | `modusPonens` | the same rewrite reversed (`iffElim1`), as a schema in `y⃗` | |
-| DER | `getTautForallNeg` + DER proof | case split on `x = t` (DERResult dual) | |
+**Half 2: proving `{C}` from the model (open).**  Per `QuantClause` that half 1
+uses, a proof of its closure `{C}` is needed.  This is the quantifier theory's
+part, and it is left open for now.  The expected source is an MBQI-style
+argument: in the sat case it checks the clause on all relevant instances and
+that the clause lies in the complete fragment, which is exactly the
+justification needed here.  Notes for when it is designed:
 
-The join in `AddAsAxiom` for a positive-`forall` node then works like the other
-splits, with instantiation instead of plain resolution.  The child record is a
-schema in the fresh variables `y⃗`:
-`{¬ψ_1(y⃗), ..., ¬ψ_n(y⃗), φ'(y⃗)}` (ground hypotheses unaffected).
-
-1. Instantiate the whole child record at `sk⃗`, the canonical choose terms of
-   `(forall x⃗ φ)` — `theory.let(y⃗, sk⃗, proof)` + `FormulaUnLet`, the same
-   mechanism `ProofTracker.allIntro` (line 332ff) already uses.
-2. Resolve with the reversed compile rewrite at `sk⃗`, giving `φ[sk⃗/x⃗]`.
-3. Resolve with `forallIntro` — conclusion `(forall x⃗ φ)`.
-4. Replace each instantiated quantified hypothesis `ψ_i[sk⃗]` by its closure via
-   `forallElim(sk⃗)`: `{¬(forall y⃗ ψ_i), ψ_i[sk⃗]}`.
-
-Result: `{¬(forall y⃗ ψ_1), ..., ¬(forall y⃗ ψ_n), (forall x⃗ φ)}` — the
-assertion-side record with the closures as hypotheses.  The positive-`exists`
-node is simpler: the child works on the skolemized body, which contains the
-`@skolem` terms as ordinary ground terms, so no schema instantiation is needed —
-one `existsIntro` with the `@skolem` terms as witnesses joins the child record
-directly.  Negative occurrences mirror the two cases.  The nested-quantifier
-branch of `CollectLiteral` (line 205ff) folds the same duals into the literal's
-`SatEntry` descent instead.
-
-The closures are exactly where the two halves meet: this record consumes
-`{(forall y⃗ ψ_i)}`, and "Quantified clause formulas" above describes how the
-quantifier theory proves it.  Two details to keep straight:
-
-- **Variable plumbing.**  The closure stored by `buildQuantifierProof` quantifies
-  over `clause.getFreeVars()`, which may be a subset of `y⃗` (DER may eliminate
-  variables) and in an unrelated order; the `forallElim` substitution in step 4
-  must map accordingly.  With DER the hypothesis is the closure of the *final*
-  clause, and the DER dual is composed into the record before step 4.
-- **Schema hygiene.**  Instantiating a proof schema via let/unlet substitutes in
-  tautology parameters too, which is exactly right — but it means recorded
-  schemas must never share `TermVariable`s across records.
-  `convertQuantifiedSubformula` already creates fresh variables per occurrence,
-  so this holds; worth an assertion.
+- **Interface.**  Half 1 only consumes `{C}` for the closure that
+  `buildQuantifierProof` builds, so whatever produces it is independent of the
+  records.
+- **DER** needs no model.  The solver holds the closure `C'` of `ψ'[y := t]`
+  instead of `C` for `ψ = (y ≠ t) ∨ ψ'(y)`.  `C` follows from `C'` by
+  `forallIntro(C)` and a tautological case split on `y = t` at its choose term,
+  using `forallElim(C')` and congruence in one branch and the literal
+  `(y ≠ t)` in the other.  If DER eliminates all variables, `C'` is a ground DPLL
+  clause.
+- If a clause has a true ground literal (`QuantClause.hasTrueGroundLits()`),
+  `forallIntro(C)` plus the model's proof of that literal suffices.
+- The instances half 2 looks at differ from `θ`.  If a quantified `AUX`
+  literal must be shown true at such an instance, evaluating its defined `@AUX`
+  works when the definition is quantifier-free.  A definition that itself
+  contains a quantifier needs that inner closure at that instance, which the
+  ground-at-`θ` records do not provide.
 
 ## Call-site checklist
 
@@ -1133,7 +1122,7 @@ branch of `getProof` and the option; plus a new test class.
 | --- | --- |
 | `Clausifier` | the registries above, plus threading the sat proof through `buildClause`, `buildTautology`, `buildClauseWithTautology`, `buildAuxClause`.  `addAuxAxioms` stores under `negLit.negate()`. `createDefiningClausesForLiteral` supplies, per aux clause, the target and the per-literal `TAUT_*` dual proofs, and builds the record's start proof and pivots — see the table in "The aux-clause contract". |
 | `buildAuxClause` | new parameters `Term[] target, Term[] litProofs`; returns the `ClauseSatProof`.  It still adds the aux literal directly (`bc.addLiteral(auxlit)`, no entry) and collects `params[1..]`, now each with its supplied proof.  All callers use it again (no `startAuxClause`, no copied scaffolding). |
-| `AddAsAxiom` | the core new construction.  Its splits (`and` positive, `or`/`=>` negative, `xor`, `ite`, quantifier) currently derive children with `resolveBinaryTautology`; the sat direction must *join* the children's proofs back into the parent formula with the dual tautology — for quantifier nodes via schema instantiation + `forallIntro`/`existsIntro`, see "Quantified input formulas — dual tracking".  Since `AddAsAxiom` pushes children onto `mTodoStack`, this needs a join `Operation` (analogous to how `BuildClause` performs after its literals are collected). |
+| `AddAsAxiom` | the core new construction.  Its splits (`and` positive, `or`/`=>` negative, `xor`, `ite`, quantifier) currently derive children with `resolveBinaryTautology`; the sat direction must *join* the children's proofs back into the parent formula with the dual tautology — for quantifier nodes via `forallIntro`/`existsIntro` and a hyp at an instantiation, see "Quantified clauses and free variables".  Since `AddAsAxiom` pushes children onto `mTodoStack`, this needs a join `Operation` (analogous to how `BuildClause` performs after its literals are collected). |
 | `BuildClause` | register `ψ_C` and the per-literal entries in `addLiteral(lit, origAtom, rewriteAtom, positive)` (all information is already there), and hand the proof "this node's formula from `ψ_C`" up to the parent.  Also the two quantifier paths: dual of `buildQuantifierProof`, and the DER path. |
 | `CollectLiteral` | duals for each branch, all folded into the collected literal's proof (`ψ_C` stays as created): `or`/`=>`/`and` inlining (one `or+`/`=>+`/`and-` step per inlined literal), the `QuantifiedFormula` branch, the aux-literal branch, the `TermVariable` branch, the `MatchTerm` branch.  No sat proof has to be threaded *into* `collectLiteral`. |
 | `AddTermITEAxiom`, `CCTermBuilder`, `EqualityProxy`, `LogicSimplifier`, `TermCompiler`, `SMTAffineTerm` | **no sat tracking.**  Term-level axioms (term-ite, div/mod, store, diff, ...) are tautologies: their clause formula is provable outright and never becomes a hypothesis.  The rewriters only produce equality proofs (see above). |
@@ -1149,9 +1138,9 @@ branch of `getProof` and the option; plus a new test class.
 
 | Class | Change |
 | --- | --- |
-| `QuantClause` | second proof field next to `mClauseWithProof`: the clause formula `ψ(x⃗)` with its per-`ILiteral` schemas, and the universal closure that the parent uses as hypothesis.  See "Quantified clause formulas". |
-| `QuantifierTheory` | sat proofs for `createAuxLiteral` / `createAuxFalseLiteral`; and, at sat time, prove `{(forall x⃗ ψ)}` per `QuantClause` — via `hasTrueGroundLits()` where possible, else the case distinction over the choose terms using `getInterestingTerms()`, `getLambda` and `InstantiationManager.computeAllSubstitutions`.  Exhaustiveness of that case distinction is the almost-uninterpreted-fragment argument behind `checkCompleteness()` (line 871ff) — see phase 4. |
-| `DestructiveEqualityReasoning` (`DERResult`) | DER is an equivalence on the universal closure (`∀x. x≠t ∨ φ(x)` ↔ `φ(t)`), so a dual proof exists: `forallIntro` plus a case split on `x = t`.  Needs a second proof field. |
+| `QuantClause` | a reference to its `ClauseSatProof` (target, per-literal entries, instantiation) and its closure, so the assembler can prove `{¬C} ∪ T` and `{C}`.  See "Quantified clauses and free variables". |
+| `QuantifierTheory` | sat proofs for `createAuxLiteral` / `createAuxFalseLiteral`; and, at sat time, prove the closure `{(forall x⃗ ψ)}` per `QuantClause` (half 2, open — see "Quantified clauses and free variables"). |
+| `DestructiveEqualityReasoning` (`DERResult`) | the closure of the original clause follows from the closure of the DER'd clause by `forallIntro` and a case split on `y = t`, without the model; the record must remember the DER substitution.  See "Quantified clauses and free variables". |
 | `QuantLiteral`, `QuantEquality`, `QuantAuxEquality`, `SubstitutionHelper`, `QuantAnnotation` | carry the reverse intern proofs; mostly mechanical. |
 | `InstantiationManager`, `InstClause` | instances are *consequences* of quant clauses, so they are not needed for the sat proof itself — only for the completeness argument (phase 4). |
 
@@ -1263,14 +1252,24 @@ clauses, and memoization must keep the subformula DAG from being expanded twice.
 **Phase 3 — theory atoms.**  Mostly testing: CC, LA, array, datatype and
 bitvector atoms only differ in their intern rewrites, which are reused reversed.
 
-**Phase 4 — quantifiers.**  `QuantClause` clause formula and per-literal schemas,
-the DER dual, quant aux literals (`@AUX` symbols stay in the proof and are expanded
-to their definition only where needed — the existing machinery, see artifact 3),
-and `{(forall x⃗ ψ)}`.  Staging within the phase: (a) `forallIntro` plus the
-`hasTrueGroundLits()` shortcut, which needs no case distinction at all; (b) the
-case distinction over the choose terms with a `:quant-model` oracle for its
-exhaustiveness, so everything around it is checkable; (c) replace that oracle by
-the almost-uninterpreted-fragment argument of `checkCompleteness()`.
+**Phase 4 — quantifiers.**  Prerequisite: a model for quantified problems.
+Today `Model` throws "Modelproduction for quantifier theory not implemented"
+(`Model.java:106`), so `get-proof` is `unsupported` before any record is
+used.  Then, following "Quantified clauses and free variables":
+- the quantifier duals in `CollectLiteral` (replacing `poisonSatRecord`) and in
+  `AddAsAxiom` (replacing the null record);
+- the global `fresh variable → choose term` map, with targets and duals built
+  instantiated, and `θ` on the quantified `ClauseSatProof`;
+- the closure as the hypothesis of a `QuantClause` record (half 1: `forallElim`
+  plus all literal entries, model-free);
+- the proof of each closure from the model (half 2, open; MBQI-style), with the
+  DER dual;
+- the quant aux literals (records done, see "Quantified aux literals"; `@AUX`
+  symbols stay in the proof and are expanded to their definition only where
+  needed — the existing machinery, see artifact 3).
+
+Half 1 can be built and checked before half 2 exists, with `{C}` as an
+explicit hypothesis or oracle.
 
 ## Open questions
 
@@ -1282,7 +1281,8 @@ the almost-uninterpreted-fragment argument of `checkCompleteness()`.
    clause formula / aux literal / assertion.  Because rewrites are reversible, sat
    proofs are only needed at a few join points, so (b) is much cheaper.
    Recommended: (b).
-3. **Scope of the obligation for quantified clauses** — is the intended
-   statement "the universal closure of each `QuantClause` formula holds", with
-   the quantifier theory responsible for it, or should the proof also justify
-   *why* the finitely many instances suffice?
+3. **Scope of the obligation for quantified clauses.**  Decided: the universal
+   closure of each `QuantClause` formula, with the quantifier theory responsible
+   for it (see "Quantified clauses and free variables").  How the closure is
+   proved from the model (half 2) is open; the expected source is an
+   MBQI-style argument.
