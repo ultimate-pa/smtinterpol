@@ -1021,6 +1021,43 @@ clause.
   appears there.  `AddAsAxiom` does the same for a top-level quantifier, as the
   start of the joining `FormulaSatProof`.
 
+**DER stays in half 1.**  `DestructiveEqualityReasoning` turns
+`ψ = (x ≠ t) ∨ l_1 ∨ … ∨ l_n` (with `t` free of `x`) into
+`ψ'' = (l_1 ∨ … ∨ l_n)[x := t]` over the remaining variables, and the solver
+holds the closure `C''` of `ψ''`.  The record of `ψ''` is derived from the
+record of `ψ` without the model.  Its instantiation `θ''` is `θ` without `x`.
+The DER literal's proof `{¬(x ≠ t)[θ]} ∪ T` is `{(= θx t[θ''])} ∪ T`, and each
+`l_i` has `{¬l_i[θ]} ∪ T`.  The proof for the substituted literal is then the
+case split on that equality:
+
+1. Congruence: `{¬(= θx t[θ'']), ¬l_i[x := t][θ''], l_i[θ]}`.
+2. Resolve with `l_i`'s proof on `l_i[θ]`, giving
+   `{¬(= θx t[θ'']), ¬l_i[x := t][θ'']} ∪ T`.
+3. Resolve with the DER literal's proof on the equality, giving
+   `{¬l_i[x := t][θ'']} ∪ T`.
+
+Half 1 then runs unchanged on `C''` with `θ''`.  The choose term `θx` still
+occurs in the proof, but only as a term; nothing evaluates it.  Details:
+
+- **Several variables and chains.**  `σ` is the closure `σ*` of all usable
+  `(v ≠ s)` literals, including var-to-var ones (`x ≠ y`, `y ≠ t` give
+  `x, y ↦ t`).  The equality `θx = σ*(x)[θ'']` is built by `trans` from the
+  equalities those literals' proofs provide.  Each such equality is a case
+  hypothesis, discharged by its literal's proof.
+- **Simplification is per literal** (`SubstitutionHelper.substituteInClause`).
+  Ground literals and literals without substituted variables are kept as they
+  are, with their proofs.  Each other literal is substituted, simplified
+  (`normalizeAndSimplifyLitTerm`, with a rewrite proof) and turned into a new
+  literal, so its proof gets the reversed rewrite as for every other rewrite.
+  - A literal that simplifies to `false` is dropped, and its proof is not
+    needed.
+  - Literals that become equal are merged; any one of their proofs serves.
+  - A literal that simplifies to `true` makes the clause trivially true, and the
+    clause is dropped.  It is never a hypothesis, so it needs no record.
+- **All variables eliminated.**  `ψ''` is a ground DPLL clause.  Its record has
+  ordinary per-literal proofs and is used like any ground clause, by its true
+  literal.
+
 **Half 2: proving `{C}` from the model (open).**  Per `QuantClause` that half 1
 uses, a proof of its closure `{C}` is needed.  This is the quantifier theory's
 part, and it is left open for now.  The expected source is an MBQI-style
@@ -1031,12 +1068,8 @@ justification needed here.  Notes for when it is designed:
 - **Interface.**  Half 1 only consumes `{C}` for the closure that
   `buildQuantifierProof` builds, so whatever produces it is independent of the
   records.
-- **DER** needs no model.  The solver holds the closure `C'` of `ψ'[y := t]`
-  instead of `C` for `ψ = (y ≠ t) ∨ ψ'(y)`.  `C` follows from `C'` by
-  `forallIntro(C)` and a tautological case split on `y = t` at its choose term,
-  using `forallElim(C')` and congruence in one branch and the literal
-  `(y ≠ t)` in the other.  If DER eliminates all variables, `C'` is a ground DPLL
-  clause.
+- After DER, the closure to prove is the one of the DER'd clause, which is what
+  the solver holds; DER itself is handled in half 1.
 - If a clause has a true ground literal (`QuantClause.hasTrueGroundLits()`),
   `forallIntro(C)` plus the model's proof of that literal suffices.
 - The instances half 2 looks at differ from `θ`.  If a quantified `AUX`
@@ -1140,7 +1173,7 @@ branch of `getProof` and the option; plus a new test class.
 | --- | --- |
 | `QuantClause` | a reference to its `ClauseSatProof` (target, per-literal entries, instantiation) and its closure, so the assembler can prove `{¬C} ∪ T` and `{C}`.  See "Quantified clauses and free variables". |
 | `QuantifierTheory` | sat proofs for `createAuxLiteral` / `createAuxFalseLiteral`; and, at sat time, prove the closure `{(forall x⃗ ψ)}` per `QuantClause` (half 2, open — see "Quantified clauses and free variables"). |
-| `DestructiveEqualityReasoning` (`DERResult`) | the closure of the original clause follows from the closure of the DER'd clause by `forallIntro` and a case split on `y = t`, without the model; the record must remember the DER substitution.  See "Quantified clauses and free variables". |
+| `DestructiveEqualityReasoning` (`DERResult`), `SubstitutionHelper` | the DER'd clause's record is derived from the original one, per literal: case split on `θx = t[θ'']` via congruence, discharged by the DER literal's proof, plus the reversed simplification rewrite.  See "DER stays in half 1". |
 | `QuantLiteral`, `QuantEquality`, `QuantAuxEquality`, `SubstitutionHelper`, `QuantAnnotation` | carry the reverse intern proofs; mostly mechanical. |
 | `InstantiationManager`, `InstClause` | instances are *consequences* of quant clauses, so they are not needed for the sat proof itself — only for the completeness argument (phase 4). |
 
@@ -1261,9 +1294,9 @@ used.  Then, following "Quantified clauses and free variables":
 - the global `fresh variable → choose term` map, with targets and duals built
   instantiated, and `θ` on the quantified `ClauseSatProof`;
 - the closure as the hypothesis of a `QuantClause` record (half 1: `forallElim`
-  plus all literal entries, model-free);
-- the proof of each closure from the model (half 2, open; MBQI-style), with the
-  DER dual;
+  plus all literal entries, model-free), including the DER'd clause's record
+  derived from the original one;
+- the proof of each closure from the model (half 2, open; MBQI-style);
 - the quant aux literals (records done, see "Quantified aux literals"; `@AUX`
   symbols stay in the proof and are expanded to their definition only where
   needed — the existing machinery, see artifact 3).
