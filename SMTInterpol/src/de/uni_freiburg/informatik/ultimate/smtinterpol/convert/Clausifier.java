@@ -1160,7 +1160,8 @@ public class Clausifier {
 		ILiteral negLit = getILiteral(term);
 		assert negLit != null;
 		negLit = positive ? negLit.negate() : negLit;
-		final FormulaSatProof satProof = createDefiningClausesForLiteral(negLit, term, positive, source);
+		final Term rho = negate(negLit.getSMTFormula(term.getTheory()));
+		final FormulaSatProof satProof = createDefiningClausesForLiteral(negLit, term, positive, rho, source);
 		if (satProof != null) {
 			mLiteralSatProofs.put(negLit.negate(), satProof);
 		}
@@ -1188,15 +1189,43 @@ public class Clausifier {
 
 		final QuantAuxEquality auxTrueLit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
 		final ILiteral auxFalseLit = mQuantTheory.createAuxFalseLiteral(auxTrueLit, source);
-		// as in addAuxAxioms, each record proves the negation of the aux literal in its defining clauses
-		final FormulaSatProof falseProof = createDefiningClausesForLiteral(auxFalseLit, term, true, source);
+		// the named literal of term; createAnonLiteral picks it up, so that parent clauses and records share it
+		setLiteral(term, auxTrueLit);
+		// T = (= AUX true) is the named literal, F = (= AUX false) the stand-in for ~T in the defining clauses.
+		// The records conclude the other one: T from F's clauses, F from T's clauses (then bridged to ~T). See
+		// "Quantified aux literals" in the model-proof plan.
+		final Theory t = term.getTheory();
+		final Term trueTerm = auxTrueLit.getSMTFormula(t);
+		final Term falseTerm = auxFalseLit.getSMTFormula(t);
+		final FormulaSatProof falseProof = createDefiningClausesForLiteral(auxFalseLit, term, true, trueTerm, source);
 		if (falseProof != null) {
-			mLiteralSatProofs.put(auxFalseLit.negate(), falseProof);
+			mLiteralSatProofs.put(auxTrueLit, falseProof);
 		}
-		final FormulaSatProof trueProof = createDefiningClausesForLiteral(auxTrueLit, term, false, source);
+		final FormulaSatProof trueProof = createDefiningClausesForLiteral(auxTrueLit, term, false, falseTerm, source);
 		if (trueProof != null) {
-			mLiteralSatProofs.put(auxTrueLit.negate(), trueProof);
+			final Term[] exclusive = new Term[] { t.term("not", falseTerm), t.term("not", trueTerm) };
+			mLiteralSatProofs.put(auxTrueLit.negate(),
+					new FormulaSatProof(auxExclusivityProof(auxTerm), exclusive, new SatRecord[] { trueProof },
+							new Term[] { falseTerm }, exclusive[1]));
 		}
+	}
+
+	/**
+	 * Proof of {@code {~(= aux false), ~(= aux true)}}, from {@code (= true aux)}, {@code (= aux false)} ⊢
+	 * {@code (= true false)}.
+	 */
+	private Term auxExclusivityProof(final Term auxTerm) {
+		final Theory t = auxTerm.getTheory();
+		final ProofRules rules = ((ProofTracker) mTracker).getProofRules();
+		final Term trueEqAux = t.term("=", t.mTrue, auxTerm);
+		final Term trueEqFalse = t.term("=", t.mTrue, t.mFalse);
+		// {~(= true false)}
+		Term notTrueEqFalse = rules.resolutionRule(t.mTrue, rules.trueIntro(), rules.iffElim2(trueEqFalse));
+		notTrueEqFalse = rules.resolutionRule(t.mFalse, notTrueEqFalse, rules.falseElim());
+		// {(= true false), ~(= aux true), ~(= aux false)}
+		final Term proof = rules.resolutionRule(trueEqAux, rules.symm(t.mTrue, auxTerm),
+				rules.trans(t.mTrue, auxTerm, t.mFalse));
+		return rules.resolutionRule(trueEqFalse, proof, notTrueEqFalse);
 	}
 
 	/**
@@ -1209,15 +1238,16 @@ public class Clausifier {
 	 *            The term.
 	 * @param negative
 	 *            true, iff lit stands for the negated term.
+	 * @param rho
+	 *            The literal the record proves, standing for the negation of lit: {@code negate(lit)} for a ground
+	 *            aux literal; for a quantified one the other {@code (= AUX true/false)}.
 	 * @param source
 	 *            The input clause from which this axiom was created.
 	 */
 	private FormulaSatProof createDefiningClausesForLiteral(final ILiteral lit, final Term term,
-			final boolean negative, final SourceAnnotation source) {
+			final boolean negative, final Term rho, final SourceAnnotation source) {
 		final Theory t = term.getTheory();
 		final Term litTerm = lit.getSMTFormula(t);
-		// The literal the record proves: the negation of the aux literal in the defining clauses.
-		final Term rho = negate(litTerm);
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm at = (ApplicationTerm) term;
 			final Term[] params = at.getParameters();
@@ -1485,13 +1515,10 @@ public class Clausifier {
 	}
 
 	/**
-	 * Build the defining clause of a {@code QuantEquality} aux literal ({@code lit == (= AUX val)}), the
-	 * excluded-middle clause {@code (or (= AUX false) term)} / {@code (or (= AUX true) (not term))}. Open point
-	 * (see "The aux-clause contract" in the model-proof plan): the record's target is the clause's other literal
-	 * ({@code term}/{@code (not term)}), which is not {@code ρ}; relating the two needs the definition of
-	 * {@code AUX}, not a structural dual. The assembler's conclusion check therefore rejects the record and falls
-	 * back to {@link de.uni_freiburg.informatik.ultimate.smtinterpol.model.ModelProver}. Untestable end to end until
-	 * quantifier model production exists.
+	 * Build the defining clause of a {@code QuantEquality} aux literal for a term that is no connective, the
+	 * excluded-middle clause {@code (or (= AUX false) term)} / {@code (or (= AUX true) (not term))}. Its literal
+	 * reaches {@code ρ}, the other {@code AUX} equality, via the other excluded-middle tautology
+	 * {@code {(= AUX true), ~term}} / {@code {(= AUX false), term}}.
 	 */
 	private FormulaSatProof createExcludedMiddleSatProof(final ILiteral lit, final Term term, final boolean negative,
 			final Term litTerm, final Term rho, final SourceAnnotation source) {
@@ -1499,7 +1526,9 @@ public class Clausifier {
 		final Term other = negative ? term : t.term("not", term);
 		final Term axiom = mTracker.tautology(t.term("or", litTerm, other),
 				negative ? ProofConstants.TAUT_EXCLUDED_MIDDLE_2 : ProofConstants.TAUT_EXCLUDED_MIDDLE_1);
-		final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { other }, new Term[1]);
+		final Annotation dual = negative ? ProofConstants.TAUT_EXCLUDED_MIDDLE_1 : ProofConstants.TAUT_EXCLUDED_MIDDLE_2;
+		final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho },
+				new Term[] { satTaut(dual, rho, negate(other)) });
 		return csp == null ? null : new FormulaSatProof(csp, rho);
 	}
 
@@ -1817,8 +1846,9 @@ public class Clausifier {
 			 * the currently active quantifiers
 			 */
 			if (term.getFreeVars().length > 0) {
-				final Term auxTerm = createQuantAuxTerm(term, source);
-				lit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
+				createQuantAuxTerm(term, source);
+				// the named literal registered by addAuxAxiomsQuant
+				lit = getILiteral(term);
 			} else {
 				lit = new NamedAtom(term, mStackLevel);
 				mEngine.addAtom((NamedAtom) lit);

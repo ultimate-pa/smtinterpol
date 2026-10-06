@@ -622,9 +622,8 @@ costs nothing: records are only checked as part of the assembled proof, and
 - `addFormula`'s bridge is itself a `FormulaSatProof`: the root record if the
   simplification is the identity, otherwise hyps `{getClauseProof(reverse)}`
   (`{¬simp, asserted}`, the reversed rewrite) and the root record, pivot `simp`.
-- `addAuxAxiomsQuant` currently registers its records under
-  `auxFalseLit.negate()` / `auxTrueLit.negate()`, by analogy with `addAuxAxioms`;
-  that is wrong for quantified aux literals — see "Quantified aux literals"
+- `addAuxAxiomsQuant` registers its records under `T` and `¬T`, not under the
+  syntactic negations of its defining literals — see "Quantified aux literals"
   below.
 
 **Fallback.** A record can still be incomplete (a `poisonSatRecord()`ed clause,
@@ -635,7 +634,7 @@ one level: if any hyp of a `FormulaSatProof` cannot be proved structurally,
 `proveLiteral` falls back to `ModelProver.proveAtom(ρ)` for the whole record,
 exactly as it already does when no record exists.
 
-**Quantified aux literals (decided 2026-10-05, not yet implemented).**
+**Quantified aux literals (decided 2026-10-05, records implemented 2026-10-06).**
 `createQuantAuxTerm` introduces a fresh defined function `AUX` (`@AUX…`, defined as
 the subformula `term`, free variables as arguments) and two `QuantAuxEquality`
 atoms, `T = (= AUX true)` and `F = (= AUX false)`.  `T` is the quantified
@@ -739,6 +738,33 @@ clauses (the assembler's `isTrue` rejects them) and the records are schemas over
 the free variables.  Until then these literals fall back to `ModelProver`
 (which also cannot evaluate quantified formulas), so nothing is exercised end
 to end.
+
+*Implementation notes (2026-10-06).*  `createDefiningClausesForLiteral` takes
+`ρ` as a parameter instead of computing `negate(litTerm)`: `addAuxAxioms` passes
+the negation as before, `addAuxAxiomsQuant` passes `T` for `F`'s clauses and `F`
+for `T`'s clauses, and wraps the latter in a `FormulaSatProof` whose start is the
+exclusivity clause `{¬F, ¬T}` (`auxExclusivityProof`) with pivot `F`.
+`createExcludedMiddleSatProof` now has target `{ρ}` with the other
+excluded-middle tautology as its literal's proof.  Keying needed one more fix:
+`createAnonLiteral` used to create a *second* `QuantAuxEquality` for the same
+`AUX` term, and `QuantLiteral` has identity equality, so a record stored under
+`addAuxAxiomsQuant`'s `T` could never be found from a parent clause.
+`addAuxAxiomsQuant` now registers its `T` with `setLiteral`, and
+`createAnonLiteral` returns it.
+
+Since nothing consumes these records yet, they were checked directly: every
+start and per-literal proof of every quantified record (or/and/=>/ite/xor/match,
+negated occurrences, and the bridge), 56 in all, was run through
+`ProofSimplifier` and `MinimalProofChecker` and proves exactly the clause the
+record expects, without oracles.  This exposed two lowlevel bugs that also hit
+the unsat side (regressions `datatype/match_bug4.smt2`,
+`datatype/match_quant_aux.smt2`): `convertTautDtMatch` did not accept the
+`(= AUX true/false)` literal of a quantified match (now expanded like in
+`convertTautElimIntro`, sharing `replaceByAuxDefEq`), and `convertMatch` was off
+by one for a match whose last case is a constructor case.  An `AUX` for a
+quantified formula used as a Boolean argument (the excluded-middle case) still
+has an incomplete record, because collecting the nested quantified formula as a
+literal poisons its clause record (the nested-quantifier part of Phase 4).
 
 ### `BuildClause` and `CollectLiteral`
 
