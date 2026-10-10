@@ -35,7 +35,6 @@ public interface ProofConstants {
 	public static final String FN_CONG = ".cong";
 	public static final String FN_TRANS = ".trans";
 	public static final String FN_QUANT = ".quant";
-	public static final String FN_MATCH = ".match";
 
 	//// ==== Annotation keys for clauses and resolution steps ====
 	public static final String ANNOTKEY_INPUTCLAUSE = ":input";
@@ -44,7 +43,6 @@ public interface ProofConstants {
 	public static final String ANNOTKEY_PROVES = ":proves";
 	public static final String ANNOTKEY_RUP = ":rup";
 	public static final String ANNOTKEY_VARS = ":vars";
-	public static final String ANNOTKEY_CONSTRUCTOR = ":constructor";
 
 	//// ==== Rewrite ids and names ====
 	public final static Annotation RW_EXPAND = new Annotation(":expand", null);
@@ -139,8 +137,6 @@ public interface ProofConstants {
 	public final static String TAUT_TO_INT_HIGH = ":toIntHigh";
 	public final static Annotation TAUT_ARRAY_STORE = new Annotation(":store", null);
 	public final static Annotation TAUT_ARRAY_DIFF = new Annotation(":diff", null);
-	public final static Annotation TAUT_MATCH_CASE = new Annotation(":matchCase", null);
-	public final static Annotation TAUT_MATCH_DEFAULT = new Annotation(":matchDefault", null);
 	public final static Annotation TAUT_INT2BV = new Annotation(":int2bv", null);
 	public static final Annotation TAUT_UBV2INTLOW = new Annotation(":bv2intLow", null);
 	public static final Annotation TAUT_UBV2INTHIGH = new Annotation(":bv2intHigh", null);

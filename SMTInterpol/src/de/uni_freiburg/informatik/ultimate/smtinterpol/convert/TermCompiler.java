@@ -758,11 +758,6 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 	}
 
 	@Override
-	public void postConvertMatch(final MatchTerm oldMatch, final Term newDataTerm, final Term[] newCases) {
-		setResult(mTracker.match(oldMatch, newDataTerm, newCases));
-	}
-
-	@Override
 	public void postConvertQuantifier(final QuantifiedFormula old, final Term newBody) {
 		final Theory theory = old.getTheory();
 		if (!theory.getLogic().isQuantified()) {

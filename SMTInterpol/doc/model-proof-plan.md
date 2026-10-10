@@ -466,6 +466,12 @@ the connective's atom, e.g. `{(and..), ¬l1..¬ln}` is `{¬ρ, ¬l1..¬ln}`. The
 redundant `ite` clause `{¬ρ, a, b}` gets no record — `buildAuxClause` is called
 with a `null` target.)
 
+*Superseded for `match` (2026-10-10):* the TermCompiler now rewrites every
+`match` to its `ite` form (`:matchToIte`, lowered to `dt-match`), so no match
+reaches the clausifier.  The `match` rows above, this paragraph, and the
+`:matchCase`/`:matchDefault` tautologies are gone from the code; Boolean
+matches go through the `ite` branch.  The text is kept for the record.
+
 **`match` in detail.**  `dtExhaust(d)` is a checked Resolute axiom without
 premises proving `{((_ is c_1) d), .., ((_ is c_n) d)}` for *all* constructors of
 `d`'s datatype, in declaration order — independent of the `match`.  Without a

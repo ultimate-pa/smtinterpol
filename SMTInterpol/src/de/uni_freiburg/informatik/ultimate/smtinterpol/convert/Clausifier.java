@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.math.BigInteger;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
@@ -28,7 +27,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -42,7 +40,6 @@ import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.OccurrenceCounter;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -673,9 +670,6 @@ public class Clausifier {
 					addExcludedMiddleAxiom(term, source);
 				}
 			}
-			if (term instanceof MatchTerm) {
-				addMatchAxiom((MatchTerm) term, source);
-			}
 			mIsRunning = wasRunning;
 		}
 		if (!mIsRunning) {
@@ -1187,7 +1181,7 @@ public class Clausifier {
 	 * {@link LogicSimplifier#convertBinaryEq}). A negated literal is rewritten recursively.
 	 *
 	 * This is called for every literal the clausifier collects, so axioms that are built from terms instead of from
-	 * converted input (like {@link #addDiffAxiom} or {@link #addMatchAxiom}) work for Boolean sorts, too, without
+	 * converted input (like {@link #addDiffAxiom}) work for Boolean sorts, too, without
 	 * having to convert their literals themselves.
 	 *
 	 * @param literal the literal to rewrite, possibly negated.
@@ -1526,97 +1520,6 @@ public class Clausifier {
 				assert lit instanceof QuantEquality;
 				return createExcludedMiddleSatProof(lit, term, negative, litTerm, rho, source);
 			}
-		} else if (term instanceof MatchTerm) {
-			final Theory theory = term.getTheory();
-			final MatchTerm mt = (MatchTerm) term;
-			final Term dataTerm = mt.getDataTerm();
-			final Map<Constructor, Term> cases = new LinkedHashMap<>();
-			final Constructor[] constrs = mt.getConstructors();
-			final List<SatRecord> hyps = new ArrayList<>();
-			final List<Term> pivots = new ArrayList<>();
-			boolean hasDefault = false;
-			for (int caseNr = 0; caseNr < constrs.length; caseNr++) {
-				final Constructor c = constrs[caseNr];
-				Annotation rule;
-				if (cases.containsKey(c)) {
-					continue;
-				}
-
-				final Deque<Term> clause = new ArrayDeque<>();
-				clause.add(litTerm);
-
-				final Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
-				Term isTerm = null;
-				if (c == null) {
-					// if c == null, this is the default case which matches everything else
-					clause.addAll(cases.values());
-					argSubs.put(mt.getVariables()[caseNr][0], dataTerm);
-					rule = ProofConstants.TAUT_MATCH_DEFAULT;
-				} else {
-					// build is-condition
-					final FunctionSymbol isFs =
-							theory.getFunctionWithResult("is", new String[] { c.getName() }, null, dataTerm.getSort());
-					isTerm = theory.term(isFs, dataTerm);
-					cases.put(c, isTerm);
-					clause.add(theory.term("not", isTerm));
-
-					// substitute argument TermVariables with the according selector function
-					int s_i = 0;
-					for (final String sel : c.getSelectors()) {
-						final Term selTerm = theory.term(theory.getFunctionSymbol(sel), dataTerm);
-						argSubs.put(mt.getVariables()[caseNr][s_i++], selTerm);
-					}
-					rule = ProofConstants.TAUT_MATCH_CASE;
-				}
-
-				// build implicated literal
-				final FormulaUnLet unlet = new FormulaUnLet();
-				unlet.addSubstitutions(argSubs);
-				final Term equalTerm = unlet.unlet(mt.getCases()[caseNr]);
-				final Term bodyLit = negative ? equalTerm : theory.term("not", equalTerm);
-				clause.add(bodyLit);
-				final Term[] lits = clause.toArray(new Term[clause.size()]);
-				final Term axiom = mTracker.tautology(theory.term("or", lits), rule);
-				// target: the case literal(s) and rho; the body literal reaches it via the dual tautology
-				final Term[] target = new Term[lits.length - 1];
-				System.arraycopy(lits, 1, target, 0, lits.length - 2);
-				target[lits.length - 2] = rho;
-				final Term[] dual = new Term[lits.length];
-				dual[0] = rho;
-				System.arraycopy(target, 0, dual, 1, lits.length - 2);
-				dual[lits.length - 1] = negate(bodyLit);
-				final Term[] litProofs = new Term[lits.length - 1];
-				litProofs[lits.length - 2] = satTaut(rule, dual);
-				final ClauseSatProof csp = buildAuxClause(lit, axiom, source, target, litProofs);
-				if (c == null) {
-					// the default clause's own case literals are the completeness fact: its hyp is the start
-					hyps.add(0, csp);
-					pivots.add(0, null);
-					hasDefault = true;
-					// skip all remaining cases
-					break;
-				} else {
-					hyps.add(csp);
-					pivots.add(isTerm);
-				}
-			}
-			if (!satProofsEnabled()) {
-				return null;
-			}
-			final SatRecord[] hypArr = hyps.toArray(new SatRecord[hyps.size()]);
-			final Term[] pivotArr = pivots.toArray(new Term[pivots.size()]);
-			if (hasDefault) {
-				return formulaSatProof(null, null, hypArr, pivotArr, rho);
-			}
-			// no default: the match is exhaustive, start with dtExhaust {is_c1(d), .., is_cn(d)}
-			final DataType dataType = (DataType) dataTerm.getSort().getSortSymbol();
-			final Constructor[] allConstrs = dataType.getConstructors();
-			final Term[] exhaust = new Term[allConstrs.length];
-			for (int i = 0; i < allConstrs.length; i++) {
-				exhaust[i] = theory.term(theory.getFunctionWithResult("is", new String[] { allConstrs[i].getName() },
-						null, dataTerm.getSort()), dataTerm);
-			}
-			return formulaSatProof(((ProofTracker) mTracker).dtExhaust(dataTerm), exhaust, hypArr, pivotArr, rho);
 		} else {
 			assert lit instanceof QuantEquality;
 			return createExcludedMiddleSatProof(lit, term, negative, litTerm, rho, source);
@@ -1893,56 +1796,6 @@ public class Clausifier {
 		axiom = theory.term("or", falseLit.getSMTFormula(theory), term);
 		axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_2);
 		buildAuxClause(falseLit, axiom, source);
-	}
-
-	public void addMatchAxiom(final MatchTerm term, final SourceAnnotation source) {
-		final Theory theory = term.getTheory();
-		final Term dataTerm = term.getDataTerm();
-		final Map<Constructor, Term> cases = new LinkedHashMap<>();
-		final Constructor[] constrs = term.getConstructors();
-		for (int caseNr = 0; caseNr < constrs.length; caseNr++) {
-			final Constructor c = constrs[caseNr];
-			if (cases.containsKey(c)) {
-				continue;
-			}
-
-			final Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
-			final Deque<Term> clause = new ArrayDeque<>();
-			Annotation rule;
-			if (c == null) {
-				// if c == null, this is the default case which matches everything else
-				clause.addAll(cases.values());
-				argSubs.put(term.getVariables()[caseNr][0], dataTerm);
-				rule = ProofConstants.TAUT_MATCH_DEFAULT;
-			} else {
-				// build is-condition
-				final FunctionSymbol isFs =
-						theory.getFunctionWithResult("is", new String[] { c.getName() }, null, dataTerm.getSort());
-				final Term isTerm = theory.term(isFs, dataTerm);
-				cases.put(constrs[caseNr], isTerm);
-				clause.add(theory.term("not", isTerm));
-
-				// substitute argument TermVariables with the according selector function
-				int s_i = 0;
-				for (final String sel : c.getSelectors()) {
-					final Term selTerm = theory.term(sel, dataTerm);
-					argSubs.put(term.getVariables()[caseNr][s_i++], selTerm);
-				}
-				rule = ProofConstants.TAUT_MATCH_CASE;
-			}
-
-			// build implicated equality
-			final FormulaUnLet unlet = new FormulaUnLet();
-			unlet.addSubstitutions(argSubs);
-			final Term caseTerm = mTheory.term("=", term, unlet.unlet(term.getCases()[caseNr]));
-			clause.add(caseTerm);
-			buildTautology(theory, clause.toArray(new Term[clause.size()]), rule, source);
-
-			if (c == null) {
-				// the variable pattern matches everything, so skip the rest.
-				break;
-			}
-		}
 	}
 
 	/**

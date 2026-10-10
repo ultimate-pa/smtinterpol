@@ -21,7 +21,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -104,12 +103,6 @@ public class NoopProofTracker implements IProofTracker {
 		final boolean isForall = quant.getQuantifier() == QuantifiedFormula.FORALL;
 		return isForall ? theory.forall(quant.getVariables(), getProvedTerm(newBody))
 				: theory.exists(quant.getVariables(), getProvedTerm(newBody));
-	}
-
-	@Override
-	public Term match(final MatchTerm oldMatch, final Term newData, final Term[] newCases) {
-		final Theory theory = oldMatch.getTheory();
-		return theory.match(newData, oldMatch.getVariables(), newCases, oldMatch.getConstructors());
 	}
 
 	@Override

@@ -19,7 +19,6 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
@@ -95,20 +94,6 @@ public interface IProofTracker {
 	 * @return the new existential quantifier annotated with a proof for {@code (= old (exists varlist g))}.
 	 */
 	public Term quantCong(QuantifiedFormula old, Term newBody);
-
-	/**
-	 * Lift rewrites over a match, i.e. convert a proof for {@code (= fi gi)} into a
-	 * proof for
-	 * {@code (= (match f0 ((...) f1) ... ((...) fn)) (match g0 ((...) g1) ... ((...) gn)))}
-	 *
-	 * @param oldMatch the input match term.
-	 * @param newData  the formula g0 with its rewrite proof for {@code (= f0 g0)}.
-	 * @param newCases the formulas g1,...,gn with their rewrite proof for
-	 *                 {@code (= fi gi)}.
-	 * @return the new existential quantifier annotated with a proof for
-	 *         {@code (= old (exists varlist g))}.
-	 */
-	public Term match(MatchTerm oldMatch, Term newData, Term[] newCases);
 
 	/* == rewrite rules == */
 

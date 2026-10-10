@@ -20,7 +20,6 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
@@ -292,18 +291,6 @@ class CollectLiteral implements Operation {
 					mClauseBuilder.getSource());
 			final Term rewrite = mClausifier.mTracker.intern(idx, (positive ? lit.negate() : lit).getSMTFormula(theory));
 			mClauseBuilder.addLiteral(lit.negate(), idx, rewrite, positive, mSatEntry);
-		} else if (idx instanceof MatchTerm) {
-			final ILiteral lit = mClausifier.createAnonLiteral(idx, mClauseBuilder.getSource());
-			// aux axioms will always automatically created for quantified formulas
-			if (idx.getFreeVars().length == 0) {
-				if (positive) {
-					mClausifier.addAuxAxioms(idx, true, mClauseBuilder.getSource());
-				} else {
-					mClausifier.addAuxAxioms(idx, false, mClauseBuilder.getSource());
-				}
-			}
-			final Term rewrite = mClausifier.mTracker.intern(idx, lit.getSMTFormula(theory));
-			mClauseBuilder.addLiteral(positive ? lit : lit.negate(), idx, rewrite, positive, mSatEntry);
 		} else {
 			throw new SMTLIBException("Cannot handle literal " + mLiteral);
 		}
@@ -344,7 +331,7 @@ class CollectLiteral implements Operation {
 
 		boolean shouldReplaceTerm(final Term term) {
 			return term.getFreeVars().length != 0 && !(term instanceof TermVariable)
-					&& (!Clausifier.needCCTerm(term) || term instanceof QuantifiedFormula || term instanceof MatchTerm);
+					&& (!Clausifier.needCCTerm(term) || term instanceof QuantifiedFormula);
 		}
 	}
 }
