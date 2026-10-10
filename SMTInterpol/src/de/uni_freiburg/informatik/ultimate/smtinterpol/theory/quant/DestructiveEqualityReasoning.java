@@ -247,6 +247,7 @@ public class DestructiveEqualityReasoning {
 
 		protected DERResult(final Term[] subs, final SubstitutionResult subsRes) {
 			super(subsRes.mSubstituted, subsRes.mSimplified, subsRes.mGroundLits, subsRes.mQuantLits);
+			setPerLiteral(subsRes.mSubstitutedLits, subsRes.mLitRewrites, subsRes.mNewLits);
 			mSubs = subs;
 		}
 

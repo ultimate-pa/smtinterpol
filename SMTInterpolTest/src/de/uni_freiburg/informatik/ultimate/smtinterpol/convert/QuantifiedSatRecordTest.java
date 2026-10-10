@@ -22,7 +22,9 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.Assert;
@@ -33,6 +35,7 @@ import org.junit.runners.JUnit4;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofSimplifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.MinimalProofChecker;
@@ -93,6 +96,47 @@ public class QuantifiedSatRecordTest {
 		return closures;
 	}
 
+	/**
+	 * Check every entry of the ground clause records reachable from the assertions: its proof proves exactly
+	 * {@code {~l} ∪ rest}, also after lowering, without oracles. Returns the number of ground clause records.
+	 */
+	private int checkGroundClauseRecords(final SMTInterpol script) {
+		final Clausifier clausifier = script.getClausifier();
+		final MinimalProofChecker checker = new MinimalProofChecker(script, script.getLogger());
+		final Set<Clausifier.SatRecord> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+		final List<Clausifier.SatRecord> todo = new ArrayList<>(clausifier.mAssertionSatProofs.values());
+		int count = 0;
+		while (!todo.isEmpty()) {
+			final Clausifier.SatRecord record = todo.remove(todo.size() - 1);
+			if (!seen.add(record)) {
+				continue;
+			}
+			if (record instanceof Clausifier.FormulaSatProof) {
+				todo.addAll(Arrays.asList(((Clausifier.FormulaSatProof) record).mHyps));
+				continue;
+			}
+			final Clausifier.ClauseSatProof csp = (Clausifier.ClauseSatProof) record;
+			Assert.assertNotNull("incomplete clause record", csp.mLiterals);
+			if (csp.mClosure != null) {
+				continue;
+			}
+			count++;
+			for (final Map.Entry<ILiteral, Clausifier.SatEntry> e : csp.mLiterals.entrySet()) {
+				final Clausifier.SatEntry entry = e.getValue();
+				if (entry.mProof == null) {
+					continue;
+				}
+				final Set<ProofLiteral> expected = new HashSet<>(Arrays.asList(entry.getRest(csp.mTarget)));
+				expected.add(Clausifier.toProofLiteral(e.getKey().getSMTFormula(script.getTheory())).negate());
+				Assert.assertEquals(expected, new HashSet<>(Arrays.asList(checker.getProvedClause(entry.mProof))));
+				final Term lowered = new ProofSimplifier(script).transformProof(entry.mProof);
+				Assert.assertEquals(expected, new HashSet<>(Arrays.asList(checker.getProvedClause(lowered))));
+				Assert.assertFalse("oracle in lowered proof", lowered.toStringDirect().contains("oracle"));
+			}
+		}
+		return count;
+	}
+
 	@Test
 	public void testForallOr() {
 		Assert.assertEquals(1, checkAssertions(parse("(assert (forall ((x Int)) (or (P x) (Q x))))")));
@@ -138,5 +182,35 @@ public class QuantifiedSatRecordTest {
 	public void testQuantifiedAuxLiteral() {
 		Assert.assertEquals(1, checkAssertions(
 				parse("(assert (forall ((x Int)) (or (and (P x) (Q x)) (> (f x) 0) (= (f x) (- 5)))))")));
+	}
+
+	@Test
+	public void testDERKeepsVariable() {
+		// DER eliminates x := (f y); the clause keeps y
+		Assert.assertEquals(1, checkAssertions(
+				parse("(assert (forall ((x Int) (y Int)) (or (not (= x (f y))) (P x) (Q y))))")));
+	}
+
+	@Test
+	public void testDERChain() {
+		// DER eliminates x and y through a chain of disequalities
+		Assert.assertEquals(1, checkAssertions(parse(
+				"(assert (forall ((x Int) (y Int) (z Int)) (or (not (= x y)) (not (= y (f z))) (R x z) (Q y))))")));
+	}
+
+	@Test
+	public void testDERNestedDrop() {
+		// the nested forall is dropped with a fresh variable, which DER then eliminates
+		Assert.assertEquals(1, checkAssertions(
+				parse("(assert (forall ((x Int)) (or (forall ((y Int)) (or (not (= y (f x))) (R x y))) (P x))))")));
+	}
+
+	@Test
+	public void testDERGround() {
+		// DER eliminates all variables: the clause becomes ground, an ordinary DPLL clause
+		final SMTInterpol script = parse(
+				"(assert (forall ((x Int)) (or (not (= x 5)) (P x) (= (g x x) 3))))"
+						+ "(assert (forall ((x Int) (y Int)) (or (not (= x 5)) (not (= y (f x))) (R x y))))");
+		Assert.assertEquals(2, checkGroundClauseRecords(script));
 	}
 }

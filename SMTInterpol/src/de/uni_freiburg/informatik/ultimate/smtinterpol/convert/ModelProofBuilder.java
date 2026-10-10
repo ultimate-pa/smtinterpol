@@ -239,9 +239,7 @@ public class ModelProofBuilder {
 				proof = lit.getPolarity() ? res(lit.getAtom(), proof, entry.mProof)
 						: res(lit.getAtom(), entry.mProof, proof);
 			}
-			final Set<ProofLiteral> clause =
-					entry.mDisjunct == null ? clauseOf(c.mTarget) : clauseOf(entry.mDisjunct);
-			return new ProvedClause(proof, clause);
+			return new ProvedClause(proof, clauseOf(entry.getRest(c.mTarget)));
 		}
 		// No literal of this clause is set to true. Shouldn't happen (see the "invariant the assembler relies on"
 		// in the model-proof plan) but degrade gracefully rather than crash.
@@ -291,11 +289,7 @@ public class ModelProofBuilder {
 				proof = lit.getPolarity() ? res(lit.getAtom(), proof, entry.mProof)
 						: res(lit.getAtom(), entry.mProof, proof);
 			}
-			if (entry.mDisjunct == null) {
-				clause.addAll(clauseOf(c.mTarget));
-			} else {
-				clause.add(entry.mDisjunct);
-			}
+			clause.addAll(Arrays.asList(entry.getRest(c.mTarget)));
 		}
 		assert resolved.size() == lits.length : "clause literals without sat entry";
 		return new ProvedClause(proof, clause);

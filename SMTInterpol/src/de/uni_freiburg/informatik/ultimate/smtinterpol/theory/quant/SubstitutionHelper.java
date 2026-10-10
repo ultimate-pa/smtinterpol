@@ -90,6 +90,8 @@ public class SubstitutionHelper {
 		// We also need duplicates here for proof production.
 		final Set<ILiteral> resultingGroundLits = new LinkedHashSet<>();
 		final Set<ILiteral> resultingQuantLits = new LinkedHashSet<>();
+		// per original literal: the new literal it became (null if it simplified to false)
+		final List<ILiteral> newLits = new ArrayList<>(mGroundLits.length + mQuantLits.length);
 
 		final Theory theory = mQuantTheory.getTheory();
 
@@ -99,6 +101,7 @@ public class SubstitutionHelper {
 			substitutedLitTerms.add(groundLitTerm);
 			provedLitTerms.add(mTracker.reflexivity(groundLitTerm));
 			resultingGroundLits.add(gLit);
+			newLits.add(gLit);
 		}
 
 		// Substitute in quantified literals
@@ -108,6 +111,7 @@ public class SubstitutionHelper {
 				substitutedLitTerms.add(qLit.getSMTFormula(theory));
 				provedLitTerms.add(mTracker.reflexivity(qLit.getSMTFormula(theory)));
 				resultingQuantLits.add(qLit);
+				newLits.add(qLit);
 			} else { // Build the new literals. Separate ground and quantified literals.
 
 				// Substitute variables.
@@ -123,6 +127,7 @@ public class SubstitutionHelper {
 				}
 				if (mTracker.getProvedTerm(simplified) == theory.mFalse) {
 					provedLitTerms.add(simplified);
+					newLits.add(null);
 					continue;
 				}
 
@@ -177,6 +182,7 @@ public class SubstitutionHelper {
 				provedLitTerms.add(simplified);
 
 				final ILiteral newLiteral = isPos ? newAtom : newAtom.negate();
+				newLits.add(newLiteral);
 				if (newLiteral instanceof Literal) {
 					final Literal newGroundLit = (Literal) newLiteral;
 					if (resultingGroundLits.contains(newGroundLit.negate())) { // Clause simplifies to true
@@ -208,9 +214,12 @@ public class SubstitutionHelper {
 					provedLitTerms.toArray(new Term[provedLitTerms.size()]));
 			simpClause = mTracker.orSimpClause(simpClause);
 		}
-		return new SubstitutionResult(substitutedClause, simpClause,
+		final SubstitutionResult result = new SubstitutionResult(substitutedClause, simpClause,
 				resultingGroundLits.toArray(new Literal[resultingGroundLits.size()]),
 				resultingQuantLits.toArray(new QuantLiteral[resultingQuantLits.size()]));
+		result.setPerLiteral(substitutedLitTerms.toArray(new Term[substitutedLitTerms.size()]),
+				provedLitTerms.toArray(new Term[provedLitTerms.size()]), newLits.toArray(new ILiteral[newLits.size()]));
+		return result;
 	}
 
 	/**
@@ -281,6 +290,14 @@ public class SubstitutionHelper {
 		final Term mSimplified;
 		final Literal[] mGroundLits;
 		final QuantLiteral[] mQuantLits;
+		/**
+		 * Per literal of the original clause (ground literals first, then quantified ones, in their order): the
+		 * substituted literal term, its rewrite to the new literal's formula (resp. to false), and the new literal
+		 * (null if it simplified to false). Null for a trivially true result.
+		 */
+		Term[] mSubstitutedLits;
+		Term[] mLitRewrites;
+		ILiteral[] mNewLits;
 
 		/**
 		 * Build a new SubstitutionResult.
@@ -300,6 +317,24 @@ public class SubstitutionHelper {
 			mSimplified = simplified;
 			mGroundLits = groundLits;
 			mQuantLits = quantLits;
+		}
+
+		void setPerLiteral(final Term[] substitutedLits, final Term[] litRewrites, final ILiteral[] newLits) {
+			mSubstitutedLits = substitutedLits;
+			mLitRewrites = litRewrites;
+			mNewLits = newLits;
+		}
+
+		public Term[] getSubstitutedLits() {
+			return mSubstitutedLits;
+		}
+
+		public Term[] getLitRewrites() {
+			return mLitRewrites;
+		}
+
+		public ILiteral[] getNewLits() {
+			return mNewLits;
 		}
 
 		public boolean isTriviallyTrue() {

@@ -1021,7 +1021,7 @@ clause.
   appears there.  `AddAsAxiom` does the same for a top-level quantifier, as the
   start of the joining `FormulaSatProof`.
 
-*Implementation status (2026-10-06).*  Half 1 is implemented, except DER:
+*Implementation status (2026-10-10).*  Half 1 is implemented, including DER:
 
 - `Clausifier.mChooseTerms` is filled by `convertQuantifiedSubformula`.
 - The duals use the existing quantifier tautologies with swapped keys
@@ -1039,7 +1039,9 @@ clause.
   (`QuantifiedSatRecordTest`, which checks the assembled clause, the checker's
   clause and the lowered proof, oracle-free).  Otherwise a quantified record
   counts as incomplete.
-- A clause changed by DER still gets an incomplete record.
+- DER: `DERSatRecord` derives the DER'd clause's entries (see below).  Only a
+  clause that DER makes trivially true still gets an incomplete record; it is
+  dropped, so a proof of it would have to be a tautology proof.
 
 **DER stays in half 1.**  `DestructiveEqualityReasoning` turns
 `ψ = (x ≠ t) ∨ l_1 ∨ … ∨ l_n` (with `t` free of `x`) into
@@ -1077,6 +1079,19 @@ occurs in the proof, but only as a term; nothing evaluates it.  Details:
 - **All variables eliminated.**  `ψ''` is a ground DPLL clause.  Its record has
   ordinary per-literal proofs and is used like any ground clause, by its true
   literal.
+- **Implementation notes.**
+  - The congruence is structural: low-level `cong`/`refl`, memoized per subterm.
+    No `@derbody` function is needed, since matches are rewritten to `ite` by
+    the TermCompiler and no binder can contain an eliminated variable.
+  - DER applies `σ` simultaneously and does not always make it idempotent.
+    `{x ↦ y, y ↦ (f z)}` keeps `y` in the DER'd clause.  So the leaf equality
+    `(= σ(x)[θ] θx)` comes from a DER literal `(x ≠ s)` either with
+    `s = σ(x)` directly, or, if DER composed `σ`, with `s[σ] = σ(x)` via
+    congruence on `s` and `trans`.
+  - A derived entry concludes the union of several entries' remainders, which
+    can be any subclause of the target.  `SatEntry.mRest` records it exactly.
+  - `SubstitutionResult` now reports, per original literal, the substituted
+    term, its rewrite and the new literal.
 
 **Half 2: proving `{C}` from the model (open).**  Per `QuantClause` that half 1
 uses, a proof of its closure `{C}` is needed.  This is the quantifier theory's

@@ -280,6 +280,7 @@ public class Clausifier {
 			final LinkedHashMap<ILiteral, SatEntry> sealed = new LinkedHashMap<>();
 			for (final Map.Entry<ILiteral, SatEntry> e : literals.entrySet()) {
 				final SatEntry entry = e.getValue();
+				assert entry.mRest == null;
 				final ProofLiteral disjunct = entry.mDisjunct == null ? null : clausifier.instantiate(entry.mDisjunct);
 				final Term proof = entry.mProof == null ? null : clausifier.instantiate(entry.mProof);
 				sealed.put(e.getKey(), proof == null && disjunct == null ? entry : new SatEntry(disjunct, proof));
@@ -306,11 +307,29 @@ public class Clausifier {
 	static final class SatEntry {
 		final ProofLiteral mDisjunct;
 		final Term mProof;
+		/**
+		 * If non-null, {@code mProof} proves exactly {@code {~it} ∪ mRest}, overriding {@code mDisjunct}; used for
+		 * entries combined from several entries (DER), whose remainder can be any subclause of the target.
+		 */
+		final ProofLiteral[] mRest;
 
 		SatEntry(final ProofLiteral disjunct, final Term proof) {
 			assert disjunct != null || proof != null;
 			mDisjunct = disjunct;
 			mProof = proof;
+			mRest = null;
+		}
+
+		SatEntry(final Term proof, final ProofLiteral[] rest) {
+			assert proof != null && rest != null;
+			mDisjunct = null;
+			mProof = proof;
+			mRest = rest;
+		}
+
+		/** The clause {@code mProof} proves besides {@code ~it}, for an entry of a record with the given target. */
+		ProofLiteral[] getRest(final ProofLiteral[] target) {
+			return mRest != null ? mRest : mDisjunct != null ? new ProofLiteral[] { mDisjunct } : target;
 		}
 	}
 

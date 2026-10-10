@@ -368,9 +368,16 @@ class BuildClause implements Operation {
 			if (mSatRecord != null && mSatRecord.mLiterals != null) {
 				if (resultFromDER == null) {
 					mSatRecord.setClosure(closure, mClausifier);
-				} else {
-					// TODO derive the record of the DER'd clause (model-proof plan, "DER stays in half 1")
+				} else if (resultFromDER.isTriviallyTrue()) {
+					// the clause is dropped, so the solver never establishes it; TODO prove it as a tautology
 					mSatRecord.mLiterals = null;
+				} else {
+					// the record of the DER'd clause, derived from the original one ("DER stays in half 1")
+					final ILiteral[] clauseLits = new ILiteral[lits.length + quantLits.length];
+					System.arraycopy(lits, 0, clauseLits, 0, lits.length);
+					System.arraycopy(quantLits, 0, clauseLits, lits.length, quantLits.length);
+					mSatRecord.mLiterals =
+							DERSatRecord.derive(mClausifier, mSatRecord, resultFromDER, quantVars, clauseLits);
 				}
 			}
 			if (resultFromDER == null) {
@@ -409,6 +416,10 @@ class BuildClause implements Operation {
 					mClausifier.addClause(derGroundLits, null, getProofNewSource(mProof, mSource));
 				} else {
 					rewriteProofAfterDER = buildQuantifierProof(derGroundLits, derQuantLits);
+					if (mSatRecord != null && mSatRecord.mLiterals != null) {
+						mSatRecord.setClosure((QuantifiedFormula) mClausifier.mTracker.getProvedTerm(rewriteProofAfterDER),
+								mClausifier);
+					}
 					quantVars = ((QuantifiedFormula) mClausifier.mTracker.getProvedTerm(rewriteProofAfterDER)).getVariables();
 					quantTheory.addQuantClause(quantVars, derGroundLits, derQuantLits, mSource,
 							rewriteProofAfterDER);
