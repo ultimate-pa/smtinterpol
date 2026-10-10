@@ -1039,9 +1039,18 @@ clause.
   (`QuantifiedSatRecordTest`, which checks the assembled clause, the checker's
   clause and the lowered proof, oracle-free).  Otherwise a quantified record
   counts as incomplete.
-- DER: `DERSatRecord` derives the DER'd clause's entries (see below).  Only a
-  clause that DER makes trivially true still gets an incomplete record; it is
-  dropped, so a proof of it would have to be a tautology proof.
+- DER: `DERSatRecord` derives the DER'd clause's entries (see below).
+- **Trivially true clauses** are dropped, by `BuildClause` (`mIsTrue`) or by
+  DER.  Their record gets a *ready-made* proof that needs no model
+  (`ClauseSatProof.mReadyMadeProof` and its exact clause `mReadyMadeClause`,
+  a subclause of the target):
+  - **A literal `true`:** its entry `{¬true} ∪ R`, resolved with `trueIntro`.
+  - **Complementary literals:** their entries `{¬l} ∪ R1` and `{l} ∪ R2`,
+    resolved on `l`.
+
+  This works the same for ground and quantified clauses, since the entries are
+  already instantiated.  For DER, `SubstitutionHelper` reports the per-literal
+  information up to the literal that made the clause true.
 
 **DER stays in half 1.**  `DestructiveEqualityReasoning` turns
 `ψ = (x ≠ t) ∨ l_1 ∨ … ∨ l_n` (with `t` free of `x`) into

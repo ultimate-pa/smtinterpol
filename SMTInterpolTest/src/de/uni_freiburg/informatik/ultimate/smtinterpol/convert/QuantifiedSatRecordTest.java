@@ -213,4 +213,78 @@ public class QuantifiedSatRecordTest {
 						+ "(assert (forall ((x Int) (y Int)) (or (not (= x 5)) (not (= y (f x))) (R x y))))");
 		Assert.assertEquals(2, checkGroundClauseRecords(script));
 	}
+
+	/**
+	 * Check the ready-made proofs of all trivially true clause records reachable from the assertions: each proves
+	 * exactly its clause, a subclause of the target, also after lowering, without oracles. Returns their number.
+	 */
+	private int checkReadyMadeRecords(final SMTInterpol script) {
+		final Clausifier clausifier = script.getClausifier();
+		final MinimalProofChecker checker = new MinimalProofChecker(script, script.getLogger());
+		final Set<Clausifier.SatRecord> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+		final List<Clausifier.SatRecord> todo = new ArrayList<>(clausifier.mAssertionSatProofs.values());
+		todo.addAll(clausifier.mLiteralSatProofs.values());
+		int count = 0;
+		while (!todo.isEmpty()) {
+			final Clausifier.SatRecord record = todo.remove(todo.size() - 1);
+			if (!seen.add(record)) {
+				continue;
+			}
+			if (record instanceof Clausifier.FormulaSatProof) {
+				for (final Clausifier.SatRecord hyp : ((Clausifier.FormulaSatProof) record).mHyps) {
+					if (hyp != null) {
+						todo.add(hyp);
+					}
+				}
+				continue;
+			}
+			final Clausifier.ClauseSatProof csp = (Clausifier.ClauseSatProof) record;
+			if (csp.mReadyMadeProof == null) {
+				continue;
+			}
+			count++;
+			final Set<ProofLiteral> expected = new HashSet<>(Arrays.asList(csp.mReadyMadeClause));
+			Assert.assertTrue("not a subclause of the target",
+					new HashSet<>(Arrays.asList(csp.mTarget)).containsAll(expected));
+			Assert.assertEquals(expected, new HashSet<>(Arrays.asList(checker.getProvedClause(csp.mReadyMadeProof))));
+			final Term lowered = new ProofSimplifier(script).transformProof(csp.mReadyMadeProof);
+			Assert.assertEquals(expected, new HashSet<>(Arrays.asList(checker.getProvedClause(lowered))));
+			Assert.assertFalse("oracle in lowered proof", lowered.toStringDirect().contains("oracle"));
+		}
+		return count;
+	}
+
+	@Test
+	public void testTrivialGroundPair() {
+		// (= c d) and (not (= d c)) only become complementary as literals (the same CC equality)
+		Assert.assertEquals(1, checkReadyMadeRecords(
+				parse("(declare-fun c () Int)(declare-fun d () Int)(assert (or (= c d) (not (= d c)) (P c)))")));
+	}
+
+	@Test
+	public void testTrivialSimplifiedToTrue() {
+		// the TermCompiler already simplifies the formula to true; the clause is the literal true
+		Assert.assertEquals(1, checkReadyMadeRecords(
+				parse("(declare-fun c () Int)(assert (or (< c 0) (P c) (>= c 0)))")));
+	}
+
+	@Test
+	public void testTrivialQuantifiedSimplifiedToTrue() {
+		Assert.assertEquals(1, checkReadyMadeRecords(
+				parse("(assert (forall ((x Int)) (or (< (f x) 0) (P x) (>= (f x) 0))))")));
+	}
+
+	@Test
+	public void testTrivialAfterDERPair() {
+		// DER x := 5 turns (P x) into the negation of (not (P 5))
+		Assert.assertEquals(1, checkReadyMadeRecords(
+				parse("(assert (forall ((x Int)) (or (not (= x 5)) (P x) (not (P 5)))))")));
+	}
+
+	@Test
+	public void testTrivialAfterDERTrue() {
+		// DER x := 5 turns (= (f x) (f 5)) into true
+		Assert.assertEquals(1, checkReadyMadeRecords(
+				parse("(assert (forall ((x Int)) (or (not (= x 5)) (= (f x) (f 5)) (P x))))")));
+	}
 }

@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.convert;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
@@ -317,10 +318,14 @@ class BuildClause implements Operation {
 	 */
 	public void perform() {
 		if (mIsTrue) {
-			// A trivially true clause never reaches the engine, so no literal of it can be
-			// picked from the assignment. The record is left empty (no mLiterals, no
-			// mReadyMadeProof); the assembler falls back to evaluating the conclusion directly.
-			// TODO: build mReadyMadeProof from the entries in mLitSatProofs instead.
+			// A trivially true clause never reaches the engine, so no literal of it can be picked from the
+			// assignment. Its record gets a proof of the target that needs no model instead.
+			if (mSatRecord != null && !mSatRecordPoisoned) {
+				mSatRecord.seal(mLitSatProofs, mClausifier);
+				if (!setTautologyProof()) {
+					mSatRecord.mLiterals = null;
+				}
+			}
 			return;
 		}
 		if (mSatRecord != null && !mSatRecordPoisoned) {
@@ -369,8 +374,13 @@ class BuildClause implements Operation {
 				if (resultFromDER == null) {
 					mSatRecord.setClosure(closure, mClausifier);
 				} else if (resultFromDER.isTriviallyTrue()) {
-					// the clause is dropped, so the solver never establishes it; TODO prove it as a tautology
-					mSatRecord.mLiterals = null;
+					// the clause is dropped; its record gets a proof that needs no model
+					final ILiteral[] clauseLits = new ILiteral[lits.length + quantLits.length];
+					System.arraycopy(lits, 0, clauseLits, 0, lits.length);
+					System.arraycopy(quantLits, 0, clauseLits, lits.length, quantLits.length);
+					if (!DERSatRecord.deriveTrivial(mClausifier, mSatRecord, resultFromDER, quantVars, clauseLits)) {
+						mSatRecord.mLiterals = null;
+					}
 				} else {
 					// the record of the DER'd clause, derived from the original one ("DER stays in half 1")
 					final ILiteral[] clauseLits = new ILiteral[lits.length + quantLits.length];
@@ -426,6 +436,29 @@ class BuildClause implements Operation {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Fill in the ready-made proof of a trivially true clause: from the entry of the literal true, or from the
+	 * entries of a complementary pair of literals.
+	 *
+	 * @return false if that is not possible.
+	 */
+	private boolean setTautologyProof() {
+		final Map<ILiteral, Clausifier.SatEntry> entries = mSatRecord.mLiterals;
+		final Clausifier.SatEntry trueEntry = entries.get(Clausifier.mTRUE);
+		if (trueEntry != null) {
+			return mSatRecord.setReadyMadeFromTrueLiteral(trueEntry, mClausifier);
+		}
+		for (final Map.Entry<ILiteral, Clausifier.SatEntry> e : entries.entrySet()) {
+			final Clausifier.SatEntry negEntry = entries.get(e.getKey().negate());
+			if (negEntry != null) {
+				final ProofLiteral lit = Clausifier.toProofLiteral(
+						mClausifier.instantiate(e.getKey().getSMTFormula(mClause.getTheory())));
+				return mSatRecord.setReadyMadeFromPair(lit, e.getValue(), negEntry, mClausifier);
+			}
+		}
+		return false;
 	}
 
 	@Override

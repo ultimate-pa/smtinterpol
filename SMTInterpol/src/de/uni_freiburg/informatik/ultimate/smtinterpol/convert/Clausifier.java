@@ -253,8 +253,13 @@ public class Clausifier {
 	static final class ClauseSatProof extends SatRecord {
 		/** The target clause; instantiated by {@link #seal}. */
 		ProofLiteral[] mTarget;
-		/** != null: a proof of the target that needs no model input (trivially true clause). Not filled in yet. */
+		/**
+		 * != null: a proof of (a subclause of) the target that needs no model input, for a clause that is trivially
+		 * true and therefore dropped; see {@link #setReadyMadeFromTrueLiteral} and {@link #setReadyMadeFromPair}.
+		 */
 		Term mReadyMadeProof;
+		/** The clause {@link #mReadyMadeProof} proves. */
+		ProofLiteral[] mReadyMadeClause;
 		/** Else: per literal of the clause, how to reach the target. */
 		Map<ILiteral, SatEntry> mLiterals;
 		/**
@@ -286,6 +291,67 @@ public class Clausifier {
 				sealed.put(e.getKey(), proof == null && disjunct == null ? entry : new SatEntry(disjunct, proof));
 			}
 			mLiterals = sealed;
+		}
+
+		/**
+		 * Set the ready-made proof for a clause containing the literal true, from its entry {@code {~true} ∪ R}.
+		 *
+		 * @return false if that is not possible.
+		 */
+		boolean setReadyMadeFromTrueLiteral(final SatEntry trueEntry, final Clausifier clausifier) {
+			final ProofRules rules = ((ProofTracker) clausifier.mTracker).getProofRules();
+			if (trueEntry.mProof == null) {
+				// true is itself a literal of the target
+				mReadyMadeProof = rules.trueIntro();
+				mReadyMadeClause = new ProofLiteral[] { trueEntry.mDisjunct };
+			} else {
+				mReadyMadeProof =
+						rules.resolutionRule(clausifier.getTheory().mTrue, rules.trueIntro(), trueEntry.mProof);
+				final ProofLiteral notTrue = new ProofLiteral(clausifier.getTheory().mTrue, false);
+				final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>(Arrays.asList(trueEntry.getRest(mTarget)));
+				clause.remove(notTrue);
+				mReadyMadeClause = clause.toArray(new ProofLiteral[clause.size()]);
+			}
+			return true;
+		}
+
+		/**
+		 * Set the ready-made proof for a clause containing the complementary literals {@code lit} and {@code ~lit},
+		 * from their entries {@code {~lit} ∪ R1} and {@code {lit} ∪ R2} (instantiated).
+		 *
+		 * @return false if that is not possible.
+		 */
+		boolean setReadyMadeFromPair(final ProofLiteral lit, final SatEntry litEntry, final SatEntry negEntry,
+				final Clausifier clausifier) {
+			final ProofRules rules = ((ProofTracker) clausifier.mTracker).getProofRules();
+			final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>();
+			if (litEntry.mProof == null && negEntry.mProof == null) {
+				// both literals are literals of the target; that would need a proof of the tautology {lit, ~lit}
+				return false;
+			}
+			if (litEntry.mProof == null) {
+				// lit is a literal of the target, negEntry proves {lit} ∪ R2
+				mReadyMadeProof = negEntry.mProof;
+			} else if (negEntry.mProof == null) {
+				mReadyMadeProof = litEntry.mProof;
+			} else {
+				mReadyMadeProof = lit.getPolarity() ? rules.resolutionRule(lit.getAtom(), negEntry.mProof, litEntry.mProof)
+						: rules.resolutionRule(lit.getAtom(), litEntry.mProof, negEntry.mProof);
+			}
+			final boolean resolved = litEntry.mProof != null && negEntry.mProof != null;
+			// resolution removes ~lit from litEntry's clause {~lit} ∪ R1 and lit from negEntry's clause {lit} ∪ R2
+			for (final ProofLiteral l : litEntry.getRest(mTarget)) {
+				if (!resolved || !l.equals(lit.negate())) {
+					clause.add(l);
+				}
+			}
+			for (final ProofLiteral l : negEntry.getRest(mTarget)) {
+				if (!resolved || !l.equals(lit)) {
+					clause.add(l);
+				}
+			}
+			mReadyMadeClause = clause.toArray(new ProofLiteral[clause.size()]);
+			return true;
 		}
 
 		/** Mark this record as the record of the quantified clause with the given universal closure. */

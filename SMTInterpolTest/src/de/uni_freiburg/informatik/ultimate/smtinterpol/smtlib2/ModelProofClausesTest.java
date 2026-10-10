@@ -122,6 +122,23 @@ public class ModelProofClausesTest {
 	}
 
 	@Test
+	public void testTriviallyTrueClause() {
+		// (= x y) and (not (= y x)) become complementary literals: the clause is dropped, and its record gets a
+		// ready-made proof
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), y = s.term("y"), p = s.term("p");
+		s.assertTerm(s.term("or", s.term("=", x, y), s.term("not", s.term("=", y, x)), p));
+		s.assertTerm(s.term("and", s.term("not", p), s.term("=", x, s.numeral("3")), s.term("=", y, s.numeral("4"))));
+		checkSatAndProof(s);
+	}
+
+	@Test
 	public void testNegatedOr() {
 		final SMTInterpol s = newScript();
 		s.setLogic("QF_UFLIA");

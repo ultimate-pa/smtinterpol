@@ -213,7 +213,7 @@ public class ModelProofBuilder {
 	/** Proves the target of {@code c} (or a subclause of it) from the literal the model sets true. */
 	private ProvedClause proveClause(final Clausifier.ClauseSatProof c) {
 		if (c.mReadyMadeProof != null) {
-			return new ProvedClause(c.mReadyMadeProof, clauseOf(c.mTarget));
+			return new ProvedClause(c.mReadyMadeProof, clauseOf(c.mReadyMadeClause));
 		}
 		if (c.mLiterals == null) {
 			// incomplete record (poisoned or trivially true clause)

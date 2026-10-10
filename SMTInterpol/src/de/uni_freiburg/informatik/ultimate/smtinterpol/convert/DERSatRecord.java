@@ -111,6 +111,60 @@ final class DERSatRecord {
 		return new DERSatRecord(clausifier, record, sigma).derive(der, clauseLits);
 	}
 
+	/**
+	 * For a clause that DER made trivially true: fill in the record's ready-made proof, from the derived entry of the
+	 * literal that became true, or of the two literals that became complementary.
+	 *
+	 * @return false if that is not possible.
+	 */
+	static boolean deriveTrivial(final Clausifier clausifier, final Clausifier.ClauseSatProof record,
+			final DERResult der, final TermVariable[] vars, final ILiteral[] clauseLits) {
+		final Map<TermVariable, Term> sigma = new LinkedHashMap<>();
+		final Term[] subs = der.getSubs();
+		for (int i = 0; i < vars.length; i++) {
+			if (subs[i] != vars[i]) {
+				sigma.put(vars[i], subs[i]);
+			}
+		}
+		return new DERSatRecord(clausifier, record, sigma).deriveTrivial(record, der, clauseLits);
+	}
+
+	private boolean deriveTrivial(final Clausifier.ClauseSatProof record, final DERResult der,
+			final ILiteral[] clauseLits) {
+		// the per-literal information ends with the literal that made the clause true
+		final ILiteral[] newLits = der.getNewLits();
+		final int last = newLits.length - 1;
+		final Clausifier.SatEntry lastEntry = entryFor(der, clauseLits, last);
+		if (lastEntry == null) {
+			return false;
+		}
+		if (newLits[last] == null) {
+			// the literal simplified to true: lastEntry proves {~true} ∪ R
+			return record.setReadyMadeFromTrueLiteral(lastEntry, mClausifier);
+		}
+		for (int j = 0; j < last; j++) {
+			if (newLits[j] == newLits[last].negate()) {
+				final Clausifier.SatEntry negEntry = entryFor(der, clauseLits, j);
+				if (negEntry == null) {
+					return false;
+				}
+				final ProofLiteral lit =
+						Clausifier.toProofLiteral(instantiate(newLits[last].getSMTFormula(mTheory)));
+				return record.setReadyMadeFromPair(lit, lastEntry, negEntry, mClausifier);
+			}
+		}
+		return false;
+	}
+
+	/** The entry of the i-th literal of the DER'd clause (derived if DER changed it), or null. */
+	private Clausifier.SatEntry entryFor(final DERResult der, final ILiteral[] clauseLits, final int i) {
+		final Clausifier.SatEntry entry = mEntries.get(clauseLits[i]);
+		if (entry == null || der.getNewLits()[i] == clauseLits[i]) {
+			return entry;
+		}
+		return deriveEntry(clauseLits[i], entry, der.getSubstitutedLits()[i], der.getLitRewrites()[i]);
+	}
+
 	private Map<ILiteral, Clausifier.SatEntry> derive(final DERResult der, final ILiteral[] clauseLits) {
 		final Term[] substituted = der.getSubstitutedLits();
 		final Term[] rewrites = der.getLitRewrites();

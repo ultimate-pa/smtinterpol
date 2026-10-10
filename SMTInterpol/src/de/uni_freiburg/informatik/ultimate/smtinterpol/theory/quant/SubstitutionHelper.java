@@ -123,7 +123,9 @@ public class SubstitutionHelper {
 				Term simplified = normalizeAndSimplifyLitTerm(substituted);
 
 				if (mTracker.getProvedTerm(simplified) == theory.mTrue) { // Clause is trivially true.
-					return buildTrueResult();
+					provedLitTerms.add(simplified);
+					newLits.add(null);
+					return buildTrueResult(substitutedLitTerms, provedLitTerms, newLits);
 				}
 				if (mTracker.getProvedTerm(simplified) == theory.mFalse) {
 					provedLitTerms.add(simplified);
@@ -186,14 +188,14 @@ public class SubstitutionHelper {
 				if (newLiteral instanceof Literal) {
 					final Literal newGroundLit = (Literal) newLiteral;
 					if (resultingGroundLits.contains(newGroundLit.negate())) { // Clause simplifies to true
-						return buildTrueResult();
+						return buildTrueResult(substitutedLitTerms, provedLitTerms, newLits);
 					} else {
 						resultingGroundLits.add(newGroundLit);
 					}
 				} else {
 					final QuantLiteral newQuantLit = (QuantLiteral) newLiteral;
 					if (resultingQuantLits.contains(newQuantLit.negate())) { // Clause simplifies to true
-						return buildTrueResult();
+						return buildTrueResult(substitutedLitTerms, provedLitTerms, newLits);
 					} else {
 						resultingQuantLits.add(newQuantLit);
 					}
@@ -277,8 +279,17 @@ public class SubstitutionHelper {
 		return normalizedAtom;
 	}
 
-	private SubstitutionResult buildTrueResult() {
-		return new SubstitutionResult(null, null, null, null);
+	/**
+	 * The result for a clause that became trivially true. The per-literal information ends with the literal that made
+	 * it true: either its rewrite proves true (and its new literal is null), or its new literal is the negation of
+	 * the new literal of an earlier one.
+	 */
+	private SubstitutionResult buildTrueResult(final List<Term> substitutedLitTerms, final List<Term> provedLitTerms,
+			final List<ILiteral> newLits) {
+		final SubstitutionResult result = new SubstitutionResult(null, null, null, null);
+		result.setPerLiteral(substitutedLitTerms.toArray(new Term[substitutedLitTerms.size()]),
+				provedLitTerms.toArray(new Term[provedLitTerms.size()]), newLits.toArray(new ILiteral[newLits.size()]));
+		return result;
 	}
 
 	/**
@@ -293,7 +304,8 @@ public class SubstitutionHelper {
 		/**
 		 * Per literal of the original clause (ground literals first, then quantified ones, in their order): the
 		 * substituted literal term, its rewrite to the new literal's formula (resp. to false), and the new literal
-		 * (null if it simplified to false). Null for a trivially true result.
+		 * (null if it simplified to false). For a trivially true result, the information ends with the literal that
+		 * made it true, see {@link SubstitutionHelper#buildTrueResult}.
 		 */
 		Term[] mSubstitutedLits;
 		Term[] mLitRewrites;
