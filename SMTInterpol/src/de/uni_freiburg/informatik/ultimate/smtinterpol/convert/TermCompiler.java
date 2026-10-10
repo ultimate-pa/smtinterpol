@@ -46,6 +46,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstan
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.BitvectorRules;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.DataTypeRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvToIntUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.IPolynomialUnifier;
@@ -203,6 +204,12 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 			return;
 		} else if (term instanceof TermVariable) {
 			setResult(mTracker.reflexivity(term));
+			return;
+		} else if (term instanceof MatchTerm) {
+			// replace match by its if-then-else form, with the case variables replaced by selectors; the
+			// clausifier never sees a match.
+			repush(mTracker.buildRewrite(term, DataTypeRules.buildIteForMatch((MatchTerm) term),
+					ProofConstants.RW_MATCH_TO_ITE));
 			return;
 		}
 		super.convert(term);
