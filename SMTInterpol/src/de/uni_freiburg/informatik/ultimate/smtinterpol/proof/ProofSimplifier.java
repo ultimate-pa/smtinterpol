@@ -491,6 +491,12 @@ public class ProofSimplifier extends TermTransformer {
 		assert qf.getQuantifier() == (isForall ? QuantifiedFormula.FORALL : QuantifiedFormula.EXISTS);
 		final Theory theory = qf.getTheory();
 		final TermVariable[] vars = qf.getVariables();
+		if (Arrays.equals(skolemFuns, mProofRules.getSkolemVars(vars, qf.getSubformula(), isForall))) {
+			// the terms are the choose terms themselves (sat dual of dropping a quantifier, see the model-proof plan)
+			final Term proof = isForall ? mProofRules.forallIntro(qf) : mProofRules.existsElim(qf);
+			final Term subChoose = new FormulaUnLet().unlet(mSkript.let(vars, skolemFuns, qf.getSubformula()));
+			return removeNot(proof, subChoose, !isForall);
+		}
 		final Sort[] varSorts = new Sort[vars.length];
 		for (int i = 0; i < vars.length; i++) {
 			varSorts[i] = vars[i].getSort();

@@ -262,18 +262,26 @@ class CollectLiteral implements Operation {
 			final Term negLit = positive ? theory.term(SMTLIBConstants.NOT, idx) : idx;
 			final Term tautology =
 					mClausifier.mTracker.tautology(theory.term(SMTLIBConstants.OR, negLit, substituted), converted.getSecond());
-			// TODO: track the sat-side dual for quantifier elimination (phase 4 of the
-			// model-proof plan). Poison instead of recording an incorrect entry.
-			if (mSatEntry != null) {
-				mClauseBuilder.poisonSatRecord();
-			}
 			// See the rewriteLiteral branch above for why this removal is required.
 			mClauseBuilder.mCurrentLits.remove(mLiteral);
 			mClauseBuilder.addResolution(tautology, lit);
 			final Term substitutedCanonic = mClausifier.mCompiler.transform(substituted);
 			mClauseBuilder.addResolution(mClausifier.mTracker.rewriteToClause(substituted, substitutedCanonic), substituted);
 			final Term newLiteral = mClausifier.mTracker.getProvedTerm(substitutedCanonic);
-			mClauseBuilder.collectLiteral(newLiteral);
+			if (mSatEntry != null) {
+				// the sat dual {~substituted, lit}: forallIntro/existsElim at the choose terms of the fresh variables
+				// (valid once the record is instantiated, see Clausifier.mChooseTerms), resp. existsIntro/forallElim
+				// at the skolem terms; then the reversed compile rewrite {~newLiteral, substituted}.
+				final Term dual = mClausifier.mTracker.tautology(
+						theory.term(SMTLIBConstants.OR, lit, Clausifier.negate(substituted)),
+						Clausifier.dualQuantifierRule(converted.getSecond()));
+				final Clausifier.SatEntry descended = descend(dual);
+				final Term proof = mClauseBuilder.compose(substituted,
+						mClausifier.mTracker.rewriteToClauseReverse(substituted, substitutedCanonic), descended.mProof);
+				mClauseBuilder.collectLiteral(newLiteral, descended.mDisjunct, proof);
+			} else {
+				mClauseBuilder.collectLiteral(newLiteral);
+			}
 			return;
 		} else if (idx instanceof TermVariable) {
 			assert idx.getSort().equals(theory.getBooleanSort());

@@ -1021,6 +1021,26 @@ clause.
   appears there.  `AddAsAxiom` does the same for a top-level quantifier, as the
   start of the joining `FormulaSatProof`.
 
+*Implementation status (2026-10-06).*  Half 1 is implemented, except DER:
+
+- `Clausifier.mChooseTerms` is filled by `convertQuantifiedSubformula`.
+- The duals use the existing quantifier tautologies with swapped keys
+  (`dualQuantifierRule`: `:forall-`↔`:forall+`, `:exists+`↔`:exists-`).
+  `ProofSimplifier.convertTautQuantSkolemize` accepts choose terms in place of
+  skolem functions.
+- The proofs are composed over the variables as before.  The records are
+  instantiated when they are sealed: `ClauseSatProof.seal` in
+  `BuildClause.perform` instantiates the target and the literal proofs, and
+  `Clausifier.formulaSatProof` instantiates every `FormulaSatProof`.  So every
+  record is ground once it exists, without instantiating terms in the
+  unsat-side code paths.
+- `ModelProofBuilder.proveFromClosure` builds `{¬C} ∪ T`.  Until half 2 exists
+  it is used only in a test mode that keeps the closures as hypotheses
+  (`QuantifiedSatRecordTest`, which checks the assembled clause, the checker's
+  clause and the lowered proof, oracle-free).  Otherwise a quantified record
+  counts as incomplete.
+- A clause changed by DER still gets an incomplete record.
+
 **DER stays in half 1.**  `DestructiveEqualityReasoning` turns
 `ψ = (x ≠ t) ∨ l_1 ∨ … ∨ l_n` (with `t` free of `x`) into
 `ψ'' = (l_1 ∨ … ∨ l_n)[x := t]` over the remaining variables, and the solver

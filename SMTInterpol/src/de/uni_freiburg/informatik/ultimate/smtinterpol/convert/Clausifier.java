@@ -189,6 +189,14 @@ public class Clausifier {
 	 * from it. Only filled in when {@link #satProofsEnabled()}.
 	 */
 	final ScopedHashMap<Term, SatRecord> mAssertionSatProofs = new ScopedHashMap<>();
+	/**
+	 * For every fresh variable that replaced the variables of a dropped quantifier (positive {@code forall} or negative
+	 * {@code exists}, see {@link #convertQuantifiedSubformula}), the choose term of that quantifier, at which its sat
+	 * dual {@code forallIntro}/{@code existsElim} holds. The values are already instantiated (idempotent map). All sat
+	 * records are instantiated with this map, see "Quantified clauses and free variables" in the model-proof plan.
+	 * Only filled in when {@link #satProofsEnabled()}.
+	 */
+	final ScopedHashMap<TermVariable, Term> mChooseTerms = new ScopedHashMap<>();
 
 	/**
 	 * A sat-proof record. All proofs it describes are clause proofs in the "stripped" convention: a literal
@@ -243,16 +251,50 @@ public class Clausifier {
 	 * and, per literal, how the literal reaches the target. See SMTInterpol/doc/model-proof-plan.md.
 	 */
 	static final class ClauseSatProof extends SatRecord {
-		/** The target clause. */
-		final ProofLiteral[] mTarget;
+		/** The target clause; instantiated by {@link #seal}. */
+		ProofLiteral[] mTarget;
 		/** != null: a proof of the target that needs no model input (trivially true clause). Not filled in yet. */
 		Term mReadyMadeProof;
 		/** Else: per literal of the clause, how to reach the target. */
 		Map<ILiteral, SatEntry> mLiterals;
+		/**
+		 * For a quantified clause: its universal closure {@code C = (forall y⃗ (or l_1 .. l_n))} as built by
+		 * {@code BuildClause.buildQuantifierProof}; the record then proves {@code {~C} ∪ target} without the model.
+		 * Null for a ground clause, whose record proves the target from its true literal.
+		 */
+		QuantifiedFormula mClosure;
+		/** For a quantified clause: the instantiation of {@code mClosure}'s variables (their choose terms). */
+		Term[] mClosureInst;
 
 		/** @param target the target clause, literals in clause form ({@code (not x)}: negative literal of x). */
 		ClauseSatProof(final Term[] target) {
 			mTarget = toProofLiterals(target);
+		}
+
+		/**
+		 * Fill in the per-literal entries once the clause is collected, instantiating the target and the entries
+		 * with the choose terms of the dropped quantifiers.
+		 */
+		void seal(final Map<ILiteral, SatEntry> literals, final Clausifier clausifier) {
+			mTarget = clausifier.instantiate(mTarget);
+			final LinkedHashMap<ILiteral, SatEntry> sealed = new LinkedHashMap<>();
+			for (final Map.Entry<ILiteral, SatEntry> e : literals.entrySet()) {
+				final SatEntry entry = e.getValue();
+				final ProofLiteral disjunct = entry.mDisjunct == null ? null : clausifier.instantiate(entry.mDisjunct);
+				final Term proof = entry.mProof == null ? null : clausifier.instantiate(entry.mProof);
+				sealed.put(e.getKey(), proof == null && disjunct == null ? entry : new SatEntry(disjunct, proof));
+			}
+			mLiterals = sealed;
+		}
+
+		/** Mark this record as the record of the quantified clause with the given universal closure. */
+		void setClosure(final QuantifiedFormula closure, final Clausifier clausifier) {
+			mClosure = closure;
+			final TermVariable[] vars = closure.getVariables();
+			mClosureInst = new Term[vars.length];
+			for (int i = 0; i < vars.length; i++) {
+				mClosureInst[i] = clausifier.instantiate(vars[i]);
+			}
 		}
 	}
 
@@ -923,6 +965,15 @@ public class Clausifier {
 			for (int i = 0; i < vars.length; ++i) {
 				substTerms[i] = mTheory.createFreshTermVariable(vars[i].getName(), vars[i].getSort());
 			}
+			if (satProofsEnabled()) {
+				// the sat dual forallIntro/existsElim only holds at the choose terms of the (instantiated) quantifier
+				final QuantifiedFormula qfInst = (QuantifiedFormula) instantiate(qf);
+				final Term[] chooseTerms = ((ProofTracker) mTracker).getProofRules().getSkolemVars(
+						qfInst.getVariables(), qfInst.getSubformula(), qf.getQuantifier() == QuantifiedFormula.FORALL);
+				for (int i = 0; i < vars.length; ++i) {
+					mChooseTerms.put((TermVariable) substTerms[i], chooseTerms[i]);
+				}
+			}
 
 			rule = qf.getQuantifier() == QuantifiedFormula.EXISTS ? ProofConstants.getTautExistsPos(substTerms)
 					: ProofConstants.getTautForallNeg(substTerms);
@@ -1205,7 +1256,7 @@ public class Clausifier {
 		if (trueProof != null) {
 			final Term[] exclusive = new Term[] { t.term("not", falseTerm), t.term("not", trueTerm) };
 			mLiteralSatProofs.put(auxTrueLit.negate(),
-					new FormulaSatProof(auxExclusivityProof(auxTerm), exclusive, new SatRecord[] { trueProof },
+					formulaSatProof(auxExclusivityProof(auxTerm), exclusive, new SatRecord[] { trueProof },
 							new Term[] { falseTerm }, exclusive[1]));
 		}
 	}
@@ -1264,7 +1315,7 @@ public class Clausifier {
 						litProofs[i] = satTaut(ProofConstants.TAUT_OR_POS, rho, negate(params[i]));
 					}
 					final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho }, litProofs);
-					return csp == null ? null : new FormulaSatProof(csp, rho);
+					return csp == null ? null : formulaSatProof(csp, rho);
 				} else {
 					// {(or ..), ~p_i} for each i; targets {~p_i}; start or- {rho, p_1 .. p_n}.
 					final SatRecord[] hyps = new SatRecord[n];
@@ -1295,7 +1346,7 @@ public class Clausifier {
 						litProofs[i] = satTaut(ProofConstants.TAUT_IMP_POS, rho, negate(literals[i + 1]));
 					}
 					final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho }, litProofs);
-					return csp == null ? null : new FormulaSatProof(csp, rho);
+					return csp == null ? null : formulaSatProof(csp, rho);
 				} else {
 					// {(=> ..), t_i} (i < n), {(=> ..), ~tn}; targets {t_i}/{~tn}; start =>- {rho, ~t1 .. ~t(n-1), tn}.
 					final SatRecord[] hyps = new SatRecord[n];
@@ -1338,7 +1389,7 @@ public class Clausifier {
 						litProofs[i] = satTaut(ProofConstants.TAUT_AND_NEG, rho, params[i]);
 					}
 					final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho }, litProofs);
-					return csp == null ? null : new FormulaSatProof(csp, rho);
+					return csp == null ? null : formulaSatProof(csp, rho);
 				}
 			} else if (at.getFunction().getName().equals("ite")) {
 				final Term cond = params[0];
@@ -1470,7 +1521,7 @@ public class Clausifier {
 			final SatRecord[] hypArr = hyps.toArray(new SatRecord[hyps.size()]);
 			final Term[] pivotArr = pivots.toArray(new Term[pivots.size()]);
 			if (hasDefault) {
-				return new FormulaSatProof(null, null, hypArr, pivotArr, rho);
+				return formulaSatProof(null, null, hypArr, pivotArr, rho);
 			}
 			// no default: the match is exhaustive, start with dtExhaust {is_c1(d), .., is_cn(d)}
 			final DataType dataType = (DataType) dataTerm.getSort().getSortSymbol();
@@ -1480,10 +1531,91 @@ public class Clausifier {
 				exhaust[i] = theory.term(theory.getFunctionWithResult("is", new String[] { allConstrs[i].getName() },
 						null, dataTerm.getSort()), dataTerm);
 			}
-			return new FormulaSatProof(((ProofTracker) mTracker).dtExhaust(dataTerm), exhaust, hypArr, pivotArr, rho);
+			return formulaSatProof(((ProofTracker) mTracker).dtExhaust(dataTerm), exhaust, hypArr, pivotArr, rho);
 		} else {
 			assert lit instanceof QuantEquality;
 			return createExcludedMiddleSatProof(lit, term, negative, litTerm, rho, source);
+		}
+	}
+
+	/**
+	 * Instantiate the fresh variables of dropped quantifiers in {@code term} (a formula or a proof) with their choose
+	 * terms ({@link #mChooseTerms}).
+	 */
+	Term instantiate(final Term term) {
+		final TermVariable[] freeVars = term.getFreeVars();
+		if (freeVars.length == 0 || mChooseTerms.isEmpty()) {
+			return term;
+		}
+		final FormulaUnLet unlet = new FormulaUnLet();
+		final Map<TermVariable, Term> subst = new HashMap<>();
+		for (final TermVariable tv : freeVars) {
+			final Term choose = mChooseTerms.get(tv);
+			if (choose != null) {
+				subst.put(tv, choose);
+			}
+		}
+		if (subst.isEmpty()) {
+			return term;
+		}
+		unlet.addSubstitutions(subst);
+		return unlet.transform(term);
+	}
+
+	ProofLiteral instantiate(final ProofLiteral lit) {
+		final Term atom = instantiate(lit.getAtom());
+		return atom == lit.getAtom() ? lit : toProofLiteral(lit.getPolarity() ? atom : mTheory.term("not", atom));
+	}
+
+	ProofLiteral[] instantiate(final ProofLiteral[] lits) {
+		final ProofLiteral[] result = new ProofLiteral[lits.length];
+		for (int i = 0; i < lits.length; i++) {
+			result[i] = instantiate(lits[i]);
+		}
+		return result;
+	}
+
+	Term[] instantiate(final Term[] terms) {
+		if (terms == null) {
+			return null;
+		}
+		final Term[] result = new Term[terms.length];
+		for (int i = 0; i < terms.length; i++) {
+			result[i] = terms[i] == null ? null : instantiate(terms[i]);
+		}
+		return result;
+	}
+
+	/** Create a {@link FormulaSatProof}, instantiated with {@link #mChooseTerms}. */
+	FormulaSatProof formulaSatProof(final Term start, final Term[] startClause, final SatRecord[] hyps,
+			final Term[] pivots, final Term conclusion) {
+		return new FormulaSatProof(start == null ? null : instantiate(start), instantiate(startClause), hyps,
+				instantiate(pivots), instantiate(conclusion));
+	}
+
+	/** Create a {@link FormulaSatProof} that is just one hyp, instantiated with {@link #mChooseTerms}. */
+	FormulaSatProof formulaSatProof(final SatRecord hyp, final Term conclusion) {
+		return formulaSatProof(null, null, new SatRecord[] { hyp }, new Term[1], conclusion);
+	}
+
+	/**
+	 * The sat dual of a quantifier tautology from {@link #convertQuantifiedSubformula}: {@code :forall-} (drop) and
+	 * {@code :forall+} (skolemize) are dual, as are {@code :exists+} and {@code :exists-}; the dual uses the same
+	 * terms (choose terms after instantiation resp. skolem terms).
+	 */
+	static Annotation dualQuantifierRule(final Annotation rule) {
+		final Term[] terms = (Term[]) rule.getValue();
+		switch (rule.getKey()) {
+		case ":forall-":
+			return ProofConstants.getTautForallPos(terms);
+		case ":forall+":
+			return ProofConstants.getTautForallNeg(terms);
+		case ":exists+":
+			return ProofConstants.getTautExistsNeg(terms);
+		case ":exists-":
+			return ProofConstants.getTautExistsPos(terms);
+		default:
+			throw new AssertionError("unknown quantifier rule " + rule.getKey());
 		}
 	}
 
@@ -1499,7 +1631,7 @@ public class Clausifier {
 			return null;
 		}
 		final Term start = mTracker.getClauseProof(mTracker.tautology(mTheory.term("or", startLits), rule));
-		return new FormulaSatProof(start, startLits, hyps, pivots, rho);
+		return formulaSatProof(start, startLits, hyps, pivots, rho);
 	}
 
 	/**
@@ -1511,7 +1643,7 @@ public class Clausifier {
 		if (cl1 == null) {
 			return null;
 		}
-		return new FormulaSatProof(null, null, new SatRecord[] { cl1, cl2 }, new Term[] { null, pivot }, rho);
+		return formulaSatProof(null, null, new SatRecord[] { cl1, cl2 }, new Term[] { null, pivot }, rho);
 	}
 
 	/**
@@ -1529,7 +1661,7 @@ public class Clausifier {
 		final Annotation dual = negative ? ProofConstants.TAUT_EXCLUDED_MIDDLE_1 : ProofConstants.TAUT_EXCLUDED_MIDDLE_2;
 		final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho },
 				new Term[] { satTaut(dual, rho, negate(other)) });
-		return csp == null ? null : new FormulaSatProof(csp, rho);
+		return csp == null ? null : formulaSatProof(csp, rho);
 	}
 
 	public void addStoreAxiom(final ApplicationTerm store, final SourceAnnotation source) {
@@ -2272,7 +2404,7 @@ public class Clausifier {
 				// The compiler didn't actually rewrite anything: assertedTerm == simpFormulaRaw.
 				record = root.mSatProof;
 			} else {
-				record = new FormulaSatProof(mTracker.getClauseProof(reverse),
+				record = formulaSatProof(mTracker.getClauseProof(reverse),
 						new Term[] { negate(simpFormulaRaw), assertedTerm }, new SatRecord[] { root.mSatProof },
 						new Term[] { simpFormulaRaw }, assertedTerm);
 			}
@@ -2304,6 +2436,7 @@ public class Clausifier {
 			if (mSatProofsEnabled) {
 				mLiteralSatProofs.beginScope();
 				mAssertionSatProofs.beginScope();
+				mChooseTerms.beginScope();
 			}
 		}
 	}
@@ -2334,6 +2467,7 @@ public class Clausifier {
 			if (mSatProofsEnabled) {
 				mLiteralSatProofs.endScope();
 				mAssertionSatProofs.endScope();
+				mChooseTerms.endScope();
 			}
 		}
 		mStackLevel -= numpops;

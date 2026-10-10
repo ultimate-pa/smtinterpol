@@ -25,6 +25,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.util.Pair;
 
@@ -239,15 +240,30 @@ class AddAsAxiom implements Operation {
 				return;
 			}
 		} else if (term instanceof QuantifiedFormula) {
-			// TODO: track the sat-side dual (phase 4 of the model-proof plan). mSatProof
-			// stays null; the caller falls back to evaluating the assertion directly.
 			final QuantifiedFormula qf = (QuantifiedFormula) term;
 			final Pair<Term, Annotation> convertQuantInfo = this.clausifier.convertQuantifiedSubformula(positive, qf);
 			final Annotation rule = convertQuantInfo.getSecond();
-			final Term skolemized = this.clausifier.mTracker.resolveBinaryTautology(mAxiom, convertQuantInfo.getFirst(), rule);
+			final Term substituted = convertQuantInfo.getFirst();
+			final Term skolemized = this.clausifier.mTracker.resolveBinaryTautology(mAxiom, substituted, rule);
 			final Term rewrite = this.clausifier.mCompiler.transform(this.clausifier.mTracker.getProvedTerm(skolemized));
 			final Term newAxiom = this.clausifier.mTracker.modusPonens(skolemized, rewrite);
-			this.clausifier.pushOperation(new AddAsAxiom(this.clausifier, newAxiom, mSource));
+			final AddAsAxiom child = new AddAsAxiom(this.clausifier, newAxiom, mSource);
+			if (this.clausifier.satProofsEnabled()) {
+				// the sat dual {lit, ~substituted} (forallIntro/existsElim at the choose terms, resp. existsIntro/
+				// forallElim at the skolem terms), resolved with the reversed compile rewrite {~newAxiom, substituted}
+				final Term lit = positive ? term : t.term("not", term);
+				final Term canonic = this.clausifier.mTracker.getProvedTerm(rewrite);
+				Term start = this.clausifier.mTracker.getClauseProof(this.clausifier.mTracker.tautology(
+						t.term("or", lit, Clausifier.negate(substituted)), Clausifier.dualQuantifierRule(rule)));
+				final Term reverse = this.clausifier.mTracker.rewriteToClauseReverse(substituted, rewrite);
+				if (reverse != null) {
+					start = ((ProofTracker) this.clausifier.mTracker).resolve(substituted,
+							this.clausifier.mTracker.getClauseProof(reverse), start);
+				}
+				final Term[] startLits = new Term[] { lit, Clausifier.negate(canonic) };
+				this.clausifier.pushOperation(new SplitJoin(this, new AddAsAxiom[] { child }, startLits, start));
+			}
+			this.clausifier.pushOperation(child);
 			return;
 		}
 		setLeafSatProof(this.clausifier.buildClause(mAxiom, mSource));
@@ -264,6 +280,8 @@ class AddAsAxiom implements Operation {
 		/** The literals of the dual tautology: the parent's formula and the negations of the children's. */
 		private final Term[] mStartLits;
 		private final Annotation mRule;
+		/** The start proof, if it is not just the tautology {@code mStartLits} (then {@code mRule} is null). */
+		private final Term mStart;
 
 		SplitJoin(final AddAsAxiom parent, final AddAsAxiom[] children, final Term[] startLits,
 				final Annotation rule) {
@@ -271,6 +289,15 @@ class AddAsAxiom implements Operation {
 			mChildren = children;
 			mStartLits = startLits;
 			mRule = rule;
+			mStart = null;
+		}
+
+		SplitJoin(final AddAsAxiom parent, final AddAsAxiom[] children, final Term[] startLits, final Term start) {
+			mParent = parent;
+			mChildren = children;
+			mStartLits = startLits;
+			mRule = null;
+			mStart = start;
 		}
 
 		@Override
@@ -289,8 +316,9 @@ class AddAsAxiom implements Operation {
 				pivots[i] = clausifier.mTracker.getProvedTerm(mChildren[i].mAxiom);
 			}
 			final Theory t = mParent.mAxiom.getTheory();
-			final Term start = clausifier.mTracker.getClauseProof(clausifier.mTracker.tautology(t.term("or", mStartLits), mRule));
-			mParent.mSatProof = new Clausifier.FormulaSatProof(start, mStartLits, hyps, pivots,
+			final Term start = mStart != null ? mStart
+					: clausifier.mTracker.getClauseProof(clausifier.mTracker.tautology(t.term("or", mStartLits), mRule));
+			mParent.mSatProof = clausifier.formulaSatProof(start, mStartLits, hyps, pivots,
 					clausifier.mTracker.getProvedTerm(mParent.mAxiom));
 		}
 	}

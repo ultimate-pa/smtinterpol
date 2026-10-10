@@ -324,7 +324,7 @@ class BuildClause implements Operation {
 			return;
 		}
 		if (mSatRecord != null && !mSatRecordPoisoned) {
-			mSatRecord.mLiterals = mLitSatProofs;
+			mSatRecord.seal(mLitSatProofs, mClausifier);
 		}
 		final Theory theory = mClause.getTheory();
 		boolean isDpllClause = true;
@@ -347,6 +347,10 @@ class BuildClause implements Operation {
 		if (isDpllClause) {
 			mClausifier.addClause(lits, null, getProofNewSource(mProof, mSource));
 		} else if (mClausifier.mIsEprEnabled) {
+			if (mSatRecord != null) {
+				// EPR clauses are not tracked on the sat side
+				mSatRecord.mLiterals = null;
+			}
 			// TODO: replace the nulls
 			final Literal[] groundLiteralsAfterDER = mClausifier.getEprTheory().addEprClause(lits, null, null);
 
@@ -357,10 +361,18 @@ class BuildClause implements Operation {
 		} else {
 			final QuantifierTheory quantTheory = mClausifier.getQuantifierTheory();
 			final Term quantifierWithProof = buildQuantifierProof(lits, quantLits);
-			TermVariable[] quantVars =
-					((QuantifiedFormula) mClausifier.mTracker.getProvedTerm(quantifierWithProof)).getVariables();
+			final QuantifiedFormula closure = (QuantifiedFormula) mClausifier.mTracker.getProvedTerm(quantifierWithProof);
+			TermVariable[] quantVars = closure.getVariables();
 			final DERResult resultFromDER =
 					quantTheory.performDestructiveEqualityReasoning(quantVars, lits, quantLits, mSource);
+			if (mSatRecord != null && mSatRecord.mLiterals != null) {
+				if (resultFromDER == null) {
+					mSatRecord.setClosure(closure, mClausifier);
+				} else {
+					// TODO derive the record of the DER'd clause (model-proof plan, "DER stays in half 1")
+					mSatRecord.mLiterals = null;
+				}
+			}
 			if (resultFromDER == null) {
 				quantTheory.addQuantClause(quantVars, lits, quantLits, mSource, quantifierWithProof);
 			} else if (!resultFromDER.isTriviallyTrue()) { // Clauses that become trivially true can be dropped.

@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
@@ -32,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLAtom;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.ModelProver;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
 
@@ -55,6 +58,12 @@ public class ModelProofBuilder {
 	/** Memo per record; {@link #FAILED} for a record that could not be proved structurally. */
 	private final IdentityHashMap<Clausifier.SatRecord, ProvedClause> mMemo = new IdentityHashMap<>();
 	private static final ProvedClause FAILED = new ProvedClause(null, null);
+	/**
+	 * Keep the universal closures of quantified clauses as hypotheses ({@code ~C} literals in the proved clauses)
+	 * instead of failing. Proving them from the model ("half 2" in the model-proof plan) is open; this mode lets
+	 * the rest of a quantified record be built and checked.
+	 */
+	private boolean mKeepClosures;
 
 	/** A clause proof together with the clause it proves (canonical literals). */
 	private static final class ProvedClause {
@@ -72,7 +81,33 @@ public class ModelProofBuilder {
 		mModelProver = modelProver;
 		mTracker = (ProofTracker) clausifier.mTracker;
 		mTheory = clausifier.getTheory();
-		modelProver.setBooleanTermProver(this::proveBooleanTerm);
+		if (modelProver != null) {
+			modelProver.setBooleanTermProver(this::proveBooleanTerm);
+		}
+	}
+
+	/** See {@link #mKeepClosures}. */
+	void setKeepClosures(final boolean keep) {
+		mKeepClosures = keep;
+	}
+
+	/**
+	 * Prove the record of an asserted term, keeping the closures of quantified clauses as hypotheses (see
+	 * {@link #mKeepClosures}).
+	 *
+	 * @return the proof and its clause {@code {assertion, ~C_1, .., ~C_k}} or null if the record is incomplete.
+	 */
+	Term proveAssertionKeepingClosures(final Term assertion, final Set<ProofLiteral> clauseOut) {
+		final Clausifier.SatRecord record = mClausifier.mAssertionSatProofs.get(assertion);
+		if (record == null) {
+			return null;
+		}
+		final ProvedClause pc = prove(record);
+		if (pc == FAILED) {
+			return null;
+		}
+		clauseOut.addAll(pc.mClause);
+		return pc.mProof;
 	}
 
 	/**
@@ -184,6 +219,13 @@ public class ModelProofBuilder {
 			// incomplete record (poisoned or trivially true clause)
 			return FAILED;
 		}
+		if (c.mClosure != null) {
+			if (!mKeepClosures) {
+				// proving the closure from the model (half 2) is not implemented
+				return FAILED;
+			}
+			return proveFromClosure(c);
+		}
 		for (final Map.Entry<ILiteral, Clausifier.SatEntry> e : c.mLiterals.entrySet()) {
 			final ILiteral l = e.getKey();
 			if (!isTrue(l)) {
@@ -204,6 +246,59 @@ public class ModelProofBuilder {
 		// No literal of this clause is set to true. Shouldn't happen (see the "invariant the assembler relies on"
 		// in the model-proof plan) but degrade gracefully rather than crash.
 		return FAILED;
+	}
+
+	/**
+	 * Half 1 of a quantified clause: prove {@code {~C} ∪ target} from its universal closure {@code C} without the
+	 * model, by instantiating {@code C} at the choose terms, eliminating the {@code or}, and resolving every literal
+	 * with its entry.
+	 */
+	private ProvedClause proveFromClosure(final Clausifier.ClauseSatProof c) {
+		final QuantifiedFormula closure = c.mClosure;
+		final Term body = mClausifier.instantiate(c.mClosure.getSubformula());
+		// {~C, body[θ]}
+		final Term notClosure = mTheory.term("not", closure);
+		Term proof = mTracker.getClauseProof(mTracker.tautology(mTheory.term("or", notClosure, body),
+				ProofConstants.getTautForallNeg(c.mClosureInst)));
+		final Set<ProofLiteral> clause = clauseOf(new ProofLiteral(closure, false));
+		final Term[] lits;
+		if (closure.getSubformula() instanceof ApplicationTerm
+				&& ((ApplicationTerm) closure.getSubformula()).getFunction().getName() == SMTLIBConstants.OR) {
+			// {~(or l_1 .. l_n)[θ], l_1[θ], .., l_n[θ]}
+			lits = ((ApplicationTerm) body).getParameters();
+			final Term[] orElim = new Term[lits.length + 1];
+			orElim[0] = mTheory.term("not", body);
+			System.arraycopy(lits, 0, orElim, 1, lits.length);
+			final Term orProof = mTracker.getClauseProof(mTracker.tautology(mTheory.term("or", orElim),
+					ProofConstants.TAUT_OR_NEG));
+			proof = res(body, proof, orProof);
+		} else {
+			lits = new Term[] { body };
+		}
+		final Set<Term> resolved = new HashSet<>();
+		for (final Map.Entry<ILiteral, Clausifier.SatEntry> e : c.mLiterals.entrySet()) {
+			if (e.getKey() == Clausifier.mFALSE) {
+				// dropped from the clause
+				continue;
+			}
+			final Clausifier.SatEntry entry = e.getValue();
+			final ProofLiteral lit = Clausifier.toProofLiteral(mClausifier.instantiate(e.getKey().getSMTFormula(mTheory)));
+			if (!resolved.add(lit.getAtom())) {
+				continue;
+			}
+			if (entry.mProof != null) {
+				// proof contains lit, entry.mProof proves {~lit, mDisjunct} resp. {~lit} ∪ target
+				proof = lit.getPolarity() ? res(lit.getAtom(), proof, entry.mProof)
+						: res(lit.getAtom(), entry.mProof, proof);
+			}
+			if (entry.mDisjunct == null) {
+				clause.addAll(clauseOf(c.mTarget));
+			} else {
+				clause.add(entry.mDisjunct);
+			}
+		}
+		assert resolved.size() == lits.length : "clause literals without sat entry";
+		return new ProvedClause(proof, clause);
 	}
 
 	/**
