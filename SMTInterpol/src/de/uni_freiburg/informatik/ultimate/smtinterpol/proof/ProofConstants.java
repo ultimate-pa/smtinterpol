@@ -100,6 +100,7 @@ public interface ProofConstants {
 	public final static Annotation RW_STORE_REWRITE = new Annotation(":storeRewrite", null);
 	public final static Annotation RW_AUX_INTRO = new Annotation(":auxIntro", null);
 	public final static Annotation RW_INTERN = new Annotation(":intern", null);
+	public final static Annotation RW_MATCH_TO_ITE = new Annotation(":matchToIte", null);
 	public static final Annotation RW_BV2NAT = new Annotation(":bv2nat", null);
 	public static final Annotation RW_NAT2BV = new Annotation(":nat2bv", null);
 

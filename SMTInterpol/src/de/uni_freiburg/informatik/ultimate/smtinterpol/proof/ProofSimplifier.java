@@ -2865,6 +2865,10 @@ public class ProofSimplifier extends TermTransformer {
 		case ":intern":
 			subProof = convertRewriteIntern(lhs, rhs);
 			break;
+		case ":matchToIte":
+			assert rhs == DataTypeRules.buildIteForMatch((MatchTerm) lhs);
+			subProof = mProofRules.dtMatch(lhs);
+			break;
 		case ":notSimp":
 			subProof = convertRewriteNot(rewriteStmt, lhs, rhs);
 			break;
