@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -40,7 +39,6 @@ import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Logics;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.OccurrenceCounter;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
@@ -401,9 +399,6 @@ public class Clausifier {
 				if (term != term.getTheory().mTrue && term != term.getTheory().mFalse) {
 					addExcludedMiddleAxiom(term, source);
 				}
-			}
-			if (term instanceof MatchTerm) {
-				addMatchAxiom((MatchTerm) term, source);
 			}
 			mIsRunning = wasRunning;
 		}
@@ -856,7 +851,7 @@ public class Clausifier {
 	 * {@link LogicSimplifier#convertBinaryEq}). A negated literal is rewritten recursively.
 	 *
 	 * This is called for every literal the clausifier collects, so axioms that are built from terms instead of from
-	 * converted input (like {@link #addDiffAxiom} or {@link #addMatchAxiom}) work for Boolean sorts, too, without
+	 * converted input (like {@link #addDiffAxiom}) work for Boolean sorts, too, without
 	 * having to convert their literals themselves.
 	 *
 	 * @param literal the literal to rewrite, possibly negated.
@@ -1124,61 +1119,6 @@ public class Clausifier {
 					buildAuxClause(lit, axiom, source);
 				}
 			}
-		} else if (term instanceof MatchTerm) {
-			final Theory theory = term.getTheory();
-			final MatchTerm mt = (MatchTerm) term;
-			final Term dataTerm = mt.getDataTerm();
-			final Map<Constructor, Term> cases = new LinkedHashMap<>();
-			final Constructor[] constrs = mt.getConstructors();
-			for (int caseNr = 0; caseNr < constrs.length; caseNr++) {
-				final Constructor c = constrs[caseNr];
-				Annotation rule;
-				if (cases.containsKey(c)) {
-					continue;
-				}
-
-				final Deque<Term> clause = new ArrayDeque<>();
-				clause.add(litTerm);
-
-				final Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
-				if (c == null) {
-					// if c == null, this is the default case which matches everything else
-					clause.addAll(cases.values());
-					argSubs.put(mt.getVariables()[caseNr][0], dataTerm);
-					rule = ProofConstants.TAUT_MATCH_DEFAULT;
-				} else {
-					// build is-condition
-					final FunctionSymbol isFs =
-							theory.getFunctionWithResult("is", new String[] { c.getName() }, null, dataTerm.getSort());
-					final Term isTerm = theory.term(isFs, dataTerm);
-					cases.put(c, isTerm);
-					clause.add(theory.term("not", isTerm));
-
-					// substitute argument TermVariables with the according selector function
-					int s_i = 0;
-					for (final String sel : c.getSelectors()) {
-						final Term selTerm = theory.term(theory.getFunctionSymbol(sel), dataTerm);
-						argSubs.put(mt.getVariables()[caseNr][s_i++], selTerm);
-					}
-					rule = ProofConstants.TAUT_MATCH_CASE;
-				}
-
-				// build implicated literal
-				final FormulaUnLet unlet = new FormulaUnLet();
-				unlet.addSubstitutions(argSubs);
-				final Term equalTerm = unlet.unlet(mt.getCases()[caseNr]);
-				if (negative) {
-					clause.add(equalTerm);
-				} else {
-					clause.add(theory.term("not", equalTerm));
-				}
-				final Term axiom = mTracker.tautology(theory.term("or", clause.toArray(new Term[clause.size()])), rule);
-				buildAuxClause(lit, axiom, source);
-				if (c == null) {
-					// skip all remaining cases
-					break;
-				}
-			}
 		} else {
 			assert lit instanceof QuantEquality;
 			if (negative) {
@@ -1339,56 +1279,6 @@ public class Clausifier {
 		axiom = theory.term("or", falseLit.getSMTFormula(theory), term);
 		axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_2);
 		buildAuxClause(falseLit, axiom, source);
-	}
-
-	public void addMatchAxiom(final MatchTerm term, final SourceAnnotation source) {
-		final Theory theory = term.getTheory();
-		final Term dataTerm = term.getDataTerm();
-		final Map<Constructor, Term> cases = new LinkedHashMap<>();
-		final Constructor[] constrs = term.getConstructors();
-		for (int caseNr = 0; caseNr < constrs.length; caseNr++) {
-			final Constructor c = constrs[caseNr];
-			if (cases.containsKey(c)) {
-				continue;
-			}
-
-			final Map<TermVariable, Term> argSubs = new LinkedHashMap<>();
-			final Deque<Term> clause = new ArrayDeque<>();
-			Annotation rule;
-			if (c == null) {
-				// if c == null, this is the default case which matches everything else
-				clause.addAll(cases.values());
-				argSubs.put(term.getVariables()[caseNr][0], dataTerm);
-				rule = ProofConstants.TAUT_MATCH_DEFAULT;
-			} else {
-				// build is-condition
-				final FunctionSymbol isFs =
-						theory.getFunctionWithResult("is", new String[] { c.getName() }, null, dataTerm.getSort());
-				final Term isTerm = theory.term(isFs, dataTerm);
-				cases.put(constrs[caseNr], isTerm);
-				clause.add(theory.term("not", isTerm));
-
-				// substitute argument TermVariables with the according selector function
-				int s_i = 0;
-				for (final String sel : c.getSelectors()) {
-					final Term selTerm = theory.term(sel, dataTerm);
-					argSubs.put(term.getVariables()[caseNr][s_i++], selTerm);
-				}
-				rule = ProofConstants.TAUT_MATCH_CASE;
-			}
-
-			// build implicated equality
-			final FormulaUnLet unlet = new FormulaUnLet();
-			unlet.addSubstitutions(argSubs);
-			final Term caseTerm = mTheory.term("=", term, unlet.unlet(term.getCases()[caseNr]));
-			clause.add(caseTerm);
-			buildTautology(theory, clause.toArray(new Term[clause.size()]), rule, source);
-
-			if (c == null) {
-				// the variable pattern matches everything, so skip the rest.
-				break;
-			}
-		}
 	}
 
 	/**

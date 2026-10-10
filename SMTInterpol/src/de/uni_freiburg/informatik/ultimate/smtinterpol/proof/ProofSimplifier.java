@@ -1059,132 +1059,6 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
-	private Term convertTautDtMatch(final String rule, final ProofLiteral[] clause) {
-		// there are two different matchCase tautologies:
-		// boolean case: +/~(match ...), ~(is_cons c), ~/+(case ...)
-		// term case: ~(is_cons c), (= (match ...) (case ...))
-		// similarly, there are two different matchDefault tautologies:
-		// boolean case: +/~(match ...), (is_cons c1), ..., (is_cons cn) ~/+(case ...)
-		// term case: (is_cons c1), ..., (is_cons cn), (= (match ...) (case ...))
-		// In the boolean case, a quantified match is represented by its aux literal (= AUX true) resp. (= AUX false)
-		// instead of +/~(match ...).
-		boolean negated;
-		// check for matchCase or matchDefault.
-		final boolean isMatchCase = rule.equals(":matchCase");
-		final Term firstAtom = clause[0].getAtom();
-		final boolean isAuxDefEq = clause[0].getPolarity() && isApplication(SMTLIBConstants.EQUALS, firstAtom)
-				&& isAuxApplication(((ApplicationTerm) firstAtom).getParameters()[0]);
-		// use the first literal to distinguish between boolean and term case.
-		final boolean boolCase = isAuxDefEq || firstAtom instanceof MatchTerm;
-		MatchTerm matchTerm;
-		ApplicationTerm isTerm = null;
-		if (boolCase) {
-			// boolean case
-			assert clause.length >= 2;
-			if (isAuxDefEq) {
-				negated = isApplication(SMTLIBConstants.FALSE, ((ApplicationTerm) firstAtom).getParameters()[1]);
-				matchTerm = (MatchTerm) expandAuxDef((ApplicationTerm) firstAtom);
-			} else {
-				negated = !clause[0].getPolarity();
-				matchTerm = (MatchTerm) firstAtom;
-			}
-			if (isMatchCase) {
-				assert !clause[1].getPolarity();
-				final Term tester = clause[1].getAtom();
-				assert isApplication(SMTLIBConstants.IS, tester);
-				isTerm = (ApplicationTerm) tester;
-			}
-		} else {
-			// term case
-			assert clause.length >= 1;
-			negated = false;
-			if (isMatchCase) {
-				assert !clause[0].getPolarity();
-				final Term tester = clause[0].getAtom();
-				assert isApplication(SMTLIBConstants.IS, tester);
-				isTerm = (ApplicationTerm) tester;
-			}
-			assert clause[clause.length - 1].getPolarity();
-			assert isApplication(SMTLIBConstants.EQUALS, clause[clause.length - 1].getAtom());
-			final ApplicationTerm eqTerm = (ApplicationTerm) clause[clause.length - 1].getAtom();
-			assert eqTerm.getParameters().length == 2;
-			matchTerm = (MatchTerm) eqTerm.getParameters()[0];
-		}
-
-		final Constructor[] constrs = matchTerm.getConstructors();
-		int caseNr;
-		for (caseNr = 0; caseNr < constrs.length; caseNr++) {
-			if (isMatchCase ? constrs[caseNr].getName().equals(isTerm.getFunction().getIndices()[0])
-					: constrs[caseNr] == null) {
-				break;
-			}
-		}
-		final Theory theory = matchTerm.getTheory();
-		final Term dataTerm = matchTerm.getDataTerm();
-		Term iteTerm = DataTypeRules.buildIteForMatch(matchTerm);
-
-		final ArrayList<Term> eqSequence = new ArrayList<>();
-		eqSequence.add(matchTerm);
-		for (int i = 0; i < caseNr; i++) {
-			assert isApplication(SMTLIBConstants.ITE, iteTerm);
-			eqSequence.add(iteTerm);
-			iteTerm = ((ApplicationTerm) iteTerm).getParameters()[2];
-		}
-		if (isMatchCase && caseNr < constrs.length - 1) {
-			assert isApplication(SMTLIBConstants.ITE, iteTerm);
-			eqSequence.add(iteTerm);
-			iteTerm = ((ApplicationTerm) iteTerm).getParameters()[1];
-		}
-		eqSequence.add(iteTerm);
-		// Without an ite chain to step through (a match that is only a default case, or a single constructor),
-		// dtMatch already proves (= match body) and trans would get only two terms.
-		Term proof = mProofRules.dtMatch(matchTerm);
-		if (eqSequence.size() > 2) {
-			proof = res(theory.term(SMTLIBConstants.EQUALS, matchTerm, eqSequence.get(1)), proof,
-					mProofRules.trans(eqSequence.toArray(new Term[eqSequence.size()])));
-		}
-		final Constructor cons = constrs[caseNr];
-		Term consTerm = null;
-		if (isMatchCase) {
-			final Term[] selectTerms = new Term[cons.getSelectors().length];
-			for (int i = 0; i < selectTerms.length; i++) {
-				selectTerms[i] = theory.term(cons.getSelectors()[i], dataTerm);
-			}
-			consTerm = theory.term(cons.getName(), null, (cons.needsReturnOverload() ? dataTerm.getSort() : null),
-					selectTerms);
-		}
-		for (int i = 0; i < caseNr; i++) {
-			proof = res(theory.term(SMTLIBConstants.EQUALS, eqSequence.get(i + 1), eqSequence.get(i + 2)),
-					mProofRules.ite2(eqSequence.get(i + 1)), proof);
-			if (isMatchCase) {
-				final String[] index = new String[] { constrs[i].getName() };
-				final Term isConsData = theory.term(SMTLIBConstants.IS, index, null, dataTerm);
-				final Term isConsCons = theory.term(SMTLIBConstants.IS, index, null, consTerm);
-				final Term isConsEq = theory.term(SMTLIBConstants.EQUALS, isConsCons, isConsData);
-				proof = res(isConsData, proof, mProofRules.iffElim1(isConsEq));
-				proof = res(isConsEq, mProofRules.cong(isConsCons, isConsData), proof);
-				proof = res(isConsCons, proof, mProofRules.dtTestE(constrs[i].getName(), consTerm));
-			}
-		}
-		if (isMatchCase && caseNr > 0) {
-			final Term isConsCons = theory.term(SMTLIBConstants.IS, new String[] { cons.getName() }, null, dataTerm);
-			proof = res(theory.term(SMTLIBConstants.EQUALS, consTerm, dataTerm), mProofRules.dtCons(isConsCons), proof);
-		}
-		if (isMatchCase && caseNr < constrs.length - 1) {
-			proof = res(theory.term(SMTLIBConstants.EQUALS, eqSequence.get(caseNr + 1), eqSequence.get(caseNr + 2)),
-					mProofRules.ite1(eqSequence.get(caseNr + 1)), proof);
-		}
-		if (boolCase) {
-			final Term matchEq = theory.term(SMTLIBConstants.EQUALS, matchTerm, iteTerm);
-			proof = res(matchEq, proof, (negated ? mProofRules.iffElim2(matchEq) : mProofRules.iffElim1(matchEq)));
-			proof = removeNot(proof, iteTerm, negated);
-			if (isAuxDefEq) {
-				proof = replaceByAuxDefEq(proof, (ApplicationTerm) firstAtom, matchTerm, negated);
-			}
-		}
-		return proof;
-	}
-
 	private Term proveInt2Bv2Int(ApplicationTerm int2bv2intTerm, Term goalModTerm) {
 		final Theory theory = int2bv2intTerm.getTheory();
 		final ApplicationTerm bvTerm = (ApplicationTerm) int2bv2intTerm.getParameters()[0];
@@ -1437,10 +1311,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":diff":
 			proof = convertTautDiff(clause);
 			break;
-		case ":matchCase":
-		case ":matchDefault":
-			proof = convertTautDtMatch(ruleName, clause);
-			break;
 		case ":ubv2int2bv":
 			proof = convertTautUbv2Int2Bv(clause);
 			break;
@@ -1516,119 +1386,6 @@ public class ProofSimplifier extends TermTransformer {
 			}
 		}
 		return annotateProved(congEquality, proof);
-	}
-
-	private Term convertMatch(final Term[] newParams) {
-		final AnnotatedTerm dataRewrite = (AnnotatedTerm) newParams[0];
-		final Theory theory = dataRewrite.getTheory();
-		final ApplicationTerm dataEquality = (ApplicationTerm) provedTerm(dataRewrite);
-		assert dataEquality.getFunction().getName().equals(SMTLIBConstants.EQUALS);
-		final Term oldData = dataEquality.getParameters()[0];
-		final Term newData = dataEquality.getParameters()[1];
-
-		final DataType dataType = (DataType) oldData.getSort().getSortSymbol();
-		final Term[] oldMatchCases = new Term[newParams.length - 1];
-		final Term[] newMatchCases = new Term[newParams.length - 1];
-		final TermVariable[][] caseVars = new TermVariable[newParams.length - 1][];
-		final Constructor[] constructors = new Constructor[newParams.length - 1];
-		final Term[] rewriteProofs = new Term[newParams.length - 1];
-		for (int i = 1; i < newParams.length; i++) {
-			final AnnotatedTerm caseRewrite = (AnnotatedTerm) newParams[i];
-			final AnnotatedTerm rewrite = (AnnotatedTerm) caseRewrite.getSubterm();
-			final ApplicationTerm caseEquality = (ApplicationTerm) provedTerm(rewrite);
-			assert caseRewrite.getAnnotations()[0].getKey() == ProofConstants.ANNOTKEY_VARS;
-			caseVars[i - 1] = (TermVariable[]) caseRewrite.getAnnotations()[0].getValue();
-			assert caseRewrite.getAnnotations()[1].getKey() == ProofConstants.ANNOTKEY_CONSTRUCTOR;
-			final String constructorName = (String) caseRewrite.getAnnotations()[1].getValue();
-			oldMatchCases[i - 1] = caseEquality.getParameters()[0];
-			newMatchCases[i - 1] = caseEquality.getParameters()[1];
-			constructors[i - 1] = constructorName == null ? null : dataType.findConstructor(constructorName);
-			rewriteProofs[i - 1] = subproof(rewrite);
-		}
-		final MatchTerm oldOldMatch = (MatchTerm) theory.match(oldData, caseVars, oldMatchCases, constructors);
-		final MatchTerm oldMatch = (MatchTerm) theory.match(newData, caseVars, oldMatchCases, constructors);
-		final MatchTerm newMatch = (MatchTerm) theory.match(newData, caseVars, newMatchCases, constructors);
-		Term oldMatchEqualityProof = null;
-		if (oldData != newData) {
-			theory.push();
-			final TermVariable dataVar = theory.createFreshTermVariable("match", oldData.getSort());
-			final TermVariable[] bodyVars = new TermVariable[] { dataVar };
-			final Term bodyDef = theory.match(dataVar, caseVars, oldMatchCases, constructors);
-			final FunctionSymbol bodyFunc = theory.declareInternalFunction("@matchbody",
-					new Sort[] { oldData.getSort() }, bodyDef.getSort(), FunctionSymbol.UNINTERPRETEDINTERNAL);
-			final Term oldBody = theory.term(bodyFunc, oldData);
-			final Term newBody = theory.term(bodyFunc, newData);
-			final Term oldOldMatchBodyEq = res(theory.term(SMTLIBConstants.EQUALS, oldBody, oldOldMatch),
-					mProofRules.expand(oldBody), mProofRules.symm(oldOldMatch, oldBody));
-			final Term oldNewBodyEq = res(theory.term(SMTLIBConstants.EQUALS, oldData, newData), subproof(dataRewrite),
-					mProofRules.cong(oldBody, newBody));
-			oldMatchEqualityProof = res(theory.term(SMTLIBConstants.EQUALS, oldOldMatch, oldBody), oldOldMatchBodyEq,
-					res(theory.term(SMTLIBConstants.EQUALS, oldBody, newBody), oldNewBodyEq,
-							res(theory.term(SMTLIBConstants.EQUALS, newBody, oldMatch), mProofRules.expand(newBody),
-									mProofRules.trans(oldOldMatch, oldBody, newBody, oldMatch))));
-			oldMatchEqualityProof = mProofRules.defineFun(bodyFunc, theory.lambda(bodyVars, bodyDef),
-					oldMatchEqualityProof);
-			theory.pop();
-		}
-
-		final Term oldIte = DataTypeRules.buildIteForMatch(oldMatch);
-		final Term newIte = DataTypeRules.buildIteForMatch(newMatch);
-		Term iteEqualsProof = null;
-		boolean needReflData = false;
-		Term oldSub = oldIte;
-		Term newSub = newIte;
-		for (int i = 0; i < constructors.length; i++) {
-			Term oldCase, newCase;
-			if (constructors[i] == null || i == constructors.length - 1) {
-				oldCase = oldSub;
-				newCase = newSub;
-			} else {
-				assert ((ApplicationTerm) oldSub).getFunction().getName().equals("ite");
-				assert ((ApplicationTerm) newSub).getFunction().getName().equals("ite");
-				oldCase = ((ApplicationTerm) oldSub).getParameters()[1];
-				newCase = ((ApplicationTerm) newSub).getParameters()[1];
-				iteEqualsProof = res(theory.term(SMTLIBConstants.EQUALS, oldSub, newSub),
-						mProofRules.cong(oldSub, newSub), iteEqualsProof);
-
-				final Term oldCond = ((ApplicationTerm) oldSub).getParameters()[0];
-				final Term newCond = ((ApplicationTerm) newSub).getParameters()[0];
-				iteEqualsProof = res(theory.term(SMTLIBConstants.EQUALS, oldCond, newCond),
-						mProofRules.cong(oldCond, newCond), iteEqualsProof);
-				needReflData = true;
-			}
-			Term[] selectors;
-			if (constructors[i] == null) {
-				selectors = new Term[] { newData };
-			} else {
-				selectors = new Term[constructors[i].getSelectors().length];
-				for (int j = 0; j < selectors.length; j++) {
-					selectors[j] = theory.term(constructors[i].getSelectors()[j], newData);
-				}
-			}
-			iteEqualsProof = res(theory.term(SMTLIBConstants.EQUALS, oldCase, newCase),
-					theory.let(caseVars[i], selectors, rewriteProofs[i]), iteEqualsProof);
-			if (constructors[i] == null) {
-				break;
-			} else if (i < constructors.length - 1) {
-				oldSub = ((ApplicationTerm) oldSub).getParameters()[2];
-				newSub = ((ApplicationTerm) newSub).getParameters()[2];
-			}
-		}
-		iteEqualsProof = new FormulaUnLet().unlet(iteEqualsProof);
-		if (needReflData) {
-			iteEqualsProof = res(theory.term(SMTLIBConstants.EQUALS, newData, newData), mProofRules.refl(newData),
-					iteEqualsProof);
-		}
-		final Term iteEquality = theory.term(SMTLIBConstants.EQUALS, oldIte, newIte);
-		Term proof = res(iteEquality, iteEqualsProof, mProofRules.trans(oldMatch, oldIte, newIte, newMatch));
-		proof = res(theory.term(SMTLIBConstants.EQUALS, oldMatch, oldIte), mProofRules.dtMatch(oldMatch), proof);
-		proof = res(theory.term(SMTLIBConstants.EQUALS, newMatch, newIte), mProofRules.dtMatch(newMatch),
-				res(theory.term(SMTLIBConstants.EQUALS, newIte, newMatch), mProofRules.symm(newIte, newMatch), proof));
-		if (oldData != newData) {
-			proof = mProofUtils.proveTransitivity(oldOldMatch, oldMatch, newMatch, oldMatchEqualityProof, proof);
-		}
-
-		return annotateProved(theory.term(SMTLIBConstants.EQUALS, oldOldMatch, newMatch), proof);
 	}
 
 	private Term convertRewriteIntern(final Term lhs, final Term rhs) {
@@ -4451,8 +4208,6 @@ public class ProofSimplifier extends TermTransformer {
 		case ":modulo":
 		case ":store":
 		case ":diff":
-		case ":matchCase":
-		case ":matchDefault":
 		case ":int2ubv2int":
 		case ":ubv2int2bv":
 		case ":int2bv":
@@ -4488,10 +4243,6 @@ public class ProofSimplifier extends TermTransformer {
 			}
 			case ProofConstants.FN_CONG: {
 				setResult(convertCong(old.getFunction(), newParams));
-				return;
-			}
-			case ProofConstants.FN_MATCH: {
-				setResult(convertMatch(newParams));
 				return;
 			}
 			case ProofConstants.FN_QUANT: {

@@ -23,12 +23,10 @@ import java.util.LinkedHashSet;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.logic.DataType.Constructor;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
-import de.uni_freiburg.informatik.ultimate.logic.MatchTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -73,7 +71,6 @@ public class ProofTracker implements IProofTracker {
 		theory.declareInternalPolymorphicFunction(ProofConstants.FN_TRANS, generic, eqProofX2, eqProofX,
 				FunctionSymbol.LEFTASSOC);
 		theory.declareInternalFunctionFactory(new CongRewriteFunctionFactory());
-		theory.declareInternalFunctionFactory(new MatchRewriteFunctionFactory());
 		theory.declareInternalFunction(ProofConstants.FN_QUANT, new Sort[] { eqProofBool }, eqProofBool, 0);
 	}
 
@@ -298,33 +295,6 @@ public class ProofTracker implements IProofTracker {
 		final String quantType = isForall ? ":forall" : ":exists";
 		final Annotation[] annot = new Annotation[] { new Annotation(quantType, quant.getVariables()) };
 		final Term proof = theory.term(ProofConstants.FN_QUANT, theory.annotatedTerm(annot, subProof));
-		return buildProof(proof, formula);
-	}
-
-	@Override
-	public Term match(final MatchTerm oldMatch, final Term newData, final Term[] newCases) {
-		final Theory theory = oldMatch.getTheory();
-		final Term[] subProofs = new Term[newCases.length + 1];
-		final Term[] newCaseTerms = new Term[newCases.length];
-		final Constructor[] constrs = oldMatch.getConstructors();
-		subProofs[0] = getProof(newData);
-		boolean isReflexivity = isReflexivity(subProofs[0]);
-		for (int i = 0; i < newCases.length; i++) {
-			final String constructorName = constrs[i] == null ? null : constrs[i].getName();
-			final Annotation[] annot = new Annotation[] {
-					new Annotation(ProofConstants.ANNOTKEY_VARS, oldMatch.getVariables()[i]),
-					new Annotation(ProofConstants.ANNOTKEY_CONSTRUCTOR, constructorName) };
-			final Term caseProof = getProof(newCases[i]);
-			subProofs[i + 1] = theory.annotatedTerm(annot, caseProof);
-			isReflexivity &= isReflexivity(caseProof);
-			newCaseTerms[i] = getProvedTerm(newCases[i]);
-		}
-		final Term formula = theory.match(getProvedTerm(newData), oldMatch.getVariables(), newCaseTerms,
-				oldMatch.getConstructors());
-		if (isReflexivity) {
-			return reflexivity(formula);
-		}
-		final Term proof = theory.term(ProofConstants.FN_MATCH, subProofs);
 		return buildProof(proof, formula);
 	}
 
