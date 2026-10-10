@@ -20,6 +20,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -122,6 +123,9 @@ public class DestructiveEqualityReasoning {
 	 * Step 2:<br>
 	 * (i) Build sigma := sigma*.<br>
 	 * (ii) Find a substitution for all variables without ground substitution, but don't build cycles.
+	 * <p>
+	 * Sigma is kept idempotent, i.e., no substituted term contains a variable that is substituted itself, since it is
+	 * applied simultaneously.
 	 */
 	private void collectSubstitution() {
 		final Map<TermVariable, Term> groundAndVarSubsForVar = new LinkedHashMap<>();
@@ -169,6 +173,10 @@ public class DestructiveEqualityReasoning {
 							subs = groundAndVarSubsForVar.get(subs);
 						}
 					}
+					if (subs instanceof TermVariable) {
+						// the chain may end in a variable of an earlier chain, which is substituted itself
+						subs = findRep((TermVariable) subs);
+					}
 					for (final TermVariable equiVar : varsWithSameSubs) {
 						if (equiVar != subs) { // Don't use a substitution x->x.
 							mSigma.put(equiVar, subs);
@@ -186,13 +194,19 @@ public class DestructiveEqualityReasoning {
 				final Term varRep = findRep(var);
 				if (varRep instanceof TermVariable) {
 					for (final Term potentialSubs : potentialSubsForVar.get(var)) {
-						if (!hasCycle(var, potentialSubs)) {
-							final FormulaUnLet unletter = new FormulaUnLet();
-							unletter.addSubstitutions(mSigma);
-							Term subs = unletter.unlet(potentialSubs);
-							final IProofTracker tracker = mClausifier.getTracker();
-							subs = tracker.getProvedTerm(mClausifier.getTermCompiler().transform(subs));
+						// sigma is idempotent, so subs contains no substituted variable
+						final Term subs = substitute(potentialSubs, mSigma);
+						if (!Arrays.asList(subs.getFreeVars()).contains(varRep)) { // no cycle
+							// keep sigma idempotent: substitute the new binding in all substituted terms
+							final Map<TermVariable, Term> binding =
+									Collections.singletonMap((TermVariable) varRep, subs);
+							for (final Map.Entry<TermVariable, Term> entry : mSigma.entrySet()) {
+								if (Arrays.asList(entry.getValue().getFreeVars()).contains(varRep)) {
+									entry.setValue(substitute(entry.getValue(), binding));
+								}
+							}
 							mSigma.put((TermVariable) varRep, subs);
+							break;
 						}
 					}
 				}
@@ -224,16 +238,17 @@ public class DestructiveEqualityReasoning {
 	}
 
 	/**
-	 * For a variable x and a potential substitution sigma containing variables check if there is a cycle in sigma.
+	 * Apply a substitution to a term and normalize the result (unless it is a variable).
 	 */
-	private boolean hasCycle(final TermVariable var, final Term potentialSubs) {
-		assert potentialSubs.getFreeVars().length > 0;
-		for (final TermVariable dependentVar : potentialSubs.getFreeVars()) {
-			if (Arrays.asList(findRep(dependentVar).getFreeVars()).contains(var)) {
-				return true;
-			}
+	private Term substitute(final Term term, final Map<TermVariable, Term> subst) {
+		final FormulaUnLet unletter = new FormulaUnLet();
+		unletter.addSubstitutions(subst);
+		final Term result = unletter.unlet(term);
+		if (result instanceof TermVariable) {
+			return result;
 		}
-		return false;
+		final IProofTracker tracker = mClausifier.getTracker();
+		return tracker.getProvedTerm(mClausifier.getTermCompiler().transform(result));
 	}
 
 	/**
