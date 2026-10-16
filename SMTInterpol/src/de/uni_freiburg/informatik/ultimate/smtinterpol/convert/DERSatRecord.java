@@ -34,6 +34,7 @@ import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.DestructiveEqualityReasoning.DERResult;
@@ -53,6 +54,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.DestructiveE
 final class DERSatRecord {
 	private final Clausifier mClausifier;
 	private final ProofRules mRules;
+	private final ProofUtils mUtils;
 	private final Theory mTheory;
 	/** The entries of the original clause (instantiated with θ). */
 	private final Map<ILiteral, Clausifier.SatEntry> mEntries;
@@ -65,7 +67,10 @@ final class DERSatRecord {
 	private final Map<TermVariable, Proved> mVarMemo = new HashMap<>();
 	private final Set<TermVariable> mInProgress = new HashSet<>();
 
-	/** A proof of a clause {@code {lit} ∪ rest}. */
+	/**
+	 * A proof of a clause {@code {lit} ∪ rest}. A null proof is the identity: {@code ~lit} is itself in
+	 * {@code rest}, so the clause is a tautology, which is never built; resolving with it is a no-op.
+	 */
 	private static final class Proved {
 		final Term mProof;
 		final Set<ProofLiteral> mRest;
@@ -80,6 +85,7 @@ final class DERSatRecord {
 			final Map<TermVariable, Term> sigma) {
 		mClausifier = clausifier;
 		mRules = ((ProofTracker) clausifier.mTracker).getProofRules();
+		mUtils = new ProofUtils(mRules);
 		mTheory = clausifier.getTheory();
 		mEntries = record.mLiterals;
 		mTarget = record.mTarget;
@@ -140,7 +146,8 @@ final class DERSatRecord {
 		}
 		if (newLits[last] == null) {
 			// the literal simplified to true: lastEntry proves {~true} ∪ R
-			return record.setReadyMadeFromTrueLiteral(lastEntry, mClausifier);
+			record.setReadyMadeFromTrueLiteral(lastEntry, mClausifier);
+			return true;
 		}
 		for (int j = 0; j < last; j++) {
 			if (newLits[j] == newLits[last].negate()) {
@@ -150,7 +157,8 @@ final class DERSatRecord {
 				}
 				final ProofLiteral lit =
 						Clausifier.toProofLiteral(instantiate(newLits[last].getSMTFormula(mTheory)));
-				return record.setReadyMadeFromPair(lit, lastEntry, negEntry, mClausifier);
+				record.setReadyMadeFromPair(lit, lastEntry, negEntry, mClausifier);
+				return true;
 			}
 		}
 		return false;
@@ -180,7 +188,8 @@ final class DERSatRecord {
 			}
 			final Clausifier.SatEntry entry = mEntries.get(orig);
 			if (entry == null) {
-				return null;
+				// excluded from the record, like the aux literal of an aux clause; so is the literal it became
+				continue;
 			}
 			final Term substLit = substituted[i];
 			final Term rewrite = rewrites[i];
@@ -217,8 +226,9 @@ final class DERSatRecord {
 		return false;
 	}
 
+	/** Resolution; a null proof is the identity, and the other proof is returned. */
 	private Term res(final Term pivot, final Term pos, final Term neg) {
-		return mRules.resolutionRule(pivot, pos, neg);
+		return mUtils.res(pivot, pos, neg);
 	}
 
 	/**
@@ -239,10 +249,8 @@ final class DERSatRecord {
 		final Set<ProofLiteral> rest = new LinkedHashSet<>(cong.mRest);
 		// {~(= p q), ~lit[σ][θ], lit[θ]}
 		Term proof = lit.getPolarity() ? mRules.iffElim2(eq) : mRules.iffElim1(eq);
-		if (entry.mProof != null) {
-			// entry: {~lit[θ]} ∪ R
-			proof = lit.getPolarity() ? res(q, proof, entry.mProof) : res(q, entry.mProof, proof);
-		}
+		// entry: {~lit[θ]} ∪ R
+		proof = lit.getPolarity() ? res(q, proof, entry.mProof) : res(q, entry.mProof, proof);
 		rest.addAll(Arrays.asList(entry.getRest(mTarget)));
 		proof = res(eq, cong.mProof, proof);
 		// reversed simplification {~newLit, lit[σ]}
@@ -316,7 +324,7 @@ final class DERSatRecord {
 		for (final Map.Entry<ILiteral, Clausifier.SatEntry> e : mEntries.entrySet()) {
 			final ProofLiteral lit = Clausifier.toProofLiteral(e.getKey().getSMTFormula(mTheory));
 			final Clausifier.SatEntry entry = e.getValue();
-			if (lit.getPolarity() || entry.mProof == null || !(lit.getAtom() instanceof ApplicationTerm)) {
+			if (lit.getPolarity() || !(lit.getAtom() instanceof ApplicationTerm)) {
 				continue;
 			}
 			final ApplicationTerm atom = (ApplicationTerm) lit.getAtom();
@@ -334,7 +342,9 @@ final class DERSatRecord {
 			if (!direct && (!containsEliminated(s) || instantiateSigma(s) != sigmaX)) {
 				continue;
 			}
-			// entry: {(= a[θ] b[θ])} ∪ R; make it {(= s[θ] θ(x))} ∪ R
+			// entry: {(= a[θ] b[θ])} ∪ R; make it {(= s[θ] θ(x))} ∪ R. If the DER literal is itself a target literal,
+			// its entry is the identity (no proof) and R is {~(= a[θ] b[θ])}: then the result is the identity, too, or,
+			// with x on the left, the symm clause {(= s[θ] θ(x)), ~(= θ(x) s[θ])}.
 			Term proof = entry.mProof;
 			if (a == x) {
 				final Term eqXs = mTheory.term(SMTLIBConstants.EQUALS, thetaX, sTheta);
@@ -347,9 +357,9 @@ final class DERSatRecord {
 				if (cong == null) {
 					continue;
 				}
-				final Term trans = mRules.trans(sigmaX, sTheta, thetaX);
-				proof = res(mTheory.term(SMTLIBConstants.EQUALS, sTheta, thetaX), proof,
-						res(mTheory.term(SMTLIBConstants.EQUALS, sigmaX, sTheta), cong.mProof, trans));
+				final Term trans = res(mTheory.term(SMTLIBConstants.EQUALS, sigmaX, sTheta), cong.mProof,
+						mRules.trans(sigmaX, sTheta, thetaX));
+				proof = res(mTheory.term(SMTLIBConstants.EQUALS, sTheta, thetaX), proof, trans);
 				rest.addAll(cong.mRest);
 			}
 			result = new Proved(proof, rest);

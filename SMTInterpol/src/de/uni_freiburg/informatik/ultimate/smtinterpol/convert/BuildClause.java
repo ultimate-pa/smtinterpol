@@ -434,14 +434,16 @@ class BuildClause implements Operation {
 		final Map<ILiteral, Clausifier.SatEntry> entries = mSatRecord.mLiterals;
 		final Clausifier.SatEntry trueEntry = entries.get(Clausifier.mTRUE);
 		if (trueEntry != null) {
-			return mSatRecord.setReadyMadeFromTrueLiteral(trueEntry, mClausifier);
+			mSatRecord.setReadyMadeFromTrueLiteral(trueEntry, mClausifier);
+			return true;
 		}
 		for (final Map.Entry<ILiteral, Clausifier.SatEntry> e : entries.entrySet()) {
 			final Clausifier.SatEntry negEntry = entries.get(e.getKey().negate());
 			if (negEntry != null) {
 				final ProofLiteral lit = Clausifier.toProofLiteral(
 						mClausifier.instantiate(e.getKey().getSMTFormula(mClause.getTheory())));
-				return mSatRecord.setReadyMadeFromPair(lit, e.getValue(), negEntry, mClausifier);
+				mSatRecord.setReadyMadeFromPair(lit, e.getValue(), negEntry, mClausifier);
+				return true;
 			}
 		}
 		return false;

@@ -101,14 +101,22 @@ public class QuantifiedSatRecordTest {
 	 * {@code {~l} ∪ rest}, also after lowering, without oracles. Returns the number of ground clause records.
 	 */
 	private int checkGroundClauseRecords(final SMTInterpol script) {
+		return checkGroundClauseRecords(script, false);
+	}
+
+	/** As above; with {@code withAux}, also the records reachable from the aux literals. */
+	private int checkGroundClauseRecords(final SMTInterpol script, final boolean withAux) {
 		final Clausifier clausifier = script.getClausifier();
 		final MinimalProofChecker checker = new MinimalProofChecker(script, script.getLogger());
 		final Set<Clausifier.SatRecord> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
 		final List<Clausifier.SatRecord> todo = new ArrayList<>(clausifier.mAssertionSatProofs.values());
+		if (withAux) {
+			todo.addAll(clausifier.mLiteralSatProofs.values());
+		}
 		int count = 0;
 		while (!todo.isEmpty()) {
 			final Clausifier.SatRecord record = todo.remove(todo.size() - 1);
-			if (!seen.add(record)) {
+			if (record == null || !seen.add(record)) {
 				continue;
 			}
 			if (record instanceof Clausifier.FormulaSatProof) {
@@ -286,5 +294,13 @@ public class QuantifiedSatRecordTest {
 		// DER x := 5 turns (= (f x) (f 5)) into true
 		Assert.assertEquals(1, checkReadyMadeRecords(
 				parse("(assert (forall ((x Int)) (or (not (= x 5)) (= (f x) (f 5)) (P x))))")));
+	}
+
+	@Test
+	public void testDERLiteralIsTargetLiteral() {
+		// The ite condition (= x 5) is a target literal of the aux clauses of the quantified ite, so the DER literal's
+		// entry is the identity, without proof. DER makes these clauses ground; their records must be complete.
+		final SMTInterpol script = parse("(assert (forall ((x Int)) (or (ite (= x 5) (P x) (Q x)) (R x x))))");
+		Assert.assertEquals(2, checkGroundClauseRecords(script, true));
 	}
 }

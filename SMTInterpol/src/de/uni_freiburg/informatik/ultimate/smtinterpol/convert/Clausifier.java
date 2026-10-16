@@ -64,6 +64,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
@@ -298,10 +299,8 @@ public class Clausifier {
 
 		/**
 		 * Set the ready-made proof for a clause containing the literal true, from its entry {@code {~true} ∪ R}.
-		 *
-		 * @return false if that is not possible.
 		 */
-		boolean setReadyMadeFromTrueLiteral(final SatEntry trueEntry, final Clausifier clausifier) {
+		void setReadyMadeFromTrueLiteral(final SatEntry trueEntry, final Clausifier clausifier) {
 			final ProofRules rules = ((ProofTracker) clausifier.mTracker).getProofRules();
 			if (trueEntry.mProof == null) {
 				// true is itself a literal of the target
@@ -315,32 +314,24 @@ public class Clausifier {
 				clause.remove(notTrue);
 				mReadyMadeClause = clause.toArray(new ProofLiteral[clause.size()]);
 			}
-			return true;
 		}
 
 		/**
 		 * Set the ready-made proof for a clause containing the complementary literals {@code lit} and {@code ~lit},
 		 * from their entries {@code {~lit} ∪ R1} and {@code {lit} ∪ R2} (instantiated).
-		 *
-		 * @return false if that is not possible.
 		 */
-		boolean setReadyMadeFromPair(final ProofLiteral lit, final SatEntry litEntry, final SatEntry negEntry,
+		void setReadyMadeFromPair(final ProofLiteral lit, final SatEntry litEntry, final SatEntry negEntry,
 				final Clausifier clausifier) {
 			final ProofRules rules = ((ProofTracker) clausifier.mTracker).getProofRules();
 			final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>();
 			if (litEntry.mProof == null && negEntry.mProof == null) {
-				// both literals are literals of the target; that would need a proof of the tautology {lit, ~lit}
-				return false;
+				// both literals are literals of the target, which no consumer builds (a target is never a tautology)
+				throw new AssertionError("tautological target");
 			}
-			if (litEntry.mProof == null) {
-				// lit is a literal of the target, negEntry proves {lit} ∪ R2
-				mReadyMadeProof = negEntry.mProof;
-			} else if (negEntry.mProof == null) {
-				mReadyMadeProof = litEntry.mProof;
-			} else {
-				mReadyMadeProof = lit.getPolarity() ? rules.resolutionRule(lit.getAtom(), negEntry.mProof, litEntry.mProof)
-						: rules.resolutionRule(lit.getAtom(), litEntry.mProof, negEntry.mProof);
-			}
+			// a null proof is the identity (the literal is a literal of the target); res returns the other proof
+			final ProofUtils utils = new ProofUtils(rules);
+			mReadyMadeProof = lit.getPolarity() ? utils.res(lit.getAtom(), negEntry.mProof, litEntry.mProof)
+					: utils.res(lit.getAtom(), litEntry.mProof, negEntry.mProof);
 			final boolean resolved = litEntry.mProof != null && negEntry.mProof != null;
 			// resolution removes ~lit from litEntry's clause {~lit} ∪ R1 and lit from negEntry's clause {lit} ∪ R2
 			for (final ProofLiteral l : litEntry.getRest(mTarget)) {
@@ -354,7 +345,6 @@ public class Clausifier {
 				}
 			}
 			mReadyMadeClause = clause.toArray(new ProofLiteral[clause.size()]);
-			return true;
 		}
 
 		/** Mark this record as the record of the quantified clause with the given universal closure. */

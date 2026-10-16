@@ -99,7 +99,15 @@ public class ModelProofBuilder {
 	 * @return the proof and its clause {@code {assertion, ~C_1, .., ~C_k}} or null if the record is incomplete.
 	 */
 	Term proveAssertionKeepingClosures(final Term assertion, final Set<ProofLiteral> clauseOut) {
-		final Clausifier.SatRecord record = mClausifier.mAssertionSatProofs.get(assertion);
+		return proveKeepingClosures(mClausifier.mAssertionSatProofs.get(assertion), clauseOut);
+	}
+
+	/**
+	 * Prove a record, keeping the closures of quantified clauses as hypotheses (see {@link #mKeepClosures}).
+	 *
+	 * @return the proof and its clause {@code {conclusion, ~C_1, .., ~C_k}} or null if the record is incomplete.
+	 */
+	Term proveKeepingClosures(final Clausifier.SatRecord record, final Set<ProofLiteral> clauseOut) {
 		if (record == null) {
 			return null;
 		}
