@@ -46,11 +46,11 @@ class AddAsAxiom implements Operation {
 	/**
 	 * The sat-proof record proving {@code provedTerm(mAxiom)} as a positive proof
 	 * literal, filled in once this node -- and, for a propositional split, its
-	 * {@link SplitJoin} -- has run. Stays null when sat proofs are disabled, or
-	 * when this node's derivation isn't (yet) tracked, e.g. quantified formulas
-	 * (see the model-proof plan, phase 4) or a formula that turned out to already
-	 * be asserted; the caller then falls back to evaluating the formula directly
-	 * instead of using this record.
+	 * {@link SplitJoin} -- has run. For a formula that was already asserted, it is
+	 * the record of the node that asserted it first. Stays null when sat proofs are
+	 * disabled, or when this node's derivation isn't tracked (e.g. EPR clauses);
+	 * the caller then falls back to evaluating the formula directly instead of
+	 * using this record.
 	 */
 	Clausifier.SatRecord mSatProof;
 
@@ -92,14 +92,24 @@ class AddAsAxiom implements Operation {
 			assertedFlag = Clausifier.NEG_AXIOMS_ADDED;
 			auxFlag = Clausifier.NEG_AUX_AXIOMS_ADDED;
 		}
+		final Term assertedLit = positive ? term : term.getTheory().term("not", term);
 		if ((oldFlags & assertedFlag) != 0) {
-			// We've already added this formula as axioms
+			// We've already added this formula as axioms. Its clauses exist, and so does the sat record of the node
+			// that added them: that node has completely run, since this node is neither part of its subtree (a
+			// formula is no proper subformula of itself) nor run before it.
+			if (this.clausifier.satProofsEnabled()) {
+				final AddAsAxiom first = this.clausifier.mAssertedNodes.get(assertedLit);
+				mSatProof = first == null ? null : first.mSatProof;
+			}
 			return;
 		}
 		// Mark the formula as asserted.
 		// Also mark the auxFlag, as it is no longer necessary to create the auxiliary axioms that state that auxlit
 		// implies this formula.
 		this.clausifier.setTermFlags(term, oldFlags | assertedFlag);
+		if (this.clausifier.satProofsEnabled()) {
+			this.clausifier.mAssertedNodes.put(assertedLit, this);
+		}
 		final ILiteral auxlit = this.clausifier.getILiteral(term);
 		if (auxlit != null) {
 			// add the unit aux literal as clause; this will basically make the auxaxioms the axioms after unit

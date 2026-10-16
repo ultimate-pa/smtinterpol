@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
@@ -347,7 +348,12 @@ public class ModelProofBuilder {
 			return mTracker.getProofRules().trueIntro();
 		}
 
-		final Term[] assertionArray = assertions.toArray(new Term[assertions.size()]);
+		// the proof format does not distinguish a let term from its unletted form; the records are for the latter
+		final FormulaUnLet unlet = new FormulaUnLet();
+		final Term[] assertionArray = new Term[assertions.size()];
+		for (int i = 0; i < assertionArray.length; i++) {
+			assertionArray[i] = unlet.unlet(assertions.get(i));
+		}
 		Term proof = null;
 		if (assertionArray.length > 1) {
 			proof = mTracker.getProofRules().andIntro(mTheory.term(SMTLIBConstants.AND, assertionArray));

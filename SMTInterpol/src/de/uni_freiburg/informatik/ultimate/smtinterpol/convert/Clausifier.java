@@ -187,6 +187,12 @@ public class Clausifier {
 	 */
 	final ScopedHashMap<Term, SatRecord> mAssertionSatProofs = new ScopedHashMap<>();
 	/**
+	 * The {@link AddAsAxiom} node that asserted a formula, keyed by the formula resp. its negation: a formula asserted
+	 * again reuses that node's sat record, since its clauses exist already. Only filled in when
+	 * {@link #satProofsEnabled()}.
+	 */
+	final ScopedHashMap<Term, AddAsAxiom> mAssertedNodes = new ScopedHashMap<>();
+	/**
 	 * For every fresh variable that replaced the variables of a dropped quantifier (positive {@code forall} or negative
 	 * {@code exists}, see {@link #convertQuantifiedSubformula}), the choose term of that quantifier, at which its sat
 	 * dual {@code forallIntro}/{@code existsElim} holds. The values are already instantiated (idempotent map). All sat
@@ -2331,7 +2337,7 @@ public class Clausifier {
 		final AddAsAxiom root = new AddAsAxiom(this, simpFormula, source);
 		pushOperation(root);
 		run();
-		if (satProofsEnabled() && root.mSatProof != null && assertedTerm == f) {
+		if (satProofsEnabled() && root.mSatProof != null) {
 			// Bridge from the clausifier-internal (compiled) formula back to the term the user actually asserted,
 			// reversing the rewrite addFormula itself applied above: start with {~simpFormulaRaw, assertedTerm}
 			// and resolve the root record on simpFormulaRaw.
@@ -2346,7 +2352,8 @@ public class Clausifier {
 						new Term[] { negate(simpFormulaRaw), assertedTerm }, new SatRecord[] { root.mSatProof },
 						new Term[] { simpFormulaRaw }, assertedTerm);
 			}
-			mAssertionSatProofs.put(f, record);
+			// keyed by the unletted formula; the proof format does not distinguish it from f
+			mAssertionSatProofs.put(assertedTerm, record);
 		}
 		mOccCounter.reset(simpFormula);
 		simpFormula = null;
@@ -2375,6 +2382,7 @@ public class Clausifier {
 				mLiteralSatProofs.beginScope();
 				mAssertionSatProofs.beginScope();
 				mChooseTerms.beginScope();
+				mAssertedNodes.beginScope();
 			}
 		}
 	}
@@ -2406,6 +2414,7 @@ public class Clausifier {
 				mLiteralSatProofs.endScope();
 				mAssertionSatProofs.endScope();
 				mChooseTerms.endScope();
+				mAssertedNodes.endScope();
 			}
 		}
 		mStackLevel -= numpops;

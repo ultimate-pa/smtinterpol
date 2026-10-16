@@ -139,6 +139,41 @@ public class ModelProofClausesTest {
 	}
 
 	@Test
+	public void testLetAssertion() {
+		// the record is tracked for the unletted assertion; the proof format does not distinguish the two
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), p = s.term("p");
+		final TermVariable v = s.variable("v", boolSort);
+		s.assertTerm(s.let(new TermVariable[] { v }, new Term[] { s.term("<", x, s.numeral("0")) },
+				s.term("and", s.term("or", v, p), s.term("not", s.term("and", v, p)))));
+		s.assertTerm(s.term("not", p));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testRepeatedAssertion() {
+		// p, (or q r) and (or p r) are asserted again by later assertions; the repeats reuse the first records
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UF");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("q", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term p = s.term("p"), q = s.term("q"), r = s.term("r");
+		s.assertTerm(s.term("and", p, s.term("or", q, r)));
+		s.assertTerm(p);
+		s.assertTerm(s.term("and", s.term("or", q, r), s.term("or", p, r)));
+		s.assertTerm(s.term("or", p, r));
+		s.assertTerm(s.term("not", q));
+		checkSatAndProof(s);
+	}
+
+	@Test
 	public void testNegatedOr() {
 		final SMTInterpol s = newScript();
 		s.setLogic("QF_UFLIA");

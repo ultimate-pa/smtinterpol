@@ -86,20 +86,6 @@ class BuildClause implements Operation {
 	private final Clausifier.ClauseSatProof mSatRecord;
 	/** Per literal, how it descends from its literal of {@code mSatRecord.mTarget}; filled in by {@link #addLiteral}. */
 	private final LinkedHashMap<ILiteral, Clausifier.SatEntry> mLitSatProofs = new LinkedHashMap<>();
-	/**
-	 * Set when {@link CollectLiteral} took a branch that doesn't (yet) track its
-	 * sat-proof dual (e.g. the or/and/=> inlining branch, or a quantified
-	 * subformula). {@code perform()} then leaves {@code mSatRecord} without
-	 * {@code mLiterals}, so the assembler falls back to evaluating
-	 * the record's conclusion directly instead of using (incomplete,
-	 * potentially unsound) per-literal entries.
-	 */
-	private boolean mSatRecordPoisoned = false;
-
-	void poisonSatRecord() {
-		mSatRecordPoisoned = true;
-	}
-
 	public BuildClause(Clausifier clausifier, final Term clauseWithProof, final SourceAnnotation proofNode) {
 		this(clausifier, clauseWithProof, proofNode, null);
 	}
@@ -320,7 +306,7 @@ class BuildClause implements Operation {
 		if (mIsTrue) {
 			// A trivially true clause never reaches the engine, so no literal of it can be picked from the
 			// assignment. Its record gets a proof of the target that needs no model instead.
-			if (mSatRecord != null && !mSatRecordPoisoned) {
+			if (mSatRecord != null) {
 				mSatRecord.seal(mLitSatProofs, mClausifier);
 				if (!setTautologyProof()) {
 					mSatRecord.mLiterals = null;
@@ -328,7 +314,7 @@ class BuildClause implements Operation {
 			}
 			return;
 		}
-		if (mSatRecord != null && !mSatRecordPoisoned) {
+		if (mSatRecord != null) {
 			mSatRecord.seal(mLitSatProofs, mClausifier);
 		}
 		final Theory theory = mClause.getTheory();
