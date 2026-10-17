@@ -491,6 +491,12 @@ public class ProofSimplifier extends TermTransformer {
 		assert qf.getQuantifier() == (isForall ? QuantifiedFormula.FORALL : QuantifiedFormula.EXISTS);
 		final Theory theory = qf.getTheory();
 		final TermVariable[] vars = qf.getVariables();
+		if (Arrays.equals(skolemFuns, mProofRules.getSkolemVars(vars, qf.getSubformula(), isForall))) {
+			// the terms are the choose terms themselves (sat dual of dropping a quantifier, see the model-proof plan)
+			final Term proof = isForall ? mProofRules.forallIntro(qf) : mProofRules.existsElim(qf);
+			final Term subChoose = new FormulaUnLet().unlet(mSkript.let(vars, skolemFuns, qf.getSubformula()));
+			return removeNot(proof, subChoose, !isForall);
+		}
 		final Sort[] varSorts = new Sort[vars.length];
 		for (int i = 0; i < vars.length; i++) {
 			varSorts[i] = vars[i].getSort();
@@ -4137,6 +4143,23 @@ public class ProofSimplifier extends TermTransformer {
 		setResult(proof);
 	}
 
+	/**
+	 * Convert the reverse direction of a rewrite oracle: from a proof of
+	 * {@code (= lhs rhs)} derive {~rhs, lhs} using {@code iffElim1} instead of
+	 * {@code iffElim2}. This is the dual of {@link #convertMP}.
+	 */
+	private void convertMPReverse(final ProofLiteral[] clause) {
+		final AnnotatedTerm rewrite = (AnnotatedTerm) getConverted();
+		final ApplicationTerm provedEq = (ApplicationTerm) provedTerm(rewrite);
+		assert isApplication(SMTLIBConstants.EQUALS, provedEq);
+		final Term[] eqParams = provedEq.getParameters();
+		Term proof = res(provedEq, subproof(rewrite), mProofRules.iffElim1(provedEq));
+		proof = removeNot(proof, eqParams[1], false);
+		proof = removeNot(proof, eqParams[0], true);
+		assert checkProof(proof, clause);
+		setResult(proof);
+	}
+
 	public void convertOracle(final AnnotatedTerm oracle) {
 		final Annotation[] annots = oracle.getAnnotations();
 		assert annots.length >= 2;
@@ -4220,6 +4243,10 @@ public class ProofSimplifier extends TermTransformer {
 			enqueueWalker((NonRecursive engine) -> ((ProofSimplifier) engine).convertMP(clause));
 			convert((Term) annots[1].getValue());
 			break;
+		case ProofConstants.ANNOTKEY_REWRITE_REV:
+			enqueueWalker((NonRecursive engine) -> ((ProofSimplifier) engine).convertMPReverse(clause));
+			convert((Term) annots[1].getValue());
+			break;
 		case ":inst": {
 			final Object[] instAnnot = (Object[]) annots[1].getValue();
 			assert instAnnot[3] == ":subproof";
@@ -4285,6 +4312,11 @@ public class ProofSimplifier extends TermTransformer {
 			}
 		} else if (ProofRules.isOracle(term)) {
 			convertOracle((AnnotatedTerm) term);
+		} else if (!ProofRules.isProof(term) && term.getSort().getName() != ProofConstants.SORT_EQPROOF) {
+			// don't convert plain value sub-terms of other sorts (e.g. the arithmetic
+			// terms in a polyAdd/polyMul annotation) -- same reasoning as for Boolean
+			// sub-formulas above.
+			setResult(term);
 		} else {
 			super.convert(term);
 		}

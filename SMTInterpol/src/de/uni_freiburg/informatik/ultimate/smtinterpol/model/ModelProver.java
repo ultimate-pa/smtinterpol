@@ -63,6 +63,23 @@ import de.uni_freiburg.informatik.ultimate.util.datastructures.ScopedHashMap;
 public class ModelProver extends TermTransformer {
 
 	/**
+	 * A hook to prove the truth value of a Boolean subterm by other means than evaluating it in the model, e.g., from
+	 * the sat proof of the subterm's clausifier literal. See SMTInterpol/doc/model-proof-plan.md, "Quantified aux
+	 * literals".
+	 */
+	public interface BooleanTermProver {
+		/**
+		 * Prove the truth value of a closed Boolean term.
+		 *
+		 * @param term
+		 *            the Boolean term.
+		 * @return a proof of {@code {term}} annotated with {@code true}, or a proof of {@code {(not term)}} annotated
+		 *         with {@code false} (see {@link ModelProver#annotateValue}), or null to evaluate the term instead.
+		 */
+		Term prove(Term term);
+	}
+
+	/**
 	 * A helper to enqueue either the true or the false branch of an ite.
 	 *
 	 * @author Jochen Hoenicke
@@ -125,14 +142,44 @@ public class ModelProver extends TermTransformer {
 	 */
 	private final ScopedHashMap<TermVariable, Term> mLetMap = new ScopedHashMap<>(false);
 
+	private BooleanTermProver mBooleanTermProver;
+	/** True while {@link #proveAtom} runs; a nested call (from the {@link BooleanTermProver}) uses a fresh prover. */
+	private boolean mBusy;
+
 	private static boolean isBooleanValue(final Term term) {
 		final Theory theory = term.getTheory();
 		return term == theory.mTrue || term == theory.mFalse;
 	}
 
-	private Term annotateProof(Term proof, Term resultTerm) {
+	private static Term annotateProof(Term proof, Term resultTerm) {
 		final Theory theory = proof.getTheory();
 		return theory.annotatedTerm(new Annotation[] { new Annotation(":term", resultTerm) }, proof);
+	}
+
+	/**
+	 * Build the result of {@link BooleanTermProver#prove}.
+	 *
+	 * @param proof
+	 *            a proof of {@code {term}} if value is true, of {@code {(not term)}} otherwise.
+	 */
+	public static Term annotateValue(final Term proof, final boolean value) {
+		final Theory theory = proof.getTheory();
+		return annotateProof(proof, value ? theory.mTrue : theory.mFalse);
+	}
+
+	public void setBooleanTermProver(final BooleanTermProver prover) {
+		mBooleanTermProver = prover;
+	}
+
+	private boolean isProvableBooleanTerm(final Term term) {
+		if (mBooleanTermProver == null || term.getSort() != term.getTheory().getBooleanSort()) {
+			return false;
+		}
+		if (term instanceof ApplicationTerm) {
+			final ApplicationTerm appTerm = (ApplicationTerm) term;
+			return !isBooleanValue(appTerm) && appTerm.getFunction().getName() != SMTLIBConstants.NOT;
+		}
+		return term instanceof MatchTerm;
 	}
 
 	private Term getAnnotation(Term annotatedProof) {
@@ -153,6 +200,13 @@ public class ModelProver extends TermTransformer {
 			final Term subTerm = ((AnnotatedTerm) term).getSubterm();
 			enqueueTransitivityStep(term, subTerm, mProofRules.delAnnot(term));
 			term = subTerm;
+		}
+		if (isProvableBooleanTerm(term)) {
+			final Term result = mBooleanTermProver.prove(term);
+			if (result != null) {
+				setResult(result);
+				return;
+			}
 		}
 		if (term instanceof ConstantTerm) {
 			if (term.getSort().isNumericSort()) {
@@ -439,8 +493,10 @@ public class ModelProver extends TermTransformer {
 				if (origTerm.getSort().getName() == SMTLIBConstants.BOOL) {
 					if (argTerms[i] == theory.mTrue) {
 						eqProof = mProofUtils.res(origTerm, argProofs[i], mProofRules.iffIntro2(equality));
+						eqProof = mProofUtils.res(theory.mTrue, mProofRules.trueIntro(), eqProof);
 					} else {
 						eqProof = mProofUtils.res(origTerm, mProofRules.iffIntro1(equality), argProofs[i]);
+						eqProof = mProofUtils.res(theory.mFalse, eqProof, mProofRules.falseElim());
 					}
 				} else {
 					eqProof = argProofs[i];
@@ -696,7 +752,7 @@ public class ModelProver extends TermTransformer {
 					mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct1, ot1),
 							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot1, ct1), eq1,
 									mProofRules.symm(ct1, ot1)),
-							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ct2, ot2), eq2,
+							mProofUtils.res(theory.term(SMTLIBConstants.EQUALS, ot2, ct2), eq2,
 									mProofRules.trans(ct1, ot1, ot2, ct2))),
 					mProofUtils.proveDisequality(ct1, ct2));
 		} else {
@@ -1293,6 +1349,53 @@ public class ModelProver extends TermTransformer {
 	private Term createAnd(Term[] args) {
 		final Theory theory = mModel.getTheory();
 		return args.length == 0 ? theory.mTrue : args.length == 1 ? args[0] : theory.term(SMTLIBConstants.AND, args);
+	}
+
+	/**
+	 * Prove the model's truth value of a single Boolean term. This is the
+	 * atom-level counterpart of {@link #buildModelProof}: for every Boolean-sorted
+	 * subterm, {@code convert} already produces a proof of the literal itself
+	 * (not of an equality with the evaluated value), so the proof for the whole
+	 * term can be returned directly, in whichever polarity the model gives it.
+	 *
+	 * Unlike {@link #buildModelProof}, this can be used on subformulas containing
+	 * quantifiers, as long as {@code atom} itself is ground -- the sat-side proof
+	 * assembler only ever calls this on the (ground) atoms of the clausified
+	 * problem, never on a whole quantified formula.
+	 *
+	 * @param atom a closed, quantifier-free Boolean term.
+	 * @return a proof of the unit clause {@code {atom}} if it evaluates to true in
+	 *         the model, or of {@code {(not atom)}} if it evaluates to false.
+	 */
+	public Term proveAtom(final Term atom) {
+		if (mBusy) {
+			// called from the BooleanTermProver while transforming: the transformer is not re-entrant.
+			final ModelProver nested = new ModelProver(mModel);
+			nested.setBooleanTermProver(mBooleanTermProver);
+			return nested.proveAtom(atom);
+		}
+		mBusy = true;
+		try {
+			final Term provedTerm = transform(mUnletter.transform(atom));
+			assert isBooleanValue(getAnnotation(provedTerm));
+			return getProof(provedTerm);
+		} finally {
+			mBusy = false;
+		}
+	}
+
+	/**
+	 * Prefix {@code proof} with a {@code refineFun} for every function the model
+	 * defines, the same wrapping {@link #buildModelProof} applies to its own
+	 * result. Used by the clause-based assembler ({@code ModelProofBuilder}),
+	 * whose proof is otherwise built independently of this class.
+	 */
+	public Term wrapRefineFun(Term proof) {
+		for (final FunctionSymbol fs : mModel.getDefinedFunctions()) {
+			final Term definition = mModel.getFunctionDefinition(fs);
+			proof = mProofRules.refineFun(fs, definition, proof);
+		}
+		return proof;
 	}
 
 	public Term buildModelProof(List<Term> assertions) {

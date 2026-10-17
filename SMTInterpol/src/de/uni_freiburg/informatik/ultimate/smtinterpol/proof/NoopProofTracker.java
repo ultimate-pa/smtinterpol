@@ -120,4 +120,9 @@ public class NoopProofTracker implements IProofTracker {
 	public Term rewriteToClause(Term lhs, Term rewrite) {
 		return null;
 	}
+
+	@Override
+	public Term rewriteToClauseReverse(Term lhs, Term rewrite) {
+		return null;
+	}
 }

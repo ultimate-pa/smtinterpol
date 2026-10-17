@@ -55,6 +55,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.LogProxy;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.Version;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.ModelProofBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Clause;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
@@ -92,6 +93,19 @@ public class SMTInterpol extends NoopScript {
 
 	public static enum ProofMode {
 		NONE, CLAUSES, FULL, LOWLEVEL
+	}
+
+	/**
+	 * The mechanism used to construct proofs for satisfiable formulas (see
+	 * {@code get-proof} and SMTInterpol/doc/model-proof-plan.md).
+	 * {@code EVALUATE} builds the proof by evaluating the asserted formulas in the
+	 * model ({@link de.uni_freiburg.informatik.ultimate.smtinterpol.model.ModelProver}),
+	 * which doesn't support quantifiers. {@code CLAUSES} assembles the proof from
+	 * the clauses created during clausification instead, and does support
+	 * quantifiers; it needs {@link ProofMode#FULL} or {@link ProofMode#LOWLEVEL}.
+	 */
+	public static enum ModelProofMode {
+		EVALUATE, CLAUSES
 	}
 
 	public static enum CheckType {
@@ -624,8 +638,10 @@ public class SMTInterpol extends NoopScript {
 	private void setupClausifier(final Logics logic) {
 		try {
 			final ProofMode proofMode = getProofMode();
+			final boolean satProofsEnabled = (proofMode == ProofMode.FULL || proofMode == ProofMode.LOWLEVEL)
+					&& mSolverOptions.getModelProofMode() == ModelProofMode.CLAUSES;
 			mEngine = new DPLLEngine(mLogger, mResourceLimit);
-			mClausifier = new Clausifier(getTheory(), mEngine, proofMode);
+			mClausifier = new Clausifier(getTheory(), mEngine, proofMode, satProofsEnabled);
 			// This has to be before set-logic since we need to capture
 			// initialization of CClosure.
 			mEngine.setProofGeneration(proofMode != ProofMode.NONE);
@@ -821,7 +837,17 @@ public class SMTInterpol extends NoopScript {
 		} else if (mStatus == LBool.SAT) {
 			buildModel();
 			final ModelProver modelProver = new ModelProver(mModel);
-			return modelProver.buildModelProof(mAssertions);
+			Term res;
+			if (mClausifier.satProofsEnabled()) {
+				final ModelProofBuilder builder = new ModelProofBuilder(mClausifier, modelProver);
+				res = modelProver.wrapRefineFun(builder.buildProof(mAssertions));
+			} else {
+				res = modelProver.buildModelProof(mAssertions);
+			}
+			if (proofMode == ProofMode.LOWLEVEL) {
+				res = new ProofSimplifier(this).transformProof(res);
+			}
+			return res;
 		} else {
 			if (mErrorCallback != null) {
 				mErrorCallback.notifyError(ErrorReason.GET_PROOF_BUT_UNKNOWN);

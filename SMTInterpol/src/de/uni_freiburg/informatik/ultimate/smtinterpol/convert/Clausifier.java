@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -63,7 +64,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.NoopProofTracker;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofNode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofUtils;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.bitvector.BvToIntUtils;
@@ -174,6 +177,248 @@ public class Clausifier {
 	final ScopedHashMap<Polynomial, EqualityProxy> mEqualities = new ScopedHashMap<>();
 
 	/**
+	 * Sat-proof record for every aux literal {@code ρ}: a record concluding {@code {ρ}}, where {@code ρ} is the
+	 * negation of the aux literal occurring in its defining clauses, see "The aux-clause contract" in
+	 * SMTInterpol/doc/model-proof-plan.md. Only filled in when {@link #satProofsEnabled()}.
+	 */
+	final ScopedHashMap<ILiteral, FormulaSatProof> mLiteralSatProofs = new ScopedHashMap<>();
+	/**
+	 * Sat-proof record for every asserted term {@code φ}: a record concluding {@code {φ}} from the clauses created
+	 * from it. Only filled in when {@link #satProofsEnabled()}.
+	 */
+	final ScopedHashMap<Term, SatRecord> mAssertionSatProofs = new ScopedHashMap<>();
+	/**
+	 * The {@link AddAsAxiom} node that asserted a formula, keyed by the formula resp. its negation: a formula asserted
+	 * again reuses that node's sat record, since its clauses exist already. Only filled in when
+	 * {@link #satProofsEnabled()}.
+	 */
+	final ScopedHashMap<Term, AddAsAxiom> mAssertedNodes = new ScopedHashMap<>();
+	/**
+	 * For every fresh variable that replaced the variables of a dropped quantifier (positive {@code forall} or negative
+	 * {@code exists}, see {@link #convertQuantifiedSubformula}), the choose term of that quantifier, at which its sat
+	 * dual {@code forallIntro}/{@code existsElim} holds. The values are already instantiated (idempotent map). All sat
+	 * records are instantiated with this map, see "Quantified clauses and free variables" in the model-proof plan.
+	 * Only filled in when {@link #satProofsEnabled()}.
+	 */
+	final ScopedHashMap<TermVariable, Term> mChooseTerms = new ScopedHashMap<>();
+
+	/**
+	 * A sat-proof record. All proofs it describes are clause proofs in the "stripped" convention: a literal
+	 * {@code (not x)} is the negative literal of {@code x}, so atoms never start with "not". See "The aux-clause
+	 * contract" in SMTInterpol/doc/model-proof-plan.md.
+	 */
+	abstract static class SatRecord {
+	}
+
+	/**
+	 * A recipe for a proof of {@code {mConclusion}}: start with {@link #mStart} (or the first hyp's proof, if
+	 * {@code mStart} is null) and resolve every further hyp's proof on its pivot. The resolutions are only written
+	 * down at assembly time, once the hyp proofs exist, so the hyps may prove clauses, not only literals.
+	 */
+	static final class FormulaSatProof extends SatRecord {
+		/** Optional start proof, independent of the hyps (raw proof term); null: start with the first hyp. */
+		final Term mStart;
+		/** The literals of the clause {@link #mStart} proves; null iff mStart is null. */
+		final ProofLiteral[] mStartClause;
+		/** The hyps, by reference. */
+		final SatRecord[] mHyps;
+		/**
+		 * Per hyp, the pivot atom (never "not"-headed); which side contains it positively decides the order of the
+		 * resolution. Unused (null) for the first hyp when {@code mStart == null}.
+		 */
+		final Term[] mPivots;
+		/** The literal this record proves. */
+		final ProofLiteral mConclusion;
+
+		FormulaSatProof(final Term start, final Term[] startClause, final SatRecord[] hyps, final Term[] pivots,
+				final Term conclusion) {
+			assert (start == null) == (startClause == null);
+			assert hyps.length == pivots.length;
+			mStart = start;
+			mStartClause = startClause == null ? null : toProofLiterals(startClause);
+			mHyps = hyps;
+			mPivots = new Term[pivots.length];
+			for (int i = 0; i < pivots.length; i++) {
+				mPivots[i] = pivots[i] == null ? null : toProofLiteral(pivots[i]).getAtom();
+			}
+			mConclusion = toProofLiteral(conclusion);
+		}
+
+		/** A record that is just one hyp. */
+		FormulaSatProof(final SatRecord hyp, final Term conclusion) {
+			this(null, null, new SatRecord[] { hyp }, new Term[1], conclusion);
+		}
+	}
+
+	/**
+	 * A sat-proof record for a single clause: its target clause, fixed by the consumer when the clause is created,
+	 * and, per literal, how the literal reaches the target. See SMTInterpol/doc/model-proof-plan.md.
+	 */
+	static final class ClauseSatProof extends SatRecord {
+		/** The target clause; instantiated by {@link #seal}. */
+		ProofLiteral[] mTarget;
+		/**
+		 * != null: a proof of (a subclause of) the target that needs no model input, for a clause that is trivially
+		 * true and therefore dropped; see {@link #setReadyMadeFromTrueLiteral} and {@link #setReadyMadeFromPair}.
+		 */
+		Term mReadyMadeProof;
+		/** The clause {@link #mReadyMadeProof} proves. */
+		ProofLiteral[] mReadyMadeClause;
+		/** Else: per literal of the clause, how to reach the target. */
+		Map<ILiteral, SatEntry> mLiterals;
+		/**
+		 * For a quantified clause: its universal closure {@code C = (forall y⃗ (or l_1 .. l_n))} as built by
+		 * {@code BuildClause.buildQuantifierProof}; the record then proves {@code {~C} ∪ target} without the model.
+		 * Null for a ground clause, whose record proves the target from its true literal.
+		 */
+		QuantifiedFormula mClosure;
+		/** For a quantified clause: the instantiation of {@code mClosure}'s variables (their choose terms). */
+		Term[] mClosureInst;
+
+		/** @param target the target clause, literals in clause form ({@code (not x)}: negative literal of x). */
+		ClauseSatProof(final Term[] target) {
+			mTarget = toProofLiterals(target);
+		}
+
+		/**
+		 * Fill in the per-literal entries once the clause is collected, instantiating the target and the entries
+		 * with the choose terms of the dropped quantifiers.
+		 */
+		void seal(final Map<ILiteral, SatEntry> literals, final Clausifier clausifier) {
+			mTarget = clausifier.instantiate(mTarget);
+			final LinkedHashMap<ILiteral, SatEntry> sealed = new LinkedHashMap<>();
+			for (final Map.Entry<ILiteral, SatEntry> e : literals.entrySet()) {
+				final SatEntry entry = e.getValue();
+				assert entry.mRest == null;
+				final ProofLiteral disjunct = entry.mDisjunct == null ? null : clausifier.instantiate(entry.mDisjunct);
+				final Term proof = entry.mProof == null ? null : clausifier.instantiate(entry.mProof);
+				sealed.put(e.getKey(), proof == null && disjunct == null ? entry : new SatEntry(disjunct, proof));
+			}
+			mLiterals = sealed;
+		}
+
+		/**
+		 * Set the ready-made proof for a clause containing the literal true, from its entry {@code {~true} ∪ R}.
+		 */
+		void setReadyMadeFromTrueLiteral(final SatEntry trueEntry, final Clausifier clausifier) {
+			final ProofRules rules = ((ProofTracker) clausifier.mTracker).getProofRules();
+			if (trueEntry.mProof == null) {
+				// true is itself a literal of the target
+				mReadyMadeProof = rules.trueIntro();
+				mReadyMadeClause = new ProofLiteral[] { trueEntry.mDisjunct };
+			} else {
+				mReadyMadeProof =
+						rules.resolutionRule(clausifier.getTheory().mTrue, rules.trueIntro(), trueEntry.mProof);
+				final ProofLiteral notTrue = new ProofLiteral(clausifier.getTheory().mTrue, false);
+				final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>(Arrays.asList(trueEntry.getRest(mTarget)));
+				clause.remove(notTrue);
+				mReadyMadeClause = clause.toArray(new ProofLiteral[clause.size()]);
+			}
+		}
+
+		/**
+		 * Set the ready-made proof for a clause containing the complementary literals {@code lit} and {@code ~lit},
+		 * from their entries {@code {~lit} ∪ R1} and {@code {lit} ∪ R2} (instantiated).
+		 */
+		void setReadyMadeFromPair(final ProofLiteral lit, final SatEntry litEntry, final SatEntry negEntry,
+				final Clausifier clausifier) {
+			final ProofRules rules = ((ProofTracker) clausifier.mTracker).getProofRules();
+			final LinkedHashSet<ProofLiteral> clause = new LinkedHashSet<>();
+			if (litEntry.mProof == null && negEntry.mProof == null) {
+				// both literals are literals of the target, which no consumer builds (a target is never a tautology)
+				throw new AssertionError("tautological target");
+			}
+			// a null proof is the identity (the literal is a literal of the target); res returns the other proof
+			final ProofUtils utils = new ProofUtils(rules);
+			mReadyMadeProof = lit.getPolarity() ? utils.res(lit.getAtom(), negEntry.mProof, litEntry.mProof)
+					: utils.res(lit.getAtom(), litEntry.mProof, negEntry.mProof);
+			final boolean resolved = litEntry.mProof != null && negEntry.mProof != null;
+			// resolution removes ~lit from litEntry's clause {~lit} ∪ R1 and lit from negEntry's clause {lit} ∪ R2
+			for (final ProofLiteral l : litEntry.getRest(mTarget)) {
+				if (!resolved || !l.equals(lit.negate())) {
+					clause.add(l);
+				}
+			}
+			for (final ProofLiteral l : negEntry.getRest(mTarget)) {
+				if (!resolved || !l.equals(lit)) {
+					clause.add(l);
+				}
+			}
+			mReadyMadeClause = clause.toArray(new ProofLiteral[clause.size()]);
+		}
+
+		/** Mark this record as the record of the quantified clause with the given universal closure. */
+		void setClosure(final QuantifiedFormula closure, final Clausifier clausifier) {
+			mClosure = closure;
+			final TermVariable[] vars = closure.getVariables();
+			mClosureInst = new Term[vars.length];
+			for (int i = 0; i < vars.length; i++) {
+				mClosureInst[i] = clausifier.instantiate(vars[i]);
+			}
+		}
+	}
+
+	/**
+	 * How a collected term/literal reaches its clause's target: if {@code mDisjunct} is a target literal
+	 * {@code o}, {@code mProof} proves {@code {¬it, o}} ({@code null}: {@code it == o}); if {@code mDisjunct} is
+	 * {@code null}, {@code mProof} proves {@code {¬it} ∪ target}.
+	 */
+	static final class SatEntry {
+		final ProofLiteral mDisjunct;
+		final Term mProof;
+		/**
+		 * If non-null, {@code mProof} proves exactly {@code {~it} ∪ mRest}, overriding {@code mDisjunct}; used for
+		 * entries combined from several entries (DER), whose remainder can be any subclause of the target.
+		 */
+		final ProofLiteral[] mRest;
+
+		SatEntry(final ProofLiteral disjunct, final Term proof) {
+			assert disjunct != null || proof != null;
+			mDisjunct = disjunct;
+			mProof = proof;
+			mRest = null;
+		}
+
+		SatEntry(final Term proof, final ProofLiteral[] rest) {
+			assert proof != null && rest != null;
+			mDisjunct = null;
+			mProof = proof;
+			mRest = rest;
+		}
+
+		/** The clause {@code mProof} proves besides {@code ~it}, for an entry of a record with the given target. */
+		ProofLiteral[] getRest(final ProofLiteral[] target) {
+			return mRest != null ? mRest : mDisjunct != null ? new ProofLiteral[] { mDisjunct } : target;
+		}
+	}
+
+	/**
+	 * Convert a literal in clause form (as used for {@code tautology} clauses) to a proof literal: leading "not"s
+	 * become the polarity, as {@code ProofTracker.tautology} does, so the atom is never "not"-headed.
+	 */
+	static ProofLiteral toProofLiteral(Term lit) {
+		boolean positive = true;
+		while (isNotTerm(lit)) {
+			lit = toPositive(lit);
+			positive = !positive;
+		}
+		return new ProofLiteral(lit, positive);
+	}
+
+	static ProofLiteral[] toProofLiterals(final Term[] lits) {
+		final ProofLiteral[] result = new ProofLiteral[lits.length];
+		for (int i = 0; i < lits.length; i++) {
+			result[i] = toProofLiteral(lits[i]);
+		}
+		return result;
+	}
+
+	/** The negation of a literal in clause form, avoiding double negation. */
+	static Term negate(final Term lit) {
+		return isNotTerm(lit) ? ((ApplicationTerm) lit).getParameters()[0] : lit.getTheory().term("not", lit);
+	}
+
+	/**
 	 * Cache to determine if a sort is stably infinite.
 	 */
 	private final HashMap<Sort, Boolean> mInfinityMap = new HashMap<>();
@@ -200,19 +445,40 @@ public class Clausifier {
 	final IProofTracker mTracker;
 	private final LogicSimplifier mUtils;
 	private final BvToIntUtils mBvToIntUtils;
+	/**
+	 * Whether the clause-based sat-proof artifacts (see
+	 * SMTInterpol/doc/model-proof-plan.md) are tracked while clausifying. Requires
+	 * a real {@link ProofTracker}, i.e. {@link ProofMode#FULL} or
+	 * {@link ProofMode#LOWLEVEL}.
+	 */
+	private final boolean mSatProofsEnabled;
 
 	final static ILiteral mTRUE = new TrueLiteral();
 	final static ILiteral mFALSE = new FalseLiteral();
 
 	public Clausifier(final Theory theory, final DPLLEngine engine, final ProofMode proofLevel) {
+		this(theory, engine, proofLevel, false);
+	}
+
+	public Clausifier(final Theory theory, final DPLLEngine engine, final ProofMode proofLevel,
+			final boolean satProofsEnabled) {
 		mTheory = theory;
 		mEngine = engine;
 		mLogger = engine.getLogger();
 		mTracker = proofLevel == ProofMode.NONE || proofLevel == ProofMode.CLAUSES ? new NoopProofTracker()
 				: new ProofTracker(theory);
+		mSatProofsEnabled = satProofsEnabled && mTracker instanceof ProofTracker;
 		mUtils = new LogicSimplifier(mTracker);
 		mBvToIntUtils = new BvToIntUtils(theory, mTracker, true, mCompiler);
 		mCompiler.setProofTracker(mTracker, mUtils, mBvToIntUtils);
+	}
+
+	/**
+	 * @return whether the per-clause sat-proof artifacts should be recorded, see
+	 *         SMTInterpol/doc/model-proof-plan.md.
+	 */
+	public boolean satProofsEnabled() {
+		return mSatProofsEnabled;
 	}
 
 	/**
@@ -774,6 +1040,15 @@ public class Clausifier {
 			for (int i = 0; i < vars.length; ++i) {
 				substTerms[i] = mTheory.createFreshTermVariable(vars[i].getName(), vars[i].getSort());
 			}
+			if (satProofsEnabled()) {
+				// the sat dual forallIntro/existsElim only holds at the choose terms of the (instantiated) quantifier
+				final QuantifiedFormula qfInst = (QuantifiedFormula) instantiate(qf);
+				final Term[] chooseTerms = ((ProofTracker) mTracker).getProofRules().getSkolemVars(
+						qfInst.getVariables(), qfInst.getSubformula(), qf.getQuantifier() == QuantifiedFormula.FORALL);
+				for (int i = 0; i < vars.length; ++i) {
+					mChooseTerms.put((TermVariable) substTerms[i], chooseTerms[i]);
+				}
+			}
 
 			rule = qf.getQuantifier() == QuantifiedFormula.EXISTS ? ProofConstants.getTautExistsPos(substTerms)
 					: ProofConstants.getTautForallNeg(substTerms);
@@ -828,19 +1103,70 @@ public class Clausifier {
 		return t;
 	}
 
+	/**
+	 * Builds an auxiliary defining clause for a Tseitin aux literal.
+	 *
+	 * <p>
+	 * Returns the {@link ClauseSatProof} for the clause it creates, exactly like
+	 * {@link #buildClause(Term, SourceAnnotation)}: the clause formula is
+	 * {@code params[1..]} of the axiom (the aux literal at {@code params[0]} is
+	 * excluded for free, added directly via {@code bc.addLiteral(auxlit)}, no
+	 * {@code SatEntry}). See "The addAuxAxioms key bug, and why buildAuxClause's
+	 * own ClauseSatProof wires in cleanly once it's fixed" in
+	 * {@code SMTInterpol/doc/model-proof-plan.md}: an earlier session briefly
+	 * concluded this couldn't be wired into {@code createDefiningClausesForLiteral}'s
+	 * own record, but that was downstream of {@code addAuxAxioms} storing under
+	 * the wrong key ({@code negLit} instead of {@code negLit.negate()}), now fixed.
+	 */
+	/**
+	 * Build an aux clause without a sat-proof record (the clause is never a hypothesis of one).
+	 */
 	public void buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source) {
+		buildAuxClause(auxlit, axiom, source, null, null);
+	}
+
+	/**
+	 * Build an aux clause {@code {auxlit, o_1, .., o_k}} (the parameters of {@code axiom}'s proved "or"), with a
+	 * sat-proof record for the given target, see "The aux-clause contract" in SMTInterpol/doc/model-proof-plan.md.
+	 *
+	 * @param target
+	 *            the clause the record proves (literals in clause form); null if no record is needed. Ignored if
+	 *            sat proofs are off.
+	 * @param litProofs
+	 *            per axiom parameter {@code params[1..]}: a tautology (as returned by {@code mTracker.tautology})
+	 *            proving {@code {¬params[i]} ∪ target}, or null if {@code params[i]} is a target literal.
+	 * @return the (still empty) record, or null.
+	 */
+	public ClauseSatProof buildAuxClause(final ILiteral auxlit, final Term axiom, final SourceAnnotation source,
+			final Term[] target, final Term[] litProofs) {
 		final ApplicationTerm orTerm = (ApplicationTerm) mTracker.getProvedTerm(axiom);
 		assert orTerm.getFunction().getName() == "or";
 		assert orTerm.getParameters()[0] == auxlit.getSMTFormula(orTerm.getTheory());
-
-		final BuildClause bc = new BuildClause(this, axiom, source);
-		/* use the usual engine to create the other literals of the axiom. */
 		final Term[] params = orTerm.getParameters();
+		final ClauseSatProof csp = satProofsEnabled() && target != null ? new ClauseSatProof(target) : null;
+		final BuildClause bc = new BuildClause(this, axiom, source, csp);
 		pushOperation(bc);
 		/* add auxlit directly to prevent it getting converted. No rewrite proof necessary */
 		bc.addLiteral(auxlit);
+		/* use the usual engine to create the other literals of the axiom. */
 		for (int i = params.length - 1; i >= 1; i--) {
-			bc.collectLiteral(params[i]);
+			collectAuxLiteral(bc, csp, params[i], litProofs == null ? null : litProofs[i - 1]);
+		}
+		return csp;
+	}
+
+	/**
+	 * Collect a literal of an aux clause: a target literal descends from itself, any other literal reaches the
+	 * whole target via its per-literal proof.
+	 */
+	private void collectAuxLiteral(final BuildClause bc, final ClauseSatProof csp, final Term lit,
+			final Term litProof) {
+		if (csp == null) {
+			bc.collectLiteral(lit);
+		} else if (litProof == null) {
+			bc.collectLiteral(lit, toProofLiteral(lit), null);
+		} else {
+			bc.collectLiteral(lit, null, mTracker.getClauseProof(litProof));
 		}
 	}
 
@@ -882,10 +1208,21 @@ public class Clausifier {
 		}
 	}
 
-	public void buildClause(final Term term, final SourceAnnotation source) {
-		final BuildClause bc = new BuildClause(this, term, source);
+	/**
+	 * Build a clause for {@code term} (a single literal, or an "or" term for a genuine clause). If sat proofs are
+	 * enabled, the returned record's target is the single literal {@code provedTerm(term)}: the formula as a
+	 * literal, which {@code CollectLiteral}'s inlining duals reach from every collected literal.
+	 *
+	 * @return the (still empty, to be filled in by {@code BuildClause.perform()}) sat-proof record for this
+	 *         clause, or null if sat proofs are off.
+	 */
+	public ClauseSatProof buildClause(final Term term, final SourceAnnotation source) {
+		final ClauseSatProof csp =
+				satProofsEnabled() ? new ClauseSatProof(new Term[] { mTracker.getProvedTerm(term) }) : null;
+		final BuildClause bc = new BuildClause(this, term, source, csp);
 		pushOperation(bc);
 		bc.collectLiteral(mTracker.getProvedTerm(term));
+		return csp;
 	}
 
 	public void buildClause(final Annotation rule, final SourceAnnotation source, final Term... clauseLits) {
@@ -901,14 +1238,27 @@ public class Clausifier {
 
 	public void buildClauseWithTautology(final Term term, final SourceAnnotation source, final Term[] tautLits,
 			final Annotation rule) {
+		buildClauseWithTautology(term, source, tautLits, rule, null, null);
+	}
+
+	/**
+	 * Build the clause {@code tautLits[1..]} from the tautology {@code tautLits} resolved with {@code term} on
+	 * {@code tautLits[0]} (the negation of {@code term}'s proved formula). With a target, the clause gets a
+	 * sat-proof record exactly as for {@link #buildAuxClause(ILiteral, Term, SourceAnnotation, Term[], Term[])},
+	 * with {@code tautLits[0]} in the role of the aux literal.
+	 */
+	public ClauseSatProof buildClauseWithTautology(final Term term, final SourceAnnotation source,
+			final Term[] tautLits, final Annotation rule, final Term[] target, final Term[] litProofs) {
 		final Theory t = term.getTheory();
 		final Term tautology = mTracker.tautology(t.term("or", tautLits), rule);
-		final BuildClause bc = new BuildClause(this, term, source);
+		final ClauseSatProof csp = satProofsEnabled() && target != null ? new ClauseSatProof(target) : null;
+		final BuildClause bc = new BuildClause(this, term, source, csp);
 		pushOperation(bc);
 		bc.addResolution(tautology, mTracker.getProvedTerm(term));
 		for (int i = 1; i < tautLits.length; i++) {
-			bc.collectLiteral(tautLits[i]);
+			collectAuxLiteral(bc, csp, tautLits[i], litProofs == null ? null : litProofs[i - 1]);
 		}
+		return csp;
 	}
 
 	/**
@@ -936,7 +1286,11 @@ public class Clausifier {
 		ILiteral negLit = getILiteral(term);
 		assert negLit != null;
 		negLit = positive ? negLit.negate() : negLit;
-		createDefiningClausesForLiteral(negLit, term, positive, source);
+		final Term rho = negate(negLit.getSMTFormula(term.getTheory()));
+		final FormulaSatProof satProof = createDefiningClausesForLiteral(negLit, term, positive, rho, source);
+		if (satProof != null) {
+			mLiteralSatProofs.put(negLit.negate(), satProof);
+		}
 	}
 
 	/**
@@ -961,8 +1315,43 @@ public class Clausifier {
 
 		final QuantAuxEquality auxTrueLit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
 		final ILiteral auxFalseLit = mQuantTheory.createAuxFalseLiteral(auxTrueLit, source);
-		createDefiningClausesForLiteral(auxFalseLit, term, true, source);
-		createDefiningClausesForLiteral(auxTrueLit, term, false, source);
+		// the named literal of term; createAnonLiteral picks it up, so that parent clauses and records share it
+		setLiteral(term, auxTrueLit);
+		// T = (= AUX true) is the named literal, F = (= AUX false) the stand-in for ~T in the defining clauses.
+		// The records conclude the other one: T from F's clauses, F from T's clauses (then bridged to ~T). See
+		// "Quantified aux literals" in the model-proof plan.
+		final Theory t = term.getTheory();
+		final Term trueTerm = auxTrueLit.getSMTFormula(t);
+		final Term falseTerm = auxFalseLit.getSMTFormula(t);
+		final FormulaSatProof falseProof = createDefiningClausesForLiteral(auxFalseLit, term, true, trueTerm, source);
+		if (falseProof != null) {
+			mLiteralSatProofs.put(auxTrueLit, falseProof);
+		}
+		final FormulaSatProof trueProof = createDefiningClausesForLiteral(auxTrueLit, term, false, falseTerm, source);
+		if (trueProof != null) {
+			final Term[] exclusive = new Term[] { t.term("not", falseTerm), t.term("not", trueTerm) };
+			mLiteralSatProofs.put(auxTrueLit.negate(),
+					formulaSatProof(auxExclusivityProof(auxTerm), exclusive, new SatRecord[] { trueProof },
+							new Term[] { falseTerm }, exclusive[1]));
+		}
+	}
+
+	/**
+	 * Proof of {@code {~(= aux false), ~(= aux true)}}, from {@code (= true aux)}, {@code (= aux false)} ⊢
+	 * {@code (= true false)}.
+	 */
+	private Term auxExclusivityProof(final Term auxTerm) {
+		final Theory t = auxTerm.getTheory();
+		final ProofRules rules = ((ProofTracker) mTracker).getProofRules();
+		final Term trueEqAux = t.term("=", t.mTrue, auxTerm);
+		final Term trueEqFalse = t.term("=", t.mTrue, t.mFalse);
+		// {~(= true false)}
+		Term notTrueEqFalse = rules.resolutionRule(t.mTrue, rules.trueIntro(), rules.iffElim2(trueEqFalse));
+		notTrueEqFalse = rules.resolutionRule(t.mFalse, notTrueEqFalse, rules.falseElim());
+		// {(= true false), ~(= aux true), ~(= aux false)}
+		final Term proof = rules.resolutionRule(trueEqAux, rules.symm(t.mTrue, auxTerm),
+				rules.trans(t.mTrue, auxTerm, t.mFalse));
+		return rules.resolutionRule(trueEqFalse, proof, notTrueEqFalse);
 	}
 
 	/**
@@ -975,164 +1364,288 @@ public class Clausifier {
 	 *            The term.
 	 * @param negative
 	 *            true, iff lit stands for the negated term.
+	 * @param rho
+	 *            The literal the record proves, standing for the negation of lit: {@code negate(lit)} for a ground
+	 *            aux literal; for a quantified one the other {@code (= AUX true/false)}.
 	 * @param source
 	 *            The input clause from which this axiom was created.
 	 */
-	private void createDefiningClausesForLiteral(final ILiteral lit, final Term term, final boolean negative,
-			final SourceAnnotation source) {
+	private FormulaSatProof createDefiningClausesForLiteral(final ILiteral lit, final Term term,
+			final boolean negative, final Term rho, final SourceAnnotation source) {
 		final Theory t = term.getTheory();
 		final Term litTerm = lit.getSMTFormula(t);
 		if (term instanceof ApplicationTerm) {
 			final ApplicationTerm at = (ApplicationTerm) term;
-			Term[] params = at.getParameters();
+			final Term[] params = at.getParameters();
+			final int n = params.length;
 			if (at.getFunction() == t.mOr) {
 				if (negative) {
-					// (or (not (or t1 ... tn)) t1 ... tn)
-					final Term[] literals = new Term[params.length + 1];
+					// {~rho, t1 .. tn}; target {rho}; t_i reaches it via or+ {rho, ~t_i}.
+					final Term[] literals = new Term[n + 1];
 					literals[0] = litTerm;
-					System.arraycopy(params, 0, literals, 1, params.length);
+					System.arraycopy(params, 0, literals, 1, n);
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_OR_NEG);
-					buildAuxClause(lit, axiom, source);
-				} else {
-					// (or (or t1 ... tn)) (not ti))
-					params = at.getParameters();
-					for (final Term p : params) {
-						final Term axiom = t.term("or", litTerm, t.term("not", p));
-						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_OR_POS);
-						buildAuxClause(lit, axiomProof, source);
+					final Term[] litProofs = new Term[n];
+					for (int i = 0; i < n; i++) {
+						litProofs[i] = satTaut(ProofConstants.TAUT_OR_POS, rho, negate(params[i]));
 					}
+					final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho }, litProofs);
+					return csp == null ? null : formulaSatProof(csp, rho);
+				} else {
+					// {(or ..), ~p_i} for each i; targets {~p_i}; start or- {rho, p_1 .. p_n}.
+					final SatRecord[] hyps = new SatRecord[n];
+					final Term[] pivots = new Term[n];
+					for (int i = 0; i < n; i++) {
+						final Term notP = t.term("not", params[i]);
+						final Term axiom = mTracker.tautology(t.term("or", litTerm, notP), ProofConstants.TAUT_OR_POS);
+						hyps[i] = buildAuxClause(lit, axiom, source, new Term[] { notP }, new Term[1]);
+						pivots[i] = params[i];
+					}
+					final Term[] start = new Term[n + 1];
+					start[0] = rho;
+					System.arraycopy(params, 0, start, 1, n);
+					return startRecord(start, ProofConstants.TAUT_OR_NEG, hyps, pivots, rho);
 				}
 			} else if (at.getFunction() == t.mImplies) {
 				if (negative) {
-					// (or (not (=> t1 ... tn)) (not t1) ... (not tn-1) tn)
-					final Term[] literals = new Term[params.length + 1];
+					// {~rho, ~t1 .. ~t(n-1), tn}; target {rho}; via =>+ {rho, t_i} resp. {rho, ~tn}.
+					final Term[] literals = new Term[n + 1];
 					literals[0] = litTerm;
-					for (int i = 0; i < params.length - 1; i++) {
+					for (int i = 0; i < n - 1; i++) {
 						literals[i + 1] = t.term("not", params[i]);
 					}
-					literals[params.length] = params[params.length - 1];
+					literals[n] = params[n - 1];
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_IMP_NEG);
-					buildAuxClause(lit, axiom, source);
-				} else {
-					// (or (=> t1 ... tn) ti), (or (=> t1 ... tn) (not tn))
-					params = at.getParameters();
-					for (int i = 0; i < params.length; i++) {
-						final Term p = i < params.length - 1 ? params[i] : t.term("not", params[i]);
-						final Term axiom = t.term("or", litTerm, p);
-						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_IMP_POS);
-						buildAuxClause(lit, axiomProof, source);
+					final Term[] litProofs = new Term[n];
+					for (int i = 0; i < n; i++) {
+						litProofs[i] = satTaut(ProofConstants.TAUT_IMP_POS, rho, negate(literals[i + 1]));
 					}
+					final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho }, litProofs);
+					return csp == null ? null : formulaSatProof(csp, rho);
+				} else {
+					// {(=> ..), t_i} (i < n), {(=> ..), ~tn}; targets {t_i}/{~tn}; start =>- {rho, ~t1 .. ~t(n-1), tn}.
+					final SatRecord[] hyps = new SatRecord[n];
+					final Term[] pivots = new Term[n];
+					final Term[] start = new Term[n + 1];
+					start[0] = rho;
+					for (int i = 0; i < n; i++) {
+						final Term p = i < n - 1 ? params[i] : t.term("not", params[i]);
+						final Term axiom = mTracker.tautology(t.term("or", litTerm, p), ProofConstants.TAUT_IMP_POS);
+						hyps[i] = buildAuxClause(lit, axiom, source, new Term[] { p }, new Term[1]);
+						pivots[i] = params[i];
+						start[i + 1] = negate(p);
+					}
+					return startRecord(start, ProofConstants.TAUT_IMP_NEG, hyps, pivots, rho);
 				}
 			} else if (at.getFunction() == t.mAnd) {
 				if (negative) {
-					// (or (not (and t1 ... tn)) ti)
-					for (final Term p : params) {
-						final Term axiom = t.term("or", litTerm, p);
-						final Term axiomProof = mTracker.tautology(axiom, ProofConstants.TAUT_AND_NEG);
-						buildAuxClause(lit, axiomProof, source);
+					// {~rho, t_i} for each i; targets {t_i}; start and+ {rho, ~t1 .. ~tn}.
+					final SatRecord[] hyps = new SatRecord[n];
+					final Term[] pivots = new Term[n];
+					final Term[] start = new Term[n + 1];
+					start[0] = rho;
+					for (int i = 0; i < n; i++) {
+						final Term axiom = mTracker.tautology(t.term("or", litTerm, params[i]), ProofConstants.TAUT_AND_NEG);
+						hyps[i] = buildAuxClause(lit, axiom, source, new Term[] { params[i] }, new Term[1]);
+						pivots[i] = params[i];
+						start[i + 1] = negate(params[i]);
 					}
+					return startRecord(start, ProofConstants.TAUT_AND_POS, hyps, pivots, rho);
 				} else {
-					// (or (and t1 ... tn) (not t1) ... (not tn))
-					final Term[] literals = new Term[params.length + 1];
+					// {(and ..), ~t1 .. ~tn}; target {rho}; ~t_i reaches it via and- {rho, t_i}.
+					final Term[] literals = new Term[n + 1];
 					literals[0] = litTerm;
-					for (int i = 0; i < params.length; i++) {
+					for (int i = 0; i < n; i++) {
 						literals[i + 1] = t.term("not", params[i]);
 					}
 					final Term axiom = mTracker.tautology(t.term("or", literals), ProofConstants.TAUT_AND_POS);
-					buildAuxClause(lit, axiom, source);
+					final Term[] litProofs = new Term[n];
+					for (int i = 0; i < n; i++) {
+						litProofs[i] = satTaut(ProofConstants.TAUT_AND_NEG, rho, params[i]);
+					}
+					final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho }, litProofs);
+					return csp == null ? null : formulaSatProof(csp, rho);
 				}
 			} else if (at.getFunction().getName().equals("ite")) {
 				final Term cond = params[0];
-				Term thenTerm = params[1];
-				Term elseTerm = params[2];
-				if (negative) {
-					// (or (not (ite c t e)) (not c) t)
-					// (or (not (ite c t e)) c e)
-					// (or (not (ite c t e)) t e)
-					Term axiom = t.term("or", litTerm, t.term("not", cond), thenTerm);
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_ITE_NEG_1);
-					buildAuxClause(lit, axiom, source);
-					axiom = t.term("or", litTerm, cond, elseTerm);
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_ITE_NEG_2);
-					buildAuxClause(lit, axiom, source);
-					if (Config.REDUNDANT_ITE_CLAUSES) {
-						axiom = t.term("or", litTerm, thenTerm, elseTerm);
-						axiom = mTracker.tautology(axiom, ProofConstants.TAUT_ITE_NEG_RED);
-						buildAuxClause(lit, axiom, source);
-					}
-				} else {
-					// (or (ite c t e) (not c) (not t))
-					// (or (ite c t e) c (not e))
-					// (or (ite c t e) (not t) (not e))
-					thenTerm = t.term("not", thenTerm);
-					elseTerm = t.term("not", elseTerm);
-					Term axiom = t.term("or", litTerm, t.term("not", cond), thenTerm);
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_ITE_POS_1);
-					buildAuxClause(lit, axiom, source);
-					axiom = t.term("or", litTerm, cond, elseTerm);
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_ITE_POS_2);
-					buildAuxClause(lit, axiom, source);
-					if (Config.REDUNDANT_ITE_CLAUSES) {
-						axiom = t.term("or", litTerm, thenTerm, elseTerm);
-						axiom = mTracker.tautology(axiom, ProofConstants.TAUT_ITE_POS_RED);
-						buildAuxClause(lit, axiom, source);
-					}
+				final Term notCond = t.term("not", cond);
+				// the branch literals as they occur in this polarity's clauses
+				final Term thenLit = negative ? params[1] : t.term("not", params[1]);
+				final Term elseLit = negative ? params[2] : t.term("not", params[2]);
+				final Annotation rule1 = negative ? ProofConstants.TAUT_ITE_NEG_1 : ProofConstants.TAUT_ITE_POS_1;
+				final Annotation rule2 = negative ? ProofConstants.TAUT_ITE_NEG_2 : ProofConstants.TAUT_ITE_POS_2;
+				final Annotation dual1 = negative ? ProofConstants.TAUT_ITE_POS_1 : ProofConstants.TAUT_ITE_NEG_1;
+				final Annotation dual2 = negative ? ProofConstants.TAUT_ITE_POS_2 : ProofConstants.TAUT_ITE_NEG_2;
+				// {~rho, ~c, then}, target {~c, rho}; {~rho, c, else}, target {c, rho}
+				final Term axiom1 = mTracker.tautology(t.term("or", litTerm, notCond, thenLit), rule1);
+				final ClauseSatProof cl1 = buildAuxClause(lit, axiom1, source, new Term[] { notCond, rho },
+						new Term[] { null, satTaut(dual1, rho, notCond, negate(thenLit)) });
+				final Term axiom2 = mTracker.tautology(t.term("or", litTerm, cond, elseLit), rule2);
+				final ClauseSatProof cl2 = buildAuxClause(lit, axiom2, source, new Term[] { cond, rho },
+						new Term[] { null, satTaut(dual2, rho, cond, negate(elseLit)) });
+				if (Config.REDUNDANT_ITE_CLAUSES) {
+					final Term axiomRed = mTracker.tautology(t.term("or", litTerm, thenLit, elseLit),
+							negative ? ProofConstants.TAUT_ITE_NEG_RED : ProofConstants.TAUT_ITE_POS_RED);
+					buildAuxClause(lit, axiomRed, source);
 				}
+				return caseSplitRecord(cl1, cl2, cond, rho);
 			} else if (at.getFunction().getName().equals("xor")) {
-				assert at.getParameters().length == 2;
-				final Term p1 = at.getParameters()[0];
-				final Term p2 = at.getParameters()[1];
+				assert n == 2;
+				final Term p1 = params[0];
+				final Term p2 = params[1];
 				// TODO We have the case x=t, and the boolean case as below.
 				// Does the case below work for the boolean case with quantifiers?
 				assert p1.getSort() == t.getBooleanSort();
 				assert p2.getSort() == t.getBooleanSort();
-				if (negative) {
-					// (or (not (xor p1 p2)) p1 p2)
-					// (or (not (xor p1 p2)) (not p1) (not p2))
-					Term axiom = t.term("or", litTerm, p1, p2);
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_XOR_NEG_1);
-					buildAuxClause(lit, axiom, source);
-					axiom = t.term("or", litTerm, t.term("not", p1), t.term("not", p2));
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_XOR_NEG_2);
-					buildAuxClause(lit, axiom, source);
-				} else {
-					// (or (xor p1 p2) p1 (not p2))
-					// (or (xor p1 p2) (not p1) p2)
-					Term axiom = t.term("or", litTerm, p1, t.term("not", p2));
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_XOR_POS_1);
-					buildAuxClause(lit, axiom, source);
-					axiom = t.term("or", litTerm, t.term("not", p1), p2);
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_XOR_POS_2);
-					buildAuxClause(lit, axiom, source);
-				}
+				// negative: {~rho, p1, p2}, {~rho, ~p1, ~p2}; positive: {~rho, p1, ~p2}, {~rho, ~p1, p2}
+				final Term notP1 = t.term("not", p1);
+				final Term q1 = negative ? p2 : t.term("not", p2);
+				final Term q2 = negative ? t.term("not", p2) : p2;
+				final Annotation rule1 = negative ? ProofConstants.TAUT_XOR_NEG_1 : ProofConstants.TAUT_XOR_POS_1;
+				final Annotation rule2 = negative ? ProofConstants.TAUT_XOR_NEG_2 : ProofConstants.TAUT_XOR_POS_2;
+				final Annotation dual1 = negative ? ProofConstants.TAUT_XOR_POS_1 : ProofConstants.TAUT_XOR_NEG_1;
+				final Annotation dual2 = negative ? ProofConstants.TAUT_XOR_POS_2 : ProofConstants.TAUT_XOR_NEG_2;
+				final Term axiom1 = mTracker.tautology(t.term("or", litTerm, p1, q1), rule1);
+				final ClauseSatProof cl1 = buildAuxClause(lit, axiom1, source, new Term[] { p1, rho },
+						new Term[] { null, satTaut(dual1, rho, p1, negate(q1)) });
+				final Term axiom2 = mTracker.tautology(t.term("or", litTerm, notP1, q2), rule2);
+				final ClauseSatProof cl2 = buildAuxClause(lit, axiom2, source, new Term[] { notP1, rho },
+						new Term[] { null, satTaut(dual2, rho, notP1, negate(q2)) });
+				return caseSplitRecord(cl1, cl2, p1, rho);
 			} else {
-				 assert lit instanceof QuantEquality;
-				if (negative) {
-					// (or (= AUX false) term)
-					Term axiom = t.term("or", litTerm, term);
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_2);
-					buildAuxClause(lit, axiom, source);
-				} else {
-					// (or (= AUX true) (not term))
-					Term axiom = t.term("or", litTerm, t.term("not", term));
-					axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_1);
-					buildAuxClause(lit, axiom, source);
-				}
+				assert lit instanceof QuantEquality;
+				return createExcludedMiddleSatProof(lit, term, negative, litTerm, rho, source);
 			}
 		} else {
 			assert lit instanceof QuantEquality;
-			if (negative) {
-				// (or (= AUX false) term)
-				Term axiom = t.term("or", litTerm, term);
-				axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_2);
-				buildAuxClause(lit, axiom, source);
-			} else {
-				// (or (= AUX true) (not term))
-				Term axiom = t.term("or", litTerm, t.term("not", term));
-				axiom = mTracker.tautology(axiom, ProofConstants.TAUT_EXCLUDED_MIDDLE_1);
-				buildAuxClause(lit, axiom, source);
+			return createExcludedMiddleSatProof(lit, term, negative, litTerm, rho, source);
+		}
+	}
+
+	/**
+	 * Instantiate the fresh variables of dropped quantifiers in {@code term} (a formula or a proof) with their choose
+	 * terms ({@link #mChooseTerms}).
+	 */
+	Term instantiate(final Term term) {
+		final TermVariable[] freeVars = term.getFreeVars();
+		if (freeVars.length == 0 || mChooseTerms.isEmpty()) {
+			return term;
+		}
+		final FormulaUnLet unlet = new FormulaUnLet();
+		final Map<TermVariable, Term> subst = new HashMap<>();
+		for (final TermVariable tv : freeVars) {
+			final Term choose = mChooseTerms.get(tv);
+			if (choose != null) {
+				subst.put(tv, choose);
 			}
 		}
+		if (subst.isEmpty()) {
+			return term;
+		}
+		unlet.addSubstitutions(subst);
+		return unlet.transform(term);
+	}
+
+	ProofLiteral instantiate(final ProofLiteral lit) {
+		final Term atom = instantiate(lit.getAtom());
+		return atom == lit.getAtom() ? lit : toProofLiteral(lit.getPolarity() ? atom : mTheory.term("not", atom));
+	}
+
+	ProofLiteral[] instantiate(final ProofLiteral[] lits) {
+		final ProofLiteral[] result = new ProofLiteral[lits.length];
+		for (int i = 0; i < lits.length; i++) {
+			result[i] = instantiate(lits[i]);
+		}
+		return result;
+	}
+
+	Term[] instantiate(final Term[] terms) {
+		if (terms == null) {
+			return null;
+		}
+		final Term[] result = new Term[terms.length];
+		for (int i = 0; i < terms.length; i++) {
+			result[i] = terms[i] == null ? null : instantiate(terms[i]);
+		}
+		return result;
+	}
+
+	/** Create a {@link FormulaSatProof}, instantiated with {@link #mChooseTerms}. */
+	FormulaSatProof formulaSatProof(final Term start, final Term[] startClause, final SatRecord[] hyps,
+			final Term[] pivots, final Term conclusion) {
+		return new FormulaSatProof(start == null ? null : instantiate(start), instantiate(startClause), hyps,
+				instantiate(pivots), instantiate(conclusion));
+	}
+
+	/** Create a {@link FormulaSatProof} that is just one hyp, instantiated with {@link #mChooseTerms}. */
+	FormulaSatProof formulaSatProof(final SatRecord hyp, final Term conclusion) {
+		return formulaSatProof(null, null, new SatRecord[] { hyp }, new Term[1], conclusion);
+	}
+
+	/**
+	 * The sat dual of a quantifier tautology from {@link #convertQuantifiedSubformula}: {@code :forall-} (drop) and
+	 * {@code :forall+} (skolemize) are dual, as are {@code :exists+} and {@code :exists-}; the dual uses the same
+	 * terms (choose terms after instantiation resp. skolem terms).
+	 */
+	static Annotation dualQuantifierRule(final Annotation rule) {
+		final Term[] terms = (Term[]) rule.getValue();
+		switch (rule.getKey()) {
+		case ":forall-":
+			return ProofConstants.getTautForallPos(terms);
+		case ":forall+":
+			return ProofConstants.getTautForallNeg(terms);
+		case ":exists+":
+			return ProofConstants.getTautExistsNeg(terms);
+		case ":exists-":
+			return ProofConstants.getTautExistsPos(terms);
+		default:
+			throw new AssertionError("unknown quantifier rule " + rule.getKey());
+		}
+	}
+
+	/** A tautology for the clause {@code lits}, or null if sat proofs are off. */
+	Term satTaut(final Annotation rule, final Term... lits) {
+		return satProofsEnabled() ? mTracker.tautology(mTheory.term("or", lits), rule) : null;
+	}
+
+	/** A record with the tautology {@code startLits} as start proof, or null if sat proofs are off. */
+	private FormulaSatProof startRecord(final Term[] startLits, final Annotation rule, final SatRecord[] hyps,
+			final Term[] pivots, final Term rho) {
+		if (!satProofsEnabled()) {
+			return null;
+		}
+		final Term start = mTracker.getClauseProof(mTracker.tautology(mTheory.term("or", startLits), rule));
+		return formulaSatProof(start, startLits, hyps, pivots, rho);
+	}
+
+	/**
+	 * The record of an ite/xor case split: the two clauses' targets contain the pivot atom with opposite
+	 * polarities, plus {@code ρ}; they are resolved on that atom.
+	 */
+	FormulaSatProof caseSplitRecord(final ClauseSatProof cl1, final ClauseSatProof cl2, final Term pivot,
+			final Term rho) {
+		if (cl1 == null) {
+			return null;
+		}
+		return formulaSatProof(null, null, new SatRecord[] { cl1, cl2 }, new Term[] { null, pivot }, rho);
+	}
+
+	/**
+	 * Build the defining clause of a {@code QuantEquality} aux literal for a term that is no connective, the
+	 * excluded-middle clause {@code (or (= AUX false) term)} / {@code (or (= AUX true) (not term))}. Its literal
+	 * reaches {@code ρ}, the other {@code AUX} equality, via the other excluded-middle tautology
+	 * {@code {(= AUX true), ~term}} / {@code {(= AUX false), term}}.
+	 */
+	private FormulaSatProof createExcludedMiddleSatProof(final ILiteral lit, final Term term, final boolean negative,
+			final Term litTerm, final Term rho, final SourceAnnotation source) {
+		final Theory t = term.getTheory();
+		final Term other = negative ? term : t.term("not", term);
+		final Term axiom = mTracker.tautology(t.term("or", litTerm, other),
+				negative ? ProofConstants.TAUT_EXCLUDED_MIDDLE_2 : ProofConstants.TAUT_EXCLUDED_MIDDLE_1);
+		final Annotation dual = negative ? ProofConstants.TAUT_EXCLUDED_MIDDLE_1 : ProofConstants.TAUT_EXCLUDED_MIDDLE_2;
+		final ClauseSatProof csp = buildAuxClause(lit, axiom, source, new Term[] { rho },
+				new Term[] { satTaut(dual, rho, negate(other)) });
+		return csp == null ? null : formulaSatProof(csp, rho);
 	}
 
 	public void addStoreAxiom(final ApplicationTerm store, final SourceAnnotation source) {
@@ -1399,8 +1912,9 @@ public class Clausifier {
 			 * the currently active quantifiers
 			 */
 			if (term.getFreeVars().length > 0) {
-				final Term auxTerm = createQuantAuxTerm(term, source);
-				lit = mQuantTheory.createAuxLiteral(auxTerm, term, source);
+				createQuantAuxTerm(term, source);
+				// the named literal registered by addAuxAxiomsQuant
+				lit = getILiteral(term);
 			} else {
 				lit = new NamedAtom(term, mStackLevel);
 				mEngine.addAtom((NamedAtom) lit);
@@ -1464,7 +1978,7 @@ public class Clausifier {
 			final BuildClause bc = new BuildClause(this, axiom, source);
 			bc.mCurrentLits.add(mTheory.not(trueEqFalse));
 			final Term rewrite = mTracker.intern(trueEqFalse, atom.getSMTFormula(mTheory));
-			bc.addLiteral(atom.negate(), trueEqFalse, rewrite, false);
+			bc.addLiteral(atom.negate(), trueEqFalse, rewrite, false, null);
 			bc.perform();
 		}
 	}
@@ -1797,7 +2311,10 @@ public class Clausifier {
 		} finally {
 			mCompiler.reset();
 		}
-		simpFormula = mTracker.modusPonens(mTracker.asserted(origFormula), simpFormula);
+		final Term rewriteProof = simpFormula;
+		final Term assertedProof = mTracker.asserted(origFormula);
+		final Term assertedTerm = mTracker.getProvedTerm(assertedProof);
+		simpFormula = mTracker.modusPonens(assertedProof, simpFormula);
 		origFormula = null;
 
 		mOccCounter.count(mTracker.getProvedTerm(simpFormula));
@@ -1807,8 +2324,27 @@ public class Clausifier {
 				trackAssignment(me.getKey(), me.getValue(), source);
 			}
 		}
-		pushOperation(new AddAsAxiom(this, simpFormula, source));
+		final AddAsAxiom root = new AddAsAxiom(this, simpFormula, source);
+		pushOperation(root);
 		run();
+		if (satProofsEnabled() && root.mSatProof != null) {
+			// Bridge from the clausifier-internal (compiled) formula back to the term the user actually asserted,
+			// reversing the rewrite addFormula itself applied above: start with {~simpFormulaRaw, assertedTerm}
+			// and resolve the root record on simpFormulaRaw.
+			final Term simpFormulaRaw = mTracker.getProvedTerm(simpFormula);
+			final Term reverse = mTracker.rewriteToClauseReverse(assertedTerm, rewriteProof);
+			final SatRecord record;
+			if (reverse == null) {
+				// The compiler didn't actually rewrite anything: assertedTerm == simpFormulaRaw.
+				record = root.mSatProof;
+			} else {
+				record = formulaSatProof(mTracker.getClauseProof(reverse),
+						new Term[] { negate(simpFormulaRaw), assertedTerm }, new SatRecord[] { root.mSatProof },
+						new Term[] { simpFormulaRaw }, assertedTerm);
+			}
+			// keyed by the unletted formula; the proof format does not distinguish it from f
+			mAssertionSatProofs.put(assertedTerm, record);
+		}
 		mOccCounter.reset(simpFormula);
 		simpFormula = null;
 
@@ -1832,6 +2368,12 @@ public class Clausifier {
 			mAnonAuxTerms.beginScope();
 			mLATerms.beginScope();
 			mCCTerms.beginScope();
+			if (mSatProofsEnabled) {
+				mLiteralSatProofs.beginScope();
+				mAssertionSatProofs.beginScope();
+				mChooseTerms.beginScope();
+				mAssertedNodes.beginScope();
+			}
 		}
 	}
 
@@ -1858,6 +2400,12 @@ public class Clausifier {
 			mAnonAuxTerms.endScope();
 			mTermDataFlags.endScope();
 			mEqualities.endScope();
+			if (mSatProofsEnabled) {
+				mLiteralSatProofs.endScope();
+				mAssertionSatProofs.endScope();
+				mChooseTerms.endScope();
+				mAssertedNodes.endScope();
+			}
 		}
 		mStackLevel -= numpops;
 		mInfinityMap.clear();

@@ -1,0 +1,892 @@
+/*
+ * Copyright (C) 2026 University of Freiburg
+ *
+ * This file is part of SMTInterpol.
+ *
+ * SMTInterpol is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SMTInterpol is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with SMTInterpol.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2;
+
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+import de.uni_freiburg.informatik.ultimate.logic.DataType;
+import de.uni_freiburg.informatik.ultimate.logic.Script;
+import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
+import de.uni_freiburg.informatik.ultimate.logic.Term;
+import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
+import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.MinimalProofChecker;
+
+/**
+ * End-to-end tests for Phase 1 of the model-proof plan
+ * (SMTInterpol/doc/model-proof-plan.md): with {@code :model-proof-mode
+ * clauses}, {@code get-proof} on a SAT result should produce a proof that
+ * {@link MinimalProofChecker#checkModelProof} accepts with no remaining
+ * oracles, for quantifier-free inputs without aux literals (propositional
+ * and/or/=> splits over CC/LA atoms).
+ *
+ * @author Jochen Hoenicke
+ */
+@RunWith(JUnit4.class)
+public class ModelProofClausesTest {
+
+	private SMTInterpol newScript() {
+		final SMTInterpol script = new SMTInterpol(new DefaultLogger());
+		script.setOption(":produce-models", true);
+		script.setOption(":interactive-mode", true);
+		script.setOption(":produce-proofs", true);
+		script.setOption(":proof-level", "full");
+		script.setOption(":model-proof-mode", "clauses");
+		return script;
+	}
+
+	private void checkSatAndProof(final SMTInterpol script) {
+		Assert.assertEquals(LBool.SAT, script.checkSat());
+		final Term proof = script.getProof();
+		final MinimalProofChecker checker = new MinimalProofChecker(script, script.getLogger());
+		// The reversed-rewrite/tautology steps built via ProofTracker aren't (yet) run
+		// through ProofSimplifier for :model-proof-mode clauses (see SMTInterpol.getProof),
+		// so a few :rewriteRev oracles may legitimately remain; checkModelProof still
+		// accepts them (same as it accepts theory-axiom oracles elsewhere).
+		Assert.assertTrue("checkModelProof", checker.checkModelProof(proof));
+	}
+
+	@Test
+	public void testConjunctionWithNegatedConjunct() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), y = s.term("y"), p = s.term("p");
+		s.assertTerm(s.term("and", s.term("<=", x, y), s.term("not", s.term("=", x, y)), p));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testCompoundBooleanFunctionArgument() {
+		// The Boolean argument of f has no model value; ModelProver proves (= arg false) from the sat proof of the
+		// argument's aux literal (the BooleanTermProver hook). The record for ~arg only exists because arg also
+		// occurs negated in a clause; the excluded-middle clause {(= arg false), arg} flattens the or.
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("f", new Sort[] { boolSort }, intSort);
+		final Term x = s.term("x"), p = s.term("p"), r = s.term("r");
+		final Term arg = s.term("or", p, s.term("<", x, s.numeral("0")));
+		s.assertTerm(s.term("=", s.term("f", arg), s.numeral("3")));
+		s.assertTerm(s.term("or", s.term("not", arg), r));
+		s.assertTerm(s.term("not", p));
+		s.assertTerm(s.term(">=", x, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testCompoundTermIteCondition() {
+		// as above, for the condition of a term-ite; the term-ite clauses collect the condition in both polarities.
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), y = s.term("y"), p = s.term("p");
+		final Term cond = s.term("or", p, s.term("<", x, s.numeral("0")));
+		s.assertTerm(s.term("=", y, s.term("ite", cond, s.numeral("1"), s.numeral("2"))));
+		s.assertTerm(s.term("not", p));
+		s.assertTerm(s.term(">=", x, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testTriviallyTrueClause() {
+		// (= x y) and (not (= y x)) become complementary literals: the clause is dropped, and its record gets a
+		// ready-made proof
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), y = s.term("y"), p = s.term("p");
+		s.assertTerm(s.term("or", s.term("=", x, y), s.term("not", s.term("=", y, x)), p));
+		s.assertTerm(s.term("and", s.term("not", p), s.term("=", x, s.numeral("3")), s.term("=", y, s.numeral("4"))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testLetAssertion() {
+		// the record is tracked for the unletted assertion; the proof format does not distinguish the two
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), p = s.term("p");
+		final TermVariable v = s.variable("v", boolSort);
+		s.assertTerm(s.let(new TermVariable[] { v }, new Term[] { s.term("<", x, s.numeral("0")) },
+				s.term("and", s.term("or", v, p), s.term("not", s.term("and", v, p)))));
+		s.assertTerm(s.term("not", p));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testRepeatedAssertion() {
+		// p, (or q r) and (or p r) are asserted again by later assertions; the repeats reuse the first records
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UF");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("q", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term p = s.term("p"), q = s.term("q"), r = s.term("r");
+		s.assertTerm(s.term("and", p, s.term("or", q, r)));
+		s.assertTerm(p);
+		s.assertTerm(s.term("and", s.term("or", q, r), s.term("or", p, r)));
+		s.assertTerm(s.term("or", p, r));
+		s.assertTerm(s.term("not", q));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testNegatedOr() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y");
+		// not (x > y or x = y)  ==  x <= y and x != y
+		s.assertTerm(s.term("not", s.term("or", s.term(">", x, y), s.term("=", x, y))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testNegatedImplies() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), p = s.term("p");
+		// not (p => x > 0)  ==  p and x <= 0
+		s.assertTerm(s.term("not", s.term("=>", p, s.term(">", x, s.numeral("0")))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMultipleAssertions() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y");
+		s.assertTerm(s.term("<=", x, y));
+		s.assertTerm(s.term("not", s.term("=", x, y)));
+		// >= compiles to a negatively-interned LA literal: exercises the polarity
+		// handling in ModelProofBuilder.proveFromLiterals.
+		s.assertTerm(s.term(">=", y, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testNestedAndInsideNegatedOr() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		s.assertTerm(s.term("and", s.term("<=", x, y),
+				s.term("and", s.term("<=", y, z), s.term("not", s.term("=", x, z)))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testNegatedOrWithNegatedDisjunct() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y");
+		// a disjunct that is itself negated: exercises the "double not" case in
+		// AddAsAxiom's or-negative child bridging.
+		s.assertTerm(s.term("not", s.term("or", s.term(">", x, y), s.term("not", s.term("=", x, y)))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testDnfWithConjunctiveDisjuncts() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("d", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), c = s.term("c"), d = s.term("d");
+		// A DNF top-level clause (or (and ...) (and ...)): AddAsAxiom hands the top "or"
+		// to buildClause, and each "and" disjunct is not inline-eligible (only a
+		// negative "and" or a positive or/=> inlines), so CollectLiteral must fall back
+		// to a Tseitin aux literal per disjunct -- exercising the inline sat-dual fix in
+		// CollectLiteral (positive occurrence; the aux literal's own defining-clause
+		// proof is not required here since ModelProver can still evaluate "and" directly).
+		final Term and1 = s.term("and", s.term(">", a, b), s.term("<", a, s.numeral("10")));
+		final Term and2 = s.term("and", s.term(">", c, d), s.term("<", c, s.numeral("10")));
+		s.assertTerm(s.term("or", and1, and2));
+		s.assertTerm(s.term(">", a, b));
+		s.assertTerm(s.term("<", a, s.numeral("10")));
+		s.assertTerm(s.term("<=", c, d));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralSharedOrBothPolarities() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// (or (> x y) (= x y)) occurs twice -- once as a direct (positive) "and" conjunct,
+		// once (negated) as the antecedent of an inlined "=>" -- forcing a Tseitin aux
+		// literal used at both polarities. Exercises both the inline sat-dual fix in
+		// CollectLiteral and BuildClause.addLiteral's mLitSatProofs key (must use the
+		// already-signed "lit" directly, not re-apply "positive").
+		final Term orTerm = s.term("or", s.term(">", x, y), s.term("=", x, y));
+		s.assertTerm(s.term("and", orTerm, s.term("=>", orTerm, s.term("<=", z, x))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralSharedOrForcedFalse() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// (or (> x y) (= x y)) is forced false and shared (occurs twice), exercising
+		// createDefiningClausesForLiteral's "or" branch with the aux literal's negation
+		// as the one satisfied by the model.
+		final Term orTerm = s.term("or", s.term(">", x, y), s.term("=", x, y));
+		s.assertTerm(
+				s.term("and", s.term("not", orTerm), s.term("or", orTerm, s.term("<=", z, x))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralSharedAnd() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// (and (<= x y) (<= y z)) occurs twice, forcing a Tseitin aux literal: exercises
+		// createDefiningClausesForLiteral's "and" branch (Phase 2), both polarities.
+		final Term andTerm = s.term("and", s.term("<=", x, y), s.term("<=", y, z));
+		s.assertTerm(s.term("or", andTerm, s.term("=>", andTerm, s.term("=", x, z))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralSharedImplies() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), p = s.term("p");
+		// (=> p (> x 0)) occurs twice, forcing a Tseitin aux literal: exercises
+		// createDefiningClausesForLiteral's "=>" branch (Phase 2), both polarities.
+		final Term impTerm = s.term("=>", p, s.term(">", x, s.numeral("0")));
+		s.assertTerm(s.term("and", impTerm, s.term("or", impTerm, s.term("not", p))));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAndNWayNegative() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("q", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term p = s.term("p"), q = s.term("q"), r = s.term("r");
+		// (and (p>0) (q>0)) occurs bare (positive, forcing its "and-negative" aux
+		// clauses) and negated-and-shared elsewhere (forcing "and-positive"'s own
+		// single clause); forced false via p<=0, so the negation is the literal the
+		// assembler actually needs to justify -- exercises createDefiningClausesForLiteral's
+		// "and-positive" branch, search-free via a per-literal TAUT_AND_NEG proof
+		// {t_i, ~term} (see "The aux-clause contract" in the model-proof plan) --
+		// no model query needed, whichever conjunct (p or q) the model happens to
+		// set false just works.
+		final Term andTerm = s.term("and", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")));
+		s.assertTerm(s.term("and", s.term("or", andTerm, s.term(">", r, s.numeral("0"))),
+				s.term("or", s.term("not", andTerm), s.term("=", r, s.numeral("5"))),
+				s.term("or", s.term("not", andTerm), s.term("=", r, s.numeral("6")))));
+		s.assertTerm(s.term("<=", p, s.numeral("0")));
+		s.assertTerm(s.term(">", r, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testImpliesNWayPositive() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("q", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("t", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term p = s.term("p"), q = s.term("q"), r = s.term("r"), t = s.term("t");
+		// (=> (p>0) (q>0) (r>0)) occurs bare-and-shared (forcing "=>-negative"'s own
+		// single clause) and negated elsewhere (forcing "=>-positive"'s N clauses);
+		// forced true via the *first premise* being false (p<=0) -- exercises
+		// createDefiningClausesForLiteral's "=>-negative" branch, search-free via
+		// per-literal TAUT_IMP_POS proofs (see "The aux-clause contract" in the
+		// model-proof plan) -- no model query needed, whichever premise the model
+		// sets false (or the conclusion, if all premises hold) just works.
+		final Term impTerm = s.term("=>", s.term(">", p, s.numeral("0")), s.term(">", q, s.numeral("0")),
+				s.term(">", r, s.numeral("0")));
+		s.assertTerm(s.term("and", s.term("or", impTerm, s.term("=", t, s.numeral("1"))),
+				s.term("or", impTerm, s.term("=", t, s.numeral("2"))),
+				s.term("or", s.term("not", impTerm), s.term("=", t, s.numeral("3")))));
+		s.assertTerm(s.term("<=", p, s.numeral("0")));
+		s.assertTerm(s.term("=", t, s.numeral("3")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testIteAuxLiteralCondTrue() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term c = s.term("c"), x = s.term("x"), y = s.term("y"), r = s.term("r");
+		// "ite" has no direct checked axiom, so its aux-literal proof has to bridge a
+		// tautology() oracle into the opaque convention -- exercises
+		// createIteSatProof's "case split via final resolution on cond" derivation,
+		// with cond/thenTerm/elseTerm themselves ">"-compiled (i.e. already
+		// "not"-headed) to exercise the wrapNot-recursive-over-peel pitfall too.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		final Term iteTerm = s.term("ite", cond, thenTerm, elseTerm);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(cond);
+		s.assertTerm(thenTerm);
+		s.assertTerm(s.term("=", r, s.numeral("2")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testIteAuxLiteralCondFalseNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term c = s.term("c"), x = s.term("x"), y = s.term("y"), r = s.term("r");
+		// Same as testIteAuxLiteralCondTrue, but forces cond false (the "else" branch)
+		// and thenTerm false so the ite as a whole is false -- exercises the
+		// negative-litTerm ("not ite") side of createIteSatProof.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		final Term iteTerm = s.term("ite", cond, thenTerm, elseTerm);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(cond);
+		s.assertTerm(s.term("<=", x, s.numeral("0")));
+		s.assertTerm(s.term("=", r, s.numeral("1")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testXorAuxLiteralTrue() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), r = s.term("r");
+		// "xor" also has no direct checked axiom -- exercises createXorSatProof's
+		// same case-split derivation, splitting on p1.
+		final Term p1 = s.term(">", a, s.numeral("0"));
+		final Term p2 = s.term(">", b, s.numeral("0"));
+		final Term xorTerm = s.term("xor", p1, p2);
+		s.assertTerm(s.term("and", s.term("or", xorTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", xorTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(p1);
+		s.assertTerm(s.term("<=", b, s.numeral("0")));
+		s.assertTerm(s.term("=", r, s.numeral("2")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testXorAuxLiteralFalseNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), r = s.term("r");
+		// Forces both p1/p2 true (xor false) -- exercises the negative-litTerm
+		// ("not xor") side of createXorSatProof.
+		final Term p1 = s.term(">", a, s.numeral("0"));
+		final Term p2 = s.term(">", b, s.numeral("0"));
+		final Term xorTerm = s.term("xor", p1, p2);
+		s.assertTerm(s.term("and", s.term("or", xorTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", xorTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(p1);
+		s.assertTerm(p2);
+		s.assertTerm(s.term("=", r, s.numeral("1")));
+		checkSatAndProof(s);
+	}
+
+	/** A 3-constructor enum datatype shared by the "match" aux-literal tests below. */
+	private DataType.Constructor[] declareColor(final SMTInterpol s) {
+		final DataType color = s.datatype("Color", 0);
+		final DataType.Constructor[] constrs = new DataType.Constructor[] {
+				new DataType.Constructor("red", new String[0], new Sort[0]),
+				new DataType.Constructor("green", new String[0], new Sort[0]),
+				new DataType.Constructor("blue", new String[0], new Sort[0]) };
+		s.declareDatatype(color, constrs);
+		return constrs;
+	}
+
+	@Test
+	public void testMatchAuxLiteralNoDefaultTrue() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p3", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2"), p3 = s.term("p3");
+		// "match" (no default/wildcard case) has no direct checked axiom either --
+		// exercises createMatchSatProof's N-ary generalization of createIteSatProof's
+		// case split, using the checked DT_EXHAUST axiom (mt.getConstructors() names
+		// every constructor of Color) as the completeness fact.
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, {}, {} }, new Term[] { p1, p2, p3 }, constrs);
+		s.assertTerm(s.term("and", matchTerm, s.term("=>", matchTerm, p1)));
+		s.assertTerm(s.term("=", c, s.term("red")));
+		s.assertTerm(p1);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralNoDefaultFalseNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p3", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2"), p3 = s.term("p3");
+		// Forces the match term false -- exercises the negative-litTerm ("not match")
+		// side of createMatchSatProof, still via DT_EXHAUST (no default case).
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, {}, {} }, new Term[] { p1, p2, p3 }, constrs);
+		s.assertTerm(s.term("and", s.term("not", matchTerm), s.term("or", matchTerm, s.term("not", p1))));
+		s.assertTerm(s.term("=", c, s.term("red")));
+		s.assertTerm(s.term("not", p1));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralWithDefaultTrue() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2");
+		final Theory theory = s.getTheory();
+		final TermVariable q = theory.createTermVariable("q", colorSort);
+		// match c ((red p1) (q p2)) -- "q" is a fresh-variable (default/wildcard)
+		// pattern, so the completeness fact comes from the default clause's own
+		// shape (liftMatchDefault) instead of DT_EXHAUST.
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, { q } }, new Term[] { p1, p2 },
+				new DataType.Constructor[] { constrs[0], null });
+		s.assertTerm(s.term("and", matchTerm, s.term("=>", matchTerm, p2)));
+		s.assertTerm(s.term("=", c, s.term("green")));
+		s.assertTerm(p2);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralWithDefaultFalseNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2");
+		final Theory theory = s.getTheory();
+		final TermVariable q = theory.createTermVariable("q", colorSort);
+		// Same as testMatchAuxLiteralWithDefaultTrue, but forces the match term
+		// false -- exercises the negative-litTerm side of liftMatchDefault.
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, { q } }, new Term[] { p1, p2 },
+				new DataType.Constructor[] { constrs[0], null });
+		s.assertTerm(s.term("and", s.term("not", matchTerm), s.term("or", matchTerm, s.term("not", p2))));
+		s.assertTerm(s.term("=", c, s.term("green")));
+		s.assertTerm(s.term("not", p2));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralDefaultPicksNamedCase() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		final DataType.Constructor[] constrs = declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p1", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p2", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("p3", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p1 = s.term("p1"), p2 = s.term("p2"), p3 = s.term("p3");
+		final Theory theory = s.getTheory();
+		final TermVariable q = theory.createTermVariable("q", colorSort);
+		// match c ((red p1) (green p2) (q p3)) with c = green and p3 false: the default
+		// clause {~match, is-red, is-green, p3} is satisfied by its tester is-green alone,
+		// so its proof is just {is-green}, and the resolution with the red case on
+		// ~is-red must be skipped (it would be vacuous).
+		final Term matchTerm = s.match(c, new TermVariable[][] { {}, {}, { q } }, new Term[] { p1, p2, p3 },
+				new DataType.Constructor[] { constrs[0], constrs[1], null });
+		s.assertTerm(s.term("and", matchTerm, s.term("=>", matchTerm, p2)));
+		s.assertTerm(s.term("=", c, s.term("green")));
+		s.assertTerm(p2);
+		s.assertTerm(s.term("not", p3));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testMatchAuxLiteralOnlyDefault() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFDT");
+		declareColor(s);
+		final Sort colorSort = s.sort("Color");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, colorSort);
+		s.declareFun("p", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term c = s.term("c"), p = s.term("p");
+		final Theory theory = s.getTheory();
+		final TermVariable q = theory.createTermVariable("q", colorSort);
+		// a match consisting only of a default case: a single aux clause with target {match}
+		final Term matchTerm = s.match(c, new TermVariable[][] { { q } }, new Term[] { p },
+				new DataType.Constructor[] { null });
+		s.assertTerm(s.term("and", matchTerm, s.term("=>", matchTerm, p)));
+		s.assertTerm(p);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testIteAuxLiteralRewrittenCondFalse() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		final Sort boolSort = s.sort("Bool");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("f", new Sort[] { intSort }, boolSort);
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, boolSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, boolSort);
+		final Term x = s.term("x"), r = s.term("r"), a = s.term("a"), b = s.term("b");
+		// cond (f x) is an uninterpreted predicate, interned to a CC literal by a non-trivial
+		// rewrite, and it is false, so the clause {~ite, ~cond, a} is satisfied by its target
+		// literal ~cond: the entry has a non-null reversed-rewrite proof but only reaches {~cond}.
+		final Term cond = s.term("f", x);
+		final Term iteTerm = s.term("ite", cond, a, b);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(s.term("not", cond));
+		s.assertTerm(b);
+		s.assertTerm(s.term("not", a));
+		s.assertTerm(s.term("=", r, s.numeral("2")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralNegatedOrOccurrence() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// a negated "or" inside a clause is not inlined: its aux literal's record proves
+		// ~(or ..) from the N clauses {(or ..), ~p_i} and the start tautology or-.
+		final Term orTerm = s.term("or", s.term(">", x, y), s.term("=", x, y));
+		s.assertTerm(s.term("or", s.term("not", orTerm), s.term(">", z, s.numeral("5"))));
+		s.assertTerm(s.term("<", x, y));
+		s.assertTerm(s.term("<=", z, s.numeral("5")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralNegatedImpliesOccurrence() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("z", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y"), z = s.term("z");
+		// a negated "=>" inside a clause: its record proves ~(=> ..) via =>- and the N clauses.
+		final Term impTerm = s.term("=>", s.term(">", x, s.numeral("0")), s.term(">", y, s.numeral("0")));
+		s.assertTerm(s.term("or", s.term("not", impTerm), s.term(">", z, s.numeral("5"))));
+		s.assertTerm(s.term(">", x, s.numeral("0")));
+		s.assertTerm(s.term("<=", y, s.numeral("0")));
+		s.assertTerm(s.term("<=", z, s.numeral("5")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testToplevelIteAssertion() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term c = s.term("c"), x = s.term("x"), y = s.term("y");
+		// A bare, unshared "ite" assertion: getILiteral(term) is null, so this reaches
+		// AddAsAxiom's own ite branch (not createDefiningClausesForLiteral's aux-literal
+		// path) -- exercises reusing createIteSatProof directly from AddAsAxiom, with
+		// cond/thenTerm themselves ">"-compiled (i.e. already "not"-headed) to exercise
+		// the wrapNot-recursive-over-peel pitfall too.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		s.assertTerm(s.term("ite", cond, thenTerm, elseTerm));
+		s.assertTerm(cond);
+		s.assertTerm(thenTerm);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testToplevelIteAssertionNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term c = s.term("c"), x = s.term("x"), y = s.term("y");
+		// Same as testToplevelIteAssertion, but the assertion is the negated "ite" --
+		// exercises AddAsAxiom's ite branch on the other (positive == false) side.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		s.assertTerm(s.term("not", s.term("ite", cond, thenTerm, elseTerm)));
+		s.assertTerm(cond);
+		s.assertTerm(s.term("<=", x, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testToplevelXorAssertion() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b");
+		// A bare, unshared "xor" assertion: exercises reusing createXorSatProof
+		// directly from AddAsAxiom's own xor branch.
+		final Term p1 = s.term(">", a, s.numeral("0"));
+		final Term p2 = s.term(">", b, s.numeral("0"));
+		s.assertTerm(s.term("xor", p1, p2));
+		s.assertTerm(p1);
+		s.assertTerm(s.term("<=", b, s.numeral("0")));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testToplevelXorAssertionNegated() {
+		final SMTInterpol s = newScript();
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b");
+		// Same as testToplevelXorAssertion, but the assertion is the negated "xor" --
+		// exercises AddAsAxiom's xor branch on the other (positive == false) side.
+		final Term p1 = s.term(">", a, s.numeral("0"));
+		final Term p2 = s.term(">", b, s.numeral("0"));
+		s.assertTerm(s.term("not", s.term("xor", p1, p2)));
+		s.assertTerm(p1);
+		s.assertTerm(p2);
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testModelProofModeDefaultsToEvaluate() {
+		// Sanity check that the default (":model-proof-mode" unset) is unaffected by
+		// Phase 1: it should keep using the whole-formula evaluating ModelProver path.
+		final SMTInterpol s = new SMTInterpol(new DefaultLogger());
+		s.setOption(":produce-models", true);
+		s.setOption(":interactive-mode", true);
+		s.setOption(":produce-proofs", true);
+		s.setOption(":proof-level", "full");
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term x = s.term("x"), y = s.term("y");
+		s.assertTerm(s.term("<=", x, y));
+		checkSatAndProof(s);
+	}
+
+	@Test
+	public void testAuxLiteralsWithProofProductionDisabled() {
+		// With produce-proofs off entirely, Clausifier.mTracker is a NoopProofTracker,
+		// not a ProofTracker -- IProofTracker.tautology(...) then returns the plain
+		// term itself rather than a proof-annotated one (see NoopProofTracker vs.
+		// ProofTracker). createDefiningClausesForLiteral's new (Phase 2) branches must
+		// never call any of the ProofTracker-only helpers (wrapNot/getClauseProof/
+		// orElim/etc.) in that case; satProofsEnabled()/the tracker==null checks are
+		// supposed to skip all of that, but this is only checked by actually running
+		// the aux-literal-heavy code paths without proofs enabled, not by inspection.
+		final SMTInterpol s = new SMTInterpol(new DefaultLogger());
+		s.setOption(":produce-models", true);
+		s.setOption(":interactive-mode", true);
+		// produce-proofs deliberately left at its default (off).
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), c = s.term("c"), x = s.term("x"), y = s.term("y"),
+				r = s.term("r");
+		// DNF (or/and) aux literals.
+		final Term and1 = s.term("and", s.term(">", a, b), s.term("<", a, s.numeral("10")));
+		final Term and2 = s.term("and", s.term(">", c, s.numeral("0")), s.term("<", c, s.numeral("10")));
+		s.assertTerm(s.term("or", and1, and2));
+		s.assertTerm(s.term(">", a, b));
+		s.assertTerm(s.term("<", a, s.numeral("10")));
+		// ite aux literal, both polarities via sharing.
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		final Term iteTerm = s.term("ite", cond, thenTerm, elseTerm);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(cond);
+		s.assertTerm(thenTerm);
+		// xor aux literal.
+		final Term p1 = s.term(">", x, s.numeral("5"));
+		final Term p2 = s.term(">", y, s.numeral("5"));
+		final Term xorTerm = s.term("xor", p1, p2);
+		s.assertTerm(s.term("or", xorTerm, s.term("=", r, s.numeral("9"))));
+		Assert.assertEquals(LBool.SAT, s.checkSat());
+	}
+
+	@Test
+	public void testLowlevelProofModeHasNoOracles() {
+		// With :proof-level lowlevel (as opposed to full), SMTInterpol.getProof()
+		// additionally runs the assembled model proof through ProofSimplifier, just
+		// like it already does for the unsat LOWLEVEL proof -- see SMTInterpol.getProof.
+		// Reuses the DNF/ite/xor aux-literal formula from
+		// testAuxLiteralsWithProofProductionDisabled to exercise the aux-literal sat
+		// proofs together with the (many) rewriteRev oracles from clausification.
+		final SMTInterpol s = new SMTInterpol(new DefaultLogger());
+		s.setOption(":produce-models", true);
+		s.setOption(":interactive-mode", true);
+		s.setOption(":produce-proofs", true);
+		s.setOption(":proof-level", "lowlevel");
+		s.setOption(":model-proof-mode", "clauses");
+		s.setLogic("QF_UFLIA");
+		final Sort intSort = s.sort("Int");
+		s.declareFun("a", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("b", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("c", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("x", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("y", Script.EMPTY_SORT_ARRAY, intSort);
+		s.declareFun("r", Script.EMPTY_SORT_ARRAY, intSort);
+		final Term a = s.term("a"), b = s.term("b"), c = s.term("c"), x = s.term("x"), y = s.term("y"),
+				r = s.term("r");
+		final Term and1 = s.term("and", s.term(">", a, b), s.term("<", a, s.numeral("10")));
+		final Term and2 = s.term("and", s.term(">", c, s.numeral("0")), s.term("<", c, s.numeral("10")));
+		s.assertTerm(s.term("or", and1, and2));
+		s.assertTerm(s.term(">", a, b));
+		s.assertTerm(s.term("<", a, s.numeral("10")));
+		final Term cond = s.term(">", c, s.numeral("0"));
+		final Term thenTerm = s.term(">", x, s.numeral("0"));
+		final Term elseTerm = s.term(">", y, s.numeral("0"));
+		final Term iteTerm = s.term("ite", cond, thenTerm, elseTerm);
+		s.assertTerm(s.term("and", s.term("or", iteTerm, s.term("=", r, s.numeral("1"))),
+				s.term("or", s.term("not", iteTerm), s.term("=", r, s.numeral("2")))));
+		s.assertTerm(cond);
+		s.assertTerm(thenTerm);
+		final Term p1 = s.term(">", x, s.numeral("5"));
+		final Term p2 = s.term(">", y, s.numeral("5"));
+		final Term xorTerm = s.term("xor", p1, p2);
+		s.assertTerm(s.term("or", xorTerm, s.term("=", r, s.numeral("9"))));
+		Assert.assertEquals(LBool.SAT, s.checkSat());
+		final Term proof = s.getProof();
+		final MinimalProofChecker checker = new MinimalProofChecker(s, s.getLogger());
+		Assert.assertTrue("checkModelProof", checker.checkModelProof(proof));
+		Assert.assertEquals("no oracles should remain after ProofSimplifier", 0, checker.getNumberOfHoles());
+	}
+}

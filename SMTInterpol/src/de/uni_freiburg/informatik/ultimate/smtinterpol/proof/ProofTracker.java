@@ -18,13 +18,12 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.proof;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
@@ -33,6 +32,8 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 
 /**
  * This is an implementation of the IProofTracker that generates the proof
@@ -206,6 +207,32 @@ public class ProofTracker implements IProofTracker {
 		return buildProof(mProofRules.oracle(lits, annots), getProvedTerm(rewrite));
 	}
 
+	/**
+	 * Create a proof of {~rhs, lhs} from a rewrite proof {@code (= lhs rhs)} for
+	 * rhs.
+	 *
+	 * @param lhs
+	 *            the rewritten literal.
+	 * @param rewrite
+	 *            the simplified formula rhs annotated with a proof of
+	 *            {@code (= lhs rhs)}.
+	 * @return the clause proving {~rhs, lhs}
+	 */
+	@Override
+	public Term rewriteToClauseReverse(Term lhs, Term rewrite) {
+		if (isReflexivity(getProof(rewrite))) {
+			return null;
+		}
+		final ProofLiteral[] lits = new ProofLiteral[] {
+				termToProofLiteral(getProvedTerm(rewrite)).negate(),
+				termToProofLiteral(lhs)
+		};
+		final Annotation[] annots = new Annotation[] {
+				new Annotation(ProofConstants.ANNOTKEY_REWRITE_REV, getProof(rewrite))
+		};
+		return buildProof(mProofRules.oracle(lits, annots), lhs);
+	}
+
 	public Term resolve(Term pivotLit, final Term posClause, final Term negClause) {
 		boolean positive = true;
 		while (isApplication(SMTLIBConstants.NOT, pivotLit)) {
@@ -213,6 +240,83 @@ public class ProofTracker implements IProofTracker {
 			positive = !positive;
 		}
 		return mProofRules.resolutionRule(pivotLit, positive ? posClause : negClause, positive ? negClause : posClause);
+	}
+
+	/**
+	 * Given a proof of {@code rawTerm}'s literal, used as an opaque atom (sign
+	 * {@code rawPositive}, not "not"-stripped), return a proof of the literal for
+	 * {@code rawTerm}'s fully-"not"-stripped core atom instead.
+	 *
+	 * @param rawTerm     a term with zero or more leading "not"s, used opaquely.
+	 * @param rawPositive the sign {@code rawTerm} occurs with in {@code proof}.
+	 * @param proof       a proof containing {@code rawTerm^rawPositive}.
+	 * @return a proof containing {@code core^sign}, where {@code core} is
+	 *         {@code rawTerm} with all leading "not"s peeled and {@code sign} is
+	 *         {@code rawPositive} iff an even number were peeled.
+	 */
+	public Term stripNot(final Term rawTerm, final boolean rawPositive, final Term proof) {
+		Term cur = rawTerm;
+		boolean sign = rawPositive;
+		Term p = proof;
+		while (isApplication(SMTLIBConstants.NOT, cur)) {
+			final Term inner = ((ApplicationTerm) cur).getParameters()[0];
+			p = sign ? mProofRules.resolutionRule(cur, p, mProofRules.notElim(cur))
+					: mProofRules.resolutionRule(cur, mProofRules.notIntro(cur), p);
+			cur = inner;
+			sign = !sign;
+		}
+		return p;
+	}
+
+	/**
+	 * The inverse of {@link #stripNot}: given a proof of {@code rawTerm}'s
+	 * fully-"not"-stripped core atom, with whatever sign stripping produces, wrap
+	 * it back up into a proof of {@code rawTerm} itself, used opaquely, with sign
+	 * {@code rawPositive}.
+	 */
+	public Term wrapNot(final Term rawTerm, final boolean rawPositive, final Term proofOfCore) {
+		final ArrayList<Term> notTerms = new ArrayList<>();
+		Term cur = rawTerm;
+		while (isApplication(SMTLIBConstants.NOT, cur)) {
+			notTerms.add(cur);
+			cur = ((ApplicationTerm) cur).getParameters()[0];
+		}
+		Term p = proofOfCore;
+		boolean sign = notTerms.size() % 2 == 0 ? rawPositive : !rawPositive;
+		for (int i = notTerms.size() - 1; i >= 0; i--) {
+			final Term notTerm = notTerms.get(i);
+			p = sign ? mProofRules.resolutionRule(cur, p, mProofRules.notElim(notTerm))
+					: mProofRules.resolutionRule(cur, mProofRules.notIntro(notTerm), p);
+			cur = notTerm;
+			sign = !sign;
+		}
+		return p;
+	}
+
+	/**
+	 * Resolve on the exact term {@code pivot}, without the "not"-stripping
+	 * {@link #resolve} does. Used when {@code pivot} itself (e.g. a "not"-headed
+	 * clause formula) is the literal genuinely shared by both clauses, as opposed
+	 * to {@link #resolve}'s usual case of a possibly-negated pivot whose clauses
+	 * already use the stripped atom.
+	 *
+	 * @param pivot    the literal, exactly as it occurs (positively) in proofPos and
+	 *                 (negatively) in proofNeg.
+	 * @param proofPos proof of a clause containing {@code pivot} positively.
+	 * @param proofNeg proof of a clause containing {@code pivot} negatively.
+	 * @return the resolvent.
+	 */
+	public Term resolveAtom(final Term pivot, final Term proofPos, final Term proofNeg) {
+		return mProofRules.resolutionRule(pivot, proofPos, proofNeg);
+	}
+
+	/**
+	 * Return the proof rules object to create sub-proofs.
+	 *
+	 * @return the proof rules.
+	 */
+	public ProofRules getProofRules() {
+		return mProofRules;
 	}
 
 	@Override
