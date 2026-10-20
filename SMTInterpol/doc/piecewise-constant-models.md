@@ -316,6 +316,18 @@ mattered, since a CC-only term is never compared with an LA term.
 * **Quantifier side** (`theory/quant`): literal evaluation in the model, the
   iterative search, `:quant-fc-method` option.
 
+*Implementation status (2026-10-20).*  `theory/cclosure/PiecewiseModel`
+implements the function model for uninterpreted functions with the symbolic
+value domain (`PiecewiseModel.Value`): lambda, concrete (the representative's
+LA shared term, evaluated like `ModelBuilder` does), and CC-only values ordered
+by the creation index of the representative in `CClosure.mAllTerms`, then by
+offset.  This is the order in which `ModelBuilder.fillInTermValues` meets the
+representatives, so making its `delayed` set a list (Step 4) gives the same
+order.  Lambda is recognised as the class of the CCTerm the caller supplies
+per sort.  Unit tests: `PiecewiseModelTest` (ported Int tests, CC-only order,
+uninterpreted arguments).  Arrays (weak-representative models) are not done
+yet; they come with `select` evaluation in Step 3.
+
 ## Steps
 
 1. Interesting terms as `CCParameter`s on the literals; dedup by value (no
