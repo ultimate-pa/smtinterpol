@@ -21,6 +21,7 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 
 /**
  * Represents a quantified literal.
@@ -54,6 +55,12 @@ public abstract class QuantLiteral implements ILiteral {
 	 * Flag to mark if the QuantLiteral can be used for DER.
 	 */
 	protected boolean mIsDERUsable;
+	/**
+	 * For an arithmetical literal comparing a variable with a ground term ({@code x = t}, {@code x < t},
+	 * {@code t < x}): the value of the ground term {@code t}, created when the atom is created. Only set on the atom;
+	 * null otherwise.
+	 */
+	protected CCParameter mGroundBound;
 	/**
 	 * The underlying atom.
 	 */
@@ -115,6 +122,15 @@ public abstract class QuantLiteral implements ILiteral {
 
 	public boolean isArithmetical() {
 		return mIsArithmetical;
+	}
+
+	/**
+	 * For an arithmetical literal comparing a variable with a ground term, the value of the ground term.
+	 *
+	 * @return the value of the ground side, or null if the literal has no ground side (e.g. {@code x < y}).
+	 */
+	public CCParameter getGroundBound() {
+		return mAtom.mGroundBound;
 	}
 
 	@Override

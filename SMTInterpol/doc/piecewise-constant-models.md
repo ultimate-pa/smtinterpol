@@ -263,13 +263,25 @@ special-case λ; today it would land in `delayed` and get a large fresh value):
    arithmetical `QuantBoundConstraint`); `t ± 1` becomes
    `CCParameter.of(rhs.getCCTerm(), rhs.getOffset() ± 1)` without building a
    term.  Same for store indices ± 1.
-2. Ground sides that are not `term + constant` (e.g. `a + b`): decide between
-   sharing the term with LA at literal creation (its value is then concrete and
-   comparable) or keeping a separate LA-only interesting value.  Sharing is
-   simpler; it only adds unconstrained LinVars.
-3. Interesting terms become values: keyed by `getValueKey()`, and in addition
-   merged by concrete value when both are concrete.  Keep the term that already
-   has a CCTerm, then the oldest, to avoid new terms.
+2. Ground sides that are not `term + constant` (e.g. `a + b`): decided
+   (2026-10-20), the ground side becomes a `CCParameter` and is shared with LA
+   at literal creation, so its value is concrete and comparable.  This only
+   adds unconstrained LinVars.
+3. Interesting terms become values: keyed by `getValueKey()`.  Merging by
+   concrete value only happens in the final check, which the model-based check
+   runs in, so it can assume the merge already happened.
+
+*Implementation status (2026-10-20).*  Items 1 and 2 are done:
+`QuantifierTheory.createGroundBound` builds the ground side's `CCParameter`
+(via `Clausifier.createCCTerm` on the canonical polynomial, which shares sums
+with LA through `addTermAxioms`) and stores it on the atom
+(`QuantLiteral.getGroundBound()`, copied by `getLiteralCopies`).
+`QuantClause.collectVarInfos` takes the bounds from it, and `t ± 1` for
+`x = t` and for store indices is `QuantifierTheory.getOffsetTerm`, i.e.
+`CCParameter.of(cc, offset ± 1)` with offset equalities (canonical
+`unifyPolynomial` term without).  The substitutions themselves stay `Term`s:
+`InstantiationManager` keys its DAWGs, age order and instance caches by
+`Term`.
 
 ### Use sites in model production
 
@@ -320,8 +332,6 @@ mattered, since a CC-only term is never compared with an LA term.
 
 ## Open questions
 
-* Share multi-summand ground sides of arithmetical literals with LA, or keep
-  them as LA-only values?
 * Is the CC-only class order stable enough across final checks, or does it
   cause instance churn?
 * Offsets in function arguments (`f(x + k)`, Ge & de Moura's shifting) are now

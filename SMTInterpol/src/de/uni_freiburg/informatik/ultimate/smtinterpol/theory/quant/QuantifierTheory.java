@@ -583,6 +583,7 @@ public class QuantifierTheory implements ITheory {
 			// (x = t) for t integer is arithmetical and almost uninterpreted
 			if (newRhs.getFreeVars().length == 0 && newRhs.getSort().getName() == "Int") {
 				atom.mIsArithmetical = true;
+				atom.mGroundBound = createGroundBound(newRhs, source);
 			}
 			// (x != termwithoutx) can be used for DER
 			if (!Arrays.asList(newRhs.getFreeVars()).contains(newLhs)) {
@@ -691,6 +692,9 @@ public class QuantifierTheory implements ITheory {
 			final Term remainder = remainderAff.toTerm(lhs.getSort());
 			if (remainder instanceof TermVariable || remainder.getFreeVars().length == 0) {
 				atom.negate().mIsArithmetical = true;
+				if (!(remainder instanceof TermVariable)) {
+					atom.mGroundBound = createGroundBound(remainder, source);
+				}
 			}
 		}
 		mClausifier.setTermFlags(newAtomTerm, mClausifier.getTermFlags(newAtomTerm) | Clausifier.POS_AUX_AXIOMS_ADDED
@@ -725,6 +729,7 @@ public class QuantifierTheory implements ITheory {
 			clauseAtom.mIsEssentiallyUninterpreted = atom.mIsEssentiallyUninterpreted;
 			clauseAtom.mIsArithmetical = atom.mIsArithmetical;
 			clauseAtom.mIsDERUsable = atom.mIsDERUsable;
+			clauseAtom.mGroundBound = atom.mGroundBound;
 			clauseAtom.mNegated.mClause = clause;
 			clauseAtom.mNegated.mIsEssentiallyUninterpreted = atom.mNegated.mIsEssentiallyUninterpreted;
 			clauseAtom.mNegated.mIsArithmetical = atom.mNegated.mIsArithmetical;
@@ -940,6 +945,42 @@ public class QuantifierTheory implements ITheory {
 	Term getRepresentativeTerm(final Term term) {
 		final CCParameter ccParam = getClausifier().getCCParameter(term);
 		return ccParam == null ? term : ccParam.getValueKey().getFlatTerm();
+	}
+
+	/**
+	 * Create the value of the ground side of an arithmetical literal. The term gets a CCTerm (offset-free, with the
+	 * constant as offset) that is shared with linear arithmetic if it is not a single uninterpreted term, so a bound
+	 * like {@code a + b} has a concrete value in the model like any other shared term.
+	 *
+	 * @param ground
+	 *            the ground side of the literal, i.e. {@code t} in {@code x = t}, {@code x < t}, or {@code t < x}.
+	 * @return the value of the ground side.
+	 */
+	private CCParameter createGroundBound(final Term ground, final SourceAnnotation source) {
+		assert ground.getFreeVars().length == 0 && ground.getSort().isNumericSort();
+		// use the canonical form, so the flat term of the CCTerm matches the terms built by the TermCompiler
+		final Term canonic = mClausifier.getTermCompiler().unifyPolynomial(new Polynomial(ground), ground.getSort());
+		return mClausifier.createCCTerm(canonic, source);
+	}
+
+	/**
+	 * Get the term for {@code value + offset}, e.g. {@code t ± 1} for an interesting term {@code t}. With offset
+	 * equalities this is the CCTerm of {@code value} at a different offset, so no new CCTerm is needed for it.
+	 *
+	 * @param value
+	 *            a numeric value.
+	 * @param offset
+	 *            the offset to add.
+	 * @return the canonical term for {@code value + offset}.
+	 */
+	Term getOffsetTerm(final CCParameter value, final Rational offset) {
+		if (mClausifier.createOffsetEqualities()) {
+			return CCParameter.of(value.getCCTerm(), value.getOffset().add(offset)).getFlatTerm();
+		}
+		final Term term = value.getFlatTerm();
+		final Polynomial poly = new Polynomial(term);
+		poly.add(offset);
+		return mClausifier.getTermCompiler().unifyPolynomial(poly, term.getSort());
 	}
 
 	private void addGroundCCTerms(final Term term, final SourceAnnotation source) {

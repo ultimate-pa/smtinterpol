@@ -36,7 +36,6 @@ import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
-import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.SMTAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
@@ -288,7 +287,7 @@ public class QuantClause {
 							info.addUpperVarBound((TermVariable) termLtTerm[1]);
 						} else {
 							assert termLtTerm[1].getFreeVars().length == 0;
-							info.addUpperGroundBound(termLtTerm[1]);
+							info.addUpperGroundBound(lit.getGroundBound().getFlatTerm());
 						}
 					}
 					if (termLtTerm[1] instanceof TermVariable) {
@@ -298,7 +297,7 @@ public class QuantClause {
 							info.addLowerVarBound((TermVariable) termLtTerm[0]);
 						} else {
 							assert termLtTerm[0].getFreeVars().length == 0;
-							info.addLowerGroundBound(termLtTerm[0]);
+							info.addLowerGroundBound(lit.getGroundBound().getFlatTerm());
 						}
 					}
 				} else {
@@ -321,14 +320,9 @@ public class QuantClause {
 							&& rhs.getFreeVars().length == 0;
 					final int pos = getVarIndex((TermVariable) lhs);
 					final VarInfo varInfo = mVarInfos[pos];
-					final SMTAffineTerm lowerAffine = new SMTAffineTerm(rhs);
-					lowerAffine.add(Rational.MONE);
-					final SMTAffineTerm upperAffine = new SMTAffineTerm(rhs);
-					upperAffine.add(Rational.ONE);
-					final Term lowerBound = lowerAffine.toTerm(rhs.getSort());
-					final Term upperBound = upperAffine.toTerm(rhs.getSort());
-					varInfo.addLowerGroundBound(lowerBound);
-					varInfo.addUpperGroundBound(upperBound);
+					final CCParameter rhsValue = lit.getGroundBound();
+					varInfo.addLowerGroundBound(mQuantTheory.getOffsetTerm(rhsValue, Rational.MONE));
+					varInfo.addUpperGroundBound(mQuantTheory.getOffsetTerm(rhsValue, Rational.ONE));
 				} else {
 					if (!(lhs instanceof TermVariable) && lhs.getFreeVars().length != 0) {
 						assert lhs instanceof ApplicationTerm;
@@ -484,16 +478,14 @@ public class QuantClause {
 					final CCTerm stArr = ArrayTheory.getArrayFromStore(st);
 					if (weakRep == null ? stArr.getFlatTerm().getSort() == array.getSort()
 							: weakRep == mQuantTheory.getClausifier().getArrayTheory().getWeakRep(stArr)) {
-						final Term indexTerm = ArrayTheory.getIndexFromStore(st).getFlatTerm();
+						final CCParameter index = ArrayTheory.getIndexFromStore(st);
+						final Term indexTerm = index.getFlatTerm();
 						interestingTerms.add(indexTerm);
 						if (funcName == "select" && var.getSort().getName() == "Int"
 								&& !QuantUtil.isLambda(indexTerm)) {
 							// For integers, add store indices +-1
 							for (final Rational offset : new Rational[] { Rational.ONE, Rational.MONE }) {
-								final SMTAffineTerm idxPlusMinusOneAff = new SMTAffineTerm(indexTerm);
-								idxPlusMinusOneAff.add(offset);
-								final Term shared = idxPlusMinusOneAff.toTerm(indexTerm.getSort());
-								interestingTerms.add(shared);
+								interestingTerms.add(mQuantTheory.getOffsetTerm(index, offset));
 							}
 						}
 					}
