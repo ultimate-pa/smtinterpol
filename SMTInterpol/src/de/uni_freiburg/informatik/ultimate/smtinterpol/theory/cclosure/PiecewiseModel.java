@@ -38,7 +38,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator
  * The model of {@code f} is determined by its <em>corners</em>, the ground applications {@code f(c1,...,cn)} in the
  * E-graph. An argument tuple {@code (a1,...,an)} gets the value of the lexicographically greatest corner {@code c}
  * with {@code ci <= ai} for every numeric position and {@code ci ~ ai} or {@code ci = lambda} for every other position.
- * If no such corner exists, the value is lambda of the return sort.
+ * If no such corner exists, the value is lambda of the return sort. Arrays are modelled the same way, with the
+ * selects as corners, but only for the weak representatives; the other arrays add their stores on top (see
+ * {@link #evaluateSelect}).
  * </p>
  *
  * <p>
@@ -212,11 +214,14 @@ public class PiecewiseModel {
 	}
 
 	private final CClosure mClosure;
+	private final ArrayTheory mArrayTheory;
 	private final SharedTermEvaluator mEvaluator;
 	private final Function<Sort, CCTerm> mLambdaTerms;
 	/** The creation index of every representative; this is the order of CC-only values. */
 	private final Map<CCTerm, Integer> mClassOrder = new HashMap<>();
 	private final Map<FunctionSymbol, Node> mFuncModels = new HashMap<>();
+	/** The piecewise-constant models of the weak representatives, built from their selects. */
+	private final Map<ArrayTheory.ArrayNode, Node> mWeakRepModels = new HashMap<>();
 
 	/**
 	 * Build the model for the current state of the congruence closure. All ground theories must have finished their
@@ -224,14 +229,17 @@ public class PiecewiseModel {
 	 *
 	 * @param closure
 	 *            the congruence closure.
+	 * @param arrayTheory
+	 *            the array theory, or null if there are no arrays.
 	 * @param evaluator
 	 *            the evaluator for the values of LA shared terms.
 	 * @param lambdaTerms
 	 *            maps a sort to the CCTerm of its lambda, or to null if lambda of that sort has no CCTerm.
 	 */
-	public PiecewiseModel(final CClosure closure, final SharedTermEvaluator evaluator,
+	public PiecewiseModel(final CClosure closure, final ArrayTheory arrayTheory, final SharedTermEvaluator evaluator,
 			final Function<Sort, CCTerm> lambdaTerms) {
 		mClosure = closure;
+		mArrayTheory = arrayTheory;
 		mEvaluator = evaluator;
 		mLambdaTerms = lambdaTerms;
 		int index = 0;
@@ -284,6 +292,78 @@ public class PiecewiseModel {
 	public Value evaluate(final FunctionSymbol func, final Value[] args) {
 		final CCAppTerm corner = getCorner(func, args);
 		return corner == null ? Value.lambda(func.getReturnSort()) : getValue(corner);
+	}
+
+	/**
+	 * The symbolic value of {@code (select array index)}.
+	 *
+	 * <p>
+	 * The weak representative of the array's weak equivalence class has a piecewise-constant model whose corners are
+	 * the selects in its weak class, i.e., the selects whose weak-i representative is the weak representative. Below
+	 * the smallest corner (or without a matching corner) the value is the default of the class: the value of a const
+	 * array, the value the array theory fixed for finite sorts, or lambda. Every other array in the class is the weak
+	 * representative with the stores on the path to it applied on top: at a store index whose weak-i representative is
+	 * not the weak representative, the value is the select on that weak-i class, or lambda if there is none.
+	 * </p>
+	 *
+	 * @param array
+	 *            a ground array.
+	 * @param index
+	 *            the symbolic index.
+	 */
+	public Value evaluateSelect(final CCTerm array, final Value index) {
+		assert mArrayTheory != null && mArrayTheory.mCongRoots != null;
+		final Sort elemSort = array.getFlatTerm().getSort().getArguments()[1];
+		final ArrayTheory.ArrayNode node = mArrayTheory.mCongRoots.get(array.getRepresentative());
+		final ArrayTheory.ArrayNode weakRep = node.getWeakRepresentative();
+		for (ArrayTheory.ArrayNode n = node; n.mPrimaryEdge != null; n = n.mPrimaryEdge) {
+			final CCParameter storeIndex = ArrayTheory.getIndexFromStore(n.mPrimaryStore);
+			if (getValue(storeIndex).equals(index)) {
+				final ArrayTheory.ArrayNode weakIRep = node.getWeakIRepresentative(storeIndex);
+				if (weakIRep == weakRep) {
+					// the stores on this index are undone on the way to the weak representative
+					break;
+				}
+				final CCAppTerm select = weakIRep.mSelects.get(storeIndex.getValueKey());
+				return select == null ? Value.lambda(elemSort) : getValue(select);
+			}
+		}
+		Node model = mWeakRepModels.get(weakRep);
+		if (model == null) {
+			model = buildWeakRepModel(weakRep);
+		}
+		final CCAppTerm corner = findCorner(model, 0, new Value[] { index });
+		return corner == null ? getArrayDefault(weakRep, elemSort) : getValue(corner);
+	}
+
+	private Node buildWeakRepModel(final ArrayTheory.ArrayNode weakRep) {
+		final Sort indexSort = weakRep.mTerm.getFlatTerm().getSort().getArguments()[0];
+		final Node root = new Node(indexSort);
+		for (final CCAppTerm select : weakRep.mSelects.values()) {
+			final Node leaf = root.mChildren.computeIfAbsent(getValue(ArrayTheory.getIndexFromSelect(select)),
+					v -> new Node(null));
+			if (leaf.mCorner == null) {
+				leaf.mCorner = select;
+			} else {
+				// selects on the same index value in one weak-i class are equal after the final check
+				assert leaf.mCorner.sameValueAs(select);
+			}
+		}
+		mWeakRepModels.put(weakRep, root);
+		return root;
+	}
+
+	private Value getArrayDefault(final ArrayTheory.ArrayNode weakRep, final Sort elemSort) {
+		if (weakRep.mConstTerm != null) {
+			return getValue(ArrayTheory.getValueFromConst(weakRep.mConstTerm));
+		}
+		// for finite sorts the array theory chose a default value from the selects (computeWeakeqExt)
+		final Map<CCParameter, Object> arrayModel =
+				mArrayTheory.mArrayModels == null ? null : mArrayTheory.mArrayModels.get(weakRep);
+		if (arrayModel != null && arrayModel.get(null) instanceof CCParameter) {
+			return getValue((CCParameter) arrayModel.get(null));
+		}
+		return Value.lambda(elemSort);
 	}
 
 	private Node buildFunctionModel(final FunctionSymbol func) {

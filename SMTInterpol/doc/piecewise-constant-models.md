@@ -325,8 +325,28 @@ offset.  This is the order in which `ModelBuilder.fillInTermValues` meets the
 representatives, so making its `delayed` set a list (Step 4) gives the same
 order.  Lambda is recognised as the class of the CCTerm the caller supplies
 per sort.  Unit tests: `PiecewiseModelTest` (ported Int tests, CC-only order,
-uninterpreted arguments).  Arrays (weak-representative models) are not done
-yet; they come with `select` evaluation in Step 3.
+uninterpreted arguments).
+
+Arrays (`PiecewiseModel.evaluateSelect`): the weak representative of each
+weak equivalence class gets a piecewise-constant model whose corners are its
+`mSelects` (the selects whose weak-i representative it is); below the smallest
+corner the value is the class default (const value, the value
+`computeWeakeqExt` fixed for finite sorts, or λ).  Every other array is the
+weak representative with the stores on its primary path applied on top: at a
+store index whose weak-i representative is not the weak representative, the
+value is that weak-i class's select, or λ if it has none.  Extensionality is
+left to the array theory (it adds a `diff` witness for arrays it considers
+different).  Consequences for Step 3:
+
+* Which node is the weak representative depends on edge inversion, so the
+  model of an array `a` can step at the index of a select on a weakly
+  equivalent array.  The interesting terms of an index variable in
+  `select(a, x)` must therefore include the select indices of the whole weak
+  class, not only those on `a`, besides the store indices ± 1.
+* `store(a, x, v)` with a quantified index or value has no CC class; its
+  selects must be evaluated symbolically (`x = y ? v : select(a, y)`).
+* `ModelBuilder`'s array output (Step 4) has to produce the same model
+  (piecewise default instead of a fresh array with point stores).
 
 ## Steps
 

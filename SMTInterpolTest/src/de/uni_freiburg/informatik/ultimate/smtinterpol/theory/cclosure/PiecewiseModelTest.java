@@ -98,7 +98,8 @@ public class PiecewiseModelTest {
 	}
 
 	private PiecewiseModel buildModel() {
-		return new PiecewiseModel(mClausifier.getCClosure(), new SharedTermEvaluator(mClausifier),
+		return new PiecewiseModel(mClausifier.getCClosure(), mClausifier.getArrayTheory(),
+				new SharedTermEvaluator(mClausifier),
 				sort -> mClausifier.getCCTerm(lambda(sort)));
 	}
 
@@ -246,5 +247,85 @@ public class PiecewiseModelTest {
 			assertCorner(model, hl2, r, mATerms[3]);
 		}
 		Assert.assertEquals(Value.lambda(u), value(model, lambdaU));
+	}
+
+	private Value intValue(final int i) {
+		return Value.concrete(mInt, Rational.valueOf(i, 1));
+	}
+
+	private Term select(final Term array, final int index) {
+		return mTheory.term("select", array, num(index));
+	}
+
+	/** Every select in the E-graph is a corner of the model of its array. */
+	private void assertSelectsCovered(final PiecewiseModel model) {
+		for (final CCTerm term : mClausifier.getCClosure().mAllTerms) {
+			if (ArrayTheory.isSelectTerm(term)) {
+				final CCAppTerm select = (CCAppTerm) term;
+				final Value index = model.getValue(ArrayTheory.getIndexFromSelect(select));
+				Assert.assertEquals(model.getValue(select),
+						model.evaluateSelect(ArrayTheory.getArrayFromSelect(select), index));
+			}
+		}
+	}
+
+	/** Without stores the array is piecewise constant over its selects. */
+	@Test
+	public void testArraySelects() {
+		final Sort arr = mSolver.sort("Array", mInt, mInt);
+		final Term a = declare("arr", arr);
+		mSolver.assertTerm(mSolver.term("=", select(a, 1), num(10)));
+		mSolver.assertTerm(mSolver.term("=", select(a, 5), num(50)));
+		mSolver.assertTerm(mSolver.term("=", mTheory.term("select", a, mLambda), num(-1)));
+		Assert.assertEquals(LBool.SAT, mSolver.checkSat());
+		final PiecewiseModel model = buildModel();
+		final CCTerm aCC = mClausifier.getCCTerm(a);
+		Assert.assertEquals(intValue(-1), model.evaluateSelect(aCC, Value.lambda(mInt)));
+		Assert.assertEquals(intValue(-1), model.evaluateSelect(aCC, intValue(0)));
+		Assert.assertEquals(intValue(10), model.evaluateSelect(aCC, intValue(1)));
+		Assert.assertEquals(intValue(10), model.evaluateSelect(aCC, intValue(4)));
+		Assert.assertEquals(intValue(50), model.evaluateSelect(aCC, intValue(5)));
+		Assert.assertEquals(intValue(50), model.evaluateSelect(aCC, intValue(100)));
+		assertSelectsCovered(model);
+	}
+
+	/** Stores change the model of the weak representative only at their index. */
+	@Test
+	public void testArrayStores() {
+		final Sort arr = mSolver.sort("Array", mInt, mInt);
+		final Term a = declare("arr", arr);
+		final Term b = mTheory.term("store", a, num(3), num(30));
+		final Term c = mTheory.term("store", b, num(5), num(7));
+		final Term d = mTheory.term("store", mTheory.term("const", null, arr, num(4)), num(2), num(9));
+		mSolver.assertTerm(mSolver.term("=", select(a, 1), num(10)));
+		mSolver.assertTerm(mSolver.term("=", select(a, 5), num(50)));
+		mSolver.assertTerm(mSolver.term("=", select(c, 8), num(80)));
+		mSolver.assertTerm(mSolver.term("distinct", c, d));
+		Assert.assertEquals(LBool.SAT, mSolver.checkSat());
+		final PiecewiseModel model = buildModel();
+		assertSelectsCovered(model);
+		final CCTerm aCC = mClausifier.getCCTerm(a);
+		final CCTerm bCC = mClausifier.getCCTerm(b);
+		final CCTerm cCC = mClausifier.getCCTerm(c);
+		final CCTerm dCC = mClausifier.getCCTerm(d);
+		Assert.assertEquals(intValue(10), model.evaluateSelect(aCC, intValue(1)));
+		Assert.assertEquals(intValue(50), model.evaluateSelect(aCC, intValue(5)));
+		Assert.assertEquals(intValue(30), model.evaluateSelect(bCC, intValue(3)));
+		Assert.assertEquals(intValue(7), model.evaluateSelect(cCC, intValue(5)));
+		Assert.assertEquals(intValue(80), model.evaluateSelect(cCC, intValue(8)));
+		Assert.assertEquals(intValue(9), model.evaluateSelect(dCC, intValue(2)));
+		for (int i = -2; i < 12; i++) {
+			final Value index = intValue(i);
+			if (i != 3) {
+				Assert.assertEquals(model.evaluateSelect(aCC, index), model.evaluateSelect(bCC, index));
+			}
+			if (i != 5) {
+				Assert.assertEquals(model.evaluateSelect(bCC, index), model.evaluateSelect(cCC, index));
+			}
+			if (i != 2) {
+				Assert.assertEquals(intValue(4), model.evaluateSelect(dCC, index));
+			}
+		}
+		Assert.assertEquals(intValue(4), model.evaluateSelect(dCC, Value.lambda(mInt)));
 	}
 }
