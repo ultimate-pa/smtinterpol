@@ -8,7 +8,7 @@ direction: *why the input follows from the clauses*.  Together with the model,
 which shows that every clause is true, this yields a proof that the input
 formula is satisfiable.
 
-## What already exists
+## What already existed
 
 - `model/ModelProver.java` — builds a model proof by *evaluating* the asserted
   formulas in the model: `buildModelProof(assertions)` returns a proof of the
@@ -22,7 +22,7 @@ formula is satisfiable.
 
 Limitations of the evaluating approach, which this feature fixes:
 
-1. **Quantifiers are unsupported** — `ModelProver` throws
+1. **`ModelProver` doesn't support quantifiers** — it throws
    *"Quantifiers not supported in model proofs"* (`ModelProver.java:397`).
 2. It re-does the whole Boolean structure of the input on formula level, even
    though the clausifier has already decomposed it.
@@ -33,65 +33,144 @@ The clause-based construction keeps the same **output format** (a proof of
 `get-proof` plumbing and the tests stay reusable.  Model evaluation is still
 needed, but only for **atoms**.
 
-## The four tracked artifacts
+## The tracked records
 
-Every clause `C` gets a **target** `T_C`: a clause (a set of literals, never an
-`(or ...)` formula — see "Literal vs. clause" in "The aux-clause contract") that
-is fixed when `C` is created and that `C`'s record proves from whichever literal
-the model sets true.  For an input clause the target is the single literal `{ψ_C}`,
-the disjunction of the clause's disjuncts as they were when the clause was created.
-All tracked proofs are ordinary Resolute clause proofs; a record combines its
-hypotheses' targets by resolution — when every target is a single literal `ψ_j`,
-that is the familiar start proof `{¬ψ_1, ..., ¬ψ_m, ρ}` resolved with the hyps,
-so no separate hypothesis or placeholder mechanism is needed.
+The clausifier records two kinds of sat-proof records (`Clausifier.SatRecord`),
+which `ModelProofBuilder` turns into proofs at sat time:
 
-1. **Per input assertion** (`Clausifier.addFormula`): a record concluding `{φ}`
-   from the targets `{ψ_i}` of the clauses created from `φ`.
-2. **Per clause** (`BuildClause`): the target `T_C`, plus for every literal `l`
-   of the clause a proof of `{¬l} ∪ T_C` ("this literal implies the target"), or
-   nothing when `l ∈ T_C`.  It is composed of the *reversed* intern/rewrite clause
-   from the DPLL literal to the term it came from, and the step from that term to
-   the target — for an input clause the `or+` duals of `CollectLiteral`'s
-   inlining, for an aux clause the per-literal proof supplied by
-   `createDefiningClausesForLiteral`.
+- a **clause record** (`ClauseSatProof`) per clause `C`: proves the clause's
+  **target** `T_C` from `C`;
+- a **formula record** (`FormulaSatProof`) per input assertion and per auxiliary
+  literal: proves a single literal, its **conclusion**, from other records, its
+  **hyps**.
 
-   **`T_C` is fixed when the clause is created** and everything the clausifier
-   does afterwards (literal rewriting, `or`/`=>`/`and` inlining, interning) is
-   absorbed into these per-literal proofs.  That is what lets the consumers of
-   `T_C` (artifacts 1 and 3) be built at clause-creation time, before the literals
-   are collected.  For an inlined disjunct `(or x y)` the entry for literal `x` is
-   `{¬x, (or x y)}`, one extra `or+` step.
-3. **Per auxiliary literal** (`Clausifier.createAnonLiteral`,
-   `createQuantAuxTerm`, `QuantifierTheory.createAuxLiteral`): a record proving
-   that the aux literal `ρ` is true — as an SMT-LIB formula, i.e. the subformula
-   it stands for — from the targets of its aux clauses.  Examples (all in "The
-   aux-clause contract"):
-   - `ρ = (and a b c)`, aux clauses `{¬ρ, a}`, `{¬ρ, b}`, `{¬ρ, c}` with targets
-     `{a}`, `{b}`, `{c}`; the record is the `and+` tautology
-     `{ρ, ¬a, ¬b, ¬c}` resolved with the three.
-   - `ρ = (or a b)`, one aux clause `{¬ρ, a, b}` with target `{ρ}` (the literal
-     `(or a b)`, not the clause `{a, b}`) and per-literal proofs `or+`
-     `{ρ, ¬a}`, `{ρ, ¬b}`: the record is just that clause's.
-   - `ρ = (ite c a b)`: see the worked example below.
+Only clause records have a target.  All proofs are ordinary Resolute clause
+proofs, over literals in the "stripped" convention: leading `not`s are the
+polarity, so `(not x)` is the negative literal of `x` and `(not (not x))` the
+positive literal `x`.  Every other formula is an atom, including an `(or ...)`
+formula, which is never split into its disjuncts (see "Literal vs. clause" in
+"The aux-clause contract").  Combining records is plain resolution, so no
+separate hypothesis or placeholder mechanism is needed.
 
-   No fresh symbol and no `defineFun` is involved for ground aux literals: a
-   `NamedAtom`'s `getSMTFormula` returns the subformula itself, so the assertion
-   proof (artifact 1) assumes the *subformula*, and the aux record proves exactly
-   that.  Which polarity of the definition was added lazily is therefore
-   irrelevant.
+### Clause records (`ClauseSatProof`, built by `BuildClause`)
 
-   For quantified aux terms (`createQuantAuxTerm`) the existing `@AUX` machinery
-   is reused as is.  The fresh function symbol from
-   `Theory.createFreshAuxFunction` is kept in the proof — it is needed because
-   congruence closure works on these functions as terms — and is expanded to its
-   definition only where a proof step needs the definition.  Everything for that
-   exists: `FunctionSymbol.getDefinition()`/`getDefinitionVars()`,
-   `ProofRules.expand`, the `let`/`unlet` expansion in `ProofSimplifier`
-   (line 4509), the `defineFun` wrapping from `mAuxDefs` (line 4900ff), and
-   definition expansion in `MinimalProofChecker` (line 224ff).
-4. **Per quantified clause** (`QuantClause`): a proof that the target follows
-   from the universal closure of its clause formula, and a proof of that closure
-   from the model.  See "Quantified clauses and free variables".
+**The target** `T_C` is an array of literals, fixed by the consumer when `C` is
+created.  It is a single literal, except for the `ite`/`xor` case splits:
+
+| Clause | Created by | Target |
+|---|---|---|
+| input clause (leaf of the assertion's decomposition) | `buildClause` | `{ψ}`, the asserted (sub)formula as one literal, e.g. `(or a b)` |
+| asserted `(ite c a b)` / `(xor p q)` | `AddAsAxiom` via `buildClauseWithTautology` | `{¬c, ψ}`, `{c, ψ}` resp. `{p, ψ}`, `{¬p, ψ}` |
+| aux clause containing all sub-literals of `ρ` (`ρ` an `or`, `=>`, negated `and`; excluded middle of a quantified aux literal) | `createDefiningClausesForLiteral` | `{ρ}` |
+| aux clause with one sub-literal `p_i` (`ρ` an `and`, negated `or`/`=>`) | `createDefiningClausesForLiteral` | `{p_i}` |
+| aux clause of `ρ = (ite c a b)` / `(xor p q)` | `createDefiningClausesForLiteral` | `{¬c, ρ}`, `{c, ρ}` resp. `{p, ρ}`, `{¬p, ρ}` |
+
+**The per-literal entries** (`SatEntry`).  For every literal `l` of `C` the
+record keeps how `l` reaches the target: a proof of `{¬l} ∪ T_C`, or, if `l`
+descends from a target literal `o`, a proof of `{¬l, o}` (none if `l = o`).
+DER combines entries into proofs of `{¬l} ∪ R` with `R ⊆ T_C`.  An entry is the
+*reversed* intern/rewrite clause from the DPLL literal to the collected term,
+followed by the step from that term to the target: for an input clause the
+`or+` duals of `CollectLiteral`'s inlining, for an aux clause the per-literal
+tautology supplied by `createDefiningClausesForLiteral`.  The aux literal of an
+aux clause has no entry: the clause is only used when the model sets its
+negation `ρ` true, so it is never the clause's true literal.
+
+**`T_C` is fixed when the clause is created**, and everything the clausifier
+does afterwards (literal rewriting, `or`/`=>`/`and` inlining, interning) is
+absorbed into the entries.  That is what lets the formula records that use
+`T_C` be built at clause-creation time, before the literals are collected.  For
+an inlined disjunct `(or x y)` the entry for literal `x` is `{¬x, (or x y)}`,
+one extra `or+` step.
+
+**Assembly of a ground clause** (`ModelProofBuilder.proveClause`): pick a
+literal `l` the model sets true, prove `{l}`, and resolve it with `l`'s entry.
+The result is `T_C`, or a subclause of it if the entry descends from a target
+literal.  `{l}` comes from the formula record of `l` if `l` is an aux literal
+(`proveLiteral`), otherwise `ModelProver` evaluates the atom.  A clause that is
+trivially true (a literal `true`, or complementary literals) is dropped by the
+clausifier; its record holds a *ready-made* proof of a subclause of `T_C`
+instead, which needs no model.
+
+**Assembly of a quantified clause** (`QuantClause`; the record has
+`mClosure` set).  Its literals have free variables, so there is no true literal
+to pick.  Instead the record is used with the universal closure
+`C = (forall y⃗ (or l_1 … l_n))` of the clause, in two halves that meet at `C`:
+
+1. **`C` implies the target** (`proveFromClosure`, no model needed):
+   `forallElim` at the choose terms `θ` gives `{¬C, (or l_1 … l_n)[θ]}`,
+   `or-` gives `{¬C, l_1[θ], …, l_n[θ]}`, and resolving every literal with its
+   entry gives `{¬C} ∪ T_C`.  Ground and quantified literals are treated alike;
+   no literal needs a value in the model.
+2. **`C` holds in the model**: a proof of `{C}`, resolved with half 1 on `C`.
+   This is the quantifier theory's part and still open, so outside the test
+   mode that keeps the closures as hypotheses a quantified record counts as
+   incomplete.
+
+See "Quantified clauses and free variables" for `θ`, DER and half 2.
+
+### Formula records (`FormulaSatProof`)
+
+A formula record is a recipe for a proof of `{conclusion}`: start with an
+optional *start proof*, a tautology independent of the hyps (without one, the
+first hyp's proof is the start), then resolve each further hyp's proof on its
+*pivot* atom (`ModelProofBuilder.proveFormula`).  A hyp is a clause record or
+another formula record, so hyps prove clauses, not only literals.  A resolution
+step is skipped if the pivot does not occur with opposite polarities on the two
+sides, which happens when a hyp proves a strict subclause of its target.  The
+result must be exactly `{conclusion}` (`proveRecord`); otherwise the record is
+incomplete and the assembler falls back to `ModelProver`.
+
+The shapes that occur:
+
+- **One clause hyp with target `{ρ}`**, no start: the record is the clause's.
+- **Start tautology plus single-literal hyps**: e.g. for `ρ = (and a b c)` the
+  `and+` start `{ρ, ¬a, ¬b, ¬c}`, resolved with the aux clauses' records of
+  `{a}`, `{b}`, `{c}` on `a`, `b`, `c`.  The negated `or` and `=>` cases use
+  `or-`/`=>-` starts.
+- **Case split** (`caseSplitRecord`): no start; the two clause hyps with targets
+  `{¬c, ρ}` and `{c, ρ}` are resolved on `c`.
+- **Assertion split** (`AddAsAxiom.SplitJoin`): an asserted `and`, negated
+  `or`/`=>` or top-level quantifier, which the clausifier asserts as its parts.
+  The start is the dual tautology (`and+`, `or-`, `=>-`, or for a quantifier
+  `{φ, ¬body[θ]}` resolved with the reversed compile rewrite), resolved with
+  each part's record on the part's formula.  A part's record is a clause record
+  with target `{ψ_i}`, a case split or another assertion split.
+- **Assertion bridge** (`Clausifier.addFormula`): the reversed rewrite
+  `{¬φ', φ}` from the compiled formula `φ'` back to the asserted `φ`, resolved
+  with the record of `φ'`.
+
+**Per input assertion** (`Clausifier.mAssertionSatProofs`): the record
+concluding `{φ}`, a formula record or, for a single clause, directly its clause
+record with target `{φ}`.  `ModelProofBuilder.buildProof` resolves `andIntro`
+over all assertions with the proof of each.
+
+**Per auxiliary literal** (`Clausifier.mLiteralSatProofs`, filled by
+`addAuxAxioms` and `addAuxAxiomsQuant`): the record concluding the aux literal
+`ρ` from the clause records of its defining clauses.  It is keyed by the
+polarity it proves and used whenever a clause record's true literal is `ρ`, and
+by the `BooleanTermProver` hook of `ModelProver`.  `ρ` is the aux literal as an
+SMT-LIB formula, i.e. the subformula it stands for.  So the records form a
+graph: an assertion uses the records of its clauses, a clause whose true
+literal is an aux literal uses that literal's record, and that record uses the
+records of its defining clauses.
+
+No fresh symbol and no `defineFun` is involved for ground aux literals: a
+`NamedAtom`'s `getSMTFormula` returns the subformula itself, so the assertion
+proof assumes the *subformula*, and the aux record proves exactly that.  Which
+polarity of the definition was added lazily is therefore irrelevant.
+
+For quantified aux terms (`createQuantAuxTerm`) the existing `@AUX` machinery
+is reused as is.  The fresh function symbol from
+`Theory.createFreshAuxFunction` is kept in the proof — it is needed because
+congruence closure works on these functions as terms — and is expanded to its
+definition only where a proof step needs the definition.  Everything for that
+exists: `FunctionSymbol.getDefinition()`/`getDefinitionVars()`,
+`ProofRules.expand`, the `let`/`unlet` expansion in `ProofSimplifier`
+(line 4509), the `defineFun` wrapping from `mAuxDefs` (line 4900ff), and
+definition expansion in `MinimalProofChecker` (line 224ff).  The two atoms
+`T = (= AUX true)` and `F = (= AUX false)` get records for `T` and `¬T`; see
+"Quantified aux literals".
 
 ### Why clause formulas and not clause arrays
 
@@ -136,7 +215,7 @@ Prerequisite (one task): audit that every `RW_*` rule used by the clausifier is
 an equivalence, not just an implication.  `RW_AUX_INTRO` is the suspicious one —
 it introduces an aux function symbol and is handled via `defineFun` in
 `ProofSimplifier` (`mAuxDefs`, line 4900ff), so the reverse direction exists,
-but the aux-literal records (artifact 3) are what actually justify it.
+but the aux-literal records are what actually justify it.
 
 ## Worked example: aux axioms for a Boolean `ite`
 
@@ -951,7 +1030,7 @@ root node.
   the simplified formula to the original assertion — and stores the result in
   `mAssertionSatProofs` keyed by the asserted term.
 
-Per clause formula, per `ILiteral`, the proof `{¬l, ψ}` is artifact 2 — exactly the
+Per clause formula, per `ILiteral`, the proof `{¬l, ψ}` is its clause record's entry — exactly the
 same mechanism as for aux clauses.  Input formulas and aux literals thus share the
 record type and the assembly logic; they differ in the key (asserted `Term` vs.
 `ILiteral`, see "Registries and the clause record") and in where the record is
@@ -1349,7 +1428,7 @@ used.  Then, following "Quantified clauses and free variables":
 - the proof of each closure from the model (half 2, open; MBQI-style);
 - the quant aux literals (records done, see "Quantified aux literals"; `@AUX`
   symbols stay in the proof and are expanded to their definition only where
-  needed — the existing machinery, see artifact 3).
+  needed — the existing machinery, see "Formula records").
 
 Half 1 can be built and checked before half 2 exists, with `{C}` as an
 explicit hypothesis or oracle.
@@ -1369,3 +1448,28 @@ explicit hypothesis or oracle.
    for it (see "Quantified clauses and free variables").  How the closure is
    proved from the model (half 2) is open; the expected source is an
    MBQI-style argument.
+4. **Flattening nested Boolean `ite`.**  Today every `ite`/`xor` record is a
+   single case split (`caseSplitRecord`: two clause records, one pivot).  A
+   nested `ite` in a branch becomes its own aux literal with its own record,
+   used when the outer clause's true literal is that branch.  This keeps
+   `proveFormula` a fixed list of hyps with fixed pivots, skipping a step
+   whose pivot is missing.  The skip is sound because a leaf proves either its
+   full target or its own condition literal, so at most one side lacks the
+   pivot.
+
+   Flattening the tree into one clause per leaf, with all path conditions in
+   the clause (as `AddTermITEAxiom` does for term `ite`s), breaks this.  The
+   resolution order depends on which leaf the model takes: starting from that
+   leaf's full target `{path literals, ρ}`, the off-path leaves contribute only
+   unit proofs of the negated path literals, which can be resolved in any
+   order.  A fixed list in depth-first order fails, e.g. for
+   `(ite c1 (ite c2 a b) (ite c3 d e))` with `c1` and `c3` false.  Options:
+   - Nested `caseSplitRecord`s following the `ite` tree.  `proveFormula` must
+     then keep whichever side lacks the pivot (not always the accumulated one),
+     or rely on the conditions being collected outermost-first and before the
+     branch literal.
+   - A decision-tree record that the assembler walks like `ModelProver`
+     evaluates an `ite`: prove each condition on the taken path
+     (`proveLiteral`), take the leaf's full target, resolve with the condition
+     proofs.  Off-path leaves are never visited, and it does not depend on
+     literal order.  Preferred if flattening is implemented.
