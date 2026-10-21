@@ -49,6 +49,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.Infinitesima
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstanceOrigin;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.QuantFinalCheckMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.SubstitutionHelper.SubstitutionResult;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.dawg.Dawg;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
@@ -393,6 +394,14 @@ public class InstantiationManager {
 			interestingTermsSortedByAge.put(clause, termsSortedByAge.getFirst());
 		}
 		mQuantTheory.getLogger().debug("Quant: Max term age %d", oldest);
+		final QuantModelEvaluator modelEvaluator =
+				mQuantTheory.getFinalCheckMethod() == QuantFinalCheckMethod.MODEL_BASED
+						? new QuantModelEvaluator(mQuantTheory)
+						: null;
+		if (modelEvaluator != null) {
+			// the model may have changed since the last final check, so all substitutions must be checked again
+			mSubsAgeForFinalCheck = 0;
+		}
 		for (; mSubsAgeForFinalCheck <= oldest; mSubsAgeForFinalCheck++) {
 			mQuantTheory.getLogger().debug("Searching for instances of age %d", mSubsAgeForFinalCheck);
 			if (mClausifier.getEngine().isTerminationRequested()) {
@@ -416,6 +425,24 @@ public class InstantiationManager {
 					}
 					if (mClauseInstances.containsKey(clause) && mClauseInstances.get(clause).containsKey(subs)) {
 						continue; // Checked in the first loop over the quant clauses.
+					}
+					if (modelEvaluator != null) {
+						final QuantModelEvaluator.Result modelVal = modelEvaluator.evaluateClause(clause, subs);
+						if (modelVal == QuantModelEvaluator.Result.TRUE) {
+							continue;
+						}
+						if (modelVal == QuantModelEvaluator.Result.UNKNOWN) {
+							// the model cannot decide the instance; try it after the instances false in the model
+							otherValueInstancesNewTerms.add(new Pair<>(clause, subs));
+							continue;
+						}
+						final InstClause inst = computeClauseInstance(clause, subs, InstanceOrigin.ENUMERATION);
+						if (inst != null && inst.countAndSetUndefLits() >= 0) {
+							mQuantTheory.mNumInstancesProducedMB++;
+							mQuantTheory.getLogger().debug("Found model-based inst of age %d", mSubsAgeForFinalCheck);
+							return Collections.singleton(inst);
+						}
+						continue;
 					}
 					final Pair<InstanceValue, Boolean> candVal = evaluateNewClauseInstanceFinalCheck(clause, subs);
 					if (candVal.getFirst() == InstanceValue.TRUE) {

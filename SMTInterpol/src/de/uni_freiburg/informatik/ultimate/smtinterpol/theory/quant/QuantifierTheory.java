@@ -98,19 +98,21 @@ public class QuantifierTheory implements ITheory {
 
 	// Statistics
 	long mNumInstancesProduced, mNumInstancesDER, mNumInstancesProducedConfl, mNumInstancesProducedEM,
-			mNumInstancesProducedEnum;
+			mNumInstancesProducedEnum, mNumInstancesProducedMB;
 	private long mNumCheckpoints, mNumCheckpointsWithNewEval, mNumConflicts, mNumProps, mNumFinalcheck;
 	private long mCheckpointTime, mFindEmatchingTime, mFinalCheckTime, mEMatchingTime, mDawgTime;
 	int[] mNumInstancesOfAge, mNumInstancesOfAgeEnum;
 
 	// Options
 	InstantiationMethod mInstantiationMethod;
+	QuantFinalCheckMethod mFinalCheckMethod;
 	boolean mUseUnknownTermValueInDawgs;
 	boolean mPropagateNewAux;
 	boolean mPropagateNewTerms;
 
 	public QuantifierTheory(final Theory th, final DPLLEngine engine, final Clausifier clausifier,
-			final InstantiationMethod instMethod, final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
+			final InstantiationMethod instMethod, final QuantFinalCheckMethod finalCheckMethod,
+			final boolean useUnknownTermDawgs, final boolean propagateNewTerms,
 			final boolean propagateNewAux) {
 		mClausifier = clausifier;
 		mLogger = clausifier.getLogger();
@@ -118,6 +120,7 @@ public class QuantifierTheory implements ITheory {
 		mEngine = engine;
 
 		mInstantiationMethod = instMethod;
+		mFinalCheckMethod = finalCheckMethod;
 		mUseUnknownTermValueInDawgs = useUnknownTermDawgs;
 		mPropagateNewTerms = propagateNewTerms;
 		mPropagateNewAux = propagateNewAux;
@@ -333,6 +336,12 @@ public class QuantifierTheory implements ITheory {
 			if (mClausifier.getEngine().isTerminationRequested()) {
 				return null;
 			}
+			if (mFinalCheckMethod == QuantFinalCheckMethod.MODEL_BASED && mLinArSolve != null
+					&& mLinArSolve.hasPendingSuggestions()) {
+				// The model is not settled yet: model-based theory combination still has to merge classes with
+				// equal values. The engine decides these first and then calls the final check again.
+				return null;
+			}
 			if (potentiallyInterestingInstances.isEmpty() || !foundNonSat) {
 				potentiallyInterestingInstances = mInstantiationManager.instantiateSomeNotSat();
 			}
@@ -399,8 +408,10 @@ public class QuantifierTheory implements ITheory {
 	@Override
 	public void printStatistics(final LogProxy logger) {
 		logger.info("Quant: DER produced %d ground clause(s).", mNumInstancesDER);
-		logger.info("Quant: Instances produced: %d (Conflict/Unit: %d, E-Matching: %d, Enumeration: %d)",
-				mNumInstancesProduced, mNumInstancesProducedConfl, mNumInstancesProducedEM, mNumInstancesProducedEnum);
+		logger.info(
+				"Quant: Instances produced: %d (Conflict/Unit: %d, E-Matching: %d, Enumeration: %d, Model-based: %d)",
+				mNumInstancesProduced, mNumInstancesProducedConfl, mNumInstancesProducedEM, mNumInstancesProducedEnum,
+				mNumInstancesProducedMB);
 		logger.info(
 				"Quant: Subs of age 0, 1, 2-3, 4-7, ... : %s, (Enumeration: %s)", Arrays.toString(mNumInstancesOfAge),
 				Arrays.toString(mNumInstancesOfAgeEnum));
@@ -490,6 +501,7 @@ public class QuantifierTheory implements ITheory {
 			{ "Instances produced", mNumInstancesProduced },
 			{ "thereof by conflict/unit search", mNumInstancesProducedConfl },
 			{ "and by E-matching", mNumInstancesProducedEM }, { "and by enumeration", mNumInstancesProducedEnum },
+			{ "thereof false in the model", mNumInstancesProducedMB },
 			{ "Subs of age 0, 1, 2-3, 4-7, ...", Arrays.toString(mNumInstancesOfAge) },
 			{ "thereof for enumeration", Arrays.toString(mNumInstancesOfAgeEnum) }, { "Conflicts", mNumConflicts },
 			{ "Propagations", mNumProps }, { "Checkpoints", mNumCheckpoints },
@@ -848,6 +860,10 @@ public class QuantifierTheory implements ITheory {
 		return mTheory;
 	}
 
+	public QuantFinalCheckMethod getFinalCheckMethod() {
+		return mFinalCheckMethod;
+	}
+
 	public InstantiationMethod getInstantiationMethod() {
 		return mInstantiationMethod;
 	}
@@ -1023,6 +1039,22 @@ public class QuantifierTheory implements ITheory {
 		public String getOrigin() {
 			return mOrigin;
 		}
+	}
+
+	/**
+	 * Methods to find instances in the final check.
+	 */
+	public static enum QuantFinalCheckMethod {
+		/**
+		 * Enumerate the interesting substitutions by age and instantiate the first one that is not satisfied by the
+		 * current assignment.
+		 */
+		ENUMERATIVE,
+		/**
+		 * Enumerate the interesting substitutions by age and instantiate the first one whose clause instance is not
+		 * true in the piecewise-constant model.
+		 */
+		MODEL_BASED;
 	}
 
 	/**

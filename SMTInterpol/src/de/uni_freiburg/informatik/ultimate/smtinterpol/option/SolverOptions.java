@@ -26,6 +26,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.Check
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ModelProofMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol.ProofMode;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.QuantFinalCheckMethod;
 
 /**
  * Options specific to the solver but independent of the front end.  To speed up
@@ -50,6 +51,7 @@ public class SolverOptions {
 	private final EnumOption<ProofMode> mProofLevel;
 	private final EnumOption<ModelProofMode> mModelProofMode;
 	private final EnumOption<InstantiationMethod> mInstantiationMethod;
+	private final EnumOption<QuantFinalCheckMethod> mQuantFinalCheckMethod;
 	private final OptionMap mOptions;
 
 	SolverOptions(final OptionMap options, final LogProxy logger) {
@@ -85,6 +87,9 @@ public class SolverOptions {
 				+ " simplifier used in the simplify command");
 		mInstantiationMethod = new EnumOption<>(InstantiationMethod.E_MATCHING_CONFLICT, false,
 				InstantiationMethod.class, "Quantifier Theory: Method to instantiate quantified formulas.");
+		mQuantFinalCheckMethod = new EnumOption<>(QuantFinalCheckMethod.ENUMERATIVE, false,
+				QuantFinalCheckMethod.class, "Quantifier Theory: Method to find instances in the final check: "
+				+ "enumerate the interesting substitutions, or check them in the piecewise-constant model.");
 		mProofLevel = new EnumOption<>(ProofMode.NONE, false, ProofMode.class, "Proof level.");
 		mModelProofMode = new EnumOption<>(ModelProofMode.EVALUATE, true, ModelProofMode.class,
 				"Mechanism used to construct proofs for satisfiable formulas: evaluate the assertions in the "
@@ -137,6 +142,7 @@ public class SolverOptions {
 		options.addOption(SMTInterpolConstants.EPR, new BooleanOption(false, false,
 				"Assume formula is in EPR fragment. This give an error if the formula is outside EPR."));
 		options.addOption(SMTInterpolConstants.INSTANTIATION_METHOD, mInstantiationMethod);
+		options.addOption(SMTInterpolConstants.QUANT_FINAL_CHECK_METHOD, mQuantFinalCheckMethod);
 		options.addOption(SMTInterpolConstants.UNKNOWN_TERM_DAWGS, new BooleanOption(true, false,
 				"Quantifier Theory: Use fourth instance value UNKNOWN_TERM as default in literal dawgs."));
 		options.addOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_TERMS, new BooleanOption(false, false,
@@ -176,6 +182,8 @@ public class SolverOptions {
 		mModelProofMode = (EnumOption<ModelProofMode>) options.getOption(SMTInterpolConstants.MODEL_PROOF_MODE);
 		mInstantiationMethod =
 				(EnumOption<InstantiationMethod>) options.getOption(SMTInterpolConstants.INSTANTIATION_METHOD);
+		mQuantFinalCheckMethod = (EnumOption<QuantFinalCheckMethod>) options
+				.getOption(SMTInterpolConstants.QUANT_FINAL_CHECK_METHOD);
 		mOptions = options;
 	}
 
@@ -253,6 +261,10 @@ public class SolverOptions {
 
 	public InstantiationMethod getInstantiationMethod() {
 		return mInstantiationMethod.getValue();
+	}
+
+	public QuantFinalCheckMethod getQuantFinalCheckMethod() {
+		return mQuantFinalCheckMethod.getValue();
 	}
 
 }

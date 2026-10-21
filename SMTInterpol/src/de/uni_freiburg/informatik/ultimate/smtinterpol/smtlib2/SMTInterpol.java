@@ -646,7 +646,8 @@ public class SMTInterpol extends NoopScript {
 			// initialization of CClosure.
 			mEngine.setProofGeneration(proofMode != ProofMode.NONE);
 			mClausifier.setQuantifierOptions(getBooleanOption(SMTInterpolConstants.EPR),
-					mSolverOptions.getInstantiationMethod(), getBooleanOption(SMTInterpolConstants.UNKNOWN_TERM_DAWGS),
+					mSolverOptions.getInstantiationMethod(), mSolverOptions.getQuantFinalCheckMethod(),
+					getBooleanOption(SMTInterpolConstants.UNKNOWN_TERM_DAWGS),
 					getBooleanOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_TERMS),
 					getBooleanOption(SMTInterpolConstants.PROPAGATE_UNKNOWN_AUX));
 			mClausifier.setOffsetEqualities(getBooleanOption(SMTInterpolConstants.OFFSET_EQUALITIES));

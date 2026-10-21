@@ -362,6 +362,41 @@ different).  Consequences for Step 3:
 5. Iterative search; write down (or fix) the completeness argument for the
    queue pruning before enabling it.
 
+*Step 3 status (2026-10-20).*  Option `:quant-fc-method` (`enumerative`,
+default, or `model_based`).  With `model_based`,
+`InstantiationManager.instantiateSomeNotSat` builds a `QuantModelEvaluator`
+(and with it a `PiecewiseModel`) per final check and walks the interesting
+substitutions by age, always from age 0, since the model changes between
+final checks.  A clause instance that is true in the model is skipped; the
+first one false in the model is instantiated (if its ground instance is not
+already satisfied); instances the model cannot decide are tried after those
+of the same age.  `QuantModelEvaluator`:
+
+* evaluates uninterpreted functions, `@AUX` predicates (as uninterpreted
+  predicates; their defining clauses are checked too), `select` (with
+  quantified `store`s evaluated symbolically), `ite`, and Boolean connectives;
+* evaluates arithmetic as a symbolic sum `r + Σ k_c·c + k_λ·λ` over CC-only
+  classes `c`.  The sign is decided if λ occurs (λ dominates), with no or one
+  CC-only class, or with two classes with opposite coefficients (the later
+  class dominates, as in `Value.compareTo`); otherwise the literal is unknown;
+* reads ground values through `CClosure.getCCParamRep` (CC value) or the LA
+  shared term (`LASharedTerm` + `realValue`, no `SharedTermEvaluator` on terms
+  without LinVar);
+* treats array equalities between different classes, non-linear arithmetic,
+  and other interpreted functions as unknown;
+* keeps λ symbolic (smallest value) only while its class is a singleton
+  without shared term; otherwise λ is read like any other ground term;
+* returns from the final check without building a model while LA's model-based
+  theory combination still has pending suggestions or propagations
+  (`LinArSolve.hasPendingSuggestions`): `DPLLEngine.checkConsistency` only
+  stops at a theory that produces new atoms, so the quantifier final check
+  would otherwise see classes that MBTC is about to merge.
+
+Still missing: the λ invariants (`SubstitutionHelper` still builds atoms with
+λ, so an instance can give λ an LA value; the counterexample above then loops
+instead of answering `unsat`), and `get-model` (Step 4).  Tests:
+`QuantModelBasedTest`.
+
 ## Open questions
 
 * Is the CC-only class order stable enough across final checks, or does it

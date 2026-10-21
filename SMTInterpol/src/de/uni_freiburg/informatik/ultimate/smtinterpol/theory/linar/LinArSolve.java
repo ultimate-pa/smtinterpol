@@ -802,6 +802,15 @@ public class LinArSolve implements ITheory {
 	}
 
 	/**
+	 * Check if the last final check left suggestions or propagations for the engine, e.g., model-based theory
+	 * combination equalities. Until they are processed, the congruence closure may still merge classes that have the
+	 * same value in the current model.
+	 */
+	public boolean hasPendingSuggestions() {
+		return !mSuggestions.isEmpty() || !mProplist.isEmpty();
+	}
+
+	/**
 	 * Hand a model-based equality to the engine: propagate it if its truth value is already implied (or report the
 	 * conflict if it was decided false), otherwise suggest the linked LA equality as a decision. Shared by clash-slot
 	 * MBTC and the legacy whole-term {@link #mbtc}.

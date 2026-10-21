@@ -91,6 +91,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantAuxEqua
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantEquality;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.InstantiationMethod;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.QuantFinalCheckMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayMap;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ScopedArrayList;
@@ -139,6 +140,7 @@ public class Clausifier {
 	 */
 	private boolean mOffsetEqualities = true;
 	private InstantiationMethod mInstantiationMethod;
+	private QuantFinalCheckMethod mQuantFinalCheckMethod = QuantFinalCheckMethod.ENUMERATIVE;
 	private boolean mIsUnknownTermDawgsEnabled;
 	private boolean mPropagateUnknownTerms;
 	private boolean mPropagateUnknownAux;
@@ -2018,16 +2020,17 @@ public class Clausifier {
 	private void setupQuantifiers() {
 		if (mQuantTheory == null) {
 			mQuantTheory = new QuantifierTheory(mTheory, mEngine, this, mInstantiationMethod,
-					mIsUnknownTermDawgsEnabled, mPropagateUnknownTerms, mPropagateUnknownAux);
+					mQuantFinalCheckMethod, mIsUnknownTermDawgsEnabled, mPropagateUnknownTerms, mPropagateUnknownAux);
 			mEngine.addTheory(mQuantTheory);
 		}
 	}
 
 	public void setQuantifierOptions(final boolean isEprEnabled, final InstantiationMethod instMethod,
-			final boolean enableUnknownTermDawgs, final boolean propagateUnknownTerm,
+			final QuantFinalCheckMethod finalCheckMethod, final boolean enableUnknownTermDawgs, final boolean propagateUnknownTerm,
 			final boolean propagateUnknownAux) {
 		mIsEprEnabled = isEprEnabled;
 		mInstantiationMethod = instMethod;
+		mQuantFinalCheckMethod = finalCheckMethod;
 		mIsUnknownTermDawgsEnabled = enableUnknownTermDawgs;
 		mPropagateUnknownTerms = propagateUnknownTerm;
 		mPropagateUnknownAux = propagateUnknownAux;

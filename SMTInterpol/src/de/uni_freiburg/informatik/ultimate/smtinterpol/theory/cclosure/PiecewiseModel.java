@@ -256,8 +256,7 @@ public class PiecewiseModel {
 		final CCTerm rep = param.getRepresentative();
 		final Rational offset = param.getOffsetToRep();
 		final CCTerm lambda = mLambdaTerms.apply(sort);
-		if (lambda != null && lambda.getRepresentative() == rep) {
-			// lambda is in a singleton class, so it is the only value of its class
+		if (lambda != null && lambda.getRepresentative() == rep && isSymbolicLambda(rep)) {
 			assert offset.equals(lambda.getOffsetToRep());
 			return Value.lambda(sort);
 		}
@@ -272,6 +271,15 @@ public class PiecewiseModel {
 			return Value.concrete(sort, repValue.add(offset));
 		}
 		return new Value(sort, Value.Kind.CC_ONLY, offset, rep, mClassOrder.get(rep));
+	}
+
+	/**
+	 * Check if the class of lambda can be treated as the symbolic lambda value, i.e., it is a singleton class without
+	 * LA shared term. If an instance made lambda equal to another term or gave it an LA value, lambda is just an
+	 * ordinary constant.
+	 */
+	private static boolean isSymbolicLambda(final CCTerm lambdaRep) {
+		return lambdaRep.getNumMembers() == 1 && lambdaRep.getSharedTerm() == null;
 	}
 
 	/**
@@ -310,9 +318,12 @@ public class PiecewiseModel {
 	 *            a ground array.
 	 * @param index
 	 *            the symbolic index.
+	 * @return the value, or null if the array theory has no current weak equivalence graph.
 	 */
 	public Value evaluateSelect(final CCTerm array, final Value index) {
-		assert mArrayTheory != null && mArrayTheory.mCongRoots != null;
+		if (mArrayTheory == null || mArrayTheory.mCongRoots == null) {
+			return null;
+		}
 		final Sort elemSort = array.getFlatTerm().getSort().getArguments()[1];
 		final ArrayTheory.ArrayNode node = mArrayTheory.mCongRoots.get(array.getRepresentative());
 		final ArrayTheory.ArrayNode weakRep = node.getWeakRepresentative();
