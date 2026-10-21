@@ -286,6 +286,7 @@ public class QuantifierTheory implements ITheory {
 		}
 		mNumFinalcheck++;
 		assert mPendingInstances.isEmpty();
+		mInstantiationManager.invalidateModelCheck();
 		Clause conflict = null;
 
 		if (!mQuantClauses.isEmpty()) {
@@ -891,6 +892,10 @@ public class QuantifierTheory implements ITheory {
 	 */
 	@Override
 	public int checkCompleteness() {
+		if (mFinalCheckMethod == QuantFinalCheckMethod.MODEL_BASED && !mQuantClauses.isEmpty()
+				&& mInstantiationManager.isModelUndecided()) {
+			return DPLLEngine.INCOMPLETE_QUANTIFIER;
+		}
 		for (final QuantClause qClause : mQuantClauses) {
 			if (!qClause.hasTrueGroundLits()) {
 				for (final QuantLiteral qLit : qClause.getQuantLits()) {

@@ -78,6 +78,11 @@ public class InstantiationManager {
 	private final List<InstanceValue> mRelevantValuesForCheckpoint;
 
 	private int mSubsAgeForFinalCheck = 0;
+	/**
+	 * True unless the last model-based final check went through all substitutions and every instance was true in the
+	 * model or satisfied by the current assignment. Only then does the model justify a sat answer.
+	 */
+	private boolean mModelUndecided = true;
 
 	public InstantiationManager(final QuantifierTheory quantTheory) {
 		mQuantTheory = quantTheory;
@@ -346,6 +351,23 @@ public class InstantiationManager {
 	}
 
 	/**
+	 * Check if the model-based final check could not show that all instances hold in the model.
+	 *
+	 * @return true if the last call to {@link #instantiateSomeNotSat()} did not finish or found an instance the model
+	 *         cannot decide.
+	 */
+	public boolean isModelUndecided() {
+		return mModelUndecided;
+	}
+
+	/**
+	 * Forget the result of the last model-based final check, e.g., because the model changed.
+	 */
+	public void invalidateModelCheck() {
+		mModelUndecided = true;
+	}
+
+	/**
 	 * In the final check, check if all interesting substitutions of all clauses lead to satisfied instances. As soon as
 	 * an instance is found that is not yet satisfied, stop. The newly created literals will be decided by the ground
 	 * theories next and may lead to new conflicts.
@@ -353,6 +375,7 @@ public class InstantiationManager {
 	 * @return a singleton set containing the new instance, if one was found; null else.
 	 */
 	public Set<InstClause> instantiateSomeNotSat() {
+		boolean foundUndecided = false;
 
 		// Collect the QuantClauses that are not yet satisfied and check if existing instances lead to conflicts.
 		final List<QuantClause> currentQuantClauses = new ArrayList<>();
@@ -433,6 +456,7 @@ public class InstantiationManager {
 						}
 						if (modelVal == QuantModelEvaluator.Result.UNKNOWN) {
 							// the model cannot decide the instance; try it after the instances false in the model
+							foundUndecided = true;
 							otherValueInstancesNewTerms.add(new Pair<>(clause, subs));
 							continue;
 						}
@@ -498,6 +522,7 @@ public class InstantiationManager {
 				}
 			}
 		}
+		mModelUndecided = foundUndecided;
 		return null;
 	}
 
