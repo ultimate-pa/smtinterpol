@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -40,6 +42,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
  */
 @RunWith(JUnit4.class)
 public class DestructiveEqualityReasoningTest {
+
+	/** Fails a test that hangs, e.g., in a loop that ignores the solver timeout. */
+	@Rule
+	public final Timeout mTimeout = Timeout.seconds(30);
 
 	private static final String DECLS = "(set-logic UFLIA)(declare-fun f (Int) Int)(declare-fun g (Int) Int)"
 			+ "(declare-fun h (Int) Int)(declare-fun P (Int) Bool)(declare-fun Q (Int) Bool)"

@@ -21,7 +21,9 @@ package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 import java.io.StringReader;
 
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -38,6 +40,10 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
  */
 @RunWith(JUnit4.class)
 public class QuantModelBasedTest {
+
+	/** Fails a test that hangs, e.g., in a loop that ignores the solver timeout. */
+	@Rule
+	public final Timeout mTimeout = Timeout.seconds(30);
 
 	private static final String DECLS = "(set-logic AUFLIA)"
 			+ "(declare-sort U 0)(declare-fun f (Int) Int)(declare-fun h (Int Int) Int)(declare-fun a () Int)"
@@ -89,12 +95,13 @@ public class QuantModelBasedTest {
 
 	/**
 	 * Satisfiable only with f(x) = x - 1, which is not piecewise constant; the old quantifier_models branch answered
-	 * unsat (doc/piecewise-constant-models.md, "lambda in proofs").
+	 * unsat (doc/piecewise-constant-models.md, "lambda in proofs"). Outside the solvable fragment, so the solver must
+	 * stop with unknown, either at the timeout or because the model cannot decide all instances.
 	 */
 	@Test
 	public void testNoWrongUnsat() {
-		Assert.assertNotEquals(LBool.UNSAT,
-				check(2000, "(assert (forall ((x Int) (y Int)) (or (< y x) (= (h x y) 1))))"
+		Assert.assertEquals(LBool.UNKNOWN,
+				check(1000, "(assert (forall ((x Int) (y Int)) (or (< y x) (= (h x y) 1))))"
 						+ "(assert (forall ((x Int)) (= (h x (f x)) 0)))"));
 	}
 }

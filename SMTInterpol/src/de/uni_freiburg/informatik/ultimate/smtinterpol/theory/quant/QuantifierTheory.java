@@ -227,7 +227,7 @@ public class QuantifierTheory implements ITheory {
 				do {
 					mEMatching.run();
 					conflict = mCClosure.checkpoint();
-				} while (conflict == null && !mEMatching.isDone());
+				} while (conflict == null && !mEMatching.isDone() && !mEngine.isTerminationRequested());
 				if (conflict != null) {
 					return conflict;
 				}
@@ -245,7 +245,7 @@ public class QuantifierTheory implements ITheory {
 				do {
 					mEMatching.run();
 					conflict = mCClosure.checkpoint();
-				} while (conflict == null && !mEMatching.isDone());
+				} while (conflict == null && !mEMatching.isDone() && !mEngine.isTerminationRequested());
 				if (conflict != null) {
 					return conflict;
 				}
@@ -297,7 +297,7 @@ public class QuantifierTheory implements ITheory {
 				do {
 					mEMatching.run();
 					conflict = mCClosure.checkpoint();
-				} while (conflict == null && !mEMatching.isDone());
+				} while (conflict == null && !mEMatching.isDone() && !mEngine.isTerminationRequested());
 				if (conflict != null) {
 					return conflict;
 				}
@@ -316,7 +316,7 @@ public class QuantifierTheory implements ITheory {
 				do {
 					mEMatching.run();
 					conflict = mCClosure.checkpoint();
-				} while (conflict == null && !mEMatching.isDone());
+				} while (conflict == null && !mEMatching.isDone() && !mEngine.isTerminationRequested());
 				if (conflict != null) {
 					return conflict;
 				}
