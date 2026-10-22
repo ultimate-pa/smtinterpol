@@ -37,6 +37,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.IProofTracker;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.MutableAffineTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
@@ -120,7 +121,7 @@ public class SubstitutionHelper {
 				final Term substituted = unletter.transform(qLit.getSMTFormula(theory));
 				substitutedLitTerms.add(substituted);
 
-				Term simplified = normalizeAndSimplifyLitTerm(substituted);
+				Term simplified = evaluateLambdaBound(normalizeAndSimplifyLitTerm(substituted));
 
 				if (mTracker.getProvedTerm(simplified) == theory.mTrue) { // Clause is trivially true.
 					provedLitTerms.add(simplified);
@@ -277,6 +278,33 @@ public class SubstitutionHelper {
 					.convertNot(mTracker.congruence(mTracker.reflexivity(litTerm), new Term[] { normalizedAtom }));
 		}
 		return normalizedAtom;
+	}
+
+	/**
+	 * Evaluate a normalized ground literal that compares λ with λ-free terms (see {@link LambdaBound}). Since λ is
+	 * smaller than all terms, the literal has a fixed value; building its atom instead would let λ get an LA value or
+	 * be merged with another class.
+	 *
+	 * @param simplified
+	 *            the normalized literal with its rewrite proof.
+	 * @return the literal rewritten to true or false, or the given literal if it is not such a comparison.
+	 */
+	private Term evaluateLambdaBound(final Term simplified) {
+		final Theory theory = mQuantTheory.getTheory();
+		final Term lit = mTracker.getProvedTerm(simplified);
+		final boolean isNegated = lit instanceof ApplicationTerm
+				&& ((ApplicationTerm) lit).getFunction().getName() == "not";
+		final Term atom = isNegated ? ((ApplicationTerm) lit).getParameters()[0] : lit;
+		final LambdaBound bound = LambdaBound.analyze(atom);
+		if (bound == null) {
+			return simplified;
+		}
+		final Term value = bound.getValue() ? theory.mTrue : theory.mFalse;
+		final Term rewrite = mTracker.buildRewrite(atom, value, ProofConstants.RW_LAMBDA_BOUND);
+		if (!isNegated) {
+			return mTracker.transitivity(simplified, rewrite);
+		}
+		return mClausifier.getSimplifier().convertNot(mTracker.congruence(simplified, new Term[] { rewrite }));
 	}
 
 	/**

@@ -225,6 +225,25 @@ the atom) violates the singleton invariant.  The proof then has to fix λ:
   satisfiability.  The definition just makes this checkable with existing
   rules.
 
+*Status (2026-10-22).*  λ is the polymorphic internal constant `@lambda`
+(`SMTInterpolConstants.LAMBDA`, `UNINTERPRETEDINTERNAL | RETURNOVERLOAD`),
+declared by `SMTInterpol` for quantified logics and by `ProofRules` for the
+external checker.  `LambdaBound.analyze` recognizes a normalized ground atom
+`(<= P 0)` or numeric `(= L R)` in which λ occurs only as a linear summand
+`k·λ`; `SubstitutionHelper.evaluateLambdaBound` rewrites it to its value
+(`<=` true iff `k > 0`, `=` false) with the new rewrite `:lambdaBound`, so
+no atom with λ is built and `λ < t` instances are skipped as true.  Other
+atoms with λ (e.g. `f(λ) < λ`) are still built.  `ProofSimplifier` collects
+the bounds of all `:lambdaBound` steps (`-q`, plus `0` if `c > 1`, or `-q/c`
+if `c < 1`, where `Q = c·λ + q` is the atom times the sign of `k`), defines
+`λ := min(b_j - 1)` as an `ite` chain through `mAuxDefs` (so the definition
+is innermost), and proves each step with one `farkas` over `-Q` and the facts
+`λ <= b - 1`.  `PrintProof` prints plain names in `define-fun` heads and
+`ProofParser` reuses the polymorphic `@lambda` instead of declaring it.
+Checked with `proof.checker.Main` on Int, Real (`c < 1`, `c > 1`) and an
+uninterpreted λ; tests in `LambdaProofTest`.  Not done: rejecting `@lambda`
+in the input.
+
 ### Concretization
 
 Concretization after the last final check, analogous to ε (`ModelBuilder` must
@@ -392,10 +411,12 @@ of the same age.  `QuantModelEvaluator`:
   stops at a theory that produces new atoms, so the quantifier final check
   would otherwise see classes that MBTC is about to merge.
 
-Still missing: the λ invariants (`SubstitutionHelper` still builds atoms with
-λ, so an instance can give λ an LA value; the counterexample above then loops
-instead of answering `unsat`), and `get-model` (Step 4).  Tests:
-`QuantModelBasedTest`.
+Still missing: atoms where λ is compared with terms containing λ (`f(λ) < λ`)
+are still built, so such an instance can give λ an LA value; the counterexample
+above then times out instead of answering `unsat` (accepted for now; the
+λ-free case is done, see "λ in proofs").  If the model cannot decide some
+instance, `check-sat` answers `unknown` instead of `sat`.  `get-model`
+(Step 4) is open.  Tests: `QuantModelBasedTest`.
 
 ## Open questions
 

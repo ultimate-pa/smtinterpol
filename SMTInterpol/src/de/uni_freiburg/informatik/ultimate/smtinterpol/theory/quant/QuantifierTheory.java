@@ -46,6 +46,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.DPLLEngine;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ILiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.ITheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
@@ -877,7 +878,8 @@ public class QuantifierTheory implements ITheory {
 		if (sort.getName().equals("Bool")) {
 			lambda = mTheory.mTrue;
 		} else {
-			final FunctionSymbol fsym = mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]);
+			final FunctionSymbol fsym =
+					mTheory.getFunctionWithResult(SMTInterpolConstants.LAMBDA, null, sort, new Sort[0]);
 			lambda = mTheory.term(fsym);
 		}
 		mLambdas.put(sort, lambda);

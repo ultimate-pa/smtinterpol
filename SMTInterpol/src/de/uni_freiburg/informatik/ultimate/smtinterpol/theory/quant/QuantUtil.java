@@ -30,6 +30,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 
 /**
@@ -325,7 +326,7 @@ public class QuantUtil {
 	public static boolean isLambda(final Term term) {
 		if (term instanceof ApplicationTerm) {
 			final FunctionSymbol fsym = ((ApplicationTerm) term).getFunction();
-			return fsym.isIntern() && fsym.getName().startsWith("@0");
+			return fsym.isIntern() && fsym.getName().equals(SMTInterpolConstants.LAMBDA);
 		}
 		return false;
 	}

@@ -433,12 +433,29 @@ action code {:
 
 	public void beginFunction(String funcName, Sort[] paramSorts, Sort resultSort) {
 		parser.getScript().push(1);
-		parser.getScript().getTheory().declareInternalFunction(funcName, paramSorts, resultSort, 0);
+		Theory theory = parser.getScript().getTheory();
+		// internal polymorphic constants like @lambda get their definition in the proof
+		if (lookupFunction(theory, funcName, paramSorts, resultSort) == null) {
+			theory.declareInternalFunction(funcName, paramSorts, resultSort, 0);
+		}
+	}
+
+	private static FunctionSymbol lookupFunction(Theory theory, String funcName, Sort[] paramSorts,
+			Sort resultSort) {
+		FunctionSymbol funcSym = theory.getFunctionSymbol(funcName);
+		if (funcSym == null && theory.getFunctionFactories().containsKey(funcName)) {
+			funcSym = theory.getFunctionWithResult(funcName, null, resultSort, paramSorts);
+		}
+		return funcSym;
 	}
 
 	public Term defineFun(String funcName, TermVariable[] vars, Term definition, Term subProof) {
 		Theory theory = parser.getScript().getTheory();
-		FunctionSymbol funcSym = theory.getFunctionSymbol(funcName);
+		Sort[] paramSorts = new Sort[vars.length];
+		for (int i = 0; i < vars.length; i++) {
+			paramSorts[i] = vars[i].getSort();
+		}
+		FunctionSymbol funcSym = lookupFunction(theory, funcName, paramSorts, definition.getSort());
 		parser.getScript().pop(1);
 		return parser.getProofRules().defineFun(funcSym, theory.lambda(vars, definition), subProof);
 	}
@@ -455,7 +472,7 @@ action code {:
 
 	public Term declareFun(String funcName, Sort[] paramSorts, Sort resultSort, Term subProof) {
 		Theory theory = parser.getScript().getTheory();
-		FunctionSymbol funcSym = theory.getFunctionSymbol(funcName);
+		FunctionSymbol funcSym = lookupFunction(theory, funcName, paramSorts, resultSort);
 		parser.getScript().pop(1);
 		return parser.getProofRules().declareFun(funcSym, subProof);
 	}

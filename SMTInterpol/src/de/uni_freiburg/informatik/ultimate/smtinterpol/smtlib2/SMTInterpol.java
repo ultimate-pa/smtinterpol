@@ -165,6 +165,10 @@ public class SMTInterpol extends NoopScript {
 			if (logic.isArray()) {
 				declareArraySymbols(theory);
 			}
+			if (logic.isQuantified()) {
+				declareInternalPolymorphicFunction(theory, SMTInterpolConstants.LAMBDA, polySort, new Sort[0],
+						polySort[0], FunctionSymbol.UNINTERPRETEDINTERNAL | FunctionSymbol.RETURNOVERLOAD);
+			}
 			if (logic.isBitVector()) {
 				declareBitVectorExtensions(theory);
 			}

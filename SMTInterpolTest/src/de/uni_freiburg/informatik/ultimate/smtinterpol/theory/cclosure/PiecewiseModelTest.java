@@ -36,6 +36,7 @@ import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.PiecewiseModel.Value;
 
@@ -85,7 +86,7 @@ public class PiecewiseModelTest {
 	}
 
 	private Term lambda(final Sort sort) {
-		return mTheory.term(mTheory.getFunctionWithResult("@0", null, sort, new Sort[0]));
+		return mTheory.term(mTheory.getFunctionWithResult(SMTInterpolConstants.LAMBDA, null, sort, new Sort[0]));
 	}
 
 	private Term declare(final String name, final Sort sort) {

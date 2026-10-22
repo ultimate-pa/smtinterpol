@@ -66,7 +66,7 @@ public class PrintProof extends PrintTerm {
 					mTodo.add(i == 0 ? "(" : " (");
 				}
 				mTodo.add(" (");
-				mTodo.add(func.getApplicationString());
+				mTodo.add(PrintTerm.quoteIdentifier(func.getName()));
 				mTodo.add("((" + annots[0].getKey().substring(1) + " ");
 				return;
 			} else if (annots.length == 1 && annots[0].getKey() == ProofRules.ANNOT_DECLARE_FUN) {
@@ -87,7 +87,7 @@ public class PrintProof extends PrintTerm {
 					}
 				}
 				mTodo.add(" (");
-				mTodo.add(func.getApplicationString());
+				mTodo.add(PrintTerm.quoteIdentifier(func.getName()));
 				mTodo.add("((" + annots[0].getKey().substring(1) + " ");
 				return;
 			} else if (annotTerm.getSubterm() instanceof ApplicationTerm

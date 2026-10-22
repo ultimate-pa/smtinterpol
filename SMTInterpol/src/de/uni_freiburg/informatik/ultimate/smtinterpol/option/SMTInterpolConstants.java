@@ -27,6 +27,8 @@ public interface SMTInterpolConstants {
 
 	/** Diff function symbol name for arrays. */
 	public String DIFF = "@diff";
+	/** The polymorphic constant λ for quantifier instantiation, smaller than every interesting term. */
+	public String LAMBDA = "@lambda";
 
 	public String NAT2BV = "nat2bv";
 	public String BV2NAT = "bv2nat";

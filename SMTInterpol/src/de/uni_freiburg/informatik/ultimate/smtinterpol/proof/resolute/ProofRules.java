@@ -163,6 +163,12 @@ public class ProofRules {
 			mTheory.declareInternalPolymorphicFunction(SMTInterpolConstants.DIFF, vars, new Sort[] { array, array },
 					vars[0], FunctionSymbol.UNINTERPRETEDINTERNAL);
 		}
+		if (mTheory.getLogic().isQuantified()
+				&& !mTheory.getFunctionFactories().containsKey(SMTInterpolConstants.LAMBDA)) {
+			final Sort[] vars = mTheory.createSortVariables("X");
+			mTheory.declareInternalPolymorphicFunction(SMTInterpolConstants.LAMBDA, vars, new Sort[0], vars[0],
+					FunctionSymbol.UNINTERPRETEDINTERNAL | FunctionSymbol.RETURNOVERLOAD);
+		}
 
 		mTheory.declareInternalSort(PREFIX + PROOF, 0, 0);
 		final Sort proofSort = mTheory.getSort(PREFIX + PROOF);

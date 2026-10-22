@@ -703,7 +703,7 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 			case "true":
 			case "false":
 			case SMTInterpolConstants.DIFF:
-			case "@0": // lambda for QuantifierTheory
+			case SMTInterpolConstants.LAMBDA: // lambda for QuantifierTheory
 			case "is":
 			case Interpolator.EQ:
 				/* nothing to do */

@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -56,6 +57,7 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.MinimalPro
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofLiteral;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.ProofRules;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.LambdaBound;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.OffsetEqKey;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.Polynomial;
 
@@ -89,6 +91,8 @@ public class ProofSimplifier extends TermTransformer {
 	private final boolean mOffsetEqualities;
 
 	private HashMap<FunctionSymbol, Term> mAuxDefs;
+	/** The definitions of the numeric λ constants used by {@code :lambdaBound} rewrites. */
+	private final LinkedHashMap<Term, LambdaDefinition> mLambdaDefs = new LinkedHashMap<>();
 
 	private final static String ANNOT_PROVES_CLAUSE = ":proves";
 	private final static String ANNOT_PROVED_EQ = ":provedEq";
@@ -2622,6 +2626,9 @@ public class ProofSimplifier extends TermTransformer {
 		case ":intern":
 			subProof = convertRewriteIntern(lhs, rhs);
 			break;
+		case ":lambdaBound":
+			subProof = convertRewriteLambdaBound(rewriteStmt, lhs, rhs);
+			break;
 		case ":matchToIte":
 			assert rhs == DataTypeRules.buildIteForMatch((MatchTerm) lhs);
 			subProof = mProofRules.dtMatch(lhs);
@@ -4724,6 +4731,10 @@ public class ProofSimplifier extends TermTransformer {
 		final CollectSkolemAux collector = new CollectSkolemAux();
 		proof = collector.transform(proof);
 		mAuxDefs = collector.getAuxDef();
+		// λ is defined below all bounds; its definition uses only functions collected before
+		for (final LambdaDefinition lambdaDef : mLambdaDefs.values()) {
+			mAuxDefs.put(((ApplicationTerm) lambdaDef.mLambda).getFunction(), lambdaDef.getDefinition());
+		}
 		proof = super.transform(proof);
 		final TermVariable[] freeVars = proof.getFreeVars();
 		if (freeVars.length > 0) {
@@ -4745,6 +4756,199 @@ public class ProofSimplifier extends TermTransformer {
 		return proof;
 	}
 
+	private void addLambdaBounds(final LambdaBound bound) {
+		LambdaDefinition lambdaDef = mLambdaDefs.get(bound.getLambda());
+		if (lambdaDef == null) {
+			lambdaDef = new LambdaDefinition(bound.getLambda());
+			mLambdaDefs.put(bound.getLambda(), lambdaDef);
+		}
+		for (final Term b : bound.getBounds()) {
+			lambdaDef.addBound(b);
+		}
+	}
+
+	/**
+	 * Convert a rewrite of a ground atom comparing λ with λ-free terms to its value (see {@link LambdaBound}). With
+	 * {@code Q = c·λ + q} the atom (multiplied by the sign of the λ coefficient), the proof is a single Farkas step
+	 * combining {@code -Q} (taken from the atom or its negation) with the facts {@code λ <= b - 1} for the bounds b.
+	 *
+	 * @param rewriteStmt
+	 *            the rewrite statement {@code (= lhs rhs)}.
+	 * @param lhs
+	 *            the atom.
+	 * @param rhs
+	 *            true or false.
+	 * @return the proof of the rewrite statement.
+	 */
+	private Term convertRewriteLambdaBound(final Term rewriteStmt, final Term lhs, final Term rhs) {
+		final Theory theory = lhs.getTheory();
+		final LambdaBound bound = LambdaBound.analyze(lhs);
+		final LambdaDefinition lambdaDef = mLambdaDefs.get(bound.getLambda());
+		final Term[] params = bound.getAtom().getParameters();
+		assert isApplication(bound.getValue() ? "true" : "false", rhs);
+
+		// the atom contributing -Q to the Farkas sum
+		final Term negQ;
+		if (bound.isInequality()) {
+			negQ = bound.getValue() ? theory.term("<", params[1], params[0]) : lhs;
+		} else {
+			negQ = bound.getSign() > 0 ? theory.term("=", params[1], params[0]) : lhs;
+		}
+		// -Q + (λ - (-q - 1)) = 1, or -Q + (λ - (-q - 1)) + (c - 1)·(λ - (0 - 1)) = c, or -Q + c·(λ - (-q/c - 1)) = c
+		final Rational c = bound.getCoeff();
+		final List<Term> bounds = bound.getBounds();
+		final Rational[] factors = bounds.size() == 2 ? new Rational[] { Rational.ONE, c.sub(Rational.ONE) }
+				: new Rational[] { c.compareTo(Rational.ONE) < 0 ? c : Rational.ONE };
+		final BigInteger denom = c.denominator();
+		final Object[] farkasParams = new Object[2 + 2 * bounds.size()];
+		farkasParams[0] = denom;
+		farkasParams[1] = negQ;
+		final Term[] facts = new Term[bounds.size()];
+		for (int i = 0; i < bounds.size(); i++) {
+			facts[i] = lambdaDef.getFactAtom(bounds.get(i));
+			farkasParams[2 + 2 * i] = factors[i].mul(Rational.valueOf(denom, BigInteger.ONE)).numerator();
+			farkasParams[3 + 2 * i] = facts[i];
+		}
+		Term proof = mProofRules.farkas(farkasParams);
+		for (int i = 0; i < bounds.size(); i++) {
+			proof = res(facts[i], lambdaDef.proveFact(bounds.get(i)), proof);
+		}
+		// proof is now {~negQ}
+		if (bound.isInequality() && bound.getValue()) {
+			return proveIffTrue(rewriteStmt, res(negQ, mProofRules.total(params[0], params[1]), proof));
+		}
+		if (negQ != lhs) {
+			proof = res(negQ, mProofRules.symm(params[1], params[0]), proof);
+		}
+		return proveIffFalse(rewriteStmt, proof);
+	}
+
+	/**
+	 * The definition {@code λ := m_n} of a numeric λ, where {@code m_1 = d_1} and
+	 * {@code m_j = (ite (<= m_{j-1} d_j) m_{j-1} d_j)} is the minimum of the limits {@code d_j = b_j - 1} for all
+	 * bounds {@code b_j} of λ.
+	 */
+	private class LambdaDefinition {
+		private final Term mLambda;
+		/** The limits {@code d_j} by their bounds, in the order of the chain. */
+		private final LinkedHashMap<Term, Term> mLimits = new LinkedHashMap<>();
+		private Term[] mChain;
+		private Term[] mLimitArray;
+		private final HashMap<Term, Integer> mIndex = new HashMap<>();
+		private final HashMap<Integer, Term> mFactProofs = new HashMap<>();
+
+		LambdaDefinition(final Term lambda) {
+			mLambda = lambda;
+		}
+
+		void addBound(final Term bound) {
+			assert mChain == null;
+			if (!mLimits.containsKey(bound)) {
+				final Polynomial limit = new Polynomial(bound);
+				limit.add(Rational.MONE);
+				mLimits.put(bound, limit.toTerm(mLambda.getSort()));
+			}
+		}
+
+		Term getDefinition() {
+			if (mChain == null) {
+				final Theory theory = mLambda.getTheory();
+				mLimitArray = mLimits.values().toArray(new Term[mLimits.size()]);
+				mChain = new Term[mLimitArray.length];
+				mChain[0] = mLimitArray[0];
+				mIndex.put(mLimitArray[0], 0);
+				for (int j = 1; j < mChain.length; j++) {
+					final Term cond = theory.term("<=", mChain[j - 1], mLimitArray[j]);
+					mChain[j] = theory.term("ite", cond, mChain[j - 1], mLimitArray[j]);
+					mIndex.put(mLimitArray[j], j);
+				}
+			}
+			return mChain[mChain.length - 1];
+		}
+
+		/**
+		 * @return the atom {@code (<= λ d)} for the limit d of the given bound.
+		 */
+		Term getFactAtom(final Term bound) {
+			return mLambda.getTheory().term("<=", mLambda, mLimits.get(bound));
+		}
+
+		/**
+		 * Prove {@code (<= λ d_j)}: the Farkas sum of {@code λ = m_n}, {@code m_k <= m_{k-1}} for k > j,
+		 * {@code m_j <= d_j}, and {@code d_j < λ} is zero.
+		 */
+		Term proveFact(final Term bound) {
+			final Term definition = getDefinition();
+			final int j = mIndex.get(mLimits.get(bound));
+			Term proof = mFactProofs.get(j);
+			if (proof != null) {
+				return proof;
+			}
+			final Theory theory = mLambda.getTheory();
+			final Term limit = mLimitArray[j];
+			final Term notFact = theory.term("<", limit, mLambda);
+			final Term defEq = theory.term("=", mLambda, definition);
+			final List<Object> farkasParams = new ArrayList<>();
+			farkasParams.add(BigInteger.ONE);
+			farkasParams.add(defEq);
+			for (int k = mChain.length - 1; k > j; k--) {
+				farkasParams.add(BigInteger.ONE);
+				farkasParams.add(theory.term("<=", mChain[k], mChain[k - 1]));
+			}
+			if (j > 0) {
+				farkasParams.add(BigInteger.ONE);
+				farkasParams.add(theory.term("<=", mChain[j], limit));
+			}
+			farkasParams.add(BigInteger.ONE);
+			farkasParams.add(notFact);
+			proof = mProofRules.farkas(farkasParams.toArray());
+			proof = res(defEq, mProofRules.expand(mLambda), proof);
+			for (int k = mChain.length - 1; k > j; k--) {
+				proof = res(theory.term("<=", mChain[k], mChain[k - 1]), proveChainBelowPrevious(k), proof);
+			}
+			if (j > 0) {
+				proof = res(theory.term("<=", mChain[j], limit), proveChainBelowLimit(j), proof);
+			}
+			proof = res(notFact, mProofRules.total(mLambda, limit), proof);
+			mFactProofs.put(j, proof);
+			return proof;
+		}
+
+		/**
+		 * Prove {@code (<= m_j d_j)} by case distinction on the ite condition {@code m_{j-1} <= d_j}.
+		 */
+		private Term proveChainBelowLimit(final int j) {
+			final Theory theory = mLambda.getTheory();
+			final Term cond = theory.term("<=", mChain[j - 1], mLimitArray[j]);
+			final Term eqThen = theory.term("=", mChain[j], mChain[j - 1]);
+			final Term eqElse = theory.term("=", mChain[j], mLimitArray[j]);
+			final Term notGoal = theory.term("<", mLimitArray[j], mChain[j]);
+			final Term caseThen = res(eqThen, mProofRules.ite1(mChain[j]),
+					mProofRules.farkas(BigInteger.ONE, eqThen, BigInteger.ONE, cond, BigInteger.ONE, notGoal));
+			final Term caseElse = res(eqElse, mProofRules.ite2(mChain[j]),
+					mProofRules.farkas(BigInteger.ONE, eqElse, BigInteger.ONE, notGoal));
+			return res(notGoal, mProofRules.total(mChain[j], mLimitArray[j]), res(cond, caseElse, caseThen));
+		}
+
+		/**
+		 * Prove {@code (<= m_j m_{j-1})} by case distinction on the ite condition {@code m_{j-1} <= d_j}.
+		 */
+		private Term proveChainBelowPrevious(final int j) {
+			final Theory theory = mLambda.getTheory();
+			final Term cond = theory.term("<=", mChain[j - 1], mLimitArray[j]);
+			final Term notCond = theory.term("<", mLimitArray[j], mChain[j - 1]);
+			final Term eqThen = theory.term("=", mChain[j], mChain[j - 1]);
+			final Term eqElse = theory.term("=", mChain[j], mLimitArray[j]);
+			final Term notGoal = theory.term("<", mChain[j - 1], mChain[j]);
+			final Term caseThen = res(eqThen, mProofRules.ite1(mChain[j]),
+					mProofRules.farkas(BigInteger.ONE, eqThen, BigInteger.ONE, notGoal));
+			Term caseElse = res(eqElse, mProofRules.ite2(mChain[j]), mProofRules.farkas(BigInteger.ONE, eqElse,
+					BigInteger.ONE, notCond, BigInteger.ONE, notGoal));
+			caseElse = res(notCond, mProofRules.total(mChain[j - 1], mLimitArray[j]), caseElse);
+			return res(notGoal, mProofRules.total(mChain[j], mChain[j - 1]), res(cond, caseElse, caseThen));
+		}
+	}
+
 	class CollectSkolemAux extends TermTransformer {
 		private final HashMap<FunctionSymbol, Term> mQuantDefinedTerms = new LinkedHashMap<>();
 
@@ -4754,6 +4958,14 @@ public class ProofSimplifier extends TermTransformer {
 
 		@Override
 		public void convert(Term term) {
+			if (term instanceof ApplicationTerm
+					&& ((ApplicationTerm) term).getFunction().getName().equals(ProofConstants.FN_REWRITE)) {
+				final Term lhsAnnot = ((ApplicationTerm) term).getParameters()[0];
+				if (lhsAnnot instanceof AnnotatedTerm && ((AnnotatedTerm) lhsAnnot).getAnnotations()[0].getKey()
+						.equals(ProofConstants.RW_LAMBDA_BOUND.getKey())) {
+					addLambdaBounds(LambdaBound.analyze(((AnnotatedTerm) lhsAnnot).getSubterm()));
+				}
+			}
 			if (isAuxApplication(term) || isSkolem(term)) {
 				final FunctionSymbol func = ((ApplicationTerm) term).getFunction();
 				if (!mQuantDefinedTerms.containsKey(func)) {
