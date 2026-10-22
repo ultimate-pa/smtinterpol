@@ -19,6 +19,9 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
 import java.io.StringReader;
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.junit.Assert;
 import org.junit.Rule;
@@ -27,10 +30,15 @@ import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
+import de.uni_freiburg.informatik.ultimate.logic.Annotation;
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.PrintProof;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
@@ -48,17 +56,64 @@ public class LambdaProofTest {
 	@Rule
 	public final Timeout mTimeout = Timeout.seconds(30);
 
-	private String proveUnsat(final String logic, final String input) {
+	private Term getProof(final String proofLevel, final String logic, final String input) {
 		final OptionMap options = new OptionMap(new DefaultLogger(), true);
 		final SMTInterpol script = new SMTInterpol(null, options);
 		final String setup = "(set-option :produce-proofs true)(set-option :proof-check-mode true)"
-				+ "(set-option :proof-level lowlevel)(set-logic " + logic + ")";
+				+ "(set-option :proof-level " + proofLevel + ")(set-logic " + logic + ")";
 		new ParseEnvironment(script, options).parseStream(new StringReader(setup + input), "test");
 		Assert.assertEquals(LBool.UNSAT, script.checkSat());
-		final Term proof = script.getProof();
+		return script.getProof();
+	}
+
+	private String proveUnsat(final String logic, final String input) {
 		final StringBuilder sb = new StringBuilder();
-		new PrintProof().append(sb, proof);
+		new PrintProof().append(sb, getProof("lowlevel", logic, input));
 		return sb.toString();
+	}
+
+	/**
+	 * Check that the full proof rewrites an equality with λ to false, so that the low-level proof must prove it from
+	 * the definition of λ.
+	 */
+	private void assertLambdaEqualityRewrite(final String logic, final String input) {
+		final ArrayDeque<Term> todo = new ArrayDeque<>();
+		final Set<Term> seen = new HashSet<>();
+		todo.add(getProof("full", logic, input));
+		while (!todo.isEmpty()) {
+			final Term t = todo.removeLast();
+			if (!seen.add(t)) {
+				continue;
+			}
+			if (t instanceof AnnotatedTerm) {
+				final AnnotatedTerm annot = (AnnotatedTerm) t;
+				if (annot.getAnnotations()[0].getKey().equals(ProofConstants.RW_LAMBDA_BOUND.getKey())
+						&& annot.getSubterm() instanceof ApplicationTerm && ((ApplicationTerm) annot.getSubterm())
+								.getFunction().getName().equals(SMTLIBConstants.EQUALS)) {
+					return;
+				}
+				todo.add(annot.getSubterm());
+				for (final Annotation a : annot.getAnnotations()) {
+					addTerms(todo, a.getValue());
+				}
+			} else if (t instanceof ApplicationTerm) {
+				for (final Term p : ((ApplicationTerm) t).getParameters()) {
+					todo.add(p);
+				}
+			}
+		}
+		Assert.fail("no :lambdaBound rewrite of an equality");
+	}
+
+	/** Add the terms in an annotation value, e.g., the subproof of an instantiation. */
+	private static void addTerms(final ArrayDeque<Term> todo, final Object value) {
+		if (value instanceof Term) {
+			todo.add((Term) value);
+		} else if (value instanceof Object[]) {
+			for (final Object v : (Object[]) value) {
+				addTerms(todo, v);
+			}
+		}
 	}
 
 	@Test
@@ -84,5 +139,40 @@ public class LambdaProofTest {
 				+ "(assert (forall ((u U) (x Int)) (or (<= a x) (and (Q u) (P x)))))"
 				+ "(assert (forall ((u U)) (not (Q u))))");
 		Assert.assertTrue(proof.contains("(as @lambda U)"));
+	}
+
+	/** Equality with positive coefficient c > 1, proved via symm. */
+	@Test
+	public void testIntEqualityPositive() {
+		final String input = "(declare-fun P (Int) Bool)(declare-fun a () Int)"
+				+ "(assert (forall ((x Int)) (or (= (* 2 x) a) (P x))))(assert (forall ((x Int)) (not (P x))))";
+		assertLambdaEqualityRewrite("UFLIA", input);
+		Assert.assertTrue(proveUnsat("UFLIA", input).contains("(define-fun @lambda ()"));
+	}
+
+	/** Equality with negative coefficient of λ. */
+	@Test
+	public void testIntEqualityNegative() {
+		final String input = "(declare-fun P (Int) Bool)(declare-fun a () Int)"
+				+ "(assert (forall ((x Int)) (or (= (* (- 3) x) a) (P x))))(assert (forall ((x Int)) (not (P x))))";
+		assertLambdaEqualityRewrite("UFLIA", input);
+		Assert.assertTrue(proveUnsat("UFLIA", input).contains("(define-fun @lambda ()"));
+	}
+
+	/** Equality on the left side, normalized as {@code (= a (* 2 λ))}. */
+	@Test
+	public void testIntEqualitySwapped() {
+		final String input = "(declare-fun P (Int) Bool)(declare-fun a () Int)"
+				+ "(assert (forall ((x Int)) (or (= a (* 2 x)) (P x))))(assert (forall ((x Int)) (not (P x))))";
+		assertLambdaEqualityRewrite("UFLIA", input);
+		Assert.assertTrue(proveUnsat("UFLIA", input).contains("(define-fun @lambda ()"));
+	}
+
+	@Test
+	public void testRealEquality() {
+		final String input = "(declare-fun P (Real) Bool)(declare-fun a () Real)"
+				+ "(assert (forall ((x Real)) (or (= x a) (P x))))(assert (forall ((x Real)) (not (P x))))";
+		assertLambdaEqualityRewrite("UFLRA", input);
+		Assert.assertTrue(proveUnsat("UFLRA", input).contains("(define-fun @lambda ()"));
 	}
 }

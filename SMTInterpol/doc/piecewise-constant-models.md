@@ -241,7 +241,9 @@ is innermost), and proves each step with one `farkas` over `-Q` and the facts
 `λ <= b - 1`.  `PrintProof` prints plain names in `define-fun` heads and
 `ProofParser` reuses the polymorphic `@lambda` instead of declaring it.
 Checked with `proof.checker.Main` on Int, Real (`c < 1`, `c > 1`) and an
-uninterpreted λ; tests in `LambdaProofTest`.  Not done: rejecting `@lambda`
+uninterpreted λ, and on equalities with positive and negative `k`; tests in
+`LambdaProofTest` (the equality tests also check that the full proof
+contains a `:lambdaBound` rewrite of an equality).  Not done: rejecting `@lambda`
 in the input.
 
 ### Concretization
