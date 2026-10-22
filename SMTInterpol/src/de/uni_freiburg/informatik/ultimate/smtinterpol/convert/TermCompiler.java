@@ -69,6 +69,11 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 	private IProofTracker mTracker;
 	private LogicSimplifier mUtils;
 	private BvToIntUtils mBvToIntUtils;
+	/**
+	 * True while converting an input formula. Internal symbols that only the solver creates, like λ, are rejected in
+	 * the input but converted in the instances of quantified clauses.
+	 */
+	private boolean mConvertingInput;
 
 	static class TransitivityStep implements Walker {
 		final Term mFirst;
@@ -101,6 +106,22 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 			mNames = new HashMap<>();
 		} else {
 			mNames = null;
+		}
+	}
+
+	/**
+	 * Convert an input formula, rejecting internal symbols that only the solver may create.
+	 *
+	 * @param input
+	 *            the asserted formula or assumption.
+	 * @return the proof of the converted formula.
+	 */
+	public Term transformInput(final Term input) {
+		mConvertingInput = true;
+		try {
+			return transform(input);
+		} finally {
+			mConvertingInput = false;
 		}
 	}
 
@@ -699,11 +720,15 @@ public class TermCompiler extends TermTransformer implements IPolynomialUnifier 
 				convertedApp = mBvToIntUtils.translateIntToBv(mTracker, fsym, convertedApp);
 				break;
 
+			case SMTInterpolConstants.LAMBDA: // lambda for QuantifierTheory
+				if (mConvertingInput) {
+					throw new UnsupportedOperationException("Unsupported internal function " + fsym.getName());
+				}
+				break;
 			case "intand":
 			case "true":
 			case "false":
 			case SMTInterpolConstants.DIFF:
-			case SMTInterpolConstants.LAMBDA: // lambda for QuantifierTheory
 			case "is":
 			case Interpolator.EQ:
 				/* nothing to do */

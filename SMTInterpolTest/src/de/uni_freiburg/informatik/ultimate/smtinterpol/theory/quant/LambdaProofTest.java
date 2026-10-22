@@ -33,11 +33,14 @@ import org.junit.runners.JUnit4;
 import de.uni_freiburg.informatik.ultimate.logic.AnnotatedTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Annotation;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBException;
 import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
+import de.uni_freiburg.informatik.ultimate.logic.Sort;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.OptionMap;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.ProofConstants;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.resolute.PrintProof;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.ParseEnvironment;
@@ -174,5 +177,28 @@ public class LambdaProofTest {
 				+ "(assert (forall ((x Real)) (or (= x a) (P x))))(assert (forall ((x Real)) (not (P x))))";
 		assertLambdaEqualityRewrite("UFLRA", input);
 		Assert.assertTrue(proveUnsat("UFLRA", input).contains("(define-fun @lambda ()"));
+	}
+
+	/** λ is internal to the solver, so the parser accepts it (e.g., for proofs) but the input must not contain it. */
+	@Test
+	public void testRejectLambdaInput() {
+		final SMTInterpol script = new SMTInterpol(null, new OptionMap(new DefaultLogger(), true));
+		script.setLogic("UFLIA");
+		final Sort intSort = script.sort(SMTLIBConstants.INT);
+		script.declareFun("P", new Sort[] { intSort }, script.sort(SMTLIBConstants.BOOL));
+		final Term lambda = script.term(SMTInterpolConstants.LAMBDA, null, intSort);
+		final Term pLambda = script.term("P", lambda);
+		try {
+			script.assertTerm(pLambda);
+			Assert.fail("@lambda accepted in assertion");
+		} catch (final SMTLIBException expected) {
+			Assert.assertTrue(expected.getMessage().contains(SMTInterpolConstants.LAMBDA));
+		}
+		try {
+			script.checkAllsat(new Term[] { pLambda });
+			Assert.fail("@lambda accepted in all-sat input");
+		} catch (final SMTLIBException expected) {
+			Assert.assertTrue(expected.getMessage().contains(SMTInterpolConstants.LAMBDA));
+		}
 	}
 }

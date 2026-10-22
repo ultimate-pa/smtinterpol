@@ -243,8 +243,10 @@ is innermost), and proves each step with one `farkas` over `-Q` and the facts
 Checked with `proof.checker.Main` on Int, Real (`c < 1`, `c > 1`) and an
 uninterpreted λ, and on equalities with positive and negative `k`; tests in
 `LambdaProofTest` (the equality tests also check that the full proof
-contains a `:lambdaBound` rewrite of an equality).  Not done: rejecting `@lambda`
-in the input.
+contains a `:lambdaBound` rewrite of an equality).  The parser accepts `@lambda`
+(proofs use it), but `TermCompiler.transformInput`, used by the `Clausifier`
+for assertions and all-sat literals, rejects it as an unsupported internal
+function; instances with λ use the normal `transform`.
 
 ### Concretization
 

@@ -1298,7 +1298,11 @@ public class SMTInterpol extends NoopScript {
 			if (input[i].getSort() != getTheory().getBooleanSort()) {
 				throw new SMTLIBException("AllSAT over non-Boolean");
 			}
-			lits[i] = mClausifier.getCreateLiteral(input[i], new SourceAnnotation("", null));
+			try {
+				lits[i] = mClausifier.getCreateLiteral(input[i], new SourceAnnotation("", null));
+			} catch (final UnsupportedOperationException ex) {
+				throw new SMTLIBException(ex.getMessage());
+			}
 		}
 		return new Iterable<Term[]>() {
 

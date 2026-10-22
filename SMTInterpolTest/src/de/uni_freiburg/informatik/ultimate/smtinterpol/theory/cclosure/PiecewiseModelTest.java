@@ -26,6 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Script;
@@ -35,8 +36,11 @@ import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.Theory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.DefaultLogger;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.Clausifier;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.dpll.Literal;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.model.SharedTermEvaluator;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.option.SMTInterpolConstants;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.smtlib2.SMTInterpol;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.PiecewiseModel.Value;
 
@@ -89,6 +93,25 @@ public class PiecewiseModelTest {
 		return mTheory.term(mTheory.getFunctionWithResult(SMTInterpolConstants.LAMBDA, null, sort, new Sort[0]));
 	}
 
+	/**
+	 * Assert a ground (dis)equality containing λ. The input rejects λ, so add the literal the way
+	 * {@code SubstitutionHelper} adds instance literals: normalize, create the atom, and add a unit clause.
+	 */
+	private void assertInstanceLiteral(final Term lhs, final Term rhs, final boolean positive) {
+		final TermCompiler compiler = mClausifier.getTermCompiler();
+		final Term proof;
+		try {
+			proof = compiler.transform(mTheory.term("=", lhs, rhs));
+		} finally {
+			compiler.reset();
+		}
+		final ApplicationTerm eq = (ApplicationTerm) mClausifier.getTracker().getProvedTerm(proof);
+		final SourceAnnotation source = SourceAnnotation.EMPTY_SOURCE_ANNOT;
+		final Literal atom =
+				mClausifier.createEqualityProxy(eq.getParameters()[0], eq.getParameters()[1], source).getLiteral(source);
+		mClausifier.getEngine().addFormulaClause(new Literal[] { positive ? atom : atom.negate() }, null);
+	}
+
 	private Term declare(final String name, final Sort sort) {
 		mTheory.declareFunction(name, Script.EMPTY_SORT_ARRAY, sort);
 		return mTheory.term(name);
@@ -127,9 +150,9 @@ public class PiecewiseModelTest {
 	public void testInt() {
 		mSolver.assertTerm(mSolver.term("<", Arrays.copyOfRange(mATerms, 1, mATerms.length)));
 		mSolver.assertTerm(mSolver.term("<", Arrays.copyOfRange(mBTerms, 1, mBTerms.length)));
-		mSolver.assertTerm(mSolver.term("=", mFTerms[0][0], num(0)));
-		mSolver.assertTerm(mSolver.term("=", mFTerms[0][6], num(1)));
-		mSolver.assertTerm(mSolver.term("=", mFTerms[2][0], num(2)));
+		assertInstanceLiteral(mFTerms[0][0], num(0), true);
+		assertInstanceLiteral(mFTerms[0][6], num(1), true);
+		assertInstanceLiteral(mFTerms[2][0], num(2), true);
 		mSolver.assertTerm(mSolver.term("=", mFTerms[4][6], num(3)));
 		mSolver.assertTerm(mSolver.term("=", mFTerms[6][2], num(4)));
 		mSolver.assertTerm(mSolver.term("=", mFTerms[6][4], num(5)));
@@ -169,7 +192,7 @@ public class PiecewiseModelTest {
 		// no f(lambda,lambda) application
 		mSolver.assertTerm(mSolver.term("<", mATerms[1], mATerms[2]));
 		mSolver.assertTerm(mSolver.term("<", mBTerms[1], mBTerms[2]));
-		mSolver.assertTerm(mSolver.term("=", mFTerms[0][2], num(1)));
+		assertInstanceLiteral(mFTerms[0][2], num(1), true);
 		Assert.assertEquals(LBool.SAT, mSolver.checkSat());
 		model = buildModel();
 		Assert.assertNull(model.getCorner(mF, new Value[] { value(model, mATerms[1]), value(model, mBTerms[1]) }));
@@ -231,7 +254,9 @@ public class PiecewiseModelTest {
 		mSolver.assertTerm(mSolver.term("<", mATerms[1], mATerms[2], mATerms[3]));
 		mSolver.assertTerm(mSolver.term("distinct", p, q));
 		mSolver.assertTerm(mSolver.term("distinct", p, r));
-		mSolver.assertTerm(mSolver.term("distinct", hp1, hl2, hq3));
+		mSolver.assertTerm(mSolver.term("distinct", hp1, hq3));
+		assertInstanceLiteral(hp1, hl2, false);
+		assertInstanceLiteral(hl2, hq3, false);
 		Assert.assertEquals(LBool.SAT, mSolver.checkSat());
 		final PiecewiseModel model = buildModel();
 		final CCTerm rCC = mClausifier.getCCTerm(r);
@@ -277,7 +302,7 @@ public class PiecewiseModelTest {
 		final Term a = declare("arr", arr);
 		mSolver.assertTerm(mSolver.term("=", select(a, 1), num(10)));
 		mSolver.assertTerm(mSolver.term("=", select(a, 5), num(50)));
-		mSolver.assertTerm(mSolver.term("=", mTheory.term("select", a, mLambda), num(-1)));
+		assertInstanceLiteral(mTheory.term("select", a, mLambda), num(-1), true);
 		Assert.assertEquals(LBool.SAT, mSolver.checkSat());
 		final PiecewiseModel model = buildModel();
 		final CCTerm aCC = mClausifier.getCCTerm(a);

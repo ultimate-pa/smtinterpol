@@ -2310,7 +2310,7 @@ public class Clausifier {
 		Term origFormula = mUnlet.unlet(f);
 		Term simpFormula;
 		try {
-			simpFormula = mCompiler.transform(removeDoubleNot(origFormula));
+			simpFormula = mCompiler.transformInput(removeDoubleNot(origFormula));
 		} finally {
 			mCompiler.reset();
 		}
@@ -2536,7 +2536,7 @@ public class Clausifier {
 		Term tmp = mUnlet.unlet(f);
 		Term tmp2;
 		try {
-			tmp2 = mCompiler.transform(tmp);
+			tmp2 = mCompiler.transformInput(tmp);
 		} finally {
 			mCompiler.reset();
 		}
