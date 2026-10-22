@@ -1678,10 +1678,12 @@ public class CClosure implements ITheory {
 	}
 
 	public void fillInModel(final Model model, final Theory t, final SharedTermEvaluator ste,
-			final ArrayTheory arrayTheory, final DataTypeTheory datatypeTheory) {
+			final ArrayTheory arrayTheory, final DataTypeTheory datatypeTheory,
+			final ModelBuilder.QuantifierInfo quantInfo) {
 		final CCTerm trueNode = mClausifier.getCCTerm(t.mTrue);
 		final CCTerm falseNode = mClausifier.getCCTerm(t.mFalse);
-		new ModelBuilder(this, mAllTerms, model, t, ste, arrayTheory, datatypeTheory, trueNode, falseNode);
+		new ModelBuilder(this, mAllTerms, model, t, ste, arrayTheory, datatypeTheory, trueNode, falseNode,
+				quantInfo);
 	}
 
 	void addInvertEdgeTime(final long time) {

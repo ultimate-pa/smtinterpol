@@ -18,9 +18,11 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -69,8 +71,67 @@ public class FunctionValue {
 		}
 	}
 
+	/**
+	 * A step of a piecewise-constant function: the value at every argument tuple covered by the coordinates. A numeric
+	 * coordinate {@code c} covers the arguments {@code >= c}, another coordinate covers only itself, and a null
+	 * coordinate covers every argument.
+	 */
+	public static class Step {
+		private final Term[] mCoordinates;
+		private final Term mValue;
+
+		Step(final Term[] coordinates, final Term value) {
+			mCoordinates = coordinates;
+			mValue = value;
+		}
+
+		public Term[] getCoordinates() {
+			return mCoordinates;
+		}
+
+		public Term getValue() {
+			return mValue;
+		}
+
+		boolean covers(final Term[] args) {
+			for (int i = 0; i < args.length; i++) {
+				final Term coord = mCoordinates[i];
+				if (coord == null) {
+					continue;
+				}
+				if (coord.getSort().isNumericSort()) {
+					if (NumericSortInterpretation.toRational(args[i])
+							.compareTo(NumericSortInterpretation.toRational(coord)) < 0) {
+						return false;
+					}
+				} else if (args[i] != coord) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		Term generateCondition(final Term[] vars) {
+			final Theory theory = mValue.getTheory();
+			final ArrayList<Term> conj = new ArrayList<>();
+			for (int i = 0; i < vars.length; i++) {
+				final Term coord = mCoordinates[i];
+				if (coord != null) {
+					conj.add(theory.term(coord.getSort().isNumericSort() ? SMTLIBConstants.GEQ : SMTLIBConstants.EQUALS,
+							vars[i], coord));
+				}
+			}
+			return conj.isEmpty() ? theory.mTrue : theory.and(conj.toArray(new Term[conj.size()]));
+		}
+	}
+
 	private final FunctionSymbol mFunc;
 	private Map<Index, Term> mValues;
+	/**
+	 * The steps of a piecewise-constant function, or null for a function given by its values at single points. The
+	 * value at some arguments is the value of the first step covering them, or the default if there is none.
+	 */
+	private List<Step> mSteps;
 
 	private Term mDefault;
 
@@ -93,7 +154,35 @@ public class FunctionValue {
 		}
 	}
 
+	/**
+	 * Add a step to a piecewise-constant function. Steps are searched in the order they are added.
+	 *
+	 * @param coordinates
+	 *            the coordinates of the step; null for a coordinate that covers every argument.
+	 * @param value
+	 *            the value of the function on the step.
+	 */
+	public void addStep(final Term[] coordinates, final Term value) {
+		assert mValues == null && coordinates.length == mFunc.getParameterSorts().length;
+		if (mSteps == null) {
+			mSteps = new ArrayList<>();
+		}
+		mSteps.add(new Step(coordinates, value));
+	}
+
+	public List<Step> getSteps() {
+		return mSteps != null ? mSteps : Collections.emptyList();
+	}
+
 	public Term get(final Term[] idx) {
+		if (mSteps != null) {
+			for (final Step step : mSteps) {
+				if (step.covers(idx)) {
+					return step.getValue();
+				}
+			}
+			return mDefault;
+		}
 		if (mValues == null) {
 			return mDefault;
 		}
@@ -129,6 +218,12 @@ public class FunctionValue {
 		}
 		final Term defaultVal = getDefault();
 		Term definition = defaultVal;
+		for (int i = getSteps().size() - 1; i >= 0; i--) {
+			final Step step = mSteps.get(i);
+			final Term cond = step.generateCondition(vars);
+			definition = cond == theory.mTrue ? step.getValue()
+					: step.getValue() == definition ? definition : theory.ifthenelse(cond, step.getValue(), definition);
+		}
 		for (final Entry<Index, Term> me : values().entrySet()) {
 			if (me.getValue() != defaultVal) {
 				final Term cond = generateCondition(me.getKey(), vars);

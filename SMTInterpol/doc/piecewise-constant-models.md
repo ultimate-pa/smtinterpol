@@ -422,6 +422,97 @@ above then times out instead of answering `unsat` (accepted for now; the
 instance, `check-sat` answers `unknown` instead of `sat`.  `get-model`
 (Step 4) is open.  Tests: `QuantModelBasedTest`.
 
+*Step 4 plan (2026-10-22).*  Today `Model` throws for a non-empty
+`QuantifierTheory`.  The model is built after the last final check, so the
+congruence closure is the one the last `QuantModelEvaluator` saw.
+
+4a. *Concretization in `ModelBuilder`* (only when there are quantified
+    clauses; ground models stay as they are):
+    * `fillInTermValues` keeps `delayed` as a list in `mAllTerms` order, which
+      is the CC-only order of `PiecewiseModel.Value`.
+    * The ground bounds of the quantified literals (`getGroundBound()`) and
+      their `± 1` are use sites (`updateOffsetRange`), so the offsets MBQI
+      compared lie in the reserved range of their class.
+    * `QuantModelEvaluator` decides signs of sums `r + k·c` (one CC-only class)
+      and `r + k·(c2 − c1)` (later class dominates) for any `r`.  So fresh
+      values are not just `+1` apart: with `M` the largest absolute value of a
+      concrete model value or offset, `K` the largest sum of absolute
+      coefficients and `C` the largest absolute constant of an arithmetical
+      subterm of a quantified literal, and `k_min` the smallest non-zero
+      absolute coefficient, the first CC-only value and every gap between two
+      consecutive classes is at least `G = (K·M + C + 1) / k_min`.  `M` grows
+      with every assigned CC-only value, so the gaps grow too.
+    * λ of a numeric sort (only if its class is symbolic, i.e. a singleton
+      without shared term) is set last, below `−(K·M + C + 1) / k_min` with `M`
+      now including all CC-only values.  λ of an uninterpreted sort is a fresh
+      element, distinct from all classes.
+4b. *Piecewise function output.*  `FunctionValue` gets a step representation:
+    a list of corners in the order `findCorner` searches them (numeric
+    coordinates descending, at uninterpreted positions exact classes before
+    λ), each a condition per argument and a value, and a default (the value of
+    λ of the return sort).  A numeric coordinate `c` is `(>= x c)`, an
+    uninterpreted one `(= x c)`, a λ coordinate no condition (so λ acts as
+    −∞ in argument positions and every argument below the smallest corner is
+    in λ's cell).  `getDefinition` prints the first-match `ite` chain,
+    `ModelEvaluator.lookupFunction` evaluates it.  `ModelBuilder.addApp`
+    builds it from `PiecewiseModel`'s corners for every uninterpreted function
+    when there are quantified clauses; the corners agree with the ground
+    applications, so the ground part is unchanged.  `Model` stops throwing.
+4c. *Arrays.*  A piecewise array is not a finite `store` chain over a `const`
+    array, so it has no value term in today's array model.  Open; until then
+    `get-model` fails for quantified formulas over arrays whose model needs
+    steps.
+4d. *Checking.*  No external solvers.  `ModelEvaluator` cannot evaluate
+    quantifiers; the check is the sat proof instead (half 2 of
+    `model-proof-plan.md`, "Quantified clauses and free variables"): the final
+    check only looks at grid points, which is sound because the whole cell
+    behaves like its grid point, so the proof is a case distinction over the
+    cells.  It is built after `ModelBuilder` from the printed definitions, so
+    `checkModelProof` checks exactly the model `get-model` prints, including
+    the gaps of 4a.  Tests: `get-proof` after `sat` plus `checkModelProof`.
+
+*Step 4 status (2026-10-23).*  4a and 4b are implemented; `get-model`
+works for quantified formulas with `:quant-fc-method model_based` (with
+`enumerative`, `Model` still throws, since only the model-based check makes
+the piecewise model a model).
+
+* `QuantifierTheory.getModelInfo` collects a `ModelBuilder.QuantifierInfo`:
+  the λ CCTerms, the ground bounds `± 1` as use sites, and the bounds `K`, `C`
+  and `D`.  These are coarse: every numeric subterm of a quantified literal
+  (and the affine term of a bound constraint) adds the absolute coefficients
+  and the constant of its polynomial, which bounds every sum
+  `QuantModelEvaluator` builds for the literal.  `D` is the common
+  denominator of all coefficients, so every non-zero merged coefficient is at
+  least `1/D` (this replaces `k_min`, which merging could undercut).
+  Ground terms with an LA term but no CC term add their value to `M`.
+* `ModelBuilder` fills in the numeric sorts first (they depend on no other
+  sort) and orders the CC-only classes of both numeric sorts together by
+  their position in `mAllTerms`.  With `M` the largest absolute concrete
+  value, offset, constant or ground value, each class gets a value at least
+  `G = ⌈(K·M + C + 1)·D⌉ + M` above everything assigned so far, shifted by
+  its negative minimal offset.  `M` need not grow: a sum over two CC-only
+  classes contains no other class.  The symbolic numeric λ class, and the
+  default of every function with numeric return sort, gets
+  `−(G(M') + M')` with `M'` including the CC-only values.  For an
+  uninterpreted sort, λ is the value of the symbolic λ class or a fresh
+  element; for Bool it is `false` (the final check compares predicate values
+  with `true`).
+* `PiecewiseModel.getCorners` lists the corners in `findCorner` order.
+  `ModelBuilder.addPiecewiseFunction` turns them into `FunctionValue.Step`s
+  for every declared uninterpreted function with arguments (λ coordinates
+  become "no condition"); `FunctionValue.get` and `getDefinition` use first
+  match, and `ModelEvaluator.lookupFunction` uses `get`.
+* With arrays in the congruence closure, `ModelBuilder` throws (4c).
+* Tests: `QuantModelBasedTest.checkSatWithModel` checks the model of every
+  sat test by evaluating each quantified assertion at all combinations of
+  step coordinates, values and constants `± 1` (`± 1/2` for Real), plus a
+  value below all of them, and all elements of an uninterpreted sort
+  (`FiniteSortInterpretation.getValues`).  This is a test-only check until
+  the sat proofs of 4d exist.
+* Seen while testing, not investigated: `(forall ((u U) (x Int)) (or (= u e)
+  (< x 3) (= (h u x) 5)))` with `(= (h e 4) 2)` gives `unknown` (the final
+  check, not the model).
+
 ## Open questions
 
 * Is the CC-only class order stable enough across final checks, or does it

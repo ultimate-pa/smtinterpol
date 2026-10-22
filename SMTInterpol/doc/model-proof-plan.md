@@ -1187,7 +1187,7 @@ occurs in the proof, but only as a term; nothing evaluates it.  Details:
   - `SubstitutionResult` now reports, per original literal, the substituted
     term, its rewrite and the new literal.
 
-**Half 2: proving `{C}` from the model (open).**  Per `QuantClause` that half 1
+**Half 2: proving `{C}` from the model (designed, not implemented).**  Per `QuantClause` that half 1
 uses, a proof of its closure `{C}` is needed.  This is the quantifier theory's
 part, and it is left open for now.  The expected source is an MBQI-style
 argument: in the sat case it checks the clause on all relevant instances and
@@ -1201,11 +1201,60 @@ justification needed here.  Notes for when it is designed:
   the solver holds; DER itself is handled in half 1.
 - If a clause has a true ground literal (`QuantClause.hasTrueGroundLits()`),
   `forallIntro(C)` plus the model's proof of that literal suffices.
-- The instances half 2 looks at differ from `θ`.  If a quantified `AUX`
-  literal must be shown true at such an instance, evaluating its defined `@AUX`
-  works when the definition is quantifier-free.  A definition that itself
-  contains a quantifier needs that inner closure at that instance, which the
-  ground-at-`θ` records do not provide.
+- The instances half 2 looks at differ from `θ`.  A quantified `AUX` literal
+  that the leaf below needs as its true literal is proved through its defining
+  clause at the same instantiation (see "Design").
+
+*Design (2026-10-23).*  The model-based final check
+(`piecewise-constant-models.md`) evaluates each clause at the grid points of
+the interesting terms.  That is sound only because every cell of the grid
+behaves like its grid point, so the proof of `{C}` for `C = ∀x⃗. ψ(x⃗)` is a
+case distinction over the cells:
+
+1. `forallIntro(C)`: `{C, ¬ψ[s⃗]}` with the choose terms `s⃗`.
+2. Split every `s_i` into the cells of its grid `g_1 < … < g_m` (the concrete
+   values of its interesting terms in the final model): `s < g_1` and
+   `g_j ≤ s < g_{j+1}` with `total`; for Int `g_j ≤ s ≤ g_{j+1} − 1` with
+   `totalInt`, so that `x = t` holds on the cell `[t, t+1)`.  Uninterpreted
+   sorts: `(= s e_j)` per element plus the cell of all other elements.
+3. Per cell, prove the literal that is true at the grid point, as
+   `{ψ[s⃗], ¬cell constraints}`.  This is `ModelProver` with the choose terms
+   as opaque constants: expand the `refine-fun` definitions, decide each `ite`
+   condition `(>= s c)` / `(= s e)` with `farkas` (resp. the equality) from the
+   cell constraints (`c` is on the grid, as every corner coordinate of a
+   function applied to `x` is an interesting term of `x`), and evaluate the
+   ground rest as today.  The "grid points suffice" argument is exactly this
+   step: every atom with `s` is decided by the cell, except a comparison of two
+   variables in the same cell, which is false at the grid point and therefore
+   never the true literal.
+4. Resolve along the split tree, then with step 1: `{C}`.
+
+Notes:
+
+- Built after `ModelBuilder` from the concrete model, by enumerating the final
+  grid again; nothing is recorded during the final check.  λ does not appear:
+  as an argument it is the cell `s < g_1`, as a value a concrete number.
+- A leaf that cannot be proved (missing corner on the grid, too small a gap in
+  the concretization, a literal that is not constant on its cell) means no sat
+  proof, never a wrong one, and points at a gap in the final check.
+- Size: one leaf per grid instance, as many as the final check evaluates.
+  Stop splitting when a literal without the remaining variables is already
+  true; memoize `f(s) = v` per cell.
+- **`AUX` literals.**  A quantified `AUX(y⃗)` standing for `∀z⃗. φ(y⃗, z⃗)` that
+  is true in the model is proved through its defining clause
+  `¬AUX(y⃗) ∨ φ(y⃗, z⃗)` at the same instantiation: its cells for `y⃗ := s⃗` are
+  proved by the leaves above with a literal of `φ` as true literal (`¬AUX` is
+  false there), which together with `forallIntro` on `z⃗` proves the body, and
+  with it the expanded `@AUX(s⃗)`.
+- **Uninterpreted sorts (gap).**  Distinctness of model elements is an oracle
+  today (`ProofUtils.proveDisequality`, `:trivialdiseq`), and the cell "all
+  other elements" needs domain closure whenever a literal compares two
+  variables of the sort.  Fixing this needs something like `refine-sort`
+  (define the sort as, e.g., a datatype).  The difficulty is type checking:
+  the input was parsed with the uninterpreted sort, so the checker would have
+  to treat it and its refinement as the same sort (unlike defined sorts such
+  as the real sort, where the input already uses the definition).
+- Arrays: as in step 4c of the piecewise plan.
 
 ## Call-site checklist
 

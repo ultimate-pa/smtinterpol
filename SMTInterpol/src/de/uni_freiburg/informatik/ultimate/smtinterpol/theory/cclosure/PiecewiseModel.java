@@ -18,8 +18,10 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -278,7 +280,7 @@ public class PiecewiseModel {
 	 * LA shared term. If an instance made lambda equal to another term or gave it an LA value, lambda is just an
 	 * ordinary constant.
 	 */
-	private static boolean isSymbolicLambda(final CCTerm lambdaRep) {
+	static boolean isSymbolicLambda(final CCTerm lambdaRep) {
 		return lambdaRep.getNumMembers() == 1 && lambdaRep.getSharedTerm() == null;
 	}
 
@@ -294,6 +296,48 @@ public class PiecewiseModel {
 			root = buildFunctionModel(func);
 		}
 		return findCorner(root, 0, args);
+	}
+
+	/**
+	 * The corners of {@code f} in the order in which {@link #getCorner} searches them: numeric coordinates descending
+	 * (lambda last), at other positions the classes before lambda. The value of {@code f} at some arguments is the
+	 * value of the first corner in this list whose coordinates cover the arguments, i.e., every numeric coordinate is
+	 * lambda or at most the argument, and every other coordinate is lambda or the class of the argument.
+	 *
+	 * @return the corners, empty if {@code f} has no ground application.
+	 */
+	public List<CCAppTerm> getCorners(final FunctionSymbol func) {
+		Node root = mFuncModels.get(func);
+		if (root == null) {
+			root = buildFunctionModel(func);
+		}
+		final List<CCAppTerm> corners = new ArrayList<>();
+		collectCorners(root, corners);
+		return corners;
+	}
+
+	private void collectCorners(final Node node, final List<CCAppTerm> corners) {
+		if (node.mChildren == null) {
+			corners.add(node.mCorner);
+			return;
+		}
+		if (node.mChildren instanceof TreeMap) {
+			for (final Node child : ((TreeMap<Value, Node>) node.mChildren).descendingMap().values()) {
+				collectCorners(child, corners);
+			}
+			return;
+		}
+		Node lambda = null;
+		for (final Map.Entry<Value, Node> entry : node.mChildren.entrySet()) {
+			if (entry.getKey().isLambda()) {
+				lambda = entry.getValue();
+			} else {
+				collectCorners(entry.getValue(), corners);
+			}
+		}
+		if (lambda != null) {
+			collectCorners(lambda, corners);
+		}
 	}
 
 	/** The symbolic value of {@code f} at the given arguments. */

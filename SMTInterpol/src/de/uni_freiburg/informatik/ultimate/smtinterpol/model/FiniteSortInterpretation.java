@@ -19,6 +19,8 @@
 package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.Sort;
@@ -64,6 +66,11 @@ public class FiniteSortInterpretation implements SortInterpretation {
 		final Term value = theory.term(theory.getFunctionWithResult("@" + idx, null, sort));
 		mValues.add(value);
 		return value;
+	}
+
+	/** The elements of the sort created so far. */
+	public List<Term> getValues() {
+		return Collections.unmodifiableList(mValues);
 	}
 
 	@Override

@@ -18,7 +18,9 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.math.BigInteger;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
@@ -26,8 +28,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
@@ -51,6 +55,9 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.proof.SourceAnnotation;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCParameter;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CCTerm;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ModelBuilder;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LASharedTerm;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinVar;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.DestructiveEqualityReasoning.DERResult;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.ematching.EMatching;
@@ -884,6 +891,92 @@ public class QuantifierTheory implements ITheory {
 		}
 		mLambdas.put(sort, lambda);
 		return lambda;
+	}
+
+	/**
+	 * Collect what the model-based final check assumed about the model, for {@link ModelBuilder}. The bounds are
+	 * coarse: every numeric subterm of a quantified literal contributes the absolute coefficients and the constant of
+	 * its polynomial to the literal's sums, which bounds every sum the {@link QuantModelEvaluator} builds for it.
+	 *
+	 * @return the information for building the model.
+	 */
+	public ModelBuilder.QuantifierInfo getModelInfo() {
+		final List<CCParameter> useSites = new ArrayList<>();
+		Rational maxCoeffSum = Rational.ZERO;
+		Rational maxConstant = Rational.ZERO;
+		BigInteger denominator = BigInteger.ONE;
+		Rational maxGroundValue = Rational.ZERO;
+		for (final QuantClause clause : mQuantClauses) {
+			for (final QuantLiteral lit : clause.getQuantLits()) {
+				final QuantLiteral atom = lit.getAtom();
+				final CCParameter bound = atom.getGroundBound();
+				if (bound != null) {
+					useSites.add(bound);
+					useSites.add(CCParameter.of(bound.getCCTerm(), bound.getOffset().add(Rational.ONE)));
+					useSites.add(CCParameter.of(bound.getCCTerm(), bound.getOffset().sub(Rational.ONE)));
+				}
+				final List<Polynomial> polys = new ArrayList<>();
+				if (atom instanceof QuantBoundConstraint) {
+					polys.add(((QuantBoundConstraint) atom).getAffineTerm());
+				}
+				final Set<Term> seen = new HashSet<>();
+				final Deque<Term> todo = new ArrayDeque<>();
+				todo.add(atom.getSMTFormula(mTheory));
+				while (!todo.isEmpty()) {
+					final Term term = todo.removeLast();
+					if (!seen.add(term)) {
+						continue;
+					}
+					if (term instanceof ApplicationTerm) {
+						todo.addAll(Arrays.asList(((ApplicationTerm) term).getParameters()));
+					}
+					if (term.getSort().isNumericSort()) {
+						final Polynomial poly = new Polynomial(term);
+						polys.add(poly);
+						if (term.getFreeVars().length == 0 && !poly.isConstant()
+								&& mClausifier.getCCParameter(term) == null) {
+							final LASharedTerm laTerm = mClausifier.getLATerm(term);
+							if (laTerm != null) {
+								Rational value = laTerm.getOffset();
+								for (final Map.Entry<LinVar, Rational> entry : laTerm.getSummands().entrySet()) {
+									value = value.addmul(entry.getValue(),
+											mClausifier.getLASolver().realValue(entry.getKey()));
+								}
+								if (value.abs().compareTo(maxGroundValue) > 0) {
+									maxGroundValue = value.abs();
+								}
+							}
+						}
+					}
+				}
+				Rational coeffSum = Rational.ZERO;
+				Rational constant = Rational.ZERO;
+				for (final Polynomial poly : polys) {
+					for (final Map.Entry<Map<Term, Integer>, Rational> monom : poly.getSummands().entrySet()) {
+						final Rational coeff = monom.getValue();
+						if (monom.getKey().isEmpty()) {
+							constant = constant.add(coeff.abs());
+						} else {
+							coeffSum = coeffSum.add(coeff.abs());
+						}
+						final BigInteger denom = coeff.denominator();
+						denominator = denominator.multiply(denom).divide(denominator.gcd(denom));
+					}
+				}
+				if (coeffSum.compareTo(maxCoeffSum) > 0) {
+					maxCoeffSum = coeffSum;
+				}
+				if (constant.compareTo(maxConstant) > 0) {
+					maxConstant = constant;
+				}
+			}
+		}
+		final Function<Sort, CCTerm> lambdaTerms = sort -> {
+			final Term lambda = sort == mTheory.getBooleanSort() ? null : mLambdas.get(sort);
+			return lambda == null ? null : mClausifier.getCCTerm(lambda);
+		};
+		return new ModelBuilder.QuantifierInfo(lambdaTerms, useSites, maxCoeffSum, maxConstant,
+				Rational.valueOf(denominator, BigInteger.ONE), maxGroundValue);
 	}
 
 	/**

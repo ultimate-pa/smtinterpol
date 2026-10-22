@@ -218,8 +218,7 @@ public class ModelEvaluator extends TermTransformer {
 			final Sort sort = fs.getReturnSort();
 			return mModel.getSomeValue(sort);
 		}
-		final Term value = val.values().get(new FunctionValue.Index(args));
-		return value == null ? val.getDefault() : value;
+		return val.get(args);
 	}
 
 	private Term interpret(final FunctionSymbol fs, final Term[] args) {

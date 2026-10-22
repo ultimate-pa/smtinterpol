@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.model;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -38,9 +39,11 @@ import de.uni_freiburg.informatik.ultimate.smtinterpol.model.FunctionValue.Index
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ArrayTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.CClosure;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.DataTypeTheory;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.cclosure.ModelBuilder;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheory;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.epr.EprTheorySettings;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.linar.LinArSolve;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory.QuantFinalCheckMethod;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant.QuantifierTheory;
 
 /**
@@ -92,6 +95,7 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 		LinArSolve la = null;
 		ArrayTheory array = null;
 		DataTypeTheory datatype = null;
+		ModelBuilder.QuantifierInfo quantInfo = null;
 		for (final ITheory theorySolver : clausifier.getEngine().getAttachedTheories()) {
 			if (theorySolver instanceof CClosure) {
 				cc = (CClosure) theorySolver;
@@ -102,8 +106,14 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 			} else if (theorySolver instanceof DataTypeTheory) {
 				datatype = (DataTypeTheory) theorySolver;
 			} else if (theorySolver instanceof QuantifierTheory) {
-				if (!((QuantifierTheory) theorySolver).getQuantClauses().isEmpty()) {
-					throw new UnsupportedOperationException("Modelproduction for quantifier theory not implemented.");
+				final QuantifierTheory quantTheory = (QuantifierTheory) theorySolver;
+				if (!quantTheory.getQuantClauses().isEmpty()) {
+					// only the model-based final check makes sure that the piecewise-constant model is a model
+					if (quantTheory.getFinalCheckMethod() != QuantFinalCheckMethod.MODEL_BASED) {
+						throw new UnsupportedOperationException(
+								"Modelproduction for quantifiers needs :quant-fc-method model_based.");
+					}
+					quantInfo = quantTheory.getModelInfo();
 				}
 			} else if (theorySolver instanceof EprTheory) {
 				if (!EprTheorySettings.FullInstatiationMode) {
@@ -118,7 +128,7 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 			la.fillInModel(this, theory, ste);
 		}
 		if (cc != null) {
-			cc.fillInModel(this, theory, ste, array, datatype);
+			cc.fillInModel(this, theory, ste, array, datatype, quantInfo);
 		}
 		for (final FunctionSymbol fs : theory.getDeclaredFunctions().values()) {
 			if (fs.getDefinition() == null && !fs.isIntern() && !mFuncVals.containsKey(fs)) {
@@ -143,6 +153,13 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 						logger.fatal("Non-integral default value for function " + fs);
 					}
 					correct = false;
+				}
+				for (final FunctionValue.Step step : functionMap.getSteps()) {
+					if (!NumericSortInterpretation.toRational(step.getValue()).isIntegral()) {
+						logger.fatal("Non-integral value for function " + fs + " at step "
+								+ Arrays.toString(step.getCoordinates()));
+						correct = false;
+					}
 				}
 				for (final Map.Entry<Index, Term> valEntry : functionMap.values().entrySet()) {
 					if (!NumericSortInterpretation.toRational(valEntry.getValue()).isIntegral()) {
@@ -202,6 +219,22 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 		}
 		assert res.getDefault() == value;
 		return res;
+	}
+
+	/**
+	 * Create the value of a piecewise-constant function, to be filled with {@link FunctionValue#addStep}.
+	 *
+	 * @param fs
+	 *            the function.
+	 * @param defaultValue
+	 *            the value where no step covers the arguments.
+	 * @return the empty function value.
+	 */
+	public FunctionValue mapPiecewise(final FunctionSymbol fs, final Term defaultValue) {
+		assert !mFuncVals.containsKey(fs) && fs.getParameterSorts().length > 0;
+		final FunctionValue val = new FunctionValue(fs, defaultValue);
+		mFuncVals.put(fs, val);
+		return val;
 	}
 
 	public FunctionValue map(final FunctionSymbol fs, final Term[] args, final Term value) {
