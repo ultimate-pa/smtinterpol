@@ -102,14 +102,24 @@ ever having been told.  Invariants:
   no LA bound).  `f(λ)` is an ordinary term and may be equal to anything.
 * **Instances.**  `SubstitutionHelper` evaluates arithmetical literals with
   λ instead of building atoms: `λ = t` and `t < λ` are false, `λ < t` is true,
-  `λ < y` with `y := λ` is false.  λ under an offset (`f(x + k)` with
-  `x := λ`) or inside any other arithmetic is rejected.  On master none of this
-  is checked yet: `QuantUtil.isLambda` exists but `SubstitutionHelper` does not
-  use it.
-* **Arrays (to verify).**  An Int-indexed `select(a, λ)` / `store(a, λ, v)`
-  lets the array theory create index equalities `λ = j`, which the DPLL engine
-  may set to true.  Either never instantiate numeric array indices with λ, or
-  make sure the array lemmas never introduce such atoms.
+  `λ < y` with `y := λ` is false (`LambdaBound`).  An instance where λ would
+  still end up directly under arithmetic (`f(x + k)` or `x < f(x)` with
+  `x := λ`) or as a store index (`store(a, x, v)` with `x := λ`;
+  `QuantUtil.hasMisplacedLambda`) is rejected by
+  `SubstitutionHelper` (2026-10-23): no atom is built, and
+  `InstantiationManager` remembers the substitution so no instantiation method
+  tries it again.  The model-based final check counts a rejected instance as
+  undecided unless the model satisfies it; the other final checks report
+  incompleteness for a clause with rejected instances.
+* **Arrays.**  Stores at λ are rejected (above).  An Int-indexed
+  `select(a, λ)` still lets the array theory create index equalities `λ = j`,
+  which the DPLL engine may set to true; this is sound (λ is then no longer
+  symbolic), but costs completeness.  Closing it (decided 2026-10-23: only if
+  benchmarks show such unknowns) means omitting `λ = j` from the array lemmas
+  and proving `λ ≠ j` in `ProofSimplifier`, so the minimum defining λ must
+  include every array index the proof compares with λ (select indices,
+  `@diff` witnesses, not only store indices); uninterpreted index sorts need
+  the same in CC.
 * **Not in the input.**  λ is currently `@0` of its sort, i.e. the model-value
   symbol (`Theory.getModelValueSymbol`, pattern `@\d+`), and `TermCompiler`
   lets `@0` through.  So `(as @0 Int)` in the input (e.g. a round-tripped
@@ -529,11 +539,15 @@ the piecewise model a model).
     only for Int.  For Real, the cell just right of a store index `i` has
     no grid point, although its value is the weak representative's value at
     `i`, not the stored value.  Example: `(forall ((x Real)) (or (< x r)
-    (< 1.5 (select ra x))))` with `rb = (store ra (+ r 0.5) 0.0)`: the final
-    check answers sat (correct) with a model where `ra` is 0 above `r +
-    0.5`.  Needs a symbolic `i + ε` (the UF analogue, a step at a Real
-    bound `x <= t`, currently just keeps instantiating `t + 1`, `t + 2`,
-    ...).
+    (< 1.5 (select ra x))))` with `rb = (store ra (+ r 0.5) 0.0)` gave sat
+    with a model where `ra` is 0 above `r + 0.5`.  A symbolic `i + ε` was
+    considered and postponed (it must stay CC-only, and instances with it
+    would need the same guards as λ).  Instead (2026-10-23), a clause that
+    selects at a quantified index of an array with a store at a Real index
+    has uncovered cells (`QuantClause.hasUncoveredCells`), and the
+    model-based final check answers unknown.  Real `x = t` literals are not
+    almost uninterpreted (only Int `x = t` is arithmetical), so they give
+    unknown too.
 * Tests: `QuantModelBasedTest.checkSatWithModel` checks the model of every
   sat test by evaluating each quantified assertion at all combinations of
   step coordinates, values and constants `± 1` (`± 1/2` for Real), plus a

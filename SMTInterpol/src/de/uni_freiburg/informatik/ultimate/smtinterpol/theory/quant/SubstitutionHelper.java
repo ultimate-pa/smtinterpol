@@ -80,6 +80,10 @@ public class SubstitutionHelper {
 	 * (3) Remove duplicates and false literals.<br>
 	 * (4) Build the actual literals.
 	 *
+	 * If a literal would put a lambda into linear arithmetic or make it a store index (see
+	 * {@link QuantUtil#hasMisplacedLambda}), the instance is rejected: no literals are built for the remaining literals and the result is
+	 * {@link SubstitutionResult#isRejected() rejected}.
+	 *
 	 * @return the result of the substitution and simplification.
 	 */
 	public SubstitutionResult substituteInClause() {
@@ -132,6 +136,9 @@ public class SubstitutionHelper {
 					provedLitTerms.add(simplified);
 					newLits.add(null);
 					continue;
+				}
+				if (QuantUtil.hasMisplacedLambda(mTracker.getProvedTerm(simplified))) {
+					return SubstitutionResult.REJECTED;
 				}
 
 				final ILiteral newAtom;
@@ -325,6 +332,9 @@ public class SubstitutionHelper {
 	 * the substituted clause term, the simplified substituted term, and the corresponding literals.
 	 */
 	static class SubstitutionResult {
+		/** The result of an instance with a misplaced lambda, see {@link QuantUtil#hasMisplacedLambda}. */
+		static final SubstitutionResult REJECTED = new SubstitutionResult(null, null, null, null);
+
 		final Term mSubstituted;
 		final Term mSimplified;
 		final Literal[] mGroundLits;
@@ -378,7 +388,14 @@ public class SubstitutionHelper {
 		}
 
 		public boolean isTriviallyTrue() {
-			return mSimplified == null;
+			return mSimplified == null && this != REJECTED;
+		}
+
+		/**
+		 * Check if the instance was not built because of a misplaced lambda (see {@link QuantUtil#hasMisplacedLambda}).
+		 */
+		public boolean isRejected() {
+			return this == REJECTED;
 		}
 
 		public boolean isGround() {

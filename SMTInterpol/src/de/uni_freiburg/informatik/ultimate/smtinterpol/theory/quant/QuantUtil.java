@@ -18,6 +18,7 @@
  */
 package de.uni_freiburg.informatik.ultimate.smtinterpol.theory.quant;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
@@ -27,6 +28,7 @@ import java.util.Set;
 import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
+import de.uni_freiburg.informatik.ultimate.logic.SMTLIBConstants;
 import de.uni_freiburg.informatik.ultimate.logic.Term;
 import de.uni_freiburg.informatik.ultimate.logic.TermVariable;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.convert.TermCompiler;
@@ -329,5 +331,77 @@ public class QuantUtil {
 			return fsym.isIntern() && fsym.getName().equals(SMTInterpolConstants.LAMBDA);
 		}
 		return false;
+	}
+
+	/**
+	 * Check if a lambda appears at a position where it must not be in an instance:
+	 * <ul>
+	 * <li>A numeric lambda directly under arithmetic, i.e., as argument of an arithmetic function, a comparison, or an
+	 * equality or if-then-else of numeric sort. The clausifier would share such a lambda with linear arithmetic, which
+	 * then assigns it a value that nothing keeps small.</li>
+	 * <li>A lambda as store index. The array would differ from its weak representative at lambda, a point the final
+	 * check cannot separate from the cell above it, and the array theory would compare lambda with other indices.</li>
+	 * </ul>
+	 * Lambda under an uninterpreted function or as select index is fine, as {@code f(λ)} is an ordinary term.
+	 *
+	 * @param term
+	 *            a normalized ground literal.
+	 * @return true if building the literal would put a lambda at such a position.
+	 */
+	public static boolean hasMisplacedLambda(final Term term) {
+		final ArrayDeque<Term> todo = new ArrayDeque<>();
+		final Set<Term> seen = new HashSet<>();
+		todo.add(term);
+		while (!todo.isEmpty()) {
+			final Term t = todo.removeLast();
+			if (!(t instanceof ApplicationTerm) || !seen.add(t)) {
+				continue;
+			}
+			final ApplicationTerm app = (ApplicationTerm) t;
+			final boolean isArith = isArithmeticFunction(app);
+			final Term[] params = app.getParameters();
+			if (app.getFunction().isIntern() && app.getFunction().getName() == SMTLIBConstants.STORE
+					&& isLambda(params[1])) {
+				return true;
+			}
+			for (final Term param : params) {
+				if (isArith && isLambda(param) && param.getSort().isNumericSort()) {
+					return true;
+				}
+				todo.add(param);
+			}
+		}
+		return false;
+	}
+
+	private static boolean isArithmeticFunction(final ApplicationTerm app) {
+		final FunctionSymbol fsym = app.getFunction();
+		if (!fsym.isIntern()) {
+			return false;
+		}
+		switch (fsym.getName()) {
+		case SMTLIBConstants.PLUS:
+		case SMTLIBConstants.MINUS:
+		case SMTLIBConstants.MUL:
+		case SMTLIBConstants.DIVIDE:
+		case SMTLIBConstants.DIV:
+		case SMTLIBConstants.MOD:
+		case SMTLIBConstants.ABS:
+		case SMTLIBConstants.TO_REAL:
+		case SMTLIBConstants.TO_INT:
+		case SMTLIBConstants.IS_INT:
+		case SMTLIBConstants.LEQ:
+		case SMTLIBConstants.LT:
+		case SMTLIBConstants.GEQ:
+		case SMTLIBConstants.GT:
+			return true;
+		case SMTLIBConstants.EQUALS:
+		case SMTLIBConstants.DISTINCT:
+			return app.getParameters()[0].getSort().isNumericSort();
+		case SMTLIBConstants.ITE:
+			return app.getSort().isNumericSort();
+		default:
+			return false;
+		}
 	}
 }

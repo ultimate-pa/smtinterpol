@@ -73,6 +73,11 @@ public class QuantClause {
 	 * the CC representative in case the value term has a CCTerm.
 	 */
 	private final LinkedHashMap<Term, Term>[] mInterestingTermsForVars;
+	/**
+	 * True if a variable is a select index of an array with a store at a Real index. The array is a point exception
+	 * there, and the cell just above the store index has no interesting term (that would need {@code i + ε}).
+	 */
+	private boolean mHasUncoveredCells;
 
 	/**
 	 * Build a new QuantClause. At least one literal must not be ground. This should only be called after performing
@@ -119,6 +124,7 @@ public class QuantClause {
 	 * Update the interesting instantiation terms for all variables.
 	 */
 	public void updateInterestingTermsAllVars() {
+		mHasUncoveredCells = false;
 		for (int i = 0; i < mVars.length; i++) {
 			collectBoundAndDefaultTerms(i);
 			if (mVars[i].getSort().getName() != "Bool") {
@@ -138,6 +144,14 @@ public class QuantClause {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Check if the interesting terms miss a cell of the model, so that the model-based final check cannot show that
+	 * the clause holds. This is only valid after updating the interesting terms.
+	 */
+	public boolean hasUncoveredCells() {
+		return mHasUncoveredCells;
 	}
 
 	public QuantifierTheory getQuantTheory() {
@@ -481,8 +495,12 @@ public class QuantClause {
 						final CCParameter index = ArrayTheory.getIndexFromStore(st);
 						final Term indexTerm = index.getFlatTerm();
 						interestingTerms.add(indexTerm);
-						if (funcName == "select" && var.getSort().getName() == "Int"
-								&& !QuantUtil.isLambda(indexTerm)) {
+						// instances never store at lambda (QuantUtil.hasMisplacedLambda)
+						assert !QuantUtil.isLambda(indexTerm);
+						if (funcName == "select" && var.getSort().getName() == "Real") {
+							mHasUncoveredCells = true;
+						}
+						if (funcName == "select" && var.getSort().getName() == "Int") {
 							// For integers, add store indices +-1
 							for (final Rational offset : new Rational[] { Rational.ONE, Rational.MONE }) {
 								interestingTerms.add(mQuantTheory.getOffsetTerm(index, offset));

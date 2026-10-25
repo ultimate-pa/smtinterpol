@@ -92,6 +92,8 @@ public class DestructiveEqualityReasoning {
 			final SubstitutionHelper subsHelper =
 					new SubstitutionHelper(mQuantTheory, mGroundLits, mQuantLits, mSource, mSigma);
 			final SubstitutionResult subsResult = subsHelper.substituteInClause();
+			// DER substitutes terms from the clause, which never contain lambda
+			assert !subsResult.isRejected();
 			final Term[] subs = new Term[mVars.length];
 			for (int i = 0; i < subs.length; i++) {
 				subs[i] = mSigma.containsKey(mVars[i]) ? mSigma.get(mVars[i]) : mVars[i];

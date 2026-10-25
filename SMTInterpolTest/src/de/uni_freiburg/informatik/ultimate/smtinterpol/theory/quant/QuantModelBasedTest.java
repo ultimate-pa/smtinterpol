@@ -226,15 +226,69 @@ public class QuantModelBasedTest {
 				+ "(assert (= arr2 (store (store arr 5 0) a b)))(assert (< a 0))(assert (distinct (select arr a) b))");
 	}
 
+	private static final String REAL_ARRAY_DECLS = "(set-logic AUFLIRA)(declare-fun ra () (Array Real Real))"
+			+ "(declare-fun rb () (Array Real Real))(declare-fun rc () (Array Real Real))(declare-fun r () Real)";
+
 	/**
-	 * Real indices, where a store is a point between steps. The store is below r: above r, the final check does not
-	 * look at the values just above a store index yet (doc/piecewise-constant-models.md, Step 4c).
+	 * Real indices, where a store is a point between steps. The store is on an array the quantifier does not select
+	 * from, since the final check cannot decide the cell just above a store index (see
+	 * {@link #testUnknownArrayRealStore()}).
 	 */
 	@Test
 	public void testSatArrayReal() {
-		checkSatWithModel("(set-logic AUFLIRA)(declare-fun ra () (Array Real Real))(declare-fun rb () (Array Real Real))"
-				+ "(declare-fun r () Real)", "(assert (forall ((x Real)) (or (< x r) (< 1.5 (select ra x)))))"
-				+ "(assert (= rb (store ra (- r 0.5) 0.0)))(assert (= (select ra (- r 1.0)) 0.0))");
+		checkSatWithModel(REAL_ARRAY_DECLS, "(assert (forall ((x Real)) (or (< x r) (< 1.5 (select ra x)))))"
+				+ "(assert (= rb (store rc (- r 0.5) 0.0)))(assert (= (select rc (- r 1.0)) 0.0))"
+				+ "(assert (= (select ra (- r 1.0)) 0.0))");
+	}
+
+	/**
+	 * A store at a Real index of the selected array: the model is the weak representative's value just above the
+	 * store index, which has no grid point without a symbolic {@code i + ε}, so the final check must not answer sat.
+	 * The instance is satisfiable, but with the old check the model had ra = 0 above r + 0.5.
+	 */
+	@Test
+	public void testUnknownArrayRealStore() {
+		Assert.assertEquals(LBool.UNKNOWN,
+				createScript(1000, REAL_ARRAY_DECLS + "(assert (forall ((x Real)) (or (< x r) (< 1.5 (select ra x)))))"
+						+ "(assert (= rb (store ra (+ r 0.5) 0.0)))").checkSat());
+	}
+
+	/** A Real equality {@code x = t} has a point cell without grid point next to it, so the check answers unknown. */
+	@Test
+	public void testUnknownRealEquality() {
+		Assert.assertEquals(LBool.UNKNOWN,
+				createScript(1000, "(set-logic UFLRA)(declare-fun g (Real) Real)(declare-fun r () Real)"
+						+ "(assert (forall ((x Real)) (or (= x r) (< 0.0 (g x)))))(assert (= (g r) (- 1.0)))")
+								.checkSat());
+	}
+
+	/**
+	 * The model is false for x = lambda (g is λ there), but the instance {@code λ + 5 < (g λ)} would put λ into
+	 * linear arithmetic. It is not built (nor retried), so λ stays CC-only and the check answers unknown.
+	 */
+	@Test
+	public void testLambdaNotInArithmetic() {
+		final SMTInterpol script = createScript(1000, DECLS + "(declare-fun g (Int) Int)"
+				+ "(assert (forall ((x Int)) (< (+ x 5) (g x))))(assert (= (g 0) 10))");
+		Assert.assertEquals(LBool.UNKNOWN, script.checkSat());
+		final Term lambda = script.getClausifier().getQuantifierTheory().getLambda(script.getTheory().getNumericSort());
+		Assert.assertNull(script.getClausifier().getLATerm(lambda));
+	}
+
+	/**
+	 * The model is false for x = lambda, but the instance would store at λ, which the array theory would compare with
+	 * the other indices. It is not built, so there is no such store and the check answers unknown.
+	 */
+	@Test
+	public void testLambdaNotStoreIndex() {
+		final SMTInterpol script =
+				createScript(1000, DECLS + "(assert (forall ((x Int)) (= (select (store arr x 1) b) 1)))"
+						+ "(assert (= (select arr b) 0))(assert (= (select arr (+ b 1)) 0))");
+		Assert.assertEquals(LBool.UNKNOWN, script.checkSat());
+		final Theory theory = script.getTheory();
+		final Term lambda = script.getClausifier().getQuantifierTheory().getLambda(theory.getNumericSort());
+		Assert.assertNull(script.getClausifier().getCCTerm(theory.term("store", theory.term("arr"), lambda,
+				theory.numeral("1"))));
 	}
 
 	/** An uninterpreted index sort, where the array is a store chain over the default. */

@@ -993,6 +993,11 @@ public class QuantifierTheory implements ITheory {
 		}
 		for (final QuantClause qClause : mQuantClauses) {
 			if (!qClause.hasTrueGroundLits()) {
+				if (mFinalCheckMethod != QuantFinalCheckMethod.MODEL_BASED
+						&& mInstantiationManager.hasRejectedInstances(qClause)) {
+					// the model-based final check decides itself whether the model satisfies these instances
+					return DPLLEngine.INCOMPLETE_QUANTIFIER;
+				}
 				for (final QuantLiteral qLit : qClause.getQuantLits()) {
 					if (!qLit.isAlmostUninterpreted()) {
 						return DPLLEngine.INCOMPLETE_QUANTIFIER;

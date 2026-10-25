@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -73,6 +74,12 @@ public class InstantiationManager {
 	private final EMatching mEMatching;
 
 	private final Map<QuantClause, Map<List<Term>, InstClause>> mClauseInstances;
+	/**
+	 * The substitutions per clause whose instance was not built because of a misplaced lambda (in linear arithmetic or
+	 * as store index, see {@link QuantUtil#hasMisplacedLambda}).
+	 * They are never tried again; the final check treats them as undecided unless the model satisfies them.
+	 */
+	private final Map<QuantClause, Set<List<Term>>> mRejectedInstances;
 
 	private final InstanceValue mDefaultValueForLitDawgs;
 	private final List<InstanceValue> mRelevantValuesForCheckpoint;
@@ -89,6 +96,7 @@ public class InstantiationManager {
 		mClausifier = quantTheory.getClausifier();
 		mEMatching = quantTheory.getEMatching();
 		mClauseInstances = new HashMap<>();
+		mRejectedInstances = new HashMap<>();
 		mDefaultValueForLitDawgs =
 				mQuantTheory.mUseUnknownTermValueInDawgs ? InstanceValue.UNKNOWN_TERM : InstanceValue.ONE_UNDEF;
 		mRelevantValuesForCheckpoint = new ArrayList<>();
@@ -110,6 +118,7 @@ public class InstantiationManager {
 	 */
 	public void addClause(final QuantClause qClause) {
 		mClauseInstances.put(qClause, new LinkedHashMap<>());
+		mRejectedInstances.put(qClause, new HashSet<>());
 	}
 
 	/**
@@ -121,6 +130,7 @@ public class InstantiationManager {
 	public void removeClause(final QuantClause clause) {
 		assert mClauseInstances.containsKey(clause);
 		mClauseInstances.remove(clause);
+		mRejectedInstances.remove(clause);
 	}
 
 	/**
@@ -129,6 +139,9 @@ public class InstantiationManager {
 	public void removeAllInstClauses() {
 		for (final Map<List<Term>, InstClause> instClauses : mClauseInstances.values()) {
 			instClauses.clear();
+		}
+		for (final Set<List<Term>> rejected : mRejectedInstances.values()) {
+			rejected.clear();
 		}
 	}
 
@@ -361,6 +374,13 @@ public class InstantiationManager {
 	}
 
 	/**
+	 * Check if some instance of the clause was not built because of a misplaced lambda.
+	 */
+	public boolean hasRejectedInstances(final QuantClause clause) {
+		return !mRejectedInstances.get(clause).isEmpty();
+	}
+
+	/**
 	 * Forget the result of the last model-based final check, e.g., because the model changed.
 	 */
 	public void invalidateModelCheck() {
@@ -411,6 +431,9 @@ public class InstantiationManager {
 				return null;
 			}
 			clause.updateInterestingTermsAllVars();
+			if (clause.hasUncoveredCells()) {
+				foundUndecided = true;
+			}
 			final Pair<List<Term>[], Integer> termsSortedByAge =
 					sortInterestingTermsByAge(clause.getInterestingTerms());
 			oldest = Math.max(oldest, termsSortedByAge.getSecond());
@@ -448,6 +471,14 @@ public class InstantiationManager {
 					}
 					if (mClauseInstances.containsKey(clause) && mClauseInstances.get(clause).containsKey(subs)) {
 						continue; // Checked in the first loop over the quant clauses.
+					}
+					if (mRejectedInstances.get(clause).contains(subs)) {
+						// cannot be instantiated, so only the model can show that it holds
+						if (modelEvaluator == null || modelEvaluator.evaluateClause(clause, subs)
+								!= QuantModelEvaluator.Result.TRUE) {
+							foundUndecided = true;
+						}
+						continue;
 					}
 					if (modelEvaluator != null) {
 						final QuantModelEvaluator.Result modelVal = modelEvaluator.evaluateClause(clause, subs);
@@ -1360,13 +1391,17 @@ public class InstantiationManager {
 	 * @param origin
 	 *            the InstanceOrigin determining if the instance was produced in checkpoint or finalcheck
 	 *
-	 * @return the resulting InstClause, or null if the clause would be trivially true.
+	 * @return the resulting InstClause, or null if the clause would be trivially true or the instance is rejected
+	 *         because of a misplaced lambda.
 	 */
 	private InstClause computeClauseInstance(final QuantClause clause, final List<Term> subs,
 			final InstanceOrigin origin) {
 		assert mClauseInstances.containsKey(clause);
 		if (mClauseInstances.get(clause).containsKey(subs)) {
 			return mClauseInstances.get(clause).get(subs);
+		}
+		if (mRejectedInstances.get(clause).contains(subs)) {
+			return null;
 		}
 
 		final Map<TermVariable, Term> sigma = new LinkedHashMap<>();
@@ -1376,6 +1411,11 @@ public class InstantiationManager {
 		final SubstitutionHelper instHelper = new SubstitutionHelper(mQuantTheory, clause.getGroundLits(),
 				clause.getQuantLits(), clause.getQuantSource(), sigma);
 		final SubstitutionResult result = instHelper.substituteInClause();
+		if (result.isRejected()) {
+			mQuantTheory.getLogger().debug("Quant: instance of %s for %s has a misplaced lambda", clause, subs);
+			mRejectedInstances.get(clause).add(subs);
+			return null;
+		}
 		final InstClause inst;
 		if (result.isTriviallyTrue()) {
 			// return null;
