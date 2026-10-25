@@ -797,9 +797,9 @@ public class Theory {
 		declareInternalPolymorphicFunction(SMTLIBConstants.CONST, generic2, new Sort[] { generic2[1] }, array,
 				FunctionSymbol.INTERNAL | FunctionSymbol.RETURNOVERLOAD);
 		final Sort lambdaSort = getSort(SMTLIBConstants.FUNC, generic2);
-		// arrayof : (-> X Y) -> (Array X Y)
-		declareInternalPolymorphicFunction(SMTLIBConstants.ARRAYOF, generic2, new Sort[] { lambdaSort }, array,
-				FunctionSymbol.INTERNAL | FunctionSymbol.RETURNOVERLOAD);
+		// .as-array : (-> X Y) -> (Array X Y)
+		declareInternalPolymorphicFunction(SMTLIBConstants.AS_ARRAY, generic2, new Sort[] { lambdaSort }, array,
+				FunctionSymbol.INTERNAL);
 	}
 
 	private void createBitVecSort() {

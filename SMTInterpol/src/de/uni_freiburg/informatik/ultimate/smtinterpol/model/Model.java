@@ -65,6 +65,9 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 
 	private int mModelValueCounter;
 
+	/** True if arrays with a numeric index sort can be piecewise constant (see {@link ArraySortInterpretation}). */
+	private boolean mPiecewiseArrays;
+
 	public Model(final Clausifier clausifier, final Theory theory) {
 		mTheory = theory;
 		mSorts.put(theory.getBooleanSort(), new BoolSortInterpretation());
@@ -123,6 +126,8 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 				throw new InternalError("Unknown theory: " + theorySolver);
 			}
 		}
+		// the arrays of a quantified formula with a numeric index sort can be piecewise constant
+		mPiecewiseArrays = quantInfo != null;
 		final SharedTermEvaluator ste = new SharedTermEvaluator(clausifier);
 		if (la != null) {
 			la.fillInModel(this, theory, ste);
@@ -289,7 +294,8 @@ public class Model implements de.uni_freiburg.informatik.ultimate.logic.Model {
 		if (interpretation == null) {
 			if (sort.isArraySort()) {
 				interpretation = new ArraySortInterpretation(this, provideSortInterpretation(sort.getArguments()[0]),
-						provideSortInterpretation(sort.getArguments()[1]));
+						provideSortInterpretation(sort.getArguments()[1]),
+						mPiecewiseArrays && sort.getArguments()[0].isNumericSort());
 			} else if (sort.getSortSymbol().isDatatype()) {
 				interpretation = new DataTypeInterpretation(this, sort);
 			} else if (sort.isBitVecSort()) {

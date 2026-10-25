@@ -242,12 +242,12 @@ public class ModelBuilder {
 				final Sort sort = scc.get(0);
 				if (repsBySort.containsKey(sort)) {
 					if (sort.isArraySort()) {
-						if (quantInfo != null) {
-							// the piecewise-constant model of an array is not a finite store chain
-							throw new UnsupportedOperationException(
-									"Modelproduction for quantified formulas with arrays not implemented.");
+						if (quantInfo != null && arrayTheory.isNeedDiffIndices()) {
+							fillInPiecewiseArrays(repsBySort.get(sort));
+						} else {
+							// without quantified indices, the final check only selects at ground indices
+							arrayTheory.fillInModel(this, repsBySort.get(sort));
 						}
-						arrayTheory.fillInModel(this, repsBySort.get(sort));
 					} else {
 						fillInTermValues(repsBySort.get(sort), trueNode, falseNode);
 					}
@@ -495,6 +495,41 @@ public class ModelBuilder {
 		}
 		mLambdaValues.put(sort, value);
 		return value;
+	}
+
+	/**
+	 * Fill in the piecewise-constant models of the arrays (see {@link PiecewiseModel#evaluateSelect}): the steps of the
+	 * weak representative at its selects, and the stores on top.
+	 */
+	private void fillInPiecewiseArrays(final List<CCTerm> arrays) {
+		final Sort arraySort = arrays.get(0).getFlatTerm().getSort();
+		final Sort elemSort = arraySort.getArguments()[1];
+		final ArraySortInterpretation interpretation =
+				(ArraySortInterpretation) mModel.provideSortInterpretation(arraySort);
+		for (final CCTerm array : arrays) {
+			final PiecewiseModel.ArrayModel arrayModel = mPiecewiseModel.getArrayModel(array);
+			Term defaultValue =
+					arrayModel.mDefault == null ? getLambdaValue(elemSort) : getModelValue(arrayModel.mDefault);
+			final Map<Term, Term> steps = new LinkedHashMap<>();
+			for (final CCAppTerm select : arrayModel.mCorners) {
+				final CCParameter index = ArrayTheory.getIndexFromSelect(select);
+				final Term value = getModelValue(select.getValueKey());
+				if (mPiecewiseModel.getValue(index).isLambda()) {
+					// lambda is below every index, so the select covers every index without another step
+					defaultValue = value;
+				} else {
+					steps.put(getModelValue(index), value);
+				}
+			}
+			Term arrayValue = interpretation.createPiecewise(steps, defaultValue, arraySort);
+			for (int i = 0; i < arrayModel.mStoreIndices.size(); i++) {
+				final CCAppTerm select = arrayModel.mStoreValues.get(i);
+				final Term value = select == null ? getLambdaValue(elemSort) : getModelValue(select.getValueKey());
+				arrayValue = interpretation.normalizeStoreTerm(mTheory.term(SMTLIBConstants.STORE, arrayValue,
+						getModelValue(arrayModel.mStoreIndices.get(i)), value));
+			}
+			setModelValue(array, arrayValue);
+		}
 	}
 
 	public void fillInFunctions(final List<CCTerm> terms, final Model model, final Theory t) {

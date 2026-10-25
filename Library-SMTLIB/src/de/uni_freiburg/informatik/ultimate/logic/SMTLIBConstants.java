@@ -62,7 +62,8 @@ public interface SMTLIBConstants {
 	public static final String STORE = "store";
 	public static final String SELECT = "select";
 	public static final String CONST = "const";
-	public static final String ARRAYOF = ".arrayof";
+	/** Converts a map (lambda term) of sort (-> X Y) into an array of sort (Array X Y). */
+	public static final String AS_ARRAY = ".as-array";
 
 	// Datatypes
 	public static final String IS = "is";

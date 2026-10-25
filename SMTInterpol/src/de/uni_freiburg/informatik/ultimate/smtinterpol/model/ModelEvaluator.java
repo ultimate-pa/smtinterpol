@@ -479,21 +479,10 @@ public class ModelEvaluator extends TermTransformer {
 			return theory.term(fs, args[0]);
 
 		case SMTLIBConstants.SELECT: {
-			// we assume that the array parameter is a term of the form
-			// store(store(...(const v),...))
-			ApplicationTerm array = (ApplicationTerm) args[0];
-			final Term index = args[1];
-			FunctionSymbol head = array.getFunction();
-			// go through the store chain and check if we write to the index
-			while (head.getName() == "store") {
-				if (array.getParameters()[1] == index) {
-					return array.getParameters()[2];
-				}
-				array = (ApplicationTerm) array.getParameters()[0];
-				head = array.getFunction();
-			}
-			assert head.getName() == SMTLIBConstants.CONST;
-			return array.getParameters()[0];
+			// the array parameter is a normalized array value, see ArraySortInterpretation
+			final ArraySortInterpretation array = (ArraySortInterpretation) mModel
+					.provideSortInterpretation(fs.getParameterSorts()[0]);
+			return array.getSelect(args[0], args[1]);
 		}
 
 		case SMTInterpolConstants.DIFF: {

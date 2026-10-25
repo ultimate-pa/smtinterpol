@@ -32,9 +32,11 @@ import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import de.uni_freiburg.informatik.ultimate.logic.ApplicationTerm;
 import de.uni_freiburg.informatik.ultimate.logic.ConstantTerm;
 import de.uni_freiburg.informatik.ultimate.logic.FormulaUnLet;
 import de.uni_freiburg.informatik.ultimate.logic.FunctionSymbol;
+import de.uni_freiburg.informatik.ultimate.logic.LambdaTerm;
 import de.uni_freiburg.informatik.ultimate.logic.QuantifiedFormula;
 import de.uni_freiburg.informatik.ultimate.logic.Rational;
 import de.uni_freiburg.informatik.ultimate.logic.Script.LBool;
@@ -93,11 +95,11 @@ public class QuantModelBasedTest {
 	 * uninterpreted sort every element. As the functions are piecewise constant with steps at the coordinates, this
 	 * covers every cell.
 	 */
-	private void checkSatWithModel(final String asserts) {
-		checkSatWithModel(DECLS, asserts);
+	private SMTInterpol checkSatWithModel(final String asserts) {
+		return checkSatWithModel(DECLS, asserts);
 	}
 
-	private void checkSatWithModel(final String decls, final String asserts) {
+	private SMTInterpol checkSatWithModel(final String decls, final String asserts) {
 		final SMTInterpol script = createScript(10000, decls + asserts);
 		Assert.assertEquals(LBool.SAT, script.checkSat());
 		final Model model = (Model) script.getModel();
@@ -128,11 +130,19 @@ public class QuantModelBasedTest {
 				Assert.assertEquals(assertion.toString(), theory.mTrue, model.evaluate(term));
 			}
 		}
+		return script;
 	}
 
+	/** Add the numeric constants in a value, including the indices and steps of array values. */
 	private static void addPoint(final Set<Rational> points, final Term term) {
 		if (term instanceof ConstantTerm && term.getSort().isNumericSort()) {
 			points.add(NumericSortInterpretation.toRational(term));
+		} else if (term instanceof ApplicationTerm) {
+			for (final Term param : ((ApplicationTerm) term).getParameters()) {
+				addPoint(points, param);
+			}
+		} else if (term instanceof LambdaTerm) {
+			addPoint(points, ((LambdaTerm) term).getSubterm());
 		}
 	}
 
@@ -196,16 +206,43 @@ public class QuantModelBasedTest {
 
 	@Test
 	public void testSatArray() {
-		final SMTInterpol script = createScript(10000, DECLS + "(assert (forall ((x Int)) (or (< x 0) "
-				+ "(<= 0 (select arr x)))))(assert (= (select arr (- 1)) (- 5)))");
-		Assert.assertEquals(LBool.SAT, script.checkSat());
-		// the piecewise-constant model of an array is not a store chain yet (Step 4c)
-		try {
-			script.getModel();
-			Assert.fail("model with arrays");
-		} catch (final UnsupportedOperationException expected) {
-			// expected
-		}
+		checkSatWithModel("(assert (forall ((x Int)) (or (< x 0) (<= 0 (select arr x)))))"
+				+ "(assert (= (select arr (- 1)) (- 5)))");
+	}
+
+	/** An array that is not a store chain over a const array, so it is printed with {@code .as-array}. */
+	@Test
+	public void testSatArraySteps() {
+		final SMTInterpol script = checkSatWithModel("(assert (forall ((x Int)) (or (< x 3) (= (select arr x) 7))))"
+				+ "(assert (= (select arr 1) 2))");
+		Assert.assertTrue(script.getModel().toString().contains(".as-array"));
+	}
+
+	/** Stores on top of the weak representative, at an index in its step and below it. */
+	@Test
+	public void testSatArrayStore() {
+		checkSatWithModel("(declare-fun arr2 () (Array Int Int))"
+				+ "(assert (forall ((x Int)) (or (< x 3) (= (select arr x) 7))))"
+				+ "(assert (= arr2 (store (store arr 5 0) a b)))(assert (< a 0))(assert (distinct (select arr a) b))");
+	}
+
+	/**
+	 * Real indices, where a store is a point between steps. The store is below r: above r, the final check does not
+	 * look at the values just above a store index yet (doc/piecewise-constant-models.md, Step 4c).
+	 */
+	@Test
+	public void testSatArrayReal() {
+		checkSatWithModel("(set-logic AUFLIRA)(declare-fun ra () (Array Real Real))(declare-fun rb () (Array Real Real))"
+				+ "(declare-fun r () Real)", "(assert (forall ((x Real)) (or (< x r) (< 1.5 (select ra x)))))"
+				+ "(assert (= rb (store ra (- r 0.5) 0.0)))(assert (= (select ra (- r 1.0)) 0.0))");
+	}
+
+	/** An uninterpreted index sort, where the array is a store chain over the default. */
+	@Test
+	public void testSatArrayUninterpretedIndex() {
+		checkSatWithModel("(declare-fun m () (Array U Int))(declare-fun d () U)"
+				+ "(assert (forall ((u U)) (or (Q u) (<= 0 (select m u)))))"
+				+ "(assert (= (select m c) (- 1)))(assert (not (Q d)))");
 	}
 
 	@Test

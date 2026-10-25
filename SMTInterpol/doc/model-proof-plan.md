@@ -1254,7 +1254,11 @@ Notes:
   the input was parsed with the uninterpreted sort, so the checker would have
   to treat it and its refinement as the same sort (unlike defined sorts such
   as the real sort, where the input already uses the definition).
-- Arrays: as in step 4c of the piecewise plan.
+- Arrays: the values are `store` chains or `(.as-array (lambda ((@i I)) t))`
+  (step 4c of the piecewise plan).  A proof needs an axiom for
+  `(select (.as-array (lambda ((x I)) t)) i) = t[i/x]`, and `ModelProver`
+  then decides the `ite` conditions of `t` like those of a function
+  definition.
 
 ## Call-site checklist
 

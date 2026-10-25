@@ -459,9 +459,12 @@ congruence closure is the one the last `QuantModelEvaluator` saw.
     when there are quantified clauses; the corners agree with the ground
     applications, so the ground part is unchanged.  `Model` stops throwing.
 4c. *Arrays.*  A piecewise array is not a finite `store` chain over a `const`
-    array, so it has no value term in today's array model.  Open; until then
-    `get-model` fails for quantified formulas over arrays whose model needs
-    steps.
+    array.  SMT-LIB 2.7 has `lambda` only for its map sort `(-> X Y)` and
+    no way to turn a map into an `Array`, so the model uses the internal
+    `(.as-array (lambda ((@i Int)) (ite ...)))` (Theory's former `.arrayof`).
+    Both `.` and `@` mark symbols reserved for the solver; `@` is for model
+    values (`@lambda`), `.` for interpreted functions like `.as-array`.  It
+    is not rejected in the input.
 4d. *Checking.*  No external solvers.  `ModelEvaluator` cannot evaluate
     quantifiers; the check is the sat proof instead (half 2 of
     `model-proof-plan.md`, "Quantified clauses and free variables"): the final
@@ -471,7 +474,7 @@ congruence closure is the one the last `QuantModelEvaluator` saw.
     `checkModelProof` checks exactly the model `get-model` prints, including
     the gaps of 4a.  Tests: `get-proof` after `sat` plus `checkModelProof`.
 
-*Step 4 status (2026-10-23).*  4a and 4b are implemented; `get-model`
+*Step 4 status (2026-10-23).*  4a, 4b and 4c are implemented; `get-model`
 works for quantified formulas with `:quant-fc-method model_based` (with
 `enumerative`, `Model` still throws, since only the model-based check makes
 the piecewise model a model).
@@ -502,7 +505,35 @@ the piecewise model a model).
   for every declared uninterpreted function with arguments (λ coordinates
   become "no condition"); `FunctionValue.get` and `getDefinition` use first
   match, and `ModelEvaluator.lookupFunction` uses `get`.
-* With arrays in the congruence closure, `ModelBuilder` throws (4c).
+* Arrays (4c, 2026-10-23):
+  * Which model:  when the array theory is in diff-index mode (a quantified
+    variable is a select or store index), all weak classes share the default
+    and `ModelBuilder.fillInPiecewiseArrays` builds the model that
+    `PiecewiseModel.evaluateSelect` used (`PiecewiseModel.getArrayModel`): the
+    weak representative's selects are steps (for a numeric index; points
+    otherwise), a select at λ replaces the default, and the stores on the
+    primary path are applied on top (λ value without a select).  Without
+    quantified indices, the final check only selects at ground indices, so
+    the old `ArrayTheory.fillInModel` is kept.
+  * Normal form:  `ModelEvaluator` compares arrays by term identity, so
+    `ArraySortInterpretation` normalizes every array value of a numeric index
+    sort (`Piecewise`: values at the breakpoints, between them, and below).
+    For Int the breakpoints are exactly the indices where the value changes;
+    for Real exactly where it is not locally constant, so a point store
+    needs `(> @i c)` next to `(>= @i c)`.  An array that differs from its
+    default at finitely many points stays a `store` chain over `const`, with
+    sorted indices; every other array is `.as-array` of a first-match `ite`
+    chain.  `select`, `store` and `@diff` work on this form; `ModelProver`
+    throws on `.as-array` (no sat proofs for quantified formulas yet).
+  * Final-check gap, Real indices:  `QuantClause` adds store indices `± 1`
+    only for Int.  For Real, the cell just right of a store index `i` has
+    no grid point, although its value is the weak representative's value at
+    `i`, not the stored value.  Example: `(forall ((x Real)) (or (< x r)
+    (< 1.5 (select ra x))))` with `rb = (store ra (+ r 0.5) 0.0)`: the final
+    check answers sat (correct) with a model where `ra` is 0 above `r +
+    0.5`.  Needs a symbolic `i + ε` (the UF analogue, a step at a Real
+    bound `x <= t`, currently just keeps instantiating `t + 1`, `t + 2`,
+    ...).
 * Tests: `QuantModelBasedTest.checkSatWithModel` checks the model of every
   sat test by evaluating each quantified assertion at all combinations of
   step coordinates, values and constants `± 1` (`± 1/2` for Real), plus a

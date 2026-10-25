@@ -1636,4 +1636,12 @@ public class ArrayTheory implements ITheory {
 			mNeedDiffIndexLevel = mPushPopLevel;
 		}
 	}
+
+	/**
+	 * Check if there is a quantified variable as a select or store index. Then arrays that are not weakly equivalent
+	 * share their default value (see computeWeakeqExt), as in the piecewise-constant model.
+	 */
+	public boolean isNeedDiffIndices() {
+		return mNeedDiffIndexLevel >= 0;
+	}
 }

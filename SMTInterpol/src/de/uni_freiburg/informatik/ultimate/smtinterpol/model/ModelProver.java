@@ -1021,6 +1021,10 @@ public class ModelProver extends TermTransformer {
 				array = (ApplicationTerm) array.getParameters()[0];
 				head = array.getFunction();
 			}
+			if (head.getName() == SMTLIBConstants.AS_ARRAY) {
+				// piecewise-constant arrays only occur in models of quantified formulas
+				throw new UnsupportedOperationException("Proofs for piecewise-constant arrays not implemented.");
+			}
 			assert head.getName() == SMTLIBConstants.CONST;
 			final Term result = array.getParameters()[0];
 			return annotateProof(mProofUtils.proveSelectOverStore(funcTerm, result), result);

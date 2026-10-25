@@ -409,16 +409,71 @@ public class PiecewiseModel {
 	}
 
 	private Value getArrayDefault(final ArrayTheory.ArrayNode weakRep, final Sort elemSort) {
+		final CCParameter defaultValue = getArrayDefaultParam(weakRep);
+		return defaultValue == null ? Value.lambda(elemSort) : getValue(defaultValue);
+	}
+
+	/**
+	 * The default value of a weak equivalence class: the value of a const array, the value the array theory fixed for
+	 * finite sorts, or null for lambda.
+	 */
+	private CCParameter getArrayDefaultParam(final ArrayTheory.ArrayNode weakRep) {
 		if (weakRep.mConstTerm != null) {
-			return getValue(ArrayTheory.getValueFromConst(weakRep.mConstTerm));
+			return ArrayTheory.getValueFromConst(weakRep.mConstTerm);
 		}
 		// for finite sorts the array theory chose a default value from the selects (computeWeakeqExt)
 		final Map<CCParameter, Object> arrayModel =
 				mArrayTheory.mArrayModels == null ? null : mArrayTheory.mArrayModels.get(weakRep);
 		if (arrayModel != null && arrayModel.get(null) instanceof CCParameter) {
-			return getValue((CCParameter) arrayModel.get(null));
+			return (CCParameter) arrayModel.get(null);
 		}
-		return Value.lambda(elemSort);
+		return null;
+	}
+
+	/**
+	 * The piecewise-constant model of an array, as {@link #evaluateSelect} evaluates it: the corners and the default of
+	 * its weak representative, and the stores applied on top.
+	 */
+	public static final class ArrayModel {
+		/** The selects on the weak representative; a select whose index is lambda replaces the default. */
+		public final List<CCAppTerm> mCorners = new ArrayList<>();
+		/** The default value, or null for lambda. */
+		public CCParameter mDefault;
+		/** The indices of the stores applied on top, with distinct values. */
+		public final List<CCParameter> mStoreIndices = new ArrayList<>();
+		/** The values of the stores: the select on the weak-i class of the index, or null for lambda. */
+		public final List<CCAppTerm> mStoreValues = new ArrayList<>();
+	}
+
+	/**
+	 * The piecewise-constant model of a ground array.
+	 *
+	 * @param array
+	 *            a ground array.
+	 * @return the model of the array.
+	 */
+	public ArrayModel getArrayModel(final CCTerm array) {
+		final ArrayModel result = new ArrayModel();
+		final ArrayTheory.ArrayNode node = mArrayTheory.mCongRoots.get(array.getRepresentative());
+		final ArrayTheory.ArrayNode weakRep = node.getWeakRepresentative();
+		result.mCorners.addAll(weakRep.mSelects.values());
+		result.mDefault = getArrayDefaultParam(weakRep);
+		// the first store on an index value decides it, see evaluateSelect
+		final List<Value> seen = new ArrayList<>();
+		for (ArrayTheory.ArrayNode n = node; n.mPrimaryEdge != null; n = n.mPrimaryEdge) {
+			final CCParameter storeIndex = ArrayTheory.getIndexFromStore(n.mPrimaryStore);
+			final Value indexValue = getValue(storeIndex);
+			if (seen.contains(indexValue)) {
+				continue;
+			}
+			seen.add(indexValue);
+			final ArrayTheory.ArrayNode weakIRep = node.getWeakIRepresentative(storeIndex);
+			if (weakIRep != weakRep) {
+				result.mStoreIndices.add(storeIndex);
+				result.mStoreValues.add(weakIRep.mSelects.get(storeIndex.getValueKey()));
+			}
+		}
+		return result;
 	}
 
 	private Node buildFunctionModel(final FunctionSymbol func) {
