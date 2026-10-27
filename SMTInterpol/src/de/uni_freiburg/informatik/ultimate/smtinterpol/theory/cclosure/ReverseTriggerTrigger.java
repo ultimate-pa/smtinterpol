@@ -59,9 +59,11 @@ public final class ReverseTriggerTrigger extends SignatureTrigger {
 		assert other instanceof ReverseTriggerTrigger;
 		final ReverseTriggerTrigger otherRev = (ReverseTriggerTrigger) other;
 
-		// Cross-activate: every trigger in this list on every app in other's list
-		for (final ReverseTrigger trigger : mTriggers) {
-			for (final AppTermEntry app : otherRev.mApplications) {
+		// Cross-activate: every trigger in this list on every app in other's list.
+		// The outer loops run over other's lists, since this is usually the big list and other a single new entry;
+		// otherwise adding n triggers for the same value without applications takes quadratic time.
+		for (final AppTermEntry app : otherRev.mApplications) {
+			for (final ReverseTrigger trigger : mTriggers) {
 				trigger.activate(app.getAppTerm(), false);
 			}
 		}
